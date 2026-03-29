@@ -30,6 +30,79 @@
   var propData = {}; /* full property data for listing card stats */
 
   /* ══════════════════════════════════════════════
+     BROWSER HISTORY — React SPA uses useState only,
+     no pushState. We add proper history entries so
+     the browser back button works within the site.
+     ══════════════════════════════════════════════ */
+  var srCurrentView = null; /* tracks: 'home','immobilien','detail','verkaufen','bewerten','portal','über','kontakt' */
+  var srHistoryManaged = false;
+  var srPoppingState = false; /* true while we handle popstate to avoid re-pushing */
+
+  function detectCurrentView() {
+    /* Detail page: has h2 "Beschreibung" + "Details" */
+    if (isDetailPage()) return 'detail';
+    /* Nav buttons: the active one has the accent color; check nav text */
+    var navBtns = document.querySelectorAll('nav button');
+    for (var i = 0; i < navBtns.length; i++) {
+      var btn = navBtns[i];
+      var txt = (btn.textContent || '').trim();
+      var style = window.getComputedStyle(btn);
+      var col = style.color || '';
+      /* Active nav button has the accent orange (#D4743B = rgb(212,116,59)) */
+      if (col.indexOf('212') !== -1 && col.indexOf('116') !== -1) {
+        var map = {'Start':'home','Immobilien':'immobilien','Verkaufen':'verkaufen',
+                   'Bewerten':'bewerten','Kundenportal':'portal','Über uns':'über','Kontakt':'kontakt'};
+        if (map[txt]) return map[txt];
+      }
+    }
+    return 'home';
+  }
+
+  function clickNavButton(viewKey) {
+    var labelMap = {'home':'Start','immobilien':'Immobilien','verkaufen':'Verkaufen',
+                    'bewerten':'Bewerten','portal':'Kundenportal','über':'Über uns','kontakt':'Kontakt'};
+    var label = labelMap[viewKey];
+    if (!label && viewKey === 'detail') {
+      /* Can't navigate directly to detail from nav — go to immobilien instead */
+      label = 'Immobilien';
+    }
+    if (!label) label = 'Start';
+    var navBtns = document.querySelectorAll('nav button');
+    for (var i = 0; i < navBtns.length; i++) {
+      if ((navBtns[i].textContent || '').trim() === label) {
+        navBtns[i].click();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function trackHistory() {
+    if (srPoppingState) return;
+    var view = detectCurrentView();
+    if (view === srCurrentView) return;
+    var prev = srCurrentView;
+    srCurrentView = view;
+    if (!srHistoryManaged) {
+      /* Replace initial state so we have a starting point */
+      try { history.replaceState({srView: view}, ''); } catch(e){}
+      srHistoryManaged = true;
+      return;
+    }
+    try { history.pushState({srView: view, srPrev: prev}, ''); } catch(e){}
+  }
+
+  window.addEventListener('popstate', function(e) {
+    var state = e.state;
+    if (!state || !state.srView) return;
+    srPoppingState = true;
+    srCurrentView = state.srView;
+    clickNavButton(state.srView);
+    /* Reset flag after React has time to re-render */
+    setTimeout(function() { srPoppingState = false; }, 600);
+  });
+
+  /* ══════════════════════════════════════════════
      LIGHTBOX — Full gallery with prev/next
      ══════════════════════════════════════════════ */
   function initLightbox() {
@@ -1005,6 +1078,7 @@
   }
 
   function check() {
+    trackHistory();
     if(isDetailPage()) {
       /* Immediately hide React's stats grid to prevent flash of old icons */
       var grids = document.querySelectorAll('div[class*="grid-cols-2"][class*="grid-cols-4"]');
@@ -1053,6 +1127,8 @@
   obs.observe(document.body, {childList:true, subtree:true});
 
   setTimeout(check, 2000);
+  /* popstate for cleanup is now handled by the history manager above;
+     still reset injection flags so check() re-injects on back-nav */
   window.addEventListener('popstate', function(){ injected=false; descriptionsInjected=false; setTimeout(check, 800); });
 
   /* ── Proactive data fetch — the fetch interceptor misses the initial

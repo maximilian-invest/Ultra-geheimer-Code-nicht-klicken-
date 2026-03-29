@@ -27,12 +27,30 @@ mkdir -p "$INSTALL_DIR"
 
 # Symlink or copy deploy files
 ln -sf "$REPO_DIR/deploy.sh" "$INSTALL_DIR/deploy.sh"
-ln -sf "$REPO_DIR/hooks.json" "$INSTALL_DIR/hooks.json"
 
 # Make deploy.sh executable
 chmod +x "$REPO_DIR/deploy.sh"
 
-# ─── 3. Create systemd service ────────────────────────────────────
+# ─── 3. Configure webhook secret ─────────────────────────────────
+SECRET_FILE="$INSTALL_DIR/.webhook-secret"
+if [ -f "$SECRET_FILE" ]; then
+    WEBHOOK_SECRET=$(cat "$SECRET_FILE")
+    echo "  Using existing webhook secret from $SECRET_FILE"
+else
+    WEBHOOK_SECRET=$(openssl rand -hex 32)
+    echo "$WEBHOOK_SECRET" > "$SECRET_FILE"
+    chmod 600 "$SECRET_FILE"
+    echo "  Generated new webhook secret → $SECRET_FILE"
+fi
+
+# Generate hooks.json with the real secret (not the template placeholder)
+sed "s/{{WEBHOOK_SECRET}}/$WEBHOOK_SECRET/" "$REPO_DIR/hooks.json" > "$INSTALL_DIR/hooks.json"
+echo "  hooks.json written to $INSTALL_DIR/hooks.json"
+
+# Create backup directory
+mkdir -p /var/www/backups
+
+# ─── 4. Create systemd service ────────────────────────────────────
 echo "Creating systemd service..."
 cat > /etc/systemd/system/sr-homes-webhook.service << 'UNIT'
 [Unit]
@@ -51,14 +69,14 @@ WorkingDirectory=/opt/sr-homes
 WantedBy=multi-user.target
 UNIT
 
-# ─── 4. Create log file ───────────────────────────────────────────
+# ─── 5. Create log file ──────────────────────────────────────────
 touch /var/log/sr-homes-deploy.log
 chmod 664 /var/log/sr-homes-deploy.log
 
-# ─── 5. Enable and start ──────────────────────────────────────────
+# ─── 6. Enable and start ─────────────────────────────────────────
 systemctl daemon-reload
 systemctl enable sr-homes-webhook
-systemctl start sr-homes-webhook
+systemctl restart sr-homes-webhook
 
 echo ""
 echo "═══ Setup Complete ═══"
@@ -66,12 +84,16 @@ echo ""
 echo "Webhook listening on port 9000"
 echo "  Endpoint: http://localhost:9000/hooks/sr-homes-deploy"
 echo ""
-echo "GitHub Webhook URL (set in repo settings):"
+echo "IMPORTANT: Configure this secret in GitHub → Settings → Webhooks:"
+echo "  Secret: $WEBHOOK_SECRET"
+echo ""
+echo "GitHub Webhook URL:"
 echo "  http://<SERVER-IP>:9000/hooks/sr-homes-deploy"
 echo ""
 echo "Test with:"
 echo "  curl -X POST http://localhost:9000/hooks/sr-homes-deploy \\"
 echo "    -H 'Content-Type: application/json' \\"
+echo "    -H \"X-Hub-Signature-256: sha256=\$(echo -n '{\"ref\": \"refs/heads/main\"}' | openssl dgst -sha256 -hmac '$WEBHOOK_SECRET' | awk '{print \$2}')\" \\"
 echo "    -d '{\"ref\": \"refs/heads/main\", \"after\": \"test\"}'"
 echo ""
 echo "Logs:"

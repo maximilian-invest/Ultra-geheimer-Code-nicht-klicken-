@@ -425,16 +425,6 @@
       /* Must have a few child spans (the existing stats like "m²", "Zimmer") */
       if (row.children.length < 1 || row.children.length > 6) continue;
 
-      /* Determine card type: dark (featured) vs light (grid) */
-      var isDark = false;
-      var firstChild = row.querySelector('span');
-      if (firstChild) {
-        var cs = window.getComputedStyle(firstChild);
-        var col = cs.color || '';
-        /* Dark cards have white text (rgba(255,255,255,0.6) or similar) */
-        if (col.indexOf('255') !== -1 && col.indexOf('255') < col.lastIndexOf('255')) isDark = true;
-      }
-
       /* Walk up to card container for text matching */
       var card = row;
       for (var up = 0; up < 8; up++) {
@@ -470,24 +460,15 @@
       });
       if (!extras.length) { row.dataset.srStats = '1'; continue; }
 
-      if (isDark) {
-        extras.forEach(function(ex) {
-          var span = document.createElement('span');
-          span.className = 'text-xs';
-          span.style.cssText = 'color:rgba(255,255,255,0.6)';
-          span.textContent = ex;
-          row.appendChild(span);
-        });
-      } else {
-        var template = row.querySelector('span');
-        extras.forEach(function(ex) {
-          var span = document.createElement('span');
-          span.className = template ? template.className : 'flex items-center gap-1.5 text-xs font-medium';
-          span.style.cssText = template ? template.style.cssText : 'color:rgb(154,149,140)';
-          span.textContent = ex;
-          row.appendChild(span);
-        });
-      }
+      /* Clone style from existing span in the row */
+      var template = row.querySelector('span');
+      extras.forEach(function(ex) {
+        var span = document.createElement('span');
+        span.className = template ? template.className : 'flex items-center gap-1.5 text-xs font-medium';
+        span.style.cssText = template ? template.style.cssText : 'color:rgb(154,149,140)';
+        span.textContent = ex;
+        row.appendChild(span);
+      });
       row.dataset.srStats = '1';
     }
   }

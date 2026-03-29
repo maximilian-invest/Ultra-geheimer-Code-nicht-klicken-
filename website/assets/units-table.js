@@ -44,6 +44,39 @@
   var srHistoryManaged = false;
   var srPoppingState = false; /* true while we handle popstate to avoid re-pushing */
 
+  /* URL path <-> view mapping */
+  var viewToPath = {
+    'home': '/', 'immobilien': '/immobilien', 'verkaufen': '/verkaufen',
+    'bewerten': '/bewerten', 'portal': '/kundenportal', 'über': '/ueber-uns',
+    'kontakt': '/kontakt', 'detail': '/immobilien'
+  };
+  var pathToView = {
+    '/': 'home', '/immobilien': 'immobilien', '/verkaufen': 'verkaufen',
+    '/bewerten': 'bewerten', '/kundenportal': 'portal', '/ueber-uns': 'über',
+    '/kontakt': 'kontakt'
+  };
+
+  /* Title map for <title> tag */
+  var viewTitles = {
+    'home': 'SR-Homes Immobilien GmbH | Salzburg & Oberoesterreich',
+    'immobilien': 'Immobilien | SR-Homes',
+    'verkaufen': 'Immobilie verkaufen | SR-Homes',
+    'bewerten': 'Immobilie bewerten | SR-Homes',
+    'portal': 'Kundenportal | SR-Homes',
+    'über': 'Über uns | SR-Homes',
+    'kontakt': 'Kontakt | SR-Homes',
+    'detail': 'Immobilie | SR-Homes'
+  };
+
+  function getPathForView(view) {
+    return viewToPath[view] || '/';
+  }
+
+  function getViewFromPath() {
+    var path = window.location.pathname.replace(/\/+$/, '') || '/';
+    return pathToView[path] || 'home';
+  }
+
   function detectCurrentView() {
     /* Detail page: has h2 "Beschreibung" + "Details" */
     if (isDetailPage()) return 'detail';
@@ -89,13 +122,41 @@
     if (view === srCurrentView) return;
     var prev = srCurrentView;
     srCurrentView = view;
+    var urlPath = getPathForView(view);
+    var title = viewTitles[view] || viewTitles['home'];
+    document.title = title;
     if (!srHistoryManaged) {
-      /* Replace initial state so we have a starting point */
-      try { history.replaceState({srView: view}, ''); } catch(e){}
+      /* Replace initial state so the starting point has the correct URL */
+      try { history.replaceState({srView: view}, title, urlPath); } catch(e){}
       srHistoryManaged = true;
       return;
     }
-    try { history.pushState({srView: view, srPrev: prev}, ''); } catch(e){}
+    /* Only push if path actually changed */
+    if (window.location.pathname.replace(/\/+$/, '') !== urlPath.replace(/\/+$/, '')) {
+      try { history.pushState({srView: view, srPrev: prev}, title, urlPath); } catch(e){}
+    }
+  }
+
+  /* Navigate to the correct page based on URL on first load */
+  var srInitialNavDone = false;
+  function navigateFromUrl() {
+    if (srInitialNavDone) return;
+    srInitialNavDone = true;
+    var urlView = getViewFromPath();
+    if (urlView !== 'home') {
+      /* Wait for React to mount, then click the nav button */
+      var attempts = 0;
+      var tryNav = function() {
+        if (clickNavButton(urlView)) {
+          srCurrentView = urlView;
+          try { history.replaceState({srView: urlView}, '', getPathForView(urlView)); } catch(e){}
+        } else if (attempts < 10) {
+          attempts++;
+          setTimeout(tryNav, 300);
+        }
+      };
+      setTimeout(tryNav, 500);
+    }
   }
 
   window.addEventListener('popstate', function(e) {
@@ -103,10 +164,12 @@
     /* Reset injection flags so check() re-injects on back-nav */
     injected = false;
     descriptionsInjected = false;
-    if (!state || !state.srView) { setTimeout(check, 800); return; }
+    /* Determine target view: from state or from URL path */
+    var targetView = (state && state.srView) ? state.srView : getViewFromPath();
     srPoppingState = true;
-    srCurrentView = state.srView;
-    clickNavButton(state.srView);
+    srCurrentView = targetView;
+    document.title = viewTitles[targetView] || viewTitles['home'];
+    clickNavButton(targetView);
     /* Reset flag after React has time to re-render */
     setTimeout(function() { srPoppingState = false; }, 600);
     setTimeout(check, 800);
@@ -1021,6 +1084,8 @@
   obs.observe(document.body, {childList:true, subtree:true});
 
   setTimeout(check, 2000);
+  /* Navigate to correct page if user loaded a deep URL like /immobilien */
+  setTimeout(navigateFromUrl, 1000);
   /* popstate is handled by the unified listener above */
 
   /* ── Proactive data fetch — the fetch interceptor misses the initial

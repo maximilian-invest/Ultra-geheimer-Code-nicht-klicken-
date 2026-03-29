@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class MigrateFromLegacy extends Command
 {
@@ -122,7 +123,7 @@ class MigrateFromLegacy extends Command
                 DB::table('users')->insert([
                     'name' => $customer->name,
                     'email' => $customer->email,
-                    'password' => $customer->password_hash ?: Hash::make('SRHomes2026!'),
+                    'password' => $customer->password_hash ?: Hash::make(Str::random(32)),
                     'user_type' => 'eigentuemer',
                     'customer_id' => $customer->id,
                     'created_at' => now(),

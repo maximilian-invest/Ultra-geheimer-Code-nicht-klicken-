@@ -19,6 +19,12 @@
   var SB = '#9B9590'; /* sold badge */
   var RB = '#D4A03B'; /* reserved badge */
 
+  /* Sanitize text to prevent XSS from API responses */
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   var injected = false;
   var descriptionsInjected = false;
   var lightboxInjected = false;
@@ -94,12 +100,16 @@
 
   window.addEventListener('popstate', function(e) {
     var state = e.state;
-    if (!state || !state.srView) return;
+    /* Reset injection flags so check() re-injects on back-nav */
+    injected = false;
+    descriptionsInjected = false;
+    if (!state || !state.srView) { setTimeout(check, 800); return; }
     srPoppingState = true;
     srCurrentView = state.srView;
     clickNavButton(state.srView);
     /* Reset flag after React has time to re-render */
     setTimeout(function() { srPoppingState = false; }, 600);
+    setTimeout(check, 800);
   });
 
   /* ══════════════════════════════════════════════
@@ -479,7 +489,7 @@
             setTimeout(fixListingCardFormatting, 600);
             setTimeout(fixListingCardFormatting, 2000);
           }
-        }).catch(function(){});
+        }).catch(function(e){ console.warn('SR interceptor:', e); });
       }
       return r;
     });
@@ -538,8 +548,8 @@
     var h = '';
     sections.forEach(function(sec) {
       h += '<div style="margin-top:32px">';
-      h += '<h2 class="text-xl font-bold" style="font-size:20px;font-weight:700;color:'+TD+';margin-bottom:12px">'+sec.title+'</h2>';
-      h += '<p style="font-size:15px;line-height:1.7;color:'+TM+';max-width:70ch;white-space:pre-line">'+sec.text+'</p>';
+      h += '<h2 class="text-xl font-bold" style="font-size:20px;font-weight:700;color:'+TD+';margin-bottom:12px">'+escHtml(sec.title)+'</h2>';
+      h += '<p style="font-size:15px;line-height:1.7;color:'+TM+';max-width:70ch;white-space:pre-line">'+escHtml(sec.text)+'</p>';
       h += '</div>';
     });
     return h;
@@ -785,7 +795,10 @@
     if (old) old.remove();
 
     fetch(API + '/property/' + propId)
-      .then(function(r){return r.json();})
+      .then(function(r){
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
       .then(function(d){
         if(!d.success||!d.property) return;
         var prop = d.property;
@@ -861,7 +874,10 @@
     if (old) old.remove();
 
     fetch(API + '/property/' + propId)
-      .then(function(r){return r.json();})
+      .then(function(r){
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
       .then(function(d){
         if(!d.success||!d.property||!d.property.units||!d.property.units.length) return;
         /* Only wohn-units, no parking */
@@ -1004,35 +1020,46 @@
   obs.observe(document.body, {childList:true, subtree:true});
 
   setTimeout(check, 2000);
-  /* popstate for cleanup is now handled by the history manager above;
-     still reset injection flags so check() re-injects on back-nav */
-  window.addEventListener('popstate', function(){ injected=false; descriptionsInjected=false; setTimeout(check, 800); });
+  /* popstate is handled by the unified listener above */
 
   /* ── Proactive data fetch — the fetch interceptor misses the initial
        React load because module scripts run before defer scripts ── */
-  _fetch(API + '/properties')
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      if (!d.properties) return;
-      d.properties.forEach(function(p) {
-        propMap[p.ref_id] = p.id;
-        if (p.project_name) propMap[p.project_name] = p.id;
-        propCategoryMap[p.id] = p.property_category;
-        if (p.highlights) propHighlights[p.id] = p.highlights;
-        if (p.features && p.features.length) propFeatures[p.id] = p.features;
-        propData[p.id] = p;
-        if (p.property_category === 'newbuild') {
-          newbuildProps[p.project_name || p.ref_id] = { id: p.id, price: p.price };
+  var apiFetchRetries = 0;
+  function fetchPropertiesData() {
+    _fetch(API + '/properties')
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(d) {
+        if (!d.properties) return;
+        d.properties.forEach(function(p) {
+          propMap[p.ref_id] = p.id;
+          if (p.project_name) propMap[p.project_name] = p.id;
+          propCategoryMap[p.id] = p.property_category;
+          if (p.highlights) propHighlights[p.id] = p.highlights;
+          if (p.features && p.features.length) propFeatures[p.id] = p.features;
+          propData[p.id] = p;
+          if (p.property_category === 'newbuild') {
+            newbuildProps[p.project_name || p.ref_id] = { id: p.id, price: p.price };
+          }
+        });
+        setTimeout(addAbPrefix, 300);
+        setTimeout(patchListingCardStats, 300);
+        setTimeout(fixListingCardFormatting, 300);
+        setTimeout(patchListingCardStats, 1500);
+        setTimeout(fixListingCardFormatting, 1500);
+        setTimeout(patchListingCardStats, 3500);
+        setTimeout(check, 500);
+      })
+      .catch(function(e) {
+        console.error('SR proactive fetch:', e);
+        /* Retry with exponential backoff (max 3 retries) */
+        if (apiFetchRetries < 3) {
+          apiFetchRetries++;
+          setTimeout(fetchPropertiesData, apiFetchRetries * 2000);
         }
       });
-      setTimeout(addAbPrefix, 300);
-      setTimeout(patchListingCardStats, 300);
-      setTimeout(fixListingCardFormatting, 300);
-      setTimeout(patchListingCardStats, 1500);
-      setTimeout(fixListingCardFormatting, 1500);
-      setTimeout(patchListingCardStats, 3500);
-      setTimeout(patchListingCardStats, 6000);
-      setTimeout(check, 500);
-    })
-    .catch(function(e) { console.error('SR proactive fetch:', e); });
+  }
+  fetchPropertiesData();
 })();

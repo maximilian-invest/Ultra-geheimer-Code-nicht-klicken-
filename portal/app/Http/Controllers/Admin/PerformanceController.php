@@ -73,6 +73,7 @@ class PerformanceController extends Controller
         }
 
         // Erstanfragen pro Plattform
+        try {
         $platforms = DB::select("
             SELECT
                 CASE
@@ -99,6 +100,12 @@ class PerformanceController extends Controller
             ORDER BY count DESC
         ", array_merge($dateBindings['platform'] ?? [], $propBindings, $brokerBindings));
 
+        } catch (\Exception $e) {
+            \Log::warning('Performance platforms query failed', ['error' => $e->getMessage()]);
+            $platforms = [];
+        }
+
+        try {
         $totalInquiries = (int) DB::selectOne("
             SELECT COUNT(*) as cnt FROM activities a
             WHERE a.category IN ('anfrage', 'email-in')
@@ -112,42 +119,52 @@ class PerformanceController extends Controller
               )
         ", array_merge($dateBindings['platform'] ?? [], $propBindings, $brokerBindings))->cnt;
 
+        } catch (\Exception $e) {
+            \Log::warning('Performance totalInquiries query failed', ['error' => $e->getMessage()]);
+            $totalInquiries = 0;
+        }
+
         // Wöchentlicher Trend (8 Wochen)
-        $trend = DB::select("
-            SELECT
-                YEARWEEK(first_act.activity_date, 1) as yw,
-                DATE(MIN(first_act.activity_date)) as week_start,
-                COUNT(*) as inquiries,
-                (SELECT SUM(category='besichtigung') FROM activities
-                 WHERE YEARWEEK(activity_date,1) = YEARWEEK(first_act.activity_date,1)
-                 {$trendSubDateFilter} {$propFilterSub}) as viewing_requests,
-                (SELECT SUM(category='kaufanbot') FROM activities
-                 WHERE YEARWEEK(activity_date,1) = YEARWEEK(first_act.activity_date,1)
-                 {$trendSubDateFilter} {$propFilterSub}) as offers,
-                (SELECT SUM(category='absage') FROM activities
-                 WHERE YEARWEEK(activity_date,1) = YEARWEEK(first_act.activity_date,1)
-                 {$trendSubDateFilter} {$propFilterSub}) as cancellations,
-                (SELECT SUM(category IN ('email-out','expose')) FROM activities
-                 WHERE YEARWEEK(activity_date,1) = YEARWEEK(first_act.activity_date,1)
-                 {$trendSubDateFilter} {$propFilterSub}) as outbound
-            FROM activities first_act
-            WHERE first_act.category IN ('anfrage', 'email-in')
-              {$trendDateFilter}
-              {$propFilter}
-              AND first_act.id = (
-                  SELECT MIN(a2.id) FROM activities a2
-                  WHERE a2.stakeholder = first_act.stakeholder
-                    AND a2.property_id = first_act.property_id
-                    AND a2.category IN ('anfrage', 'email-in')
-              )
-            GROUP BY yw ORDER BY yw ASC
-        ", array_merge(
-            $dateBindings['trendSub'] ?? [], $propBindings, $brokerBindings,  // viewing_requests subquery
-            $dateBindings['trendSub'] ?? [], $propBindings, $brokerBindings,  // offers subquery
-            $dateBindings['trendSub'] ?? [], $propBindings, $brokerBindings,  // cancellations subquery
-            $dateBindings['trendSub'] ?? [], $propBindings, $brokerBindings,  // outbound subquery
-            $dateBindings['trend'] ?? [], $propBindings, $brokerBindings      // main WHERE
-        ));
+        try {
+            $trend = DB::select("
+                SELECT
+                    YEARWEEK(first_act.activity_date, 1) as yw,
+                    DATE(MIN(first_act.activity_date)) as week_start,
+                    COUNT(*) as inquiries,
+                    (SELECT SUM(category='besichtigung') FROM activities
+                     WHERE YEARWEEK(activity_date,1) = YEARWEEK(first_act.activity_date,1)
+                     {$trendSubDateFilter} {$propFilterSub}) as viewing_requests,
+                    (SELECT SUM(category='kaufanbot') FROM activities
+                     WHERE YEARWEEK(activity_date,1) = YEARWEEK(first_act.activity_date,1)
+                     {$trendSubDateFilter} {$propFilterSub}) as offers,
+                    (SELECT SUM(category='absage') FROM activities
+                     WHERE YEARWEEK(activity_date,1) = YEARWEEK(first_act.activity_date,1)
+                     {$trendSubDateFilter} {$propFilterSub}) as cancellations,
+                    (SELECT SUM(category IN ('email-out','expose')) FROM activities
+                     WHERE YEARWEEK(activity_date,1) = YEARWEEK(first_act.activity_date,1)
+                     {$trendSubDateFilter} {$propFilterSub}) as outbound
+                FROM activities first_act
+                WHERE first_act.category IN ('anfrage', 'email-in')
+                  {$trendDateFilter}
+                  {$propFilter}
+                  AND first_act.id = (
+                      SELECT MIN(a2.id) FROM activities a2
+                      WHERE a2.stakeholder = first_act.stakeholder
+                        AND a2.property_id = first_act.property_id
+                        AND a2.category IN ('anfrage', 'email-in')
+                  )
+                GROUP BY yw ORDER BY yw ASC
+            ", array_merge(
+                $dateBindings['trendSub'] ?? [], $propBindings, $brokerBindings,  // viewing_requests subquery
+                $dateBindings['trendSub'] ?? [], $propBindings, $brokerBindings,  // offers subquery
+                $dateBindings['trendSub'] ?? [], $propBindings, $brokerBindings,  // cancellations subquery
+                $dateBindings['trendSub'] ?? [], $propBindings, $brokerBindings,  // outbound subquery
+                $dateBindings['trend'] ?? [], $propBindings, $brokerBindings      // main WHERE
+            ));
+        } catch (\Exception $e) {
+            \Log::warning('Performance trend query failed', ['error' => $e->getMessage()]);
+            $trend = [];
+        }
 
         // Conversion-Funnel
         $funnel = (array) DB::selectOne("
@@ -179,6 +196,7 @@ class PerformanceController extends Controller
         }
 
         // Antwortzeit
+        try {
         $avgResponse = (array) DB::selectOne("
             SELECT AVG(response_hours) as avg_hours FROM (
                 SELECT
@@ -194,6 +212,11 @@ class PerformanceController extends Controller
             ) sub
             WHERE response_hours IS NOT NULL AND response_hours < 720
         ", array_merge($dateBindings['response'] ?? [], $propBindings, $brokerBindings));
+
+        } catch (\Exception $e) {
+            \Log::warning('Performance avgResponse query failed', ['error' => $e->getMessage()]);
+            $avgResponse = ['avg_hours' => 0];
+        }
 
         return response()->json([
             'total_inquiries'    => $totalInquiries,

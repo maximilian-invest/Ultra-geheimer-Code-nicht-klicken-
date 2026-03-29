@@ -1,9 +1,8 @@
 /**
- * SR-Homes Units Table v4 — Serhant-Style
- * ONLY for property_category === 'newbuild'
- * - Injects AFTER Beschreibung/Details section, BEFORE Weitere Objekte
+ * SR-Homes Units Table v5 — Serhant-Style
+ * - Injects extra descriptions (Lage, Ausstattung) for ALL properties
+ * - Injects units table for Neubauprojekte
  * - Matches website container layout (max-width 1440px, centered, proper padding)
- * - No parking section — only Wohn-Einheiten
  * - "ab" prefix on listing cards for Neubauprojekte
  */
 (function() {
@@ -20,7 +19,9 @@
   var RB = '#D4A03B'; /* reserved badge */
 
   var injected = false;
+  var descriptionsInjected = false;
   var propMap = {};
+  var propCategoryMap = {};
   var newbuildProps = {};
 
   function fmt(p) {
@@ -166,6 +167,7 @@
             d.properties.forEach(function(p) {
               propMap[p.ref_id] = p.id;
               if (p.project_name) propMap[p.project_name] = p.id;
+              propCategoryMap[p.id] = p.property_category;
               if (p.property_category === 'newbuild') {
                 newbuildProps[p.project_name || p.ref_id] = { id: p.id, price: p.price };
               }
@@ -213,6 +215,73 @@
       if (newbuildProps[keys[i]].id === id) return true;
     }
     return false;
+  }
+
+  /* ── Build extra description sections (Lage, Ausstattung-Detail, Sonstiges) ── */
+  function buildDescriptions(prop) {
+    var sections = [];
+    if (prop.location_description) {
+      sections.push({title: 'Lage', text: prop.location_description});
+    }
+    if (prop.equipment_description) {
+      sections.push({title: 'Ausstattung im Detail', text: prop.equipment_description});
+    }
+    if (prop.other_description) {
+      sections.push({title: 'Sonstiges', text: prop.other_description});
+    }
+    if (!sections.length) return '';
+
+    var h = '';
+    sections.forEach(function(sec) {
+      h += '<div style="margin-top:32px">';
+      h += '<h2 class="text-xl font-bold" style="font-size:20px;font-weight:700;color:'+TD+';margin-bottom:12px">'+sec.title+'</h2>';
+      h += '<p style="font-size:15px;line-height:1.7;color:'+TM+';max-width:70ch;white-space:pre-line">'+sec.text+'</p>';
+      h += '</div>';
+    });
+    return h;
+  }
+
+  function doInjectDescriptions(propId) {
+    if (descriptionsInjected) return;
+    var old = document.getElementById('sr-extra-descriptions');
+    if (old) old.remove();
+
+    fetch(API + '/property/' + propId)
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(!d.success||!d.property) return;
+        var html = buildDescriptions(d.property);
+        if(!html) return;
+
+        var wrap = document.createElement('div');
+        wrap.id = 'sr-extra-descriptions';
+        wrap.innerHTML = html;
+
+        /* Find the "Beschreibung" h2 and its text paragraph, insert after them */
+        var h2s = document.querySelectorAll('h2');
+        var beschreibungP = null;
+        for (var i = 0; i < h2s.length; i++) {
+          if (h2s[i].textContent.trim() === 'Beschreibung') {
+            /* The description text is the next sibling (a <p> tag) */
+            beschreibungP = h2s[i].nextElementSibling;
+            break;
+          }
+        }
+
+        if (beschreibungP) {
+          beschreibungP.parentNode.insertBefore(wrap, beschreibungP.nextSibling);
+        }
+
+        descriptionsInjected = true;
+
+        /* Animate in */
+        wrap.style.opacity='0';
+        wrap.style.transition='opacity 0.5s ease';
+        requestAnimationFrame(function(){requestAnimationFrame(function(){
+          wrap.style.opacity='1';
+        });});
+      })
+      .catch(function(e){console.error('SR Descriptions:',e);});
   }
 
   function doInject(propId) {
@@ -318,15 +387,23 @@
 
   function check() {
     if(isDetailPage()) {
-      if(isNewbuildDetail()) {
-        var id = findPropId();
-        if(id && !injected) doInject(id);
+      var id = findPropId();
+      if(id) {
+        /* Inject extra descriptions for ALL properties */
+        if(!descriptionsInjected) doInjectDescriptions(id);
+        /* Inject units table only for Neubauprojekte */
+        if(isNewbuildDetail() && !injected) doInject(id);
       }
     } else {
       if(injected) {
         var old = document.getElementById('sr-units-section');
         if(old) old.remove();
         injected = false;
+      }
+      if(descriptionsInjected) {
+        var oldDesc = document.getElementById('sr-extra-descriptions');
+        if(oldDesc) oldDesc.remove();
+        descriptionsInjected = false;
       }
       if(Object.keys(newbuildProps).length > 0) addAbPrefix();
     }

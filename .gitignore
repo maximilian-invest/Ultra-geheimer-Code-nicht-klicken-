@@ -44,3 +44,4 @@ portal/.phpunit.cache
 portal/auth.json
 portal/storage/legacy_src/
 .claude-flow/
+website/src/node_modules/

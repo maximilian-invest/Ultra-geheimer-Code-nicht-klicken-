@@ -77,23 +77,106 @@
     return pathToView[path] || 'home';
   }
 
+  /* Intercept nav button clicks to reliably detect page changes */
+  var srNavHooked = false;
+  function hookNavButtons() {
+    var navBtns = document.querySelectorAll('nav button');
+    if (navBtns.length === 0) return;
+    /* Re-hook if nav buttons changed (React re-renders) */
+    var firstBtn = navBtns[0];
+    if (firstBtn && firstBtn._srHooked) return;
+    srNavHooked = true;
+    var textMap = {'Start':'home','Immobilien':'immobilien','Verkaufen':'verkaufen',
+                   'Bewerten':'bewerten','Kundenportal':'portal','Über uns':'über','Kontakt':'kontakt'};
+    navBtns.forEach(function(btn) {
+      btn._srHooked = true;
+      btn.addEventListener('click', function() {
+        if (srPoppingState) return;
+        var txt = (btn.textContent || '').trim();
+        var view = textMap[txt];
+        if (view && view !== srCurrentView) {
+          var prev = srCurrentView;
+          srCurrentView = view;
+          var urlPath = getPathForView(view);
+          var title = viewTitles[view] || viewTitles['home'];
+          document.title = title;
+          try { history.pushState({srView: view, srPrev: prev}, title, urlPath); } catch(e){}
+        }
+      });
+    });
+    /* Also hook mobile menu buttons if they exist (duplicate nav in hamburger) */
+    var mobileBtns = document.querySelectorAll('div[class*="fixed"] button, div[class*="absolute"] button');
+    mobileBtns.forEach(function(btn) {
+      var txt = (btn.textContent || '').trim();
+      if (textMap[txt] && !btn._srHooked) {
+        btn._srHooked = true;
+        btn.addEventListener('click', function() {
+          if (srPoppingState) return;
+          var view = textMap[txt];
+          if (view && view !== srCurrentView) {
+            var prev = srCurrentView;
+            srCurrentView = view;
+            var urlPath = getPathForView(view);
+            var title = viewTitles[view] || viewTitles['home'];
+            document.title = title;
+            try { history.pushState({srView: view, srPrev: prev}, title, urlPath); } catch(e){}
+          }
+        });
+      }
+    });
+  }
+
   function detectCurrentView() {
     /* Detail page: has h2 "Beschreibung" + "Details" */
     if (isDetailPage()) return 'detail';
-    /* Nav buttons: the active one has the accent color; check nav text */
+    /* Check all nav buttons for active state using multiple heuristics */
     var navBtns = document.querySelectorAll('nav button');
+    var textMap = {'Start':'home','Immobilien':'immobilien','Verkaufen':'verkaufen',
+                   'Bewerten':'bewerten','Kundenportal':'portal','Über uns':'über','Kontakt':'kontakt'};
     for (var i = 0; i < navBtns.length; i++) {
       var btn = navBtns[i];
       var txt = (btn.textContent || '').trim();
+      if (!textMap[txt]) continue;
       var style = window.getComputedStyle(btn);
       var col = style.color || '';
-      /* Active nav button has the accent orange (#D4743B = rgb(212,116,59)) */
-      if (col.indexOf('212') !== -1 && col.indexOf('116') !== -1) {
-        var map = {'Start':'home','Immobilien':'immobilien','Verkaufen':'verkaufen',
-                   'Bewerten':'bewerten','Kundenportal':'portal','Über uns':'über','Kontakt':'kontakt'};
-        if (map[txt]) return map[txt];
+      /* Check for accent color in various formats */
+      var isActive = false;
+      /* rgb(212, 116, 59) or similar */
+      if (col.indexOf('212') !== -1 && col.indexOf('116') !== -1) isActive = true;
+      /* rgb(232, 116, 58) — #E8743A */
+      if (col.indexOf('232') !== -1 && col.indexOf('116') !== -1) isActive = true;
+      /* hex check */
+      if (col.toLowerCase().indexOf('d4743b') !== -1 || col.toLowerCase().indexOf('e8743a') !== -1) isActive = true;
+      /* Check font-weight as fallback — active nav items are often bolder */
+      var fw = parseInt(style.fontWeight || '400');
+      if (fw >= 600 && col !== 'rgb(255, 255, 255)' && col.indexOf('255, 255, 255') === -1) {
+        /* Bold + not white = likely active */
       }
+      if (isActive) return textMap[txt];
     }
+    /* Content-based fallback: detect page by unique headings/selectors */
+    var headings = document.querySelectorAll('h2');
+    for (var h = 0; h < headings.length; h++) {
+      var ht = (headings[h].textContent || '').trim();
+      if (ht === 'Unsere Top-Immobilien' || ht.indexOf('Exklusive Objekte') !== -1) return 'home';
+    }
+    /* Immobilien listing: has filter select elements */
+    var selects = document.querySelectorAll('select');
+    if (selects.length >= 3) {
+      var hasTypeFilter = false;
+      selects.forEach(function(s) { if (s.innerHTML.indexOf('Alle Typen') !== -1 || s.innerHTML.indexOf('Haus') !== -1) hasTypeFilter = true; });
+      if (hasTypeFilter) return 'immobilien';
+    }
+    /* Check for page-specific buttons or text in first h1/h2 */
+    var h1 = document.querySelector('h1');
+    if (h1) {
+      var h1t = (h1.textContent || '').toLowerCase();
+      if (h1t.indexOf('verkauf') !== -1) return 'verkaufen';
+      if (h1t.indexOf('bewert') !== -1) return 'bewerten';
+      if (h1t.indexOf('kontakt') !== -1) return 'kontakt';
+    }
+    /* Fallback: if we have a tracked view, keep it */
+    if (srCurrentView) return srCurrentView;
     return 'home';
   }
 
@@ -117,6 +200,8 @@
   }
 
   function trackHistory() {
+    /* Hook nav buttons on every check — they may re-render */
+    hookNavButtons();
     if (srPoppingState) return;
     var view = detectCurrentView();
     if (view === srCurrentView) return;
@@ -132,7 +217,9 @@
       return;
     }
     /* Only push if path actually changed */
-    if (window.location.pathname.replace(/\/+$/, '') !== urlPath.replace(/\/+$/, '')) {
+    var currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+    var targetPath = urlPath.replace(/\/+$/, '') || '/';
+    if (currentPath !== targetPath) {
       try { history.pushState({srView: view, srPrev: prev}, title, urlPath); } catch(e){}
     }
   }

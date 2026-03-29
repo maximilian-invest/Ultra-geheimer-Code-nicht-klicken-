@@ -93,17 +93,35 @@ class WebsiteApiController extends Controller
                     }
                 }
 
-                // Units for Neubauprojekt
+                // Units for Neubauprojekt — compute ranges from units
                 if (stripos($p->type, 'Neubauprojekt') !== false || $p->total_units > 0) {
-                    $p->units_free = DB::table('property_units')
-                        ->where('property_id', $p->id)
-                        ->where('status', 'frei')
-                        ->where('is_parking', 0)
-                        ->count();
-                    $p->units_total = DB::table('property_units')
+                    $units = DB::table('property_units')
                         ->where('property_id', $p->id)
                         ->where('is_parking', 0)
-                        ->count();
+                        ->get();
+
+                    $p->units_total = $units->count();
+                    $p->units_free = $units->where('status', 'frei')->count();
+
+                    // Compute ranges from unit data for the stats grid
+                    $freeUnits = $units->whereIn('status', ['frei', '']);
+                    $areas = $freeUnits->pluck('area_m2')->filter()->map(fn($v) => (float)$v)->values();
+                    $rooms = $freeUnits->pluck('rooms')->filter()->map(fn($v) => (int)$v)->filter()->values();
+
+                    if ($areas->count() > 0) {
+                        $minA = $areas->min();
+                        $maxA = $areas->max();
+                        $p->area_living = $minA;
+                        $p->area_range = $minA == $maxA
+                            ? number_format($minA, 0, ',', '.') . ' m²'
+                            : number_format($minA, 0, ',', '.') . ' – ' . number_format($maxA, 0, ',', '.') . ' m²';
+                    }
+                    if ($rooms->count() > 0) {
+                        $minR = $rooms->min();
+                        $maxR = $rooms->max();
+                        $p->rooms = $minR;
+                        $p->rooms_range = $minR == $maxR ? (string)$minR : $minR . ' – ' . $maxR;
+                    }
                 }
 
                 // Features array from boolean fields
@@ -231,6 +249,27 @@ class WebsiteApiController extends Controller
         $p->units = $units;
         $p->parking = $parking;
 
+        // Compute ranges from units for Neubauprojekte
+        if ($units->count() > 0) {
+            $freeUnits = $units->whereIn('status', ['frei', '']);
+            $areas = $freeUnits->pluck('area_m2')->filter()->map(fn($v) => (float)$v)->values();
+            $rooms = $freeUnits->pluck('rooms')->filter()->map(fn($v) => (int)$v)->filter()->values();
+            $prices = $freeUnits->pluck('price')->filter()->map(fn($v) => (float)$v)->filter()->values();
+
+            if ($areas->count() > 0) {
+                $p->area_range = $areas->min() == $areas->max()
+                    ? number_format($areas->min(), 0, ',', '.') . ' m²'
+                    : number_format($areas->min(), 0, ',', '.') . ' – ' . number_format($areas->max(), 0, ',', '.') . ' m²';
+            }
+            if ($rooms->count() > 0) {
+                $p->rooms_range = $rooms->min() == $rooms->max()
+                    ? (string)$rooms->min()
+                    : $rooms->min() . ' – ' . $rooms->max();
+            }
+            if ($prices->count() > 0) {
+                $p->price_range = 'EUR ' . number_format($prices->min(), 0, ',', '.') . ' – ' . number_format($prices->max(), 0, ',', '.');
+            }
+        }
 
         return response()->json([
             'success' => true,

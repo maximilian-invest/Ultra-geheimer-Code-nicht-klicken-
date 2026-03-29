@@ -241,6 +241,30 @@
     return h;
   }
 
+  /* ── Replace stats grid values with ranges for Neubauprojekte ── */
+  function patchStatsGrid(prop) {
+    if (!prop.area_range && !prop.rooms_range) return;
+    /* The stats grid has class "grid grid-cols-2 sm:grid-cols-4" */
+    var grids = document.querySelectorAll('div[class*="grid-cols-2"][class*="grid-cols-4"]');
+    grids.forEach(function(grid) {
+      var cells = grid.querySelectorAll('div.text-center');
+      cells.forEach(function(cell) {
+        var spans = cell.querySelectorAll('span, p, div');
+        spans.forEach(function(sp) {
+          var t = sp.textContent.trim();
+          /* Replace area value */
+          if (prop.area_range && t.match(/^\d+.*m²$/)) {
+            sp.textContent = prop.area_range;
+          }
+          /* Replace rooms value */
+          if (prop.rooms_range && t.match(/^\d+$/) && parseInt(t) === (prop.rooms || prop.rooms_amount || 0)) {
+            sp.textContent = prop.rooms_range;
+          }
+        });
+      });
+    });
+  }
+
   function doInjectDescriptions(propId) {
     if (descriptionsInjected) return;
     var old = document.getElementById('sr-extra-descriptions');
@@ -250,6 +274,13 @@
       .then(function(r){return r.json();})
       .then(function(d){
         if(!d.success||!d.property) return;
+
+        /* Patch stats grid with ranges for Neubauprojekte */
+        if (d.property.area_range || d.property.rooms_range) {
+          setTimeout(function(){ patchStatsGrid(d.property); }, 300);
+          setTimeout(function(){ patchStatsGrid(d.property); }, 1500);
+        }
+
         var html = buildDescriptions(d.property);
         if(!html) return;
 

@@ -562,6 +562,7 @@ class AdminApiController extends Controller
             'upload_property_file'      => $this->uploadPropertyFile($request),
             'delete_property_file'      => $this->deletePropertyFile($request),
             'get_property_files'        => $this->getPropertyFiles($request),
+            'toggle_website_download'   => $this->toggleWebsiteDownload($request),
             'get_property'              => $this->getProperty($request),
             'update_property'           => $this->updateProperty($request),
 
@@ -1600,6 +1601,30 @@ class AdminApiController extends Controller
         return response()->json(['success' => true]);
     }
 
+    private function toggleWebsiteDownload(Request $request): JsonResponse
+    {
+        if (!$request->isMethod('post')) return response()->json(['error' => 'POST required'], 405);
+        $data = $request->json()->all();
+        $fileId = intval($data['file_id'] ?? 0);
+        if (!$fileId) return response()->json(['error' => 'file_id required'], 400);
+
+        $file = DB::table('property_files')->where('id', $fileId)->first();
+        if (!$file) return response()->json(['error' => 'File not found'], 404);
+
+        $newValue = !($file->is_website_download ?? false);
+        DB::table('property_files')->where('id', $fileId)->update([
+            'is_website_download' => $newValue,
+        ]);
+
+        // Clear website cache so changes appear immediately
+        \Illuminate\Support\Facades\Cache::forget('website_properties');
+
+        return response()->json([
+            'success' => true,
+            'is_website_download' => $newValue,
+        ]);
+    }
+
     private function getProperty(Request $request): JsonResponse
     {
         $id = intval($request->query('property_id', 0));
@@ -1663,6 +1688,7 @@ class AdminApiController extends Controller
                 'url' => '/storage/' . $f->path,
                 'mime_type' => $f->mime_type,
                 'file_size' => $f->file_size,
+                'is_website_download' => (bool) ($f->is_website_download ?? false),
                 'source' => 'property_files',
             ];
         }

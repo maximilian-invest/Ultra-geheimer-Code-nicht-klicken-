@@ -140,6 +140,13 @@ class WebsiteApiController extends Controller
                 if ($p->parking_spaces > 0) $features[] = 'Stellplatz';
                 $p->features = $features;
 
+                // Cast numeric values to clean integers
+                if ($p->area_living) $p->area_living = (int) round((float) $p->area_living);
+                if ($p->rooms) $p->rooms = (int) round((float) $p->rooms);
+                if ($p->bathrooms) $p->bathrooms = (int) $p->bathrooms;
+                if ($p->free_area) $p->free_area = (int) round((float) $p->free_area);
+                if ($p->total_area) $p->total_area = (int) round((float) $p->total_area);
+
                 // Clean up internal fields
                 unset($p->main_image_id, $p->website_gallery_ids);
                 unset($p->has_garden, $p->has_balcony, $p->has_terrace, $p->has_loggia);
@@ -281,6 +288,22 @@ class WebsiteApiController extends Controller
                 $p->price_range = 'EUR ' . number_format($prices->min(), 0, ',', '.') . ' – ' . number_format($prices->max(), 0, ',', '.');
             }
         }
+
+        // Downloads — files marked as website-downloadable
+        $downloads = DB::table('property_files')
+            ->where('property_id', $id)
+            ->where('is_website_download', 1)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn($f) => [
+                'id' => $f->id,
+                'label' => $f->label,
+                'filename' => $f->filename,
+                'url' => url('/storage/' . $f->path),
+                'mime_type' => $f->mime_type,
+                'file_size' => $f->file_size,
+            ]);
+        $p->downloads = $downloads;
 
         return response()->json([
             'success' => true,

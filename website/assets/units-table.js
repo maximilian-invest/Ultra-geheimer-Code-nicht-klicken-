@@ -709,27 +709,46 @@
     return h;
   }
 
+  /* ── SVG line icons (24x24, stroke-only, elegant thin lines) ── */
+  var IC = {
+    area: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+TM+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M9 3v18"/></svg>',
+    rooms: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+TM+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 12h8V3"/></svg>',
+    bath: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+TM+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16a1 1 0 0 1 1 1v3a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4v-3a1 1 0 0 1 1-1z"/><path d="M6 12V5a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v1"/></svg>',
+    garden: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+TM+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V10"/><path d="M8 22h8"/><path d="M12 10c-3 0-6-2.5-6-5.5S9 2 12 2s6 0 6 2.5S15 10 12 10z"/></svg>',
+    terrace: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+TM+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V11"/><path d="M19 21V11"/><path d="M3 11h18"/><path d="M12 11V3"/><path d="M8 7h8"/></svg>',
+    balcony: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+TM+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h18"/><path d="M4 14v7"/><path d="M20 14v7"/><path d="M12 14v7"/><rect x="6" y="3" width="12" height="11" rx="1"/></svg>',
+    loggia: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+TM+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v16"/><path d="M3 14h18"/><path d="M8 14v7"/><path d="M16 14v7"/></svg>',
+    parking: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+TM+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>',
+    year: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+TM+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+    floor: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+TM+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="1"/><path d="M4 8h16M4 14h16"/></svg>',
+    energy: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+TM+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
+    totalarea: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+TM+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3H3v18h18V3z"/><path d="M3 3l18 18"/></svg>',
+    download: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    pdf: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>',
+    doc: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>'
+  };
+
   /* ── Patch stats grid: always 4 items with smart fallbacks ── */
   function patchStatsGridSmart(prop) {
     var candidates = [];
     /* Build prioritized list of stat items */
     var area = prop.area_range || fmtArea(prop.living_area);
-    if (area) candidates.push({icon:'\uD83D\uDCCF', label:'Wohnfl\u00E4che', value:area});
+    if (area) candidates.push({icon:IC.area, label:'Wohnfl\u00E4che', value:area});
     var rooms = prop.rooms_range || fmtNum(prop.rooms_amount || prop.rooms);
-    if (rooms) candidates.push({icon:'\uD83D\uDEAA', label:'Zimmer', value:rooms});
-    if (fmtNum(prop.bathrooms)) candidates.push({icon:'\uD83D\uDEC1', label:'B\u00E4der', value:fmtNum(prop.bathrooms)});
-    if (fmtArea(prop.area_garden)) candidates.push({icon:'\uD83C\uDF33', label:'Garten', value:fmtArea(prop.area_garden)});
-    if (fmtArea(prop.area_terrace)) candidates.push({icon:'\u2600\uFE0F', label:'Terrasse', value:fmtArea(prop.area_terrace)});
-    if (fmtArea(prop.area_balcony)) candidates.push({icon:'\uD83C\uDF05', label:'Balkon', value:fmtArea(prop.area_balcony)});
-    if (fmtArea(prop.area_loggia)) candidates.push({icon:'\uD83C\uDFDB\uFE0F', label:'Loggia', value:fmtArea(prop.area_loggia)});
+    if (rooms) candidates.push({icon:IC.rooms, label:'Zimmer', value:rooms});
+    if (fmtNum(prop.bathrooms)) candidates.push({icon:IC.bath, label:'B\u00E4der', value:fmtNum(prop.bathrooms)});
+    if (fmtArea(prop.area_garden)) candidates.push({icon:IC.garden, label:'Garten', value:fmtArea(prop.area_garden)});
+    if (fmtArea(prop.area_terrace)) candidates.push({icon:IC.terrace, label:'Terrasse', value:fmtArea(prop.area_terrace)});
+    if (fmtArea(prop.area_balcony)) candidates.push({icon:IC.balcony, label:'Balkon', value:fmtArea(prop.area_balcony)});
+    if (fmtArea(prop.area_loggia)) candidates.push({icon:IC.loggia, label:'Loggia', value:fmtArea(prop.area_loggia)});
     if (prop.parking_spaces > 0 || prop.garage_spaces > 0) {
       var pv = (parseInt(prop.garage_spaces)||0) + (parseInt(prop.parking_spaces)||0);
-      candidates.push({icon:'\uD83D\uDE97', label:'Stellpl\u00E4tze', value:pv.toString()});
+      candidates.push({icon:IC.parking, label:'Stellpl\u00E4tze', value:pv.toString()});
     }
-    if (prop.construction_year) candidates.push({icon:'\uD83C\uDFD7\uFE0F', label:'Baujahr', value:prop.construction_year.toString()});
-    if (prop.floor_number) candidates.push({icon:'\u2B06\uFE0F', label:'Stockwerk', value:prop.floor_number.toString()});
-    if (prop.energy_certificate) candidates.push({icon:'\u26A1', label:'Energie', value:prop.energy_certificate});
-    if (fmtArea(prop.total_area) && prop.total_area != prop.living_area) candidates.push({icon:'\uD83D\uDCCA', label:'Gesamtfl\u00E4che', value:fmtArea(prop.total_area)});
+    if (prop.construction_year) candidates.push({icon:IC.year, label:'Baujahr', value:prop.construction_year.toString()});
+    if (prop.floor_number) candidates.push({icon:IC.floor, label:'Stockwerk', value:prop.floor_number.toString()});
+    if (prop.energy_certificate) candidates.push({icon:IC.energy, label:'Energie', value:prop.energy_certificate});
+    if (fmtArea(prop.total_area) && prop.total_area != prop.living_area) candidates.push({icon:IC.totalarea, label:'Gesamtfl\u00E4che', value:fmtArea(prop.total_area)});
 
     if (candidates.length < 1) return;
 
@@ -745,12 +764,48 @@
     show.forEach(function(item) {
       var cell = document.createElement('div');
       cell.className = 'text-center';
+      cell.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:6px';
       cell.innerHTML =
-        '<div style="font-size:22px;margin-bottom:6px">' + item.icon + '</div>' +
-        '<div style="font-size:20px;font-weight:700;color:'+TD+';margin-bottom:2px">' + item.value + '</div>' +
-        '<div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:'+TM+'">' + item.label + '</div>';
+        '<div style="opacity:0.6">' + item.icon + '</div>' +
+        '<div style="font-size:20px;font-weight:700;color:'+TD+';line-height:1.2">' + item.value + '</div>' +
+        '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:'+TM+'">' + item.label + '</div>';
       grid.appendChild(cell);
     });
+  }
+
+  /* ── Build downloads section ── */
+  function buildDownloads(downloads) {
+    if (!downloads || !downloads.length) return '';
+
+    var h = '<div id="sr-downloads" style="margin-top:48px;font-family:Outfit,system-ui,sans-serif">';
+    h += '<h2 style="font-size:clamp(22px,3vw,28px);font-weight:800;color:'+TD+';letter-spacing:-0.3px;margin-bottom:8px">Downloads</h2>';
+    h += '<div style="width:48px;height:3px;background:'+A+';margin-bottom:24px;border-radius:2px"></div>';
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">';
+
+    downloads.forEach(function(dl) {
+      var ext = (dl.filename || '').split('.').pop().toLowerCase();
+      var icon = (ext === 'pdf') ? IC.pdf : IC.doc;
+      var sizeStr = '';
+      if (dl.file_size) {
+        var mb = dl.file_size / (1024 * 1024);
+        sizeStr = mb >= 1 ? mb.toFixed(1).replace('.', ',') + ' MB' : Math.round(dl.file_size / 1024) + ' KB';
+      }
+
+      h += '<a href="' + dl.url + '" target="_blank" rel="noopener" download';
+      h += ' style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:10px;border:1px solid '+BD+';background:#fff;text-decoration:none;transition:all 0.2s ease;cursor:pointer"';
+      h += ' onmouseenter="this.style.borderColor=\''+A+'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\'"';
+      h += ' onmouseleave="this.style.borderColor=\''+BD+'\';this.style.boxShadow=\'none\'">';
+      h += '<div style="flex-shrink:0;color:'+A+'">' + icon + '</div>';
+      h += '<div style="flex:1;min-width:0">';
+      h += '<div style="font-size:14px;font-weight:600;color:'+TD+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (dl.label || dl.filename) + '</div>';
+      if (sizeStr) h += '<div style="font-size:12px;color:'+TM+';margin-top:2px">' + ext.toUpperCase() + ' · ' + sizeStr + '</div>';
+      h += '</div>';
+      h += '<div style="flex-shrink:0;color:'+TM+';transition:color 0.2s">' + IC.download + '</div>';
+      h += '</a>';
+    });
+
+    h += '</div></div>';
+    return h;
   }
 
   function doInjectDescriptions(propId) {
@@ -784,11 +839,13 @@
 
         var descHtml = buildDescriptions(prop);
         var objektHtml = buildObjektdaten(prop);
-        if (!descHtml && !objektHtml) return;
+        var downloadsHtml = buildDownloads(prop.downloads);
+
+        if (!descHtml && !objektHtml && !downloadsHtml) return;
 
         var wrap = document.createElement('div');
         wrap.id = 'sr-extra-descriptions';
-        wrap.innerHTML = (descHtml || '') + (objektHtml || '');
+        wrap.innerHTML = (descHtml || '') + (objektHtml || '') + (downloadsHtml || '');
 
         /* Find the "Details" h2 and insert before it, or after Beschreibung */
         var h2s = document.querySelectorAll('h2');

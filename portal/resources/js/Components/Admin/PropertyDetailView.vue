@@ -178,6 +178,21 @@ async function uploadExposeFiles(event) {
   toast(files.length + ' Datei(en) hochgeladen');
 }
 
+async function toggleWebsiteDownload(f) {
+  try {
+    const r = await fetch(API.value + '&action=toggle_website_download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_id: f.id }),
+    });
+    const d = await r.json();
+    if (d.success) {
+      f.is_website_download = d.is_website_download;
+      toast(d.is_website_download ? 'Download auf Website aktiviert' : 'Download von Website entfernt');
+    }
+  } catch(e) { console.error('Toggle failed:', e); }
+}
+
 async function runExpose(mode) {
   exposeLoading.value = true;
   exposeMode.value = mode;
@@ -1129,6 +1144,14 @@ async function createAndAssignGroup() {
               <div class="text-sm font-medium text-zinc-700 truncate">{{ f.label || f.filename }}</div>
               <div class="text-xs text-zinc-400 truncate">{{ f.filename }}</div>
             </div>
+            <button v-if="f.source === 'property_files'" @click.prevent.stop="toggleWebsiteDownload(f)"
+              :title="f.is_website_download ? 'Download auf Website aktiv' : 'Auf Website zum Download freigeben'"
+              class="flex-shrink-0 p-1.5 rounded-lg transition-all duration-200"
+              :class="f.is_website_download ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100'">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+            </button>
           </label>
           <div v-if="!exposeFiles.length && !exposeUploading" class="text-sm text-zinc-400 text-center py-4">Noch keine Dateien. Lade Expose, Preisliste etc. hoch.</div>
         </div>

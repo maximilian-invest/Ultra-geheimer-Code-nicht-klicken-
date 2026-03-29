@@ -47,7 +47,8 @@ export default function App() {
     const title = viewTitles[p] || "SR-Homes";
     window.history.pushState({ view: p }, title, path);
     document.title = title + " | SR-Homes";
-    window.scrollTo({ top: 0, behavior: "instant" });
+    // Scroll after React renders the new page
+    requestAnimationFrame(() => window.scrollTo(0, 0));
   }, []);
 
   // Handle browser back/forward
@@ -56,7 +57,7 @@ export default function App() {
       const view = pathToView[window.location.pathname] || "home";
       window._srPopState = true;
       setPage(view);
-      window.scrollTo({ top: 0, behavior: "instant" });
+      requestAnimationFrame(() => window.scrollTo(0, 0));
       setTimeout(() => { window._srPopState = false; }, 100);
     };
     window.addEventListener("popstate", onPop);

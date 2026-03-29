@@ -405,34 +405,43 @@
     if (isDetailPage()) return;
     if (!Object.keys(propData).length) return;
 
-    /* Find ALL stats rows on the page — two card types:
-       Type 1 (dark featured): div.flex.gap-4 with span.text-white/60 ("150 m²", "4 Zi.")
-       Type 2 (light cards):   div.flex.items-center.gap-5.pt-4 with span.text-xs ("74 m²", "2 Zimmer") */
-    var allRows = document.querySelectorAll('div');
-    for (var ri = 0; ri < allRows.length; ri++) {
-      var row = allRows[ri];
+    /* Strategy: find every leaf-span containing "m²" that's inside a listing card,
+       then walk up to the stats row (its parent) and patch it.
+       This is far more robust than matching specific Tailwind class names. */
+    var spans = document.querySelectorAll('span');
+    for (var si = 0; si < spans.length; si++) {
+      var sp = spans[si];
+      var spTxt = sp.textContent.trim();
+      if (spTxt.indexOf('m\u00B2') === -1) continue;
+      /* Must be a short stat like "150 m²" or "74 m²", not a long description */
+      if (spTxt.length > 20) continue;
+
+      /* The stats row is the parent of these spans */
+      var row = sp.parentElement;
+      if (!row || row.tagName !== 'DIV') continue;
       if (row.dataset.srStats === '1') continue;
-      var cl = row.className;
+      /* Skip the detail-page stats grid (it has our injected sr-stats-grid) */
+      if (row.id === 'sr-stats-grid' || row.closest('#sr-stats-grid')) continue;
+      /* Must have a few child spans (the existing stats like "m²", "Zimmer") */
+      if (row.children.length < 1 || row.children.length > 6) continue;
+
+      /* Determine card type: dark (featured) vs light (grid) */
       var isDark = false;
-      var isLight = false;
-
-      if (cl.indexOf('flex') !== -1 && cl.indexOf('gap-4') !== -1 && cl.indexOf('p-4') === -1) {
-        var txt = row.textContent;
-        if ((txt.indexOf('m\u00B2') !== -1 || txt.indexOf('Zi') !== -1) && row.children.length >= 1 && row.children.length <= 4) {
-          isDark = true;
-        }
+      var firstChild = row.querySelector('span');
+      if (firstChild) {
+        var cs = window.getComputedStyle(firstChild);
+        var col = cs.color || '';
+        /* Dark cards have white text (rgba(255,255,255,0.6) or similar) */
+        if (col.indexOf('255') !== -1 && col.indexOf('255') < col.lastIndexOf('255')) isDark = true;
       }
-      if (cl.indexOf('gap-5') !== -1 && cl.indexOf('pt-4') !== -1 && row.children.length >= 1) {
-        isLight = true;
-      }
-      if (!isDark && !isLight) continue;
 
-      /* Walk up to find the card container to get its text for matching */
+      /* Walk up to card container for text matching */
       var card = row;
       for (var up = 0; up < 8; up++) {
         if (!card.parentElement) break;
         card = card.parentElement;
-        if (card.className.indexOf('cursor-pointer') !== -1 || card.className.indexOf('group') !== -1) break;
+        var ccl = card.className || '';
+        if (ccl.indexOf('cursor-pointer') !== -1 || ccl.indexOf('group') !== -1 || ccl.indexOf('hover-lift') !== -1) break;
         if (card.tagName === 'BODY' || card.id === 'root') break;
       }
       var cardText = card.textContent || '';
@@ -462,7 +471,6 @@
       if (!extras.length) { row.dataset.srStats = '1'; continue; }
 
       if (isDark) {
-        /* Dark cards: add span.text-xs with white/60 color */
         extras.forEach(function(ex) {
           var span = document.createElement('span');
           span.className = 'text-xs';
@@ -471,7 +479,6 @@
           row.appendChild(span);
         });
       } else {
-        /* Light cards: add span matching existing style */
         var template = row.querySelector('span');
         extras.forEach(function(ex) {
           var span = document.createElement('span');
@@ -535,6 +542,7 @@
             setTimeout(addAbPrefix, 2500);
             setTimeout(patchListingCardStats, 600);
             setTimeout(patchListingCardStats, 2000);
+            setTimeout(patchListingCardStats, 4000);
             setTimeout(fixListingCardFormatting, 600);
             setTimeout(fixListingCardFormatting, 2000);
           }
@@ -1088,6 +1096,8 @@
       setTimeout(fixListingCardFormatting, 300);
       setTimeout(patchListingCardStats, 1500);
       setTimeout(fixListingCardFormatting, 1500);
+      setTimeout(patchListingCardStats, 3500);
+      setTimeout(patchListingCardStats, 6000);
       setTimeout(check, 500);
     })
     .catch(function(e) { console.error('SR proactive fetch:', e); });

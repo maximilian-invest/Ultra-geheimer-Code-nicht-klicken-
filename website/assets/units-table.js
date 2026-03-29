@@ -355,27 +355,179 @@
     return h;
   }
 
-  /* ── Replace stats grid values with ranges for Neubauprojekte ── */
-  function patchStatsGrid(prop) {
-    if (!prop.area_range && !prop.rooms_range) return;
-    /* The stats grid has class "grid grid-cols-2 sm:grid-cols-4" */
-    var grids = document.querySelectorAll('div[class*="grid-cols-2"][class*="grid-cols-4"]');
-    grids.forEach(function(grid) {
-      var cells = grid.querySelectorAll('div.text-center');
-      cells.forEach(function(cell) {
-        var spans = cell.querySelectorAll('span, p, div');
-        spans.forEach(function(sp) {
-          var t = sp.textContent.trim();
-          /* Replace area value */
-          if (prop.area_range && t.match(/^\d+.*m²$/)) {
-            sp.textContent = prop.area_range;
-          }
-          /* Replace rooms value */
-          if (prop.rooms_range && t.match(/^\d+$/) && parseInt(t) === (prop.rooms || prop.rooms_amount || 0)) {
-            sp.textContent = prop.rooms_range;
-          }
-        });
+  /* ── Build comprehensive Objektdaten section ── */
+  function fmtPrice(v) {
+    if (!v || v <= 0) return null;
+    return Math.round(parseFloat(v)).toLocaleString('de-AT') + ' \u20AC';
+  }
+  function fmtArea(v) {
+    if (!v || parseFloat(v) <= 0) return null;
+    return parseFloat(v).toFixed(0).replace('.', ',') + ' m\u00B2';
+  }
+  function fmtNum(v) {
+    if (!v || parseFloat(v) <= 0) return null;
+    var n = parseFloat(v);
+    return n === Math.floor(n) ? n.toString() : n.toFixed(1).replace('.', ',');
+  }
+
+  function buildObjektdaten(p) {
+    /* Collect all displayable data in categories */
+    var groups = [];
+
+    /* ── Eckdaten ── */
+    var eck = [];
+    if (p.ref_id) eck.push({l:'Objektnummer', v:p.ref_id});
+    if (p.object_type || p.type) eck.push({l:'Objekttyp', v:p.object_type || p.type});
+    if (p.realty_condition || p.condition_note) eck.push({l:'Zustand', v:p.realty_condition || p.condition_note});
+    if (p.quality) eck.push({l:'Qualit\u00E4t', v:p.quality.charAt(0).toUpperCase() + p.quality.slice(1)});
+    if (p.marketing_type) eck.push({l:'Vermarktung', v:p.marketing_type === 'kauf' ? 'Kauf' : p.marketing_type === 'miete' ? 'Miete' : p.marketing_type});
+    if (p.available_text) eck.push({l:'Beziehbar ab', v:p.available_text});
+    else if (p.available_from && p.available_from !== '0000-00-00') eck.push({l:'Beziehbar ab', v:p.available_from});
+    if (eck.length) groups.push({title:'Eckdaten', items:eck});
+
+    /* ── Flächen ── */
+    var fl = [];
+    if (fmtArea(p.living_area)) fl.push({l:'Wohnfl\u00E4che', v:fmtArea(p.living_area)});
+    if (p.area_range) fl.push({l:'Wohnfl\u00E4chen', v:p.area_range});
+    if (fmtArea(p.total_area) && p.total_area != p.living_area) fl.push({l:'Gesamtfl\u00E4che', v:fmtArea(p.total_area)});
+    if (fmtArea(p.free_area)) fl.push({l:'Freifl\u00E4che', v:fmtArea(p.free_area)});
+    if (fmtArea(p.area_garden)) fl.push({l:'Garten', v:fmtArea(p.area_garden)});
+    if (fmtArea(p.area_terrace)) fl.push({l:'Terrasse', v:fmtArea(p.area_terrace)});
+    if (fmtArea(p.area_balcony)) fl.push({l:'Balkon', v:fmtArea(p.area_balcony)});
+    if (fmtArea(p.area_loggia)) fl.push({l:'Loggia', v:fmtArea(p.area_loggia)});
+    if (fmtArea(p.area_basement)) fl.push({l:'Keller', v:fmtArea(p.area_basement)});
+    if (fmtArea(p.area_garage)) fl.push({l:'Garage', v:fmtArea(p.area_garage)});
+    if (fl.length) groups.push({title:'Fl\u00E4chen', items:fl});
+
+    /* ── Zimmer & Aufteilung ── */
+    var zi = [];
+    var roomsVal = p.rooms_range || fmtNum(p.rooms_amount || p.rooms);
+    if (roomsVal) zi.push({l:'Zimmer', v:roomsVal});
+    if (fmtNum(p.bedrooms)) zi.push({l:'Schlafzimmer', v:fmtNum(p.bedrooms)});
+    if (fmtNum(p.bathrooms)) zi.push({l:'Badezimmer', v:fmtNum(p.bathrooms)});
+    if (fmtNum(p.toilets)) zi.push({l:'WC', v:fmtNum(p.toilets)});
+    if (p.floor_number) zi.push({l:'Stockwerk', v:p.floor_number + (p.floor_count ? ' von ' + p.floor_count : '')});
+    else if (fmtNum(p.floor_count)) zi.push({l:'Stockwerke', v:fmtNum(p.floor_count)});
+    if (p.orientation) zi.push({l:'Ausrichtung', v:p.orientation});
+    if (zi.length) groups.push({title:'Zimmer & Aufteilung', items:zi});
+
+    /* ── Ausstattung ── */
+    var au = [];
+    if (p.flooring) au.push({l:'Boden', v:p.flooring});
+    if (p.heating) au.push({l:'Heizung', v:p.heating});
+    if (p.kitchen_type) au.push({l:'K\u00FCche', v:p.kitchen_type === 'offen' ? 'Offene K\u00FCche' : p.kitchen_type});
+    if (p.bathroom_equipment) au.push({l:'Badezimmer', v:p.bathroom_equipment});
+    if (p.furnishing) au.push({l:'M\u00F6blierung', v:p.furnishing});
+    if (p.parking_type) au.push({l:'Stellpl\u00E4tze', v:p.parking_type});
+    else if (fmtNum(p.parking_spaces) || fmtNum(p.garage_spaces)) {
+      var pk = [];
+      if (p.garage_spaces > 0) pk.push(p.garage_spaces + ' Garage');
+      if (p.parking_spaces > 0) pk.push(p.parking_spaces + ' Stellplatz');
+      au.push({l:'Stellpl\u00E4tze', v:pk.join(', ')});
+    }
+    var extras = [];
+    if (p.has_fitted_kitchen) extras.push('Einbauk\u00FCche');
+    if (p.has_air_conditioning) extras.push('Klimaanlage');
+    if (p.has_pool) extras.push('Pool');
+    if (p.has_sauna) extras.push('Sauna');
+    if (p.has_fireplace) extras.push('Kamin');
+    if (p.has_alarm) extras.push('Alarmanlage');
+    if (p.has_barrier_free) extras.push('Barrierefrei');
+    if (p.has_guest_wc) extras.push('G\u00E4ste-WC');
+    if (p.has_storage_room) extras.push('Abstellraum');
+    if (p.has_washing_connection) extras.push('Waschanschluss');
+    if (extras.length) au.push({l:'Extras', v:extras.join(', ')});
+    if (au.length) groups.push({title:'Ausstattung', items:au});
+
+    /* ── Bau & Energie ── */
+    var en = [];
+    if (p.construction_year) en.push({l:'Baujahr', v:p.construction_year});
+    if (p.year_renovated) en.push({l:'Renoviert', v:p.year_renovated});
+    if (p.energy_certificate) en.push({l:'Energieausweis', v:p.energy_certificate});
+    if (p.heating_demand_value) {
+      var hdv = parseFloat(p.heating_demand_value).toFixed(1).replace('.', ',') + ' kWh/m\u00B2a';
+      if (p.heating_demand_class) hdv += ' (Klasse ' + p.heating_demand_class + ')';
+      en.push({l:'Heizw\u00E4rmebedarf', v:hdv});
+    }
+    if (p.energy_efficiency_value) en.push({l:'fGEE', v:parseFloat(p.energy_efficiency_value).toFixed(2).replace('.', ',')});
+    if (p.energy_type) en.push({l:'Energietr\u00E4ger', v:p.energy_type});
+    if (en.length) groups.push({title:'Bau & Energie', items:en});
+
+    /* ── Kosten ── */
+    var ko = [];
+    if (fmtPrice(p.purchase_price)) ko.push({l:'Kaufpreis', v:fmtPrice(p.purchase_price)});
+    if (p.price_range) ko.push({l:'Preisspanne', v:p.price_range});
+    if (fmtPrice(p.price_per_m2)) ko.push({l:'Preis/m\u00B2', v:fmtPrice(p.price_per_m2)});
+    if (fmtPrice(p.operating_costs)) ko.push({l:'Betriebskosten', v:fmtPrice(p.operating_costs) + '/Monat'});
+    if (fmtPrice(p.maintenance_reserves)) ko.push({l:'R\u00FCcklage', v:fmtPrice(p.maintenance_reserves) + '/Monat'});
+    if (p.buyer_commission_percent) ko.push({l:'K\u00E4uferprovision', v:parseFloat(p.buyer_commission_percent).toFixed(1).replace('.', ',') + '% zzgl. USt.'});
+    if (ko.length) groups.push({title:'Kosten', items:ko});
+
+    if (!groups.length) return '';
+
+    /* ── Render ── */
+    var h = '<div id="sr-objektdaten" style="margin-top:48px;font-family:Outfit,system-ui,sans-serif">';
+    h += '<h2 style="font-size:clamp(22px,3vw,28px);font-weight:800;color:'+TD+';letter-spacing:-0.3px;margin-bottom:8px">Objektdaten</h2>';
+    h += '<div style="width:48px;height:3px;background:'+A+';margin-bottom:32px;border-radius:2px"></div>';
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:32px">';
+
+    groups.forEach(function(g) {
+      h += '<div>';
+      h += '<h3 style="font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:'+A+';margin-bottom:16px">'+g.title+'</h3>';
+      g.items.forEach(function(item) {
+        h += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid '+BD+'">';
+        h += '<span style="font-size:14px;color:'+TM+';font-weight:500">'+item.l+'</span>';
+        h += '<span style="font-size:14px;color:'+TD+';font-weight:600;text-align:right;max-width:60%;word-break:break-word">'+item.v+'</span>';
+        h += '</div>';
       });
+      h += '</div>';
+    });
+
+    h += '</div></div>';
+    return h;
+  }
+
+  /* ── Patch stats grid: always 4 items with smart fallbacks ── */
+  function patchStatsGridSmart(prop) {
+    var candidates = [];
+    /* Build prioritized list of stat items */
+    var area = prop.area_range || fmtArea(prop.living_area);
+    if (area) candidates.push({icon:'\uD83D\uDCCF', label:'Wohnfl\u00E4che', value:area});
+    var rooms = prop.rooms_range || fmtNum(prop.rooms_amount || prop.rooms);
+    if (rooms) candidates.push({icon:'\uD83D\uDEAA', label:'Zimmer', value:rooms});
+    if (fmtNum(prop.bathrooms)) candidates.push({icon:'\uD83D\uDEC1', label:'B\u00E4der', value:fmtNum(prop.bathrooms)});
+    if (fmtArea(prop.area_garden)) candidates.push({icon:'\uD83C\uDF33', label:'Garten', value:fmtArea(prop.area_garden)});
+    if (fmtArea(prop.area_terrace)) candidates.push({icon:'\u2600\uFE0F', label:'Terrasse', value:fmtArea(prop.area_terrace)});
+    if (fmtArea(prop.area_balcony)) candidates.push({icon:'\uD83C\uDF05', label:'Balkon', value:fmtArea(prop.area_balcony)});
+    if (fmtArea(prop.area_loggia)) candidates.push({icon:'\uD83C\uDFDB\uFE0F', label:'Loggia', value:fmtArea(prop.area_loggia)});
+    if (prop.parking_spaces > 0 || prop.garage_spaces > 0) {
+      var pv = (parseInt(prop.garage_spaces)||0) + (parseInt(prop.parking_spaces)||0);
+      candidates.push({icon:'\uD83D\uDE97', label:'Stellpl\u00E4tze', value:pv.toString()});
+    }
+    if (prop.construction_year) candidates.push({icon:'\uD83C\uDFD7\uFE0F', label:'Baujahr', value:prop.construction_year.toString()});
+    if (prop.floor_number) candidates.push({icon:'\u2B06\uFE0F', label:'Stockwerk', value:prop.floor_number.toString()});
+    if (prop.energy_certificate) candidates.push({icon:'\u26A1', label:'Energie', value:prop.energy_certificate});
+    if (fmtArea(prop.total_area) && prop.total_area != prop.living_area) candidates.push({icon:'\uD83D\uDCCA', label:'Gesamtfl\u00E4che', value:fmtArea(prop.total_area)});
+
+    if (candidates.length < 1) return;
+
+    /* Always show exactly 4 */
+    while (candidates.length < 4 && candidates.length > 0) candidates.push(candidates[candidates.length-1]);
+    var show = candidates.slice(0, 4);
+
+    /* Find and replace the stats grid */
+    var grids = document.querySelectorAll('div[class*="grid-cols-2"][class*="grid-cols-4"]');
+    if (!grids.length) return;
+    var grid = grids[0];
+    grid.innerHTML = '';
+    show.forEach(function(item) {
+      var cell = document.createElement('div');
+      cell.className = 'text-center';
+      cell.innerHTML =
+        '<div style="font-size:22px;margin-bottom:6px">' + item.icon + '</div>' +
+        '<div style="font-size:20px;font-weight:700;color:'+TD+';margin-bottom:2px">' + item.value + '</div>' +
+        '<div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:'+TM+'">' + item.label + '</div>';
+      grid.appendChild(cell);
     });
   }
 
@@ -390,11 +542,9 @@
         if(!d.success||!d.property) return;
         var prop = d.property;
 
-        /* Patch stats grid with ranges for Neubauprojekte */
-        if (prop.area_range || prop.rooms_range) {
-          setTimeout(function(){ patchStatsGrid(prop); }, 300);
-          setTimeout(function(){ patchStatsGrid(prop); }, 1500);
-        }
+        /* Patch stats grid — always 4 smart items */
+        setTimeout(function(){ patchStatsGridSmart(prop); }, 300);
+        setTimeout(function(){ patchStatsGridSmart(prop); }, 1500);
 
         /* Init lightbox and attach to gallery images */
         initLightbox();
@@ -410,25 +560,36 @@
           setTimeout(function(){ attachGalleryClicks(allUrls); }, 2000);
         }
 
-        var html = buildDescriptions(prop);
-        if(!html) return;
+        var descHtml = buildDescriptions(prop);
+        var objektHtml = buildObjektdaten(prop);
+        if (!descHtml && !objektHtml) return;
 
         var wrap = document.createElement('div');
         wrap.id = 'sr-extra-descriptions';
-        wrap.innerHTML = html;
+        wrap.innerHTML = (descHtml || '') + (objektHtml || '');
 
-        /* Find the "Beschreibung" h2 and its text paragraph, insert after them */
+        /* Find the "Details" h2 and insert before it, or after Beschreibung */
         var h2s = document.querySelectorAll('h2');
+        var detailsH2 = null;
         var beschreibungP = null;
         for (var i = 0; i < h2s.length; i++) {
-          if (h2s[i].textContent.trim() === 'Beschreibung') {
-            /* The description text is the next sibling (a <p> tag) */
-            beschreibungP = h2s[i].nextElementSibling;
-            break;
-          }
+          var txt = h2s[i].textContent.trim();
+          if (txt === 'Beschreibung') beschreibungP = h2s[i].nextElementSibling;
+          if (txt === 'Details' && !h2s[i].closest('#sr-extra-descriptions') && !h2s[i].closest('#sr-units-section')) detailsH2 = h2s[i];
         }
 
-        if (beschreibungP) {
+        /* Hide the old sparse "Details" section from React */
+        if (detailsH2) {
+          /* Hide the Details h2 and all siblings until next h2 or end */
+          var el = detailsH2;
+          while (el) {
+            var next = el.nextElementSibling;
+            el.style.display = 'none';
+            if (next && (next.tagName === 'H2' || next.id === 'sr-extra-descriptions')) break;
+            el = next;
+          }
+          detailsH2.parentNode.insertBefore(wrap, detailsH2);
+        } else if (beschreibungP) {
           beschreibungP.parentNode.insertBefore(wrap, beschreibungP.nextSibling);
         }
 

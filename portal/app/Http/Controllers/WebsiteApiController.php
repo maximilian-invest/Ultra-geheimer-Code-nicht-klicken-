@@ -68,30 +68,34 @@ class WebsiteApiController extends Controller
                     }
                 }
 
-                // Gallery images
+                // Gallery images — combine all sources
+                $galleryUrls = [];
                 $galleryIds = json_decode($p->website_gallery_ids ?? '[]', true);
                 if (!empty($galleryIds)) {
-                    $p->gallery_urls = array_map(fn($id) => url("/api/website/image/{$id}"), $galleryIds);
-                } else {
-                    // Fallback: all images from property_images (PropertyEditor uploads)
-                    $piImages = DB::table('property_images')
-                        ->where('property_id', $p->id)
-                        ->where('is_public', 1)
-                        ->orderByDesc('is_title_image')
-                        ->orderBy('sort_order')
-                        ->pluck('path');
-                    if ($piImages->count()) {
-                        $p->gallery_urls = $piImages->map(fn($path) => url('/storage/' . $path))->toArray();
-                    } else {
-                        // Final fallback: property_files
-                        $pfImages = DB::table('property_files')
-                            ->where('property_id', $p->id)
-                            ->where('mime_type', 'like', 'image/%')
-                            ->orderBy('sort_order')
-                            ->pluck('id');
-                        $p->gallery_urls = $pfImages->map(fn($id) => url("/api/website/image/{$id}"))->toArray();
-                    }
+                    $galleryUrls = array_map(fn($id) => url("/api/website/image/{$id}"), $galleryIds);
                 }
+                // Add property_images (PropertyEditor uploads)
+                $piImages = DB::table('property_images')
+                    ->where('property_id', $p->id)
+                    ->where('is_public', 1)
+                    ->orderByDesc('is_title_image')
+                    ->orderBy('sort_order')
+                    ->pluck('path');
+                foreach ($piImages as $path) {
+                    $url = url('/storage/' . $path);
+                    if (!in_array($url, $galleryUrls)) $galleryUrls[] = $url;
+                }
+                // Add property_files
+                $pfImages = DB::table('property_files')
+                    ->where('property_id', $p->id)
+                    ->where('mime_type', 'like', 'image/%')
+                    ->orderBy('sort_order')
+                    ->pluck('id');
+                foreach ($pfImages as $fid) {
+                    $url = url("/api/website/image/{$fid}");
+                    if (!in_array($url, $galleryUrls)) $galleryUrls[] = $url;
+                }
+                $p->gallery_urls = $galleryUrls;
 
                 // Units for Neubauprojekt — compute ranges from units
                 if (stripos($p->type, 'Neubauprojekt') !== false || $p->total_units > 0) {
@@ -219,20 +223,27 @@ class WebsiteApiController extends Controller
             $p->main_image_url = $titleImg ? url('/storage/' . $titleImg->path) : null;
         }
 
-        if ($piImages->count()) {
-            $p->images = $piImages;
-        } else {
-            $p->images = DB::table('property_files')
-                ->where('property_id', $id)
-                ->where('mime_type', 'like', 'image/%')
-                ->orderBy('sort_order')
-                ->get()
-                ->map(fn($f) => [
-                    'id' => $f->id,
-                    'label' => $f->label,
-                    'url' => url("/api/website/image/{$f->id}"),
-                ]);
-        }
+        // Combine both image sources (property_images + property_files)
+        $pfImages = DB::table('property_files')
+            ->where('property_id', $id)
+            ->where('mime_type', 'like', 'image/%')
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn($f) => [
+                'id' => 'pf_' . $f->id,
+                'label' => $f->label ?? '',
+                'url' => url("/api/website/image/{$f->id}"),
+                'is_title' => false,
+            ]);
+
+        $allImages = $piImages->concat($pfImages);
+        // Deduplicate by URL
+        $seen = [];
+        $p->images = $allImages->filter(function($img) use (&$seen) {
+            if (in_array($img['url'], $seen)) return false;
+            $seen[] = $img['url'];
+            return true;
+        })->values();
         // Units for development projects
         $units = DB::table("property_units")
             ->where("property_id", $id)

@@ -1,5 +1,5 @@
 /**
- * SR-Homes Units Table v6 — Serhant-Style
+ * SR-Homes Units Table v7 — Serhant-Style
  * - Full image gallery lightbox with navigation for ALL properties
  * - Injects extra descriptions (Lage, Ausstattung) for ALL properties
  * - Injects units table for Neubauprojekte
@@ -25,6 +25,8 @@
   var propMap = {};
   var propCategoryMap = {};
   var newbuildProps = {};
+  var propHighlights = {};
+  var propFeatures = {};
 
   /* ══════════════════════════════════════════════
      LIGHTBOX — Full gallery with prev/next
@@ -151,19 +153,62 @@
     if (document.getElementById('sr-gallery-nav')) return;
     if (allImageUrls.length <= 1) return;
 
-    /* Find the gallery section — first section with images */
-    var sections = document.querySelectorAll('section');
+    /* Find the gallery container — search broadly, React may not use <section> */
     var gallerySection = null;
-    for (var i = 0; i < sections.length; i++) {
-      if (sections[i].querySelector('img') && !sections[i].querySelector('h2')) {
-        gallerySection = sections[i]; break;
+
+    /* Strategy 1: find large property images and walk up to their common container */
+    var allImgs = document.querySelectorAll('img');
+    var galleryImgs = [];
+    for (var gi = 0; gi < allImgs.length; gi++) {
+      var im = allImgs[gi];
+      if (im.closest('#sr-units-section') || im.closest('#sr-extra-descriptions') || im.closest('#sr-objektdaten') || im.closest('#sr-lightbox') || im.closest('nav') || im.closest('footer')) continue;
+      var r = im.getBoundingClientRect();
+      if (r.width > 200 && r.height > 100) {
+        var src = im.src || '';
+        if (src.indexOf('property') !== -1 || src.indexOf('image/') !== -1 || src.indexOf('storage/') !== -1) {
+          galleryImgs.push(im);
+        }
       }
     }
+    if (galleryImgs.length > 0) {
+      /* Walk up from the first gallery image to find the wrapping container */
+      var el = galleryImgs[0].parentElement;
+      for (var up = 0; up < 8 && el; up++) {
+        /* Good container: contains gallery images and is reasonably large */
+        var elImgs = el.querySelectorAll('img');
+        var elR = el.getBoundingClientRect();
+        if (elImgs.length >= galleryImgs.length && elR.height > 200) {
+          /* Don't go too high — stop if we hit body, main, or root */
+          if (el.tagName === 'BODY' || el.tagName === 'MAIN' || el.id === 'root') break;
+          gallerySection = el;
+          /* Keep walking up 1 more level if it's a direct wrapper (section/div) */
+          if (el.parentElement && el.parentElement.tagName !== 'BODY' && el.parentElement.tagName !== 'MAIN' && el.parentElement.id !== 'root') {
+            var parentImgs = el.parentElement.querySelectorAll('img');
+            var parentH2s = el.parentElement.querySelectorAll('h2');
+            /* Stop if parent has h2s (that's the content section, too high) */
+            if (parentH2s.length === 0 && parentImgs.length <= galleryImgs.length + 2) {
+              gallerySection = el.parentElement;
+            }
+          }
+          break;
+        }
+        el = el.parentElement;
+      }
+    }
+
+    /* Strategy 2: find by the "1 / X" counter badge */
     if (!gallerySection) {
-      /* Fallback: find the grid that contains the gallery */
-      var grids = document.querySelectorAll('div[class*="grid"][class*="lg:grid-cols-3"]');
-      for (var j = 0; j < grids.length; j++) {
-        if (grids[j].querySelector('img')) { gallerySection = grids[j].closest('section'); break; }
+      var badges = document.querySelectorAll('div');
+      for (var bi = 0; bi < badges.length; bi++) {
+        if (/^\d+\s*\/\s*\d+$/.test(badges[bi].textContent.trim())) {
+          /* Walk up a few levels to find a reasonable container */
+          var parent = badges[bi].parentElement;
+          for (var pu = 0; pu < 5 && parent; pu++) {
+            if (parent.querySelectorAll('img').length >= 1) { gallerySection = parent; break; }
+            parent = parent.parentElement;
+          }
+          if (gallerySection) break;
+        }
       }
     }
     if (!gallerySection) return;
@@ -347,6 +392,75 @@
     return h;
   }
 
+  /* ── Inject highlights/features on listing overview cards ── */
+  function injectListingHighlights() {
+    if (isDetailPage()) return;
+    /* Find all listing cards — they are typically <a> or <div> with links to property details */
+    var cards = document.querySelectorAll('a[href*="/immobilien/"], a[href*="/property/"], a[href*="/objekt/"]');
+    if (!cards.length) {
+      /* Fallback: look for cards containing property images and price text */
+      cards = document.querySelectorAll('[class*="group"]');
+    }
+    cards.forEach(function(card) {
+      if (card.dataset.srHighlights === '1') return;
+      /* Find the property ID for this card by matching text content */
+      var cardText = card.textContent || '';
+      var matchedId = null;
+      var keys = Object.keys(propMap);
+      for (var ki = 0; ki < keys.length; ki++) {
+        /* Match by ref_id or project_name found in the card text */
+        if (cardText.indexOf(keys[ki]) !== -1 && propMap[keys[ki]]) {
+          matchedId = propMap[keys[ki]];
+          break;
+        }
+      }
+      /* Also try matching by href */
+      if (!matchedId) {
+        var href = card.getAttribute('href') || '';
+        var hrefMatch = href.match(/\/(\d+)(?:\/|$)/);
+        if (hrefMatch) {
+          var hid = parseInt(hrefMatch[1]);
+          if (propHighlights[hid] || propFeatures[hid]) matchedId = hid;
+        }
+      }
+      if (!matchedId) return;
+
+      var highlights = propHighlights[matchedId];
+      var features = propFeatures[matchedId];
+      if (!highlights && (!features || !features.length)) return;
+
+      /* Build tags */
+      var tags = [];
+      if (features && features.length) {
+        features.forEach(function(f) { if (tags.length < 6) tags.push(f); });
+      }
+      if (highlights && typeof highlights === 'string') {
+        /* Split highlights by common delimiters */
+        var parts = highlights.split(/[,;\n|•·–—]+/).map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 0 && s.length < 40; });
+        parts.forEach(function(p) { if (tags.length < 6 && tags.indexOf(p) === -1) tags.push(p); });
+      }
+      if (!tags.length) return;
+
+      /* Find insertion point — look for the subtitle or price element at bottom of card */
+      var tagsContainer = document.createElement('div');
+      tagsContainer.className = 'sr-highlight-tags';
+      tagsContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:8px;padding:0 2px';
+      tags.forEach(function(tag) {
+        var chip = document.createElement('span');
+        chip.style.cssText = 'display:inline-block;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.3px;background:'+BG+';color:'+TM+';border:1px solid '+BD+';font-family:Outfit,system-ui,sans-serif;white-space:nowrap';
+        chip.textContent = tag;
+        tagsContainer.appendChild(chip);
+      });
+
+      /* Insert at the bottom of the card content area */
+      var textContainer = card.querySelector('div > div:last-child') || card.querySelector('div');
+      if (textContainer) {
+        textContainer.appendChild(tagsContainer);
+      }
+      card.dataset.srHighlights = '1';
+    });
+  }
+
   /* ── "ab" prefix for listing cards ── */
   function addAbPrefix() {
     var keys = Object.keys(newbuildProps);
@@ -386,12 +500,16 @@
               propMap[p.ref_id] = p.id;
               if (p.project_name) propMap[p.project_name] = p.id;
               propCategoryMap[p.id] = p.property_category;
+              if (p.highlights) propHighlights[p.id] = p.highlights;
+              if (p.features && p.features.length) propFeatures[p.id] = p.features;
               if (p.property_category === 'newbuild') {
                 newbuildProps[p.project_name || p.ref_id] = { id: p.id, price: p.price };
               }
             });
             setTimeout(addAbPrefix, 800);
             setTimeout(addAbPrefix, 2500);
+            setTimeout(injectListingHighlights, 1000);
+            setTimeout(injectListingHighlights, 3000);
           }
         }).catch(function(){});
       }
@@ -838,6 +956,7 @@
       var oldNav = document.getElementById('sr-gallery-nav');
       if(oldNav) oldNav.remove();
       if(Object.keys(newbuildProps).length > 0) addAbPrefix();
+      injectListingHighlights();
     }
   }
 

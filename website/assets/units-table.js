@@ -253,12 +253,14 @@
     descriptionsInjected = false;
     /* Determine target view: from state or from URL path */
     var targetView = (state && state.srView) ? state.srView : getViewFromPath();
+    window._srPopState = true;
     srPoppingState = true;
     srCurrentView = targetView;
     document.title = viewTitles[targetView] || viewTitles['home'];
-    clickNavButton(targetView);
+    /* Do NOT clickNavButton — the React bundle's popstate handler already updates state.
+       Clicking the nav button would trigger pushState again, corrupting the history stack. */
     /* Reset flag after React has time to re-render */
-    setTimeout(function() { srPoppingState = false; }, 600);
+    setTimeout(function() { srPoppingState = false; window._srPopState = false; }, 600);
     setTimeout(check, 800);
   });
 

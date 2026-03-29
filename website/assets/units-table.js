@@ -222,127 +222,6 @@
     });
   }
 
-  /* ── Gallery navigation arrows below the gallery ── */
-  function injectGalleryNav(allImageUrls) {
-    if (document.getElementById('sr-gallery-nav')) return;
-    if (allImageUrls.length <= 1) return;
-
-    /* Find gallery images in the DOM */
-    var allImgs = document.querySelectorAll('img');
-    var galleryImgs = [];
-    for (var gi = 0; gi < allImgs.length; gi++) {
-      var im = allImgs[gi];
-      if (im.closest('#sr-units-section') || im.closest('#sr-extra-descriptions') || im.closest('#sr-objektdaten') || im.closest('#sr-lightbox') || im.closest('#sr-gallery-nav') || im.closest('nav') || im.closest('footer')) continue;
-      var r = im.getBoundingClientRect();
-      if (r.width < 150 || r.height < 80) continue;
-      var src = im.src || '';
-      if (src.indexOf('property') !== -1 || src.indexOf('image/') !== -1 || src.indexOf('storage/') !== -1) {
-        galleryImgs.push(im);
-      }
-    }
-    if (!galleryImgs.length) return;
-
-    /* Find the "Beschreibung" h2 — gallery ends before it */
-    var beschreibungH2 = null;
-    var h2s = document.querySelectorAll('h2');
-    for (var hi = 0; hi < h2s.length; hi++) {
-      if (h2s[hi].textContent.trim() === 'Beschreibung') { beschreibungH2 = h2s[hi]; break; }
-    }
-    /* Insert nav right before Beschreibung's parent container */
-    var insertBefore = beschreibungH2;
-    if (!insertBefore) return;
-    /* Walk up to find the section-level parent (the container that holds Beschreibung + Details) */
-    var insertParent = insertBefore.parentElement;
-    if (!insertParent) return;
-
-    var currentIdx = 0;
-    /* Use the first (largest) gallery image as the main swappable image */
-    var mainImg = galleryImgs[0];
-
-    var nav = document.createElement('div');
-    nav.id = 'sr-gallery-nav';
-    nav.style.cssText = 'max-width:1440px;margin:0 auto;padding:16px 64px 24px;display:flex;align-items:center;justify-content:space-between;font-family:Outfit,system-ui,sans-serif';
-
-    var btnStyle = 'background:'+TD+';color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:18px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s ease;opacity:0.8';
-
-    /* Only show dots if <= 10 images, otherwise just counter */
-    var showDots = allImageUrls.length <= 10;
-
-    nav.innerHTML =
-      '<button id="sr-gal-prev" style="'+btnStyle+'">\u2039</button>' +
-      '<div style="display:flex;align-items:center;gap:12px">' +
-        '<span id="sr-gal-counter" style="font-size:13px;font-weight:600;color:'+TD+';letter-spacing:0.5px">1 / '+allImageUrls.length+'</span>' +
-        (showDots ? '<div id="sr-gal-dots" style="display:flex;gap:5px"></div>' : '') +
-        '<button id="sr-gal-expand" style="background:none;border:1.5px solid '+BD+';color:'+TD+';padding:5px 14px;border-radius:100px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all 0.2s">Alle anzeigen</button>' +
-      '</div>' +
-      '<button id="sr-gal-next" style="'+btnStyle+'">\u203A</button>';
-
-    /* Insert before the Beschreibung heading */
-    insertParent.insertBefore(nav, insertBefore);
-
-    /* Dots */
-    if (showDots) {
-      var dotsEl = document.getElementById('sr-gal-dots');
-      allImageUrls.forEach(function(_, di) {
-        var dot = document.createElement('div');
-        dot.style.cssText = 'width:7px;height:7px;border-radius:50%;background:'+(di===0?A:BD)+';transition:all 0.3s;cursor:pointer';
-        dot.dataset.idx = di;
-        dot.addEventListener('click', function() { goTo(parseInt(this.dataset.idx)); });
-        dotsEl.appendChild(dot);
-      });
-    }
-
-    function updateDots() {
-      if (!showDots) return;
-      var dotsEl = document.getElementById('sr-gal-dots');
-      if (!dotsEl) return;
-      var dots = dotsEl.children;
-      for (var d = 0; d < dots.length; d++) {
-        dots[d].style.background = (d === currentIdx) ? A : BD;
-        dots[d].style.transform = (d === currentIdx) ? 'scale(1.3)' : 'scale(1)';
-      }
-    }
-
-    function goTo(idx) {
-      if (idx < 0) idx = allImageUrls.length - 1;
-      if (idx >= allImageUrls.length) idx = 0;
-      currentIdx = idx;
-
-      /* Update ALL visible gallery images by swapping src */
-      if (mainImg) {
-        mainImg.style.opacity = '0.5';
-        mainImg.style.transition = 'opacity 0.3s ease';
-        setTimeout(function() {
-          mainImg.src = allImageUrls[currentIdx];
-          mainImg.onload = function() { mainImg.style.opacity = '1'; };
-        }, 150);
-      }
-
-      document.getElementById('sr-gal-counter').textContent = (currentIdx + 1) + ' / ' + allImageUrls.length;
-      updateDots();
-    }
-
-    document.getElementById('sr-gal-prev').addEventListener('click', function() { goTo(currentIdx - 1); });
-    document.getElementById('sr-gal-next').addEventListener('click', function() { goTo(currentIdx + 1); });
-    document.getElementById('sr-gal-expand').addEventListener('click', function() {
-      if (window._srOpenLightbox) window._srOpenLightbox(allImageUrls, currentIdx);
-    });
-
-    /* Hover effects */
-    ['sr-gal-prev','sr-gal-next'].forEach(function(id) {
-      var el = document.getElementById(id);
-      el.addEventListener('mouseenter', function() { this.style.opacity = '1'; this.style.background = A; });
-      el.addEventListener('mouseleave', function() { this.style.opacity = '0.8'; this.style.background = TD; });
-    });
-    var expandBtn = document.getElementById('sr-gal-expand');
-    expandBtn.addEventListener('mouseenter', function() { this.style.borderColor = A; this.style.color = A; });
-    expandBtn.addEventListener('mouseleave', function() { this.style.borderColor = BD; this.style.color = TD; });
-
-    /* Responsive: adjust padding on mobile */
-    if (window.innerWidth < 768) {
-      nav.style.padding = '12px 16px 16px';
-    }
-  }
 
   function fmt(p) {
     if (!p || p <= 0) return '\u2014';
@@ -925,8 +804,8 @@
           });
         }
         if (allUrls.length > 0) {
-          setTimeout(function(){ attachGalleryClicks(allUrls); injectGalleryNav(allUrls); }, 500);
-          setTimeout(function(){ attachGalleryClicks(allUrls); injectGalleryNav(allUrls); }, 2000);
+          setTimeout(function(){ attachGalleryClicks(allUrls); }, 500);
+          setTimeout(function(){ attachGalleryClicks(allUrls); }, 2000);
         }
 
         var descHtml = buildDescriptions(prop);
@@ -1111,8 +990,6 @@
         if(oldLb) oldLb.remove();
         lightboxInjected = false;
       }
-      var oldNav = document.getElementById('sr-gallery-nav');
-      if(oldNav) oldNav.remove();
       if(Object.keys(newbuildProps).length > 0) addAbPrefix();
       fixListingCardFormatting();
       patchListingCardStats();

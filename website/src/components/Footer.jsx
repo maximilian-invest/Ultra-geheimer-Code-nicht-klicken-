@@ -63,8 +63,8 @@ export const Footer = ({ setPage, t, cms = DEFAULT_CMS, logos }) => {
           {(cms.legal && cms.legal.company_name) || "SR-Homes GmbH"} | {(cms.legal && cms.legal.fn_number) || "FN 4556571 i"} | {(cms.legal && cms.legal.uid_number) || "ATU 71268923"} | {(cms.legal && cms.legal.trade_license) || "Konzessionierter Immobilientreuhänder"}
         </span>
         <span className="text-xs text-white/20 flex gap-3">
-          <button onClick={() => setPage("impressum")} className="hover:text-white/50 transition-colors underline">Impressum</button>
-          <button onClick={() => setPage("datenschutz")} className="hover:text-white/50 transition-colors underline">Datenschutz</button>
+          <button onClick={() => setPage("impressum")} className="cursor-pointer text-white/40 hover:text-white/70 transition-colors underline">Impressum</button>
+          <button onClick={() => setPage("datenschutz")} className="cursor-pointer text-white/40 hover:text-white/70 transition-colors underline">Datenschutz</button>
           <span>© 2026 SR-Homes</span>
         </span>
       </div>

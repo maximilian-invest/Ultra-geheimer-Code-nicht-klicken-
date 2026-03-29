@@ -48,12 +48,13 @@
   var viewToPath = {
     'home': '/', 'immobilien': '/immobilien', 'verkaufen': '/verkaufen',
     'bewerten': '/bewerten', 'portal': '/kundenportal', 'über': '/ueber-uns',
-    'kontakt': '/kontakt', 'detail': '/immobilien'
+    'kontakt': '/kontakt', 'detail': '/immobilien',
+    'impressum': '/impressum', 'datenschutz': '/datenschutz'
   };
   var pathToView = {
     '/': 'home', '/immobilien': 'immobilien', '/verkaufen': 'verkaufen',
     '/bewerten': 'bewerten', '/kundenportal': 'portal', '/ueber-uns': 'über',
-    '/kontakt': 'kontakt'
+    '/kontakt': 'kontakt', '/impressum': 'impressum', '/datenschutz': 'datenschutz'
   };
 
   /* Title map for <title> tag */
@@ -65,7 +66,9 @@
     'portal': 'Kundenportal | SR-Homes',
     'über': 'Über uns | SR-Homes',
     'kontakt': 'Kontakt | SR-Homes',
-    'detail': 'Immobilie | SR-Homes'
+    'detail': 'Immobilie | SR-Homes',
+    'impressum': 'Impressum | SR-Homes',
+    'datenschutz': 'Datenschutz | SR-Homes'
   };
 
   function getPathForView(view) {

@@ -30,6 +30,7 @@ const sections = [
   { key: "testimonial", label: "Referenzen", icon: Star },
   { key: "seo", label: "SEO", icon: Globe },
   { key: "branding", label: "Branding", icon: Sparkles },
+  { key: "legal", label: "Rechtliches", icon: Shield },
 ];
 
 // ── Load ──────────────────────────────────────────────
@@ -747,6 +748,96 @@ async function deleteEntry(section, key) {
             </div>
             <div class="mt-6 flex justify-end">
               <button @click="saveSection('branding')" :disabled="saving"
+                class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-zinc-900 text-white hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-40 transition-all">
+                <Save class="w-4 h-4" /> Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ LEGAL (Impressum & Datenschutz) ═══ -->
+        <div v-if="activeSection === 'legal'" class="space-y-5">
+          <div class="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
+            <h2 class="text-base font-bold text-[var(--foreground)] mb-5 flex items-center gap-2">
+              <Shield class="w-4.5 h-4.5 text-[var(--accent)]" /> Impressum
+            </h2>
+            <p class="text-xs text-[var(--muted-foreground)] mb-3">Wird auf der Website unter /impressum angezeigt. HTML erlaubt.</p>
+            <div class="space-y-4">
+              <div>
+                <label class="text-xs font-semibold text-[var(--muted-foreground)] mb-1.5 block">Firmenname</label>
+                <input type="text" :value="g('legal','company_name')" @input="s('legal','company_name',$event.target.value)"
+                  placeholder="SR-Homes Immobilien GmbH"
+                  class="w-full px-4 py-2.5 rounded-xl text-sm bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] focus:border-[var(--accent)] outline-none transition-all" />
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="text-xs font-semibold text-[var(--muted-foreground)] mb-1.5 block">FN (Firmenbuchnummer)</label>
+                  <input type="text" :value="g('legal','fn_number')" @input="s('legal','fn_number',$event.target.value)"
+                    placeholder="FN 4556571 i"
+                    class="w-full px-4 py-2.5 rounded-xl text-sm bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] focus:border-[var(--accent)] outline-none transition-all" />
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-[var(--muted-foreground)] mb-1.5 block">UID-Nr.</label>
+                  <input type="text" :value="g('legal','uid_number')" @input="s('legal','uid_number',$event.target.value)"
+                    placeholder="ATU 71268923"
+                    class="w-full px-4 py-2.5 rounded-xl text-sm bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] focus:border-[var(--accent)] outline-none transition-all" />
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="text-xs font-semibold text-[var(--muted-foreground)] mb-1.5 block">Geschäftsführer</label>
+                  <input type="text" :value="g('legal','ceo_name')" @input="s('legal','ceo_name',$event.target.value)"
+                    class="w-full px-4 py-2.5 rounded-xl text-sm bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] focus:border-[var(--accent)] outline-none transition-all" />
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-[var(--muted-foreground)] mb-1.5 block">Firmenbuchgericht</label>
+                  <input type="text" :value="g('legal','court')" @input="s('legal','court',$event.target.value)"
+                    placeholder="Landesgericht Salzburg"
+                    class="w-full px-4 py-2.5 rounded-xl text-sm bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] focus:border-[var(--accent)] outline-none transition-all" />
+                </div>
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-[var(--muted-foreground)] mb-1.5 block">Gewerbe / Berechtigung</label>
+                <input type="text" :value="g('legal','trade_license')" @input="s('legal','trade_license',$event.target.value)"
+                  placeholder="Konzessionierter Immobilientreuhänder"
+                  class="w-full px-4 py-2.5 rounded-xl text-sm bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] focus:border-[var(--accent)] outline-none transition-all" />
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-[var(--muted-foreground)] mb-1.5 block">Aufsichtsbehörde</label>
+                <input type="text" :value="g('legal','authority')" @input="s('legal','authority',$event.target.value)"
+                  placeholder="Magistrat der Stadt Salzburg"
+                  class="w-full px-4 py-2.5 rounded-xl text-sm bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] focus:border-[var(--accent)] outline-none transition-all" />
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-[var(--muted-foreground)] mb-1.5 block">Zusätzlicher Impressum-Text (HTML)</label>
+                <textarea :value="g('legal','impressum_extra')" @input="s('legal','impressum_extra',$event.target.value)" rows="6"
+                  placeholder="Weitere rechtliche Hinweise, Haftungsausschluss, etc."
+                  class="w-full px-4 py-2.5 rounded-xl text-sm bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] resize-y focus:border-[var(--accent)] outline-none transition-all font-mono" />
+              </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+              <button @click="saveSection('legal')" :disabled="saving"
+                class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-zinc-900 text-white hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-40 transition-all">
+                <Save class="w-4 h-4" /> Speichern
+              </button>
+            </div>
+          </div>
+
+          <div class="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
+            <h2 class="text-base font-bold text-[var(--foreground)] mb-5 flex items-center gap-2">
+              <Lock class="w-4.5 h-4.5 text-[var(--accent)]" /> Datenschutzerklärung
+            </h2>
+            <p class="text-xs text-[var(--muted-foreground)] mb-3">Wird auf der Website unter /datenschutz angezeigt. HTML erlaubt.</p>
+            <div class="space-y-4">
+              <div>
+                <label class="text-xs font-semibold text-[var(--muted-foreground)] mb-1.5 block">Datenschutzerklärung (HTML)</label>
+                <textarea :value="g('legal','datenschutz_html')" @input="s('legal','datenschutz_html',$event.target.value)" rows="20"
+                  placeholder="Vollständige Datenschutzerklärung hier einfügen..."
+                  class="w-full px-4 py-2.5 rounded-xl text-sm bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] resize-y focus:border-[var(--accent)] outline-none transition-all font-mono" />
+              </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+              <button @click="saveSection('legal')" :disabled="saving"
                 class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-zinc-900 text-white hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-40 transition-all">
                 <Save class="w-4 h-4" /> Speichern
               </button>

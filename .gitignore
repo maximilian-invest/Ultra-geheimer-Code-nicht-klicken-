@@ -43,3 +43,4 @@ portal/.phpunit.result.cache
 portal/.phpunit.cache
 portal/auth.json
 portal/storage/legacy_src/
+.claude-flow/

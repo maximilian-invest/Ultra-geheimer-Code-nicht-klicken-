@@ -30,8 +30,8 @@ class WebsiteApiController extends Controller
                 ->select([
                     'id', 'ref_id', 'project_name', 'address', 'city', 'zip',
                     'object_type as type', 'property_category', 'realty_status', 'purchase_price as price',
-                    'living_area', 'free_area', 'total_area', 'rooms_amount',
-                    'construction_year', 'year_renovated', 'realty_description as description', 'highlights',
+                    'living_area as area_living', 'free_area', 'total_area', 'rooms_amount as rooms', 'bathrooms',
+                    'construction_year as year_built', 'year_renovated', 'realty_description as description', 'highlights',
                     'main_image_id', 'website_gallery_ids',
                     'total_units', 'energy_certificate', 'heating_demand_value',
                     'garage_spaces', 'parking_spaces', 'has_basement',
@@ -161,6 +161,11 @@ class WebsiteApiController extends Controller
         $p->description = $p->realty_description ?? null;
         $p->type = $p->object_type ?? null;
         $p->price = $p->purchase_price ?? null;
+        $p->area_living = $p->living_area ?? null;
+        $p->rooms = $p->rooms_amount ?? 0;
+        $p->year_built = $p->construction_year ?? null;
+        $p->location_description = $p->location_description ?? null;
+        $p->equipment_description = $p->equipment_description ?? null;
 
         // Features array from boolean fields
         $features = [];

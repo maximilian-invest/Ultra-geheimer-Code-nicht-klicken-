@@ -398,179 +398,68 @@
     }
   }
 
-  /* ── Inject highlights on listing overview cards (Immobilien page only, NOT homepage) ── */
-  function injectListingHighlights() {
-    if (isDetailPage()) return;
-    /* Only run on /immobilien listing page, skip homepage */
-    var path = window.location.pathname;
-    if (path === '/' || path === '') return;
-
-    var cards = document.querySelectorAll('a[href*="/immobilien/"], a[href*="/property/"], a[href*="/objekt/"]');
-    if (!cards.length) cards = document.querySelectorAll('[class*="group"]');
-
-    cards.forEach(function(card) {
-      if (card.dataset.srHighlights === '1') return;
-      var cardText = card.textContent || '';
-      var matchedId = null;
-      var keys = Object.keys(propMap);
-      for (var ki = 0; ki < keys.length; ki++) {
-        if (cardText.indexOf(keys[ki]) !== -1 && propMap[keys[ki]]) {
-          matchedId = propMap[keys[ki]];
-          break;
-        }
-      }
-      if (!matchedId) {
-        var href = card.getAttribute('href') || '';
-        var hrefMatch = href.match(/\/(\d+)(?:\/|$)/);
-        if (hrefMatch) {
-          var hid = parseInt(hrefMatch[1]);
-          if (propHighlights[hid]) matchedId = hid;
-        }
-      }
-      if (!matchedId) return;
-
-      var highlights = propHighlights[matchedId];
-      var features = propFeatures[matchedId];
-      if (!highlights && (!features || !features.length)) return;
-
-      /* Parse highlights — handle both JSON array and comma-separated string */
-      var tags = [];
-      if (highlights) {
-        var hlArr = [];
-        if (typeof highlights === 'string') {
-          if (highlights.charAt(0) === '[') {
-            try { hlArr = JSON.parse(highlights); } catch(e) {}
-          }
-          if (!hlArr.length) {
-            hlArr = highlights.split(/[,;\n|•·–—]+/).map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 2 && s.length < 50; });
-          }
-        } else if (Array.isArray(highlights)) {
-          hlArr = highlights;
-        }
-        hlArr.forEach(function(h) { if (tags.length < 6) tags.push(h); });
-      }
-      /* Add features (Garten, Terrasse, Bäder etc.) */
-      if (features && features.length) {
-        features.forEach(function(f) { if (tags.length < 6 && tags.indexOf(f) === -1) tags.push(f); });
-      }
-      if (!tags.length) return;
-
-      var tagsContainer = document.createElement('div');
-      tagsContainer.className = 'sr-highlight-tags';
-      tagsContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:8px;padding:0 2px';
-      tags.forEach(function(tag) {
-        var chip = document.createElement('span');
-        chip.style.cssText = 'display:inline-block;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.3px;background:'+BG+';color:'+TM+';border:1px solid '+BD+';font-family:Outfit,system-ui,sans-serif;white-space:nowrap';
-        chip.textContent = tag;
-        tagsContainer.appendChild(chip);
-      });
-
-      var textContainer = card.querySelector('div > div:last-child') || card.querySelector('div');
-      if (textContainer) {
-        textContainer.appendChild(tagsContainer);
-      }
-      card.dataset.srHighlights = '1';
-    });
-  }
+  /* Listing highlights now handled by patchListingCardStats — adds to the stats row */
 
   /* ── Patch listing card stats: add Bäder, Garten etc. to the 2-item React stats ── */
   function patchListingCardStats() {
     if (isDetailPage()) return;
-    /* Find all listing cards by looking for links to property details */
-    var cards = document.querySelectorAll('a[href*="/immobilien/"], a[href*="/property/"], a[href*="/objekt/"]');
-    if (!cards.length) cards = document.querySelectorAll('[class*="group"]');
+
+    /* React cards are: div.cursor-pointer.group
+       Stats row is: div.flex.gap-4 containing span.text-xs with "m²" or "Zi." */
+    var cards = document.querySelectorAll('div.cursor-pointer.group, div[class*="cursor-pointer"][class*="group"]');
+    if (!cards.length) return;
 
     cards.forEach(function(card) {
       if (card.dataset.srStats === '1') return;
 
-      /* Find the property ID for this card */
-      var matchedId = null;
+      /* Match card to property data by address text */
       var cardText = card.textContent || '';
-      var keys = Object.keys(propMap);
-      for (var ki = 0; ki < keys.length; ki++) {
-        if (cardText.indexOf(keys[ki]) !== -1 && propMap[keys[ki]]) {
-          matchedId = propMap[keys[ki]];
-          break;
-        }
-      }
-      if (!matchedId) {
-        var href = card.getAttribute('href') || '';
-        var hrefMatch = href.match(/\/(\d+)(?:\/|$)/);
-        if (hrefMatch) matchedId = parseInt(hrefMatch[1]);
+      var matchedId = null;
+      var allIds = Object.keys(propData);
+      for (var pi = 0; pi < allIds.length; pi++) {
+        var p = propData[allIds[pi]];
+        /* Match by address or project_name */
+        if (p.address && cardText.indexOf(p.address) !== -1) { matchedId = p.id; break; }
+        if (p.project_name && cardText.indexOf(p.project_name) !== -1) { matchedId = p.id; break; }
       }
       if (!matchedId || !propData[matchedId]) return;
 
-      /* Find the stats row — it contains "m²" or "Zimmer" text */
+      /* Find the stats row: div.flex.gap-4 containing "m²" or "Zi." spans */
       var statsRow = null;
-      var spans = card.querySelectorAll('span, div, p');
-      for (var si = 0; si < spans.length; si++) {
-        var t = spans[si].textContent.trim();
-        if ((t.indexOf('m\u00B2') !== -1 || t.indexOf('m²') !== -1) && t.length < 20) {
-          /* Walk up to the parent row that contains both area and zimmer */
-          statsRow = spans[si].parentElement;
-          if (statsRow) {
-            var parentText = statsRow.textContent;
-            if (parentText.indexOf('Zimmer') === -1 && statsRow.parentElement) {
-              statsRow = statsRow.parentElement;
-            }
+      var divs = card.querySelectorAll('div');
+      for (var di = 0; di < divs.length; di++) {
+        var d = divs[di];
+        if (d.className.indexOf('flex') !== -1 && d.className.indexOf('gap-4') !== -1) {
+          var txt = d.textContent;
+          if (txt.indexOf('m\u00B2') !== -1 || txt.indexOf('Zi') !== -1) {
+            statsRow = d;
+            break;
           }
-          break;
         }
       }
       if (!statsRow) return;
 
-      var p = propData[matchedId];
+      var prop = propData[matchedId];
       var features = propFeatures[matchedId] || [];
 
-      /* Build extra stat items to add */
+      /* Build extra stat items — up to 2 more to reach ~4 total */
       var extras = [];
-      if (p.bathrooms && parseInt(p.bathrooms) > 0) {
-        extras.push(parseInt(p.bathrooms) + ' Bad');
+      if (prop.bathrooms && parseInt(prop.bathrooms) > 0) {
+        extras.push(parseInt(prop.bathrooms) + ' Bad');
       }
-      /* Add from features: Garten, Terrasse, Balkon, Loggia etc. */
-      var featureIcons = {
-        'Garten': 'Garten', 'Terrasse': 'Terrasse', 'Balkon': 'Balkon',
-        'Loggia': 'Loggia', 'Lift': 'Lift', 'Keller': 'Keller',
-        'Garage': 'Garage', 'Stellplatz': 'Stellplatz'
-      };
       features.forEach(function(f) {
-        if (extras.length < 2 && featureIcons[f]) extras.push(f);
+        if (extras.length < 2) extras.push(f);
       });
 
       if (!extras.length) { card.dataset.srStats = '1'; return; }
 
-      /* Clone the style from existing stat items — find an existing icon+text pair */
-      var existingItems = statsRow.children;
-      var templateItem = existingItems.length > 0 ? existingItems[0] : null;
-
-      /* Small inline SVG icons for extra stats */
-      var miniIcons = {
-        'Bad': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16a1 1 0 0 1 1 1v3a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4v-3a1 1 0 0 1 1-1z"/><path d="M6 12V5a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2"/></svg>',
-        'Garten': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V10"/><path d="M8 22h8"/><path d="M12 10c-3 0-6-2.5-6-5.5S9 2 12 2s6 0 6 2.5S15 10 12 10z"/></svg>',
-        'Terrasse': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V11M19 21V11M3 11h18"/></svg>',
-        'Balkon': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h18M4 14v7M20 14v7M12 14v7"/></svg>',
-        'Loggia': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v16M3 14h18"/></svg>',
-        'Lift': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 7v10M8 13l4 4 4-4"/></svg>',
-        'Keller': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 12h16"/></svg>',
-        'Garage': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M3 21h18"/><rect x="7" y="13" width="10" height="8" rx="1"/></svg>',
-        'Stellplatz': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>'
-      };
-
-      /* Detect styling from existing items */
-      var existingStyle = '';
-      if (templateItem) {
-        var cs = window.getComputedStyle(templateItem);
-        existingStyle = 'display:inline-flex;align-items:center;gap:' + (cs.gap || '4px') + ';color:' + cs.color + ';font-size:' + cs.fontSize + ';font-weight:' + cs.fontWeight;
-      } else {
-        existingStyle = 'display:inline-flex;align-items:center;gap:4px;color:'+TM+';font-size:14px';
-      }
-
+      /* Add extra stats as spans matching existing style: span.text-xs.text-white/60 */
       extras.forEach(function(ex) {
-        var iconKey = ex.replace(/^\d+\s*/, ''); /* "1 Bad" → "Bad" */
-        var item = document.createElement('span');
-        item.style.cssText = existingStyle;
-        item.innerHTML = (miniIcons[iconKey] || '') + ' ' + ex;
-        statsRow.appendChild(item);
+        var span = document.createElement('span');
+        span.className = 'text-xs';
+        span.style.cssText = 'color:rgba(255,255,255,0.6)';
+        span.textContent = ex;
+        statsRow.appendChild(span);
       });
 
       card.dataset.srStats = '1';
@@ -629,8 +518,6 @@
             setTimeout(patchListingCardStats, 2000);
             setTimeout(fixListingCardFormatting, 600);
             setTimeout(fixListingCardFormatting, 2000);
-            setTimeout(injectListingHighlights, 1000);
-            setTimeout(injectListingHighlights, 3000);
           }
         }).catch(function(){});
       }
@@ -892,6 +779,9 @@
         '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:'+TM+'">' + item.label + '</div>';
       grid.appendChild(cell);
     });
+    /* Mark as patched and fade in */
+    grid.dataset.srPatched = '1';
+    grid.style.opacity = '1';
   }
 
   /* ── Build downloads section ── */
@@ -940,9 +830,9 @@
         if(!d.success||!d.property) return;
         var prop = d.property;
 
-        /* Patch stats grid — always 4 smart items */
-        setTimeout(function(){ patchStatsGridSmart(prop); }, 300);
-        setTimeout(function(){ patchStatsGridSmart(prop); }, 1500);
+        /* Patch stats grid — always 4 smart items, do immediately + retry */
+        patchStatsGridSmart(prop);
+        setTimeout(function(){ patchStatsGridSmart(prop); }, 800);
 
         /* Init lightbox and attach to gallery images */
         initLightbox();
@@ -1108,6 +998,14 @@
 
   function check() {
     if(isDetailPage()) {
+      /* Immediately hide React's stats grid to prevent flash of old icons */
+      var grids = document.querySelectorAll('div[class*="grid-cols-2"][class*="grid-cols-4"]');
+      for (var gi = 0; gi < grids.length; gi++) {
+        if (!grids[gi].dataset.srPatched) {
+          grids[gi].style.opacity = '0';
+          grids[gi].style.transition = 'opacity 0.3s ease';
+        }
+      }
       var id = findPropId();
       if(id) {
         /* Inject extra descriptions for ALL properties */
@@ -1136,7 +1034,6 @@
       if(Object.keys(newbuildProps).length > 0) addAbPrefix();
       fixListingCardFormatting();
       patchListingCardStats();
-      injectListingHighlights();
     }
   }
 

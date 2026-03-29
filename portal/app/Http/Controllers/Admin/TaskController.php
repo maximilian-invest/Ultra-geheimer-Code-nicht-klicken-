@@ -116,7 +116,8 @@ class TaskController extends Controller
         $brokerFilter = $brokerId ? "AND (p.broker_id = ? OR pe.property_id IS NULL)" : "";
         $emailParams = $brokerId ? [$brokerId] : [];
         $emails = DB::select("
-            SELECT pe.from_name, pe.from_email, pe.subject, pe.body_text, pe.ai_summary,
+            SELECT pe.from_name, pe.from_email, pe.subject,
+                   COALESCE(pe.ai_summary, LEFT(pe.body_text, 300)) as summary,
                    pe.category, pe.property_id, p.ref_id, p.address,
                    DATE_FORMAT(pe.email_date, '%d.%m.%Y') as datum
             FROM portal_emails pe
@@ -126,7 +127,7 @@ class TaskController extends Controller
               AND pe.email_date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
               {$brokerFilter}
             ORDER BY pe.email_date DESC
-            LIMIT 40
+            LIMIT 25
         ", $emailParams);
 
         // Active properties for context
@@ -143,10 +144,10 @@ class TaskController extends Controller
 
         foreach ($emails as $e) {
             $e = (array) $e;
-            $body = $e['ai_summary'] ?: mb_substr(strip_tags($e['body_text'] ?? ''), 0, 300);
+            $body = strip_tags($e['summary'] ?? '');
             $prop = $e['ref_id'] ? "{$e['ref_id']} ({$e['address']})" : 'kein Objekt';
-            $ctx .= "---\nVon: {$e['from_name']} <{$e['from_email']}> am {$e['datum']}\n";
-            $ctx .= "Betreff: {$e['subject']}\nObjekt: {$prop}" . ($e['property_id'] ? ", property_id={$e['property_id']}" : "") . "\n";
+            $ctx .= "---\nVon: {$e['from_name']} am {$e['datum']}\n";
+            $ctx .= "Betreff: {$e['subject']}\nObjekt: {$prop}" . ($e['property_id'] ? ", pid={$e['property_id']}" : "") . "\n";
             $ctx .= "Inhalt: {$body}\n\n";
         }
 
@@ -159,30 +160,13 @@ class TaskController extends Controller
         // AI call
         try {
             $anthropic = app(\App\Services\AnthropicService::class);
-            $system = "Du bist ein Immobilien-Vertriebsassistent fuer SR-Homes. Lies die eingehenden Mails und erkenne daraus INTERNE Aufgaben — also Dinge die der Makler vorbereiten, aendern, oder organisieren muss BEVOR er antworten kann.
+            $system = "Immobilien-Vertriebsassistent SR-Homes. Erkenne aus eingehenden Mails INTERNE Aufgaben — Dinge die der Makler vorbereiten/organisieren muss.
 
-Beispiele fuer GUTE Aufgaben:
-- Expose fuer Objekt XY aktualisieren/neu erstellen (Layout, Fotos, Texte aendern)
-- Grundriss von Wohnung Top 3 beim Bautraeger anfordern
-- Neue Fotos vom Objekt XY machen lassen
-- Nebenkostenuebersicht aktualisieren (neue Zahlen einarbeiten)
-- Kaufvertragsentwurf an Notar weiterleiten
-- Preisanpassung fuer Objekt XY pruefen (Marktanalyse)
-- Fehlende Unterlagen besorgen (Energieausweis, Flaechen, etc.)
-- Baufortschritt dokumentieren / aktuelles Baumaterial-Update einholen
-- Information intern klaeren die ein Interessent gefragt hat und die nicht in der Wissensdatenbank steht
+GUTE Aufgaben: Expose aktualisieren, Grundriss anfordern, Fotos machen lassen, Unterlagen besorgen (Energieausweis etc.), Preisanpassung pruefen, Kaufvertragsentwurf weiterleiten, intern Infos klaeren.
 
-VERBOTEN — diese Aufgaben NIEMALS erstellen:
-- Expose/Infos/Unterlagen an Interessenten SENDEN/VERSENDEN (das passiert automatisch im Antwort-System)
-- E-Mails beantworten oder Antwort-Entwuerfe erstellen
-- Nachfassen bei Interessenten
-- Verfuegbarkeitsstatus mitteilen
-- Besichtigungstermin vereinbaren/koordinieren (wird im Kalender-System gemacht)
-- Allgemeine Routineaufgaben ohne konkreten Anlass aus einer Mail
+VERBOTEN: Expose/Unterlagen SENDEN (passiert automatisch), E-Mails beantworten, Nachfassen, Besichtigungstermin koordinieren, Routineaufgaben ohne konkreten Mail-Anlass.
 
-WICHTIG: Wenn ein Interessent nach einem Expose fragt und das Expose bereits existiert, ist das KEINE Aufgabe — das Senden wird automatisch erledigt. Nur wenn das Expose FEHLT oder AKTUALISIERT werden muss, ist es eine Aufgabe.
-
-Generiere 2-6 Aufgaben. Nur Aufgaben erstellen wenn es einen klaren Anlass in den Mails gibt.";
+Expose-Anfrage ist KEINE Aufgabe wenn Expose existiert. Generiere 2-6 Aufgaben nur bei klarem Anlass.";
 
             $tasks = $anthropic->chatJson($system, $ctx . "\n\nGeneriere Aufgaben als JSON-Array:\n[{\"title\": \"...\", \"priority\": \"low|medium|high\", \"stakeholder\": \"Name des Beteiligten\", \"property_id\": 123}]\n\nWenn keine sinnvollen Aufgaben erkennbar sind, gib ein leeres Array zurueck: []", 1500);
         } catch (\Exception $e) {

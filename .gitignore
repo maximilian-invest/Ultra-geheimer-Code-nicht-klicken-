@@ -19,8 +19,8 @@ portal/storage/framework/sessions/
 portal/storage/framework/views/
 portal/storage/*.key
 
-# Build artifacts
-portal/public/build/
+# Build artifacts (committed for deployment)
+# portal/public/build/
 portal/public/hot
 portal/public/storage
 

@@ -679,6 +679,48 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         $prop = DB::selectOne("SELECT address, city, ref_id FROM properties WHERE id = ?", [$propertyId]);
         $propAddr = ($prop->address ?? '') . ', ' . ($prop->city ?? '');
 
+        // --- CACHE CHECK: Return cached draft if thread hasn't changed ---
+        $threadHash = md5($threadContext);
+        $cached = DB::selectOne("
+            SELECT body, subject, call_script, preferred_action, lead_phase, mail_type, lead_status, mail_goal, created_at
+            FROM email_drafts
+            WHERE property_id = ? AND stakeholder = ? AND thread_hash = ?
+            ORDER BY id DESC LIMIT 1
+        ", [$propertyId, $stakeholder, $threadHash]);
+
+        if ($cached && $cached->body) {
+            // Build thread for display
+            $displayThread = array_map(function ($msg) {
+                $msg = (array) $msg;
+                return [
+                    'date'      => $msg['activity_date'],
+                    'datetime'  => $msg['created_at'] ?? $msg['activity_date'],
+                    'direction' => in_array($msg['category'], ['anfrage','email-in','besichtigung','kaufanbot','absage','eigentuemer','partner','bounce']) ? 'in' : 'out',
+                    'category'  => $msg['category'],
+                    'text'      => mb_substr($msg['activity'], 0, 200),
+                ];
+            }, $thread);
+
+            return response()->json([
+                'draft'       => [
+                    'email_body'       => $cached->body,
+                    'email_subject'    => $cached->subject,
+                    'call_script'      => $cached->call_script,
+                    'preferred_action' => $cached->preferred_action ?? 'email',
+                    'lead_phase'       => $cached->lead_phase,
+                    'mail_type'        => $cached->mail_type,
+                    'lead_status'      => $cached->lead_status,
+                    'mail_goal'        => $cached->mail_goal,
+                ],
+                'phone'       => $phone,
+                'email'       => $email,
+                'property'    => $prop ? (array) $prop : null,
+                'stakeholder' => $stakeholder,
+                'thread'      => $displayThread,
+                'cached'      => true,
+            ], 200, [], JSON_UNESCAPED_UNICODE);
+        }
+
         // Knowledge base context
         $kbContext = '';
         $kbItems = DB::select("
@@ -731,6 +773,28 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 // Generate AI draft
         $anthropic = app(\App\Services\AnthropicService::class);
         $draft = $anthropic->generateFollowupDraft($stakeholder, $propAddr, $threadContext, $kbContext, !empty($phone), 'professional', $daysSinceLastContact, $hasUnansweredQuestion, $today, $isSecondFollowup);
+
+        // --- CACHE WRITE: Save generated draft for instant future access ---
+        try {
+            DB::insert("
+                INSERT INTO email_drafts (property_id, stakeholder, thread_hash, subject, body, call_script, preferred_action, lead_phase, mail_type, lead_status, mail_goal, tone, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'professional', NOW(), NOW())
+            ", [
+                $propertyId,
+                $stakeholder,
+                $threadHash,
+                $draft['email_subject'] ?? '',
+                $draft['email_body'] ?? '',
+                $draft['call_script'] ?? null,
+                $draft['preferred_action'] ?? 'email',
+                $draft['lead_phase'] ?? null,
+                $draft['mail_type'] ?? null,
+                $draft['lead_status'] ?? null,
+                $draft['mail_goal'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+            \Log::warning('Failed to cache followup draft', ['error' => $e->getMessage()]);
+        }
 
         // Build thread for display
         $displayThread = array_map(function ($msg) {

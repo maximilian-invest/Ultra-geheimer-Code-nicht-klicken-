@@ -160,7 +160,7 @@ class WebsiteApiController extends Controller
             'success' => true,
             'properties' => $data,
             'count' => count($data)
-        ])->header('Access-Control-Allow-Origin', '*');
+        ])->header('Access-Control-Allow-Origin', config('app.frontend_url', '*'));
     }
 
     /**
@@ -308,7 +308,7 @@ class WebsiteApiController extends Controller
         return response()->json([
             'success' => true,
             'property' => $p
-        ])->header('Access-Control-Allow-Origin', '*');
+        ])->header('Access-Control-Allow-Origin', config('app.frontend_url', '*'));
     }
 
     /**
@@ -335,7 +335,7 @@ class WebsiteApiController extends Controller
         return response()->file($path, [
             'Content-Type' => $file->mime_type,
             'Cache-Control' => 'public, max-age=86400',
-            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Origin' => config('app.frontend_url', '*'),
         ]);
     }
 
@@ -367,7 +367,7 @@ class WebsiteApiController extends Controller
         return response()->json([
             'success' => true,
             'content' => $data
-        ])->header('Access-Control-Allow-Origin', '*');
+        ])->header('Access-Control-Allow-Origin', config('app.frontend_url', '*'));
     }
 
     /**

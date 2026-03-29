@@ -24,8 +24,8 @@ Route::match(["get", "post"], "portal_api.php", [PortalApiController::class, "ha
     ->middleware("api.key");
 
 
-// Website Public API (no auth required)
-Route::prefix('website')->group(function () {
+// Website Public API (no auth required, rate-limited)
+Route::prefix('website')->middleware('throttle:60,1')->group(function () {
     Route::get('/properties', [\App\Http\Controllers\WebsiteApiController::class, 'properties']);
     Route::get('/property/{id}', [\App\Http\Controllers\WebsiteApiController::class, 'property']);
     Route::get('/image/{id}', [\App\Http\Controllers\WebsiteApiController::class, 'image']);

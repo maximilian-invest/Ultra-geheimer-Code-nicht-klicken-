@@ -275,7 +275,6 @@ async function loadTasks() {
         const r = await fetch(API.value + "&action=getTasks");
         const d = await r.json();
         tasks.value = d.tasks || [];
-        if (!tasks.value.filter((t) => !t.done).length) generateAiTodos();
     } catch (e) { /* silent */ }
 }
 

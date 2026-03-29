@@ -1,188 +1,145 @@
-# Claude Code Configuration - RuFlo V3
+# SR-Homes — Claude Code Kontext
 
-## Behavioral Rules (Always Enforced)
+## Was ist das hier?
 
-- Do what has been asked; nothing more, nothing less
-- NEVER create files unless they're absolutely necessary for achieving your goal
-- ALWAYS prefer editing an existing file to creating a new one
-- NEVER proactively create documentation files (*.md) or README files unless explicitly requested
-- NEVER save working files, text/mds, or tests to the root folder
-- Never continuously check status after spawning a swarm — wait for results
-- ALWAYS read a file before editing it
-- NEVER commit secrets, credentials, or .env files
+**SR-Homes Immobilien GmbH** — Immobilienmakler Salzburg/OÖ.
+Zwei Produkte in diesem Repo:
 
-## File Organization
+| Produkt | Stack | Live-URL |
+|---------|-------|----------|
+| **Kundenportal** | Laravel 11 + Vue 3 + Inertia | kundenportal.sr-homes.at |
+| **Marketing-Website** | React 18 + Vite (SPA) | sr-homes.at |
 
-- NEVER save to root folder — use the directories below
-- Use `/src` for source code files
-- Use `/tests` for test files
-- Use `/docs` for documentation and markdown files
-- Use `/config` for configuration files
-- Use `/scripts` for utility scripts
-- Use `/examples` for example code
+## Repo-Struktur
 
-## Project Architecture
+```
+/portal/          Laravel-App (Kundenportal + Admin)
+  app/Http/Controllers/
+    Admin/        AdminApiController + 20 Sub-Controller
+    Portal/       PortalApiController (Kundensicht)
+    WebsiteApiController.php  (Public Website API)
+  resources/js/Pages/
+    Admin/        Admin-Dashboard (Vue/Inertia)
+    Portal/       Kunden-Dashboard (Vue/Inertia)
+  routes/
+    api.php       Alle API-Routen
+    web.php       Inertia-Routen
 
-- Follow Domain-Driven Design with bounded contexts
-- Keep files under 500 lines
-- Use typed interfaces for all public APIs
-- Prefer TDD London School (mock-first) for new code
-- Use event sourcing for state changes
-- Ensure input validation at system boundaries
+/website/src/     React Marketing-Website
+  App.jsx         Haupt-App (~100 Zeilen, nur Routing)
+  config.js       ASSETS, themes, PROPERTIES, DEFAULT_CMS
+  hooks/          useProperties, useCmsContent, useTheme
+  components/     Nav, Footer, ui (Btn, PropertyCard, etc.)
+  pages/          1 Datei pro Seite (Home, Immobilien, Detail, ...)
 
-### Project Config
-
-- **Topology**: hierarchical-mesh
-- **Max Agents**: 15
-- **Memory**: hybrid
-- **HNSW**: Enabled
-- **Neural**: Enabled
-
-## Build & Test
-
-```bash
-# Build
-npm run build
-
-# Test
-npm test
-
-# Lint
-npm run lint
+/deploy.sh        Build + Deploy + Rollback (läuft auf VPS)
+/hooks.json       Webhook-Config ({{WEBHOOK_SECRET}} Placeholder)
+/setup-server.sh  Einmalig auf Server ausführen (generiert Secret)
 ```
 
-- ALWAYS run tests after making code changes
-- ALWAYS verify build succeeds before committing
+## Server
 
-## Security Rules
+- **IP**: 187.124.166.153
+- **OS**: Ubuntu, PHP 8.3, Node 20
+- **Portal-Pfad**: `/var/www/srhomes`
+- **Website-Pfad**: `/var/www/sr-homes-website`
+- **Webhook**: Port 9000, `/hooks/sr-homes-deploy`
+- **Logs**: `/var/log/sr-homes-deploy.log`
+- **Backups**: `/var/www/backups/` (letzte 5, auto-cleanup)
 
-- NEVER hardcode API keys, secrets, or credentials in source files
-- NEVER commit .env files or any file containing secrets
-- Always validate user input at system boundaries
-- Always sanitize file paths to prevent directory traversal
-- Run `npx @claude-flow/cli@latest security scan` after security-related changes
+## Deploy-Workflow
 
-## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
-
-- All operations MUST be concurrent/parallel in a single message
-- Use Claude Code's Task tool for spawning agents, not just MCP
-- ALWAYS batch ALL todos in ONE TodoWrite call (5-10+ minimum)
-- ALWAYS spawn ALL agents in ONE message with full instructions via Task tool
-- ALWAYS batch ALL file reads/writes/edits in ONE message
-- ALWAYS batch ALL Bash commands in ONE message
-
-## Swarm Orchestration
-
-- MUST initialize the swarm using CLI tools when starting complex tasks
-- MUST spawn concurrent agents using Claude Code's Task tool
-- Never use CLI tools alone for execution — Task tool agents do the actual work
-- MUST call CLI tools AND Task tool in ONE message for complex work
-
-### 3-Tier Model Routing (ADR-026)
-
-| Tier | Handler | Latency | Cost | Use Cases |
-|------|---------|---------|------|-----------|
-| **1** | Agent Booster (WASM) | <1ms | $0 | Simple transforms (var→const, add types) — Skip LLM |
-| **2** | Haiku | ~500ms | $0.0002 | Simple tasks, low complexity (<30%) |
-| **3** | Sonnet/Opus | 2-5s | $0.003-0.015 | Complex reasoning, architecture, security (>30%) |
-
-- Always check for `[AGENT_BOOSTER_AVAILABLE]` or `[TASK_MODEL_RECOMMENDATION]` before spawning agents
-- Use Edit tool directly when `[AGENT_BOOSTER_AVAILABLE]`
-
-## Swarm Configuration & Anti-Drift
-
-- ALWAYS use hierarchical topology for coding swarms
-- Keep maxAgents at 6-8 for tight coordination
-- Use specialized strategy for clear role boundaries
-- Use `raft` consensus for hive-mind (leader maintains authoritative state)
-- Run frequent checkpoints via `post-task` hooks
-- Keep shared memory namespace for all agents
-
-```bash
-npx @claude-flow/cli@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+```
+git push origin main
+  → GitHub Webhook (HMAC-SHA256 signiert)
+  → Port 9000 auf VPS
+  → deploy.sh
+     1. git pull
+     2. composer install + npm ci + npm run build (Portal)
+     3. npm ci + npm run build (Website)
+     4. Backup aktueller Stand
+     5. rsync → /var/www/srhomes + /var/www/sr-homes-website
+     6. php-fpm reload
+     (bei Fehler: automatischer Rollback auf Backup)
 ```
 
-## Swarm Execution Rules
+**Wichtig:** Nur Pushes auf `main` triggern Deploy. Der Webhook-Secret liegt auf dem Server unter `/opt/sr-homes/.webhook-secret`.
 
-- ALWAYS use `run_in_background: true` for all agent Task calls
-- ALWAYS put ALL agent Task calls in ONE message for parallel execution
-- After spawning, STOP — do NOT add more tool calls or check status
-- Never poll TaskOutput or check swarm status — trust agents to return
-- When agent results arrive, review ALL results before proceeding
+## API-Struktur
 
-## V3 CLI Commands
-
-### Core Commands
-
-| Command | Subcommands | Description |
-|---------|-------------|-------------|
-| `init` | 4 | Project initialization |
-| `agent` | 8 | Agent lifecycle management |
-| `swarm` | 6 | Multi-agent swarm coordination |
-| `memory` | 11 | AgentDB memory with HNSW search |
-| `task` | 6 | Task creation and lifecycle |
-| `session` | 7 | Session state management |
-| `hooks` | 17 | Self-learning hooks + 12 workers |
-| `hive-mind` | 6 | Byzantine fault-tolerant consensus |
-
-### Quick CLI Examples
-
-```bash
-npx @claude-flow/cli@latest init --wizard
-npx @claude-flow/cli@latest agent spawn -t coder --name my-coder
-npx @claude-flow/cli@latest swarm init --v3-mode
-npx @claude-flow/cli@latest memory search --query "authentication patterns"
-npx @claude-flow/cli@latest doctor --fix
+### Public Website API (kein Auth)
+```
+GET  /api/website/properties     Alle Immobilien
+GET  /api/website/property/{id}  Einzelne Immobilie
+GET  /api/website/content        CMS-Inhalt (Hero, Stats, Services, ...)
+GET  /api/website/image/{id}     Bild-Proxy
 ```
 
-## Available Agents (60+ Types)
+### Admin API (Session-Auth oder api-key Header)
+```
+POST /api/admin_api.php?action=xxx
+```
+Wichtige Actions: `get_property`, `update_property`, `list_activities`,
+`upload_property_file`, `create_customer`, `update_customer`,
+`list_portal_messages`, `send_portal_message`, `upload_portal_document`,
+`list_brokers`, `create_broker`, `import_expose`, `analyze_file`
 
-### Core Development
-`coder`, `reviewer`, `tester`, `planner`, `researcher`
-
-### Specialized
-`security-architect`, `security-auditor`, `memory-specialist`, `performance-engineer`
-
-### Swarm Coordination
-`hierarchical-coordinator`, `mesh-coordinator`, `adaptive-coordinator`
-
-### GitHub & Repository
-`pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`
-
-### SPARC Methodology
-`sparc-coord`, `sparc-coder`, `specification`, `pseudocode`, `architecture`
-
-## Memory Commands Reference
-
-```bash
-# Store (REQUIRED: --key, --value; OPTIONAL: --namespace, --ttl, --tags)
-npx @claude-flow/cli@latest memory store --key "pattern-auth" --value "JWT with refresh" --namespace patterns
-
-# Search (REQUIRED: --query; OPTIONAL: --namespace, --limit, --threshold)
-npx @claude-flow/cli@latest memory search --query "authentication patterns"
-
-# List (OPTIONAL: --namespace, --limit)
-npx @claude-flow/cli@latest memory list --namespace patterns --limit 10
-
-# Retrieve (REQUIRED: --key; OPTIONAL: --namespace)
-npx @claude-flow/cli@latest memory retrieve --key "pattern-auth" --namespace patterns
+### Portal API (Kunden, api-key)
+```
+POST /api/portal_api.php?action=xxx
 ```
 
-## Quick Setup
+## Datenmodelle
 
+| Model | Wichtige Felder |
+|-------|----------------|
+| `Property` | broker_id, type, price, area_living, status, ref_id |
+| `Customer` | name, email, phone, portal_user_id |
+| `Activity` | property_id, type, description, created_at |
+| `Viewing` | property_id, customer_id, scheduled_at, feedback |
+| `PortalEmail` | property_id, direction (inbound/outbound), email_date |
+| `PortalMessage` | property_id, customer_id, body, read_at |
+| `PortalDocument` | property_id, filename, download_allowed |
+| `Task` | property_id, broker_id, due_at, done |
+
+## User-Typen (portal)
+- `admin` / `makler` / `backoffice` → Admin-Dashboard
+- `kunde` → Portal-Dashboard (nur eigene Immobilien)
+
+## Website CMS-Sections
+`hero`, `stats`, `about`, `services`, `portal`, `contact`,
+`testimonial`, `branding`, `seo`, `team`, `legal`
+
+Bearbeitung über Admin → Einstellungen → Website-Tab.
+
+## Häufige Aufgaben
+
+**Website-Änderung deployen:**
 ```bash
-claude mcp add claude-flow -- npx -y @claude-flow/cli@latest
-npx @claude-flow/cli@latest daemon start
-npx @claude-flow/cli@latest doctor --fix
+# Änderung machen → commit → push to main → automatisch deployed
+git add . && git commit -m "..." && git push origin main
 ```
 
-## Claude Code vs CLI Tools
+**Portal lokal testen:**
+```bash
+cd portal && php artisan serve
+```
 
-- Claude Code's Task tool handles ALL execution: agents, file ops, code generation, git
-- CLI tools handle coordination via Bash: swarm init, memory, hooks, routing
-- NEVER use CLI tools as a substitute for Task tool agents
+**Website lokal testen:**
+```bash
+cd website && npm run dev
+```
 
-## Support
+**Build testen bevor push:**
+```bash
+cd website && npm run build
+```
 
-- Documentation: https://github.com/ruvnet/claude-flow
-- Issues: https://github.com/ruvnet/claude-flow/issues
+## Regeln
+
+- Kein Commit von `.env`, Secrets, Credentials
+- Nur auf `main` pushen für Deploy (andere Branches deployen nicht)
+- `deploy.sh` nicht manuell auf dem Server starten — Webhook macht das
+- Bilder werden über Immoji-CDN (`api.immoji.org`) ausgeliefert
+- PHP-Dateien: PSR-12, keine direkten SQL-Queries (Eloquent)
+- React: keine neuen Dependencies ohne Absprache (Bundle-Size)

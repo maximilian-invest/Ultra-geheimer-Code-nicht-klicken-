@@ -400,70 +400,89 @@
 
   /* Listing highlights now handled by patchListingCardStats — adds to the stats row */
 
-  /* ── Patch listing card stats: add Bäder, Garten etc. to the 2-item React stats ── */
+  /* ── Patch listing card stats: add Bäder, Garten etc. ── */
   function patchListingCardStats() {
     if (isDetailPage()) return;
+    if (!Object.keys(propData).length) return;
 
-    /* React cards are: div.cursor-pointer.group
-       Stats row is: div.flex.gap-4 containing span.text-xs with "m²" or "Zi." */
-    var cards = document.querySelectorAll('div.cursor-pointer.group, div[class*="cursor-pointer"][class*="group"]');
-    if (!cards.length) return;
+    /* Find ALL stats rows on the page — two card types:
+       Type 1 (dark featured): div.flex.gap-4 with span.text-white/60 ("150 m²", "4 Zi.")
+       Type 2 (light cards):   div.flex.items-center.gap-5.pt-4 with span.text-xs ("74 m²", "2 Zimmer") */
+    var allRows = document.querySelectorAll('div');
+    for (var ri = 0; ri < allRows.length; ri++) {
+      var row = allRows[ri];
+      if (row.dataset.srStats === '1') continue;
+      var cl = row.className;
+      var isDark = false;
+      var isLight = false;
 
-    cards.forEach(function(card) {
-      if (card.dataset.srStats === '1') return;
+      if (cl.indexOf('flex') !== -1 && cl.indexOf('gap-4') !== -1 && cl.indexOf('p-4') === -1) {
+        var txt = row.textContent;
+        if ((txt.indexOf('m\u00B2') !== -1 || txt.indexOf('Zi') !== -1) && row.children.length >= 1 && row.children.length <= 4) {
+          isDark = true;
+        }
+      }
+      if (cl.indexOf('gap-5') !== -1 && cl.indexOf('pt-4') !== -1 && row.children.length >= 1) {
+        isLight = true;
+      }
+      if (!isDark && !isLight) continue;
 
-      /* Match card to property data by address text */
+      /* Walk up to find the card container to get its text for matching */
+      var card = row;
+      for (var up = 0; up < 8; up++) {
+        if (!card.parentElement) break;
+        card = card.parentElement;
+        if (card.className.indexOf('cursor-pointer') !== -1 || card.className.indexOf('group') !== -1) break;
+        if (card.tagName === 'BODY' || card.id === 'root') break;
+      }
       var cardText = card.textContent || '';
+
+      /* Match to property by address or project_name */
       var matchedId = null;
       var allIds = Object.keys(propData);
       for (var pi = 0; pi < allIds.length; pi++) {
         var p = propData[allIds[pi]];
-        /* Match by address or project_name */
         if (p.address && cardText.indexOf(p.address) !== -1) { matchedId = p.id; break; }
         if (p.project_name && cardText.indexOf(p.project_name) !== -1) { matchedId = p.id; break; }
       }
-      if (!matchedId || !propData[matchedId]) return;
-
-      /* Find the stats row: div.flex.gap-4 containing "m²" or "Zi." spans */
-      var statsRow = null;
-      var divs = card.querySelectorAll('div');
-      for (var di = 0; di < divs.length; di++) {
-        var d = divs[di];
-        if (d.className.indexOf('flex') !== -1 && d.className.indexOf('gap-4') !== -1) {
-          var txt = d.textContent;
-          if (txt.indexOf('m\u00B2') !== -1 || txt.indexOf('Zi') !== -1) {
-            statsRow = d;
-            break;
-          }
-        }
-      }
-      if (!statsRow) return;
+      if (!matchedId) continue;
 
       var prop = propData[matchedId];
       var features = propFeatures[matchedId] || [];
+      var existing = row.textContent;
 
-      /* Build extra stat items — up to 2 more to reach ~4 total */
+      /* Build extras — skip what's already shown */
       var extras = [];
-      if (prop.bathrooms && parseInt(prop.bathrooms) > 0) {
+      if (prop.bathrooms && parseInt(prop.bathrooms) > 0 && existing.indexOf('Bad') === -1) {
         extras.push(parseInt(prop.bathrooms) + ' Bad');
       }
       features.forEach(function(f) {
-        if (extras.length < 2) extras.push(f);
+        if (extras.length < 2 && existing.indexOf(f) === -1) extras.push(f);
       });
+      if (!extras.length) { row.dataset.srStats = '1'; continue; }
 
-      if (!extras.length) { card.dataset.srStats = '1'; return; }
-
-      /* Add extra stats as spans matching existing style: span.text-xs.text-white/60 */
-      extras.forEach(function(ex) {
-        var span = document.createElement('span');
-        span.className = 'text-xs';
-        span.style.cssText = 'color:rgba(255,255,255,0.6)';
-        span.textContent = ex;
-        statsRow.appendChild(span);
-      });
-
-      card.dataset.srStats = '1';
-    });
+      if (isDark) {
+        /* Dark cards: add span.text-xs with white/60 color */
+        extras.forEach(function(ex) {
+          var span = document.createElement('span');
+          span.className = 'text-xs';
+          span.style.cssText = 'color:rgba(255,255,255,0.6)';
+          span.textContent = ex;
+          row.appendChild(span);
+        });
+      } else {
+        /* Light cards: add span matching existing style */
+        var template = row.querySelector('span');
+        extras.forEach(function(ex) {
+          var span = document.createElement('span');
+          span.className = template ? template.className : 'flex items-center gap-1.5 text-xs font-medium';
+          span.style.cssText = template ? template.style.cssText : 'color:rgb(154,149,140)';
+          span.textContent = ex;
+          row.appendChild(span);
+        });
+      }
+      row.dataset.srStats = '1';
+    }
   }
 
   /* ── "ab" prefix for listing cards ── */
@@ -1045,5 +1064,31 @@
   obs.observe(document.body, {childList:true, subtree:true});
 
   setTimeout(check, 2000);
-  window.addEventListener('popstate', function(){ injected=false; setTimeout(check, 800); });
+  window.addEventListener('popstate', function(){ injected=false; descriptionsInjected=false; setTimeout(check, 800); });
+
+  /* ── Proactive data fetch — the fetch interceptor misses the initial
+       React load because module scripts run before defer scripts ── */
+  _fetch(API + '/properties')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.properties) return;
+      d.properties.forEach(function(p) {
+        propMap[p.ref_id] = p.id;
+        if (p.project_name) propMap[p.project_name] = p.id;
+        propCategoryMap[p.id] = p.property_category;
+        if (p.highlights) propHighlights[p.id] = p.highlights;
+        if (p.features && p.features.length) propFeatures[p.id] = p.features;
+        propData[p.id] = p;
+        if (p.property_category === 'newbuild') {
+          newbuildProps[p.project_name || p.ref_id] = { id: p.id, price: p.price };
+        }
+      });
+      setTimeout(addAbPrefix, 300);
+      setTimeout(patchListingCardStats, 300);
+      setTimeout(fixListingCardFormatting, 300);
+      setTimeout(patchListingCardStats, 1500);
+      setTimeout(fixListingCardFormatting, 1500);
+      setTimeout(check, 500);
+    })
+    .catch(function(e) { console.error('SR proactive fetch:', e); });
 })();

@@ -194,12 +194,12 @@ export const HomePage = ({ setPage, setSelected, t, properties = PROPERTIES, cms
       {/* ── KUNDENPORTAL SHOWCASE (Customer POV) ── */}
       <section className="py-24 md:py-36 overflow-hidden" style={{ background: "#0A0A08" }}>
         <div className="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
-          <div className="text-center mb-20">
+          <div className="mb-20">
             <Eyebrow t={{ ...t, accent: "#E8743A" }}>Ihr Kundenportal</Eyebrow>
-            <h2 className="font-display section-heading mx-auto" style={{ fontSize: "clamp(2rem, 5vw, 4rem)", fontWeight: 700, color: "#fff", lineHeight: 1, letterSpacing: "-0.03em", maxWidth: 700 }}>
+            <h2 className="font-display section-heading" style={{ fontSize: "clamp(2rem, 5vw, 4rem)", fontWeight: 700, color: "#fff", lineHeight: 1, letterSpacing: "-0.03em", maxWidth: 700 }}>
               {portal.headline}
             </h2>
-            <p className="text-lg text-white/40 mt-6 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg text-white/40 mt-6 max-w-2xl leading-relaxed">
               {portal.subheadline}
             </p>
           </div>
@@ -230,7 +230,7 @@ export const HomePage = ({ setPage, setSelected, t, properties = PROPERTIES, cms
             ))}
           </div>
 
-          <div className="text-center mt-14">
+          <div className="mt-14">
             <Btn primary large icon={ArrowUpRight} onClick={() => setPage("portal")}>Portal entdecken</Btn>
           </div>
         </div>

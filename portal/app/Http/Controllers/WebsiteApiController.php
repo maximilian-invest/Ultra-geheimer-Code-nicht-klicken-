@@ -1,0 +1,319 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
+
+class WebsiteApiController extends Controller
+{
+    /**
+     * GET /api/website/properties
+     * Public: Returns all properties marked for website display
+     */
+    public function properties(Request $request)
+    {
+        $data = Cache::remember('website_properties', 300, function () {
+            $properties = DB::table('properties')
+                ->where(function($q) {
+                    // Show if sr-homes portal toggle is enabled
+                    $q->whereExists(function($sub) {
+                        $sub->select(DB::raw(1))
+                            ->from('property_portals')
+                            ->whereColumn('property_portals.property_id', 'properties.id')
+                            ->where('property_portals.portal_name', 'sr-homes')
+                            ->where('property_portals.sync_enabled', 1);
+                    });
+                })
+                ->select([
+                    'id', 'ref_id', 'project_name', 'address', 'city', 'zip',
+                    'object_type as type', 'property_category', 'realty_status', 'purchase_price as price',
+                    'living_area', 'free_area', 'total_area', 'rooms_amount',
+                    'construction_year', 'year_renovated', 'realty_description', 'highlights',
+                    'main_image_id', 'website_gallery_ids',
+                    'total_units', 'energy_certificate', 'heating_demand_value',
+                    'garage_spaces', 'parking_spaces', 'has_basement',
+                    'has_garden', 'has_elevator', 'has_balcony', 'has_terrace',
+                    'has_loggia', 'condition_note'
+                ])
+                ->orderBy('id', 'desc')
+                ->get();
+
+            foreach ($properties as &$p) {
+                // Main image
+                if ($p->main_image_id) {
+                    $p->main_image_url = url("/api/website/image/{$p->main_image_id}");
+                } else {
+                    // Fallback: first image from property_images (uploaded via PropertyEditor)
+                    $firstImg = DB::table('property_images')
+                        ->where('property_id', $p->id)
+                        ->where('is_public', 1)
+                        ->orderByDesc('is_title_image')
+                        ->orderBy('sort_order')
+                        ->first();
+                    if ($firstImg) {
+                        $p->main_image_url = url('/storage/' . $firstImg->path);
+                    } else {
+                        // Final fallback: property_files
+                        $firstFile = DB::table('property_files')
+                            ->where('property_id', $p->id)
+                            ->where('mime_type', 'like', 'image/%')
+                            ->orderBy('sort_order')
+                            ->first();
+                        $p->main_image_url = $firstFile
+                            ? url("/api/website/image/{$firstFile->id}")
+                            : null;
+                    }
+                }
+
+                // Gallery images
+                $galleryIds = json_decode($p->website_gallery_ids ?? '[]', true);
+                if (!empty($galleryIds)) {
+                    $p->gallery_urls = array_map(fn($id) => url("/api/website/image/{$id}"), $galleryIds);
+                } else {
+                    // Fallback: all images from property_images (PropertyEditor uploads)
+                    $piImages = DB::table('property_images')
+                        ->where('property_id', $p->id)
+                        ->where('is_public', 1)
+                        ->orderByDesc('is_title_image')
+                        ->orderBy('sort_order')
+                        ->pluck('path');
+                    if ($piImages->count()) {
+                        $p->gallery_urls = $piImages->map(fn($path) => url('/storage/' . $path))->toArray();
+                    } else {
+                        // Final fallback: property_files
+                        $pfImages = DB::table('property_files')
+                            ->where('property_id', $p->id)
+                            ->where('mime_type', 'like', 'image/%')
+                            ->orderBy('sort_order')
+                            ->pluck('id');
+                        $p->gallery_urls = $pfImages->map(fn($id) => url("/api/website/image/{$id}"))->toArray();
+                    }
+                }
+
+                // Units for Neubauprojekt
+                if (stripos($p->type, 'Neubauprojekt') !== false || $p->total_units > 0) {
+                    $p->units_free = DB::table('property_units')
+                        ->where('property_id', $p->id)
+                        ->where('status', 'frei')
+                        ->where('is_parking', 0)
+                        ->count();
+                    $p->units_total = DB::table('property_units')
+                        ->where('property_id', $p->id)
+                        ->where('is_parking', 0)
+                        ->count();
+                }
+
+                // Features array from boolean fields
+                $features = [];
+                if ($p->has_garden) $features[] = 'Garten';
+                if ($p->has_balcony) $features[] = 'Balkon';
+                if ($p->has_terrace) $features[] = 'Terrasse';
+                if ($p->has_loggia) $features[] = 'Loggia';
+                if ($p->has_elevator) $features[] = 'Lift';
+                if ($p->has_basement) $features[] = 'Keller';
+                if ($p->garage_spaces > 0) $features[] = 'Garage';
+                if ($p->parking_spaces > 0) $features[] = 'Stellplatz';
+                $p->features = $features;
+
+                // Clean up internal fields
+                unset($p->main_image_id, $p->website_gallery_ids);
+                unset($p->has_garden, $p->has_balcony, $p->has_terrace, $p->has_loggia);
+                unset($p->has_elevator, $p->has_basement, $p->garage_spaces, $p->parking_spaces);
+            }
+
+            return $properties;
+        });
+
+        return response()->json([
+            'success' => true,
+            'properties' => $data,
+            'count' => count($data)
+        ])->header('Access-Control-Allow-Origin', '*');
+    }
+
+    /**
+     * GET /api/website/property/{id}
+     * Public: Single property detail
+     */
+    public function property($id)
+    {
+        $p = DB::table('properties')
+            ->where('id', $id)
+            ->where(function($q) {
+                $q->whereExists(function($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('property_portals')
+                        ->whereColumn('property_portals.property_id', 'properties.id')
+                        ->where('property_portals.portal_name', 'sr-homes')
+                        ->where('property_portals.sync_enabled', 1);
+                });
+            })
+            ->first();
+
+        if (!$p) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+
+        // All images — prefer property_images (PropertyEditor), fallback to property_files
+        $piImages = DB::table('property_images')
+            ->where('property_id', $id)
+            ->where('is_public', 1)
+            ->orderByDesc('is_title_image')
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn($f) => [
+                'id' => $f->id,
+                'label' => $f->category ?? $f->title ?? '',
+                'url' => url('/storage/' . $f->path),
+                'is_title' => (bool) $f->is_title_image,
+            ]);
+
+        // Set main image URL for detail page too
+        if (!isset($p->main_image_url) || !$p->main_image_url) {
+            $titleImg = DB::table('property_images')
+                ->where('property_id', $id)->where('is_public', 1)
+                ->orderByDesc('is_title_image')->orderBy('sort_order')->first();
+            $p->main_image_url = $titleImg ? url('/storage/' . $titleImg->path) : null;
+        }
+
+        if ($piImages->count()) {
+            $p->images = $piImages;
+        } else {
+            $p->images = DB::table('property_files')
+                ->where('property_id', $id)
+                ->where('mime_type', 'like', 'image/%')
+                ->orderBy('sort_order')
+                ->get()
+                ->map(fn($f) => [
+                    'id' => $f->id,
+                    'label' => $f->label,
+                    'url' => url("/api/website/image/{$f->id}"),
+                ]);
+        }
+        // Units for development projects
+        $units = DB::table("property_units")
+            ->where("property_id", $id)
+            ->where("is_parking", 0)
+            ->select("id", "unit_number", "unit_type", "status", "price", "rooms", "area_m2")
+            ->orderByRaw("CAST(REGEXP_REPLACE(unit_number, '[^0-9]', '') AS UNSIGNED)")
+            ->get();
+        $parking = DB::table("property_units")
+            ->where("property_id", $id)
+            ->where("is_parking", 1)
+            ->select("id", "unit_number", "unit_type", "status", "price")
+            ->orderByRaw("CAST(REGEXP_REPLACE(unit_number, '[^0-9]', '') AS UNSIGNED)")
+            ->get();
+        $p->units = $units;
+        $p->parking = $parking;
+
+
+        return response()->json([
+            'success' => true,
+            'property' => $p
+        ])->header('Access-Control-Allow-Origin', '*');
+    }
+
+    /**
+     * GET /api/website/image/{id}
+     * Public: Serves a property image file
+     */
+    public function image($id)
+    {
+        $file = DB::table('property_files')->find($id);
+
+        if (!$file || !str_starts_with($file->mime_type, 'image/')) {
+            abort(404);
+        }
+
+        $path = storage_path("app/public/property-files/{$file->filename}");
+        if (!file_exists($path)) {
+            // Try alternate path
+            $path = storage_path("app/property-files/{$file->filename}");
+        }
+        if (!file_exists($path)) {
+            abort(404);
+        }
+
+        return response()->file($path, [
+            'Content-Type' => $file->mime_type,
+            'Cache-Control' => 'public, max-age=86400',
+            'Access-Control-Allow-Origin' => '*',
+        ]);
+    }
+
+    /**
+     * GET /api/website/content
+     * Public: Returns all CMS content for the website
+     */
+    public function content()
+    {
+        $data = Cache::remember('website_content', 600, function () {
+            $rows = DB::table('website_content')
+                ->where('is_active', 1)
+                ->orderBy('section')
+                ->orderBy('sort_order')
+                ->get();
+
+            $grouped = [];
+            foreach ($rows as $row) {
+                $value = $row->content_value;
+                if ($row->content_type === 'json') {
+                    $value = json_decode($value, true);
+                }
+                $grouped[$row->section][$row->content_key] = $value;
+            }
+
+            return $grouped;
+        });
+
+        return response()->json([
+            'success' => true,
+            'content' => $data
+        ])->header('Access-Control-Allow-Origin', '*');
+    }
+
+    /**
+     * POST /api/website/upload
+     * Admin only: Upload image/video for CMS
+     */
+    public function upload(Request $request)
+    {
+        // Simple API key check
+        $key = $request->input('key') ?? $request->header('X-Api-Key');
+        if ($key !== config('services.admin_api_key', env('ADMIN_API_KEY'))) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $request->validate([
+            'file' => 'required|file|max:102400', // 100MB max for videos
+            'section' => 'required|string',
+            'content_key' => 'required|string',
+        ]);
+
+        $file = $request->file('file');
+        $filename = time() . '_' . $file->getClientOriginalName();
+        $path = $file->storeAs('website', $filename, 'public');
+
+        $url = url(Storage::disk('public')->url($path));
+
+        // Update or create the content entry
+        $contentType = str_starts_with($file->getMimeType(), 'video/') ? 'video' : 'image';
+
+        DB::table('website_content')->updateOrInsert(
+            ['section' => $request->section, 'content_key' => $request->content_key],
+            ['content_value' => $url, 'content_type' => $contentType, 'updated_at' => now()]
+        );
+
+        // Clear cache
+        Cache::forget('website_content');
+
+        return response()->json([
+            'success' => true,
+            'url' => $url,
+            'content_type' => $contentType
+        ]);
+    }
+}

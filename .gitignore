@@ -1,0 +1,45 @@
+# Dependencies
+portal/vendor/
+portal/node_modules/
+
+# Environment
+portal/.env
+portal/.env.backup
+portal/.env.production
+
+# Laravel storage (uploads & runtime)
+portal/storage/app/public/property_files/
+portal/storage/app/public/property_images/
+portal/storage/app/public/website/
+portal/storage/app/public/kaufanbote/
+portal/storage/app/public/global_files/
+portal/storage/logs/
+portal/storage/framework/cache/data/
+portal/storage/framework/sessions/
+portal/storage/framework/views/
+portal/storage/*.key
+
+# Build artifacts
+portal/public/build/
+portal/public/hot
+portal/public/storage
+
+# IDE
+.idea/
+.vscode/
+.fleet/
+.nova/
+.zed/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+portal/.phpunit.result.cache
+portal/.phpunit.cache
+portal/auth.json
+portal/storage/legacy_src/

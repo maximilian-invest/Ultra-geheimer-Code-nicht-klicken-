@@ -1,0 +1,57 @@
+<?php
+
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+
+Route::get('/', function () {
+    return Inertia::render('Welcome', [
+        'canLogin' => Route::has('login'),
+        'canRegister' => Route::has('register'),
+        'laravelVersion' => Application::VERSION,
+        'phpVersion' => PHP_VERSION,
+    ]);
+});
+
+// Redirect dashboard based on user type
+Route::get('/dashboard', function () {
+    $user = auth()->user();
+    if (in_array($user->user_type, ['admin', 'makler', 'backoffice'])) {
+        return redirect()->route('admin.dashboard');
+    }
+    return redirect()->route('portal.dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
+
+// Admin routes
+Route::middleware(['auth', 'verified', 'role:admin,makler,backoffice'])->prefix('admin')->group(function () {
+    Route::get('/', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+});
+
+// Customer portal routes
+Route::middleware(['auth', 'verified'])->prefix('portal')->group(function () {
+    Route::get('/', [PortalDashboardController::class, 'index'])->name('portal.dashboard');
+    Route::get('/property/{property}', [PortalDashboardController::class, 'property'])->name('portal.property');
+    Route::get('/api/analysis/{property}', [PortalDashboardController::class, 'analysis'])->name('portal.analysis');
+
+    // Nachrichten-System: Owner sends messages
+    Route::post('/property/{property}/message', [PortalDashboardController::class, 'sendMessage'])->name('portal.message.send');
+
+    // Document download
+    Route::get('/documents/download/{document}', [PortalDashboardController::class, 'downloadDocument'])->name('portal.document.download');
+    Route::get("/files/download/{file}", [PortalDashboardController::class, "downloadPropertyFile"])->name("portal.file.download");
+
+    // Market Report PDF Download
+    Route::get("/bericht/{property}/pdf", [PortalDashboardController::class, "downloadPropertyReport"])->name("portal.bericht.pdf");
+    Route::get("/bericht/{property}/bankbericht", [PortalDashboardController::class, "downloadBankReport"])->name("portal.bankbericht.pdf");
+});
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+require __DIR__.'/auth.php';

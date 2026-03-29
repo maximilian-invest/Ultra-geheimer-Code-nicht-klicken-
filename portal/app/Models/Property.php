@@ -1,0 +1,216 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Property extends Model
+{
+    protected $fillable = [
+        // Core
+        'customer_id', 'broker_id', 'ref_id', 'openimmo_id', 'openimmo_anbieter_id',
+        'project_name', 'title', 'address', 'latitude', 'longitude', 'geo_precision',
+        'city', 'zip', 'object_type', 'property_category', 'object_subtype', 'marketing_type',
+
+        // Pricing
+        'price', 'rental_price', 'rent_warm', 'rent_deposit', 'price_per_m2',
+        'operating_costs', 'maintenance_reserves',
+
+        // Areas
+        'total_area', 'living_area', 'free_area', 'realty_area', 'area_balcony',
+        'area_terrace', 'area_garden', 'area_basement', 'area_loggia',
+        'area_garage', 'office_space',
+
+        // Rooms
+        'rooms_amount', 'bedrooms', 'bathrooms', 'toilets',
+        'floor_count', 'floor_number',
+
+        // Energy
+        'energy_certificate', 'heating_demand_value', 'energy_type', 'heating_demand_class',
+        'energy_efficiency_value', 'energy_primary_source', 'energy_valid_until',
+
+        // Condition & Equipment
+        'construction_year', 'year_renovated', 'heating', 'condition_note',
+        'realty_condition', 'quality', 'flooring', 'bathroom_equipment',
+        'kitchen_type', 'furnishing', 'orientation', 'noise_level',
+
+        // Boolean features
+        'has_basement', 'has_garden', 'has_elevator', 'has_balcony',
+        'has_terrace', 'has_loggia', 'has_fitted_kitchen', 'has_air_conditioning',
+        'has_pool', 'has_sauna', 'has_fireplace', 'has_alarm',
+        'has_barrier_free', 'has_guest_wc', 'has_storage_room',
+        'has_washing_connection', 'has_cellar',
+
+        // Parking
+        'garage_spaces', 'parking_spaces', 'parking_type', 'parking_price',
+
+        // Descriptions
+        'realty_description', 'location_description', 'equipment_description',
+        'other_description', 'highlights',
+
+        // Commission
+        'commission_percent', 'commission_note', 'commission_total',
+        'commission_makler', 'buyer_commission_percent',
+        'buyer_commission_text', 'commission_incl_vat',
+
+        // Owner & Contact
+        'owner_name', 'owner_phone', 'owner_email',
+        'contact_person', 'contact_phone', 'contact_email',
+
+        // Construction / Neubau
+        'builder_company', 'property_manager', 'construction_start',
+        'construction_end', 'move_in_date', 'available_from', 'available_text',
+        'total_units',
+
+        // Plot
+        'plot_dedication', 'plot_buildable', 'plot_developed',
+
+        // Status & Publishing
+        'realty_status', 'platforms', 'inserat_since',
+        'on_hold', 'on_hold_note', 'on_hold_since',
+        'is_published', 'published_at',
+
+        // Files
+        'expose_path', 'nebenkosten_path', 'last_expose_parsed_at',
+
+        // Parent-Child Hierarchy
+        'parent_id',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'purchase_price' => 'decimal:2',
+            'rental_price' => 'decimal:2',
+            'rent_warm' => 'decimal:2',
+            'rent_deposit' => 'decimal:2',
+            'price_per_m2' => 'decimal:2',
+            'operating_costs' => 'decimal:2',
+            'maintenance_reserves' => 'decimal:2',
+            'parking_price' => 'decimal:2',
+            'total_area' => 'decimal:2',
+            'living_area' => 'decimal:2',
+            'free_area' => 'decimal:2',
+            'realty_area' => 'decimal:2',
+            'area_balcony' => 'decimal:2',
+            'area_terrace' => 'decimal:2',
+            'area_garden' => 'decimal:2',
+            'area_basement' => 'decimal:2',
+            'area_loggia' => 'decimal:2',
+            'area_garage' => 'decimal:2',
+            'office_space' => 'decimal:2',
+            'rooms_amount' => 'decimal:1',
+            'heating_demand_value' => 'decimal:2',
+            'energy_efficiency_value' => 'decimal:2',
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
+            'commission_percent' => 'decimal:2',
+            'commission_total' => 'decimal:2',
+            'commission_makler' => 'decimal:2',
+            'buyer_commission_percent' => 'decimal:2',
+            'on_hold' => 'boolean',
+            'is_published' => 'boolean',
+            'plot_buildable' => 'boolean',
+            'plot_developed' => 'boolean',
+            'has_basement' => 'boolean',
+            'has_garden' => 'boolean',
+            'has_elevator' => 'boolean',
+            'has_balcony' => 'boolean',
+            'has_terrace' => 'boolean',
+            'has_loggia' => 'boolean',
+            'has_fitted_kitchen' => 'boolean',
+            'has_air_conditioning' => 'boolean',
+            'has_pool' => 'boolean',
+            'has_sauna' => 'boolean',
+            'has_fireplace' => 'boolean',
+            'has_alarm' => 'boolean',
+            'has_barrier_free' => 'boolean',
+            'has_guest_wc' => 'boolean',
+            'has_storage_room' => 'boolean',
+            'has_washing_connection' => 'boolean',
+            'has_cellar' => 'boolean',
+            'commission_incl_vat' => 'boolean',
+            'inserat_since' => 'date',
+            'construction_start' => 'date',
+            'construction_end' => 'date',
+            'move_in_date' => 'date',
+            'available_from' => 'date',
+            'energy_valid_until' => 'date',
+            'on_hold_since' => 'datetime',
+            'published_at' => 'datetime',
+            'last_expose_parsed_at' => 'datetime',
+        ];
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(Activity::class);
+    }
+
+    public function emails(): HasMany
+    {
+        return $this->hasMany(PortalEmail::class);
+    }
+
+    public function knowledge(): HasMany
+    {
+        return $this->hasMany(PropertyKnowledge::class);
+    }
+
+    public function viewings(): HasMany
+    {
+        return $this->hasMany(Viewing::class);
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(PortalMessage::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(PortalDocument::class);
+    }
+
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class);
+    }
+
+    public function images(): HasMany
+    {
+        return $this->hasMany(PropertyImage::class)->orderBy('sort_order');
+    }
+
+    public function titleImage()
+    {
+        return $this->hasOne(PropertyImage::class)->where('is_title_image', true);
+    }
+
+    public function portals(): HasMany
+    {
+        return $this->hasMany(PropertyPortal::class);
+    }
+
+    public function units(): HasMany
+    {
+        return $this->hasMany(PropertyUnit::class);
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Property::class, 'parent_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(Property::class, 'parent_id');
+    }
+}

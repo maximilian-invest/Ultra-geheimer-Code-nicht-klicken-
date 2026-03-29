@@ -628,6 +628,11 @@ class DashboardController extends Controller
         if (!file_exists($filePath)) {
             abort(404, 'File not found');
         }
+        // Prevent directory traversal
+        $realPath = realpath($filePath);
+        if (!$realPath || !str_starts_with($realPath, storage_path('app/public/documents'))) {
+            abort(403);
+        }
 
         return response()->download($filePath, $doc->original_name ?? $doc->filename);
     }
@@ -652,6 +657,11 @@ class DashboardController extends Controller
 
         $filePath = storage_path('app/public/' . $file->path);
         if (!file_exists($filePath)) abort(404, 'File not found');
+        // Prevent directory traversal
+        $realPath = realpath($filePath);
+        if (!$realPath || !str_starts_with($realPath, storage_path('app/public'))) {
+            abort(403);
+        }
 
         return response()->download($filePath, $file->label ?: $file->filename);
     }

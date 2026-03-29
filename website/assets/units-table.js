@@ -481,13 +481,14 @@
                 newbuildProps[p.project_name || p.ref_id] = { id: p.id, price: p.price };
               }
             });
-            setTimeout(addAbPrefix, 800);
-            setTimeout(addAbPrefix, 2500);
-            setTimeout(patchListingCardStats, 600);
-            setTimeout(patchListingCardStats, 2000);
-            setTimeout(patchListingCardStats, 4000);
-            setTimeout(fixListingCardFormatting, 600);
-            setTimeout(fixListingCardFormatting, 2000);
+            /* Batch DOM patches at staggered intervals */
+            [600, 2000, 4000].forEach(function(ms) {
+              setTimeout(function() {
+                addAbPrefix();
+                patchListingCardStats();
+                fixListingCardFormatting();
+              }, ms);
+            });
           }
         }).catch(function(e){ console.warn('SR interceptor:', e); });
       }
@@ -1044,12 +1045,14 @@
             newbuildProps[p.project_name || p.ref_id] = { id: p.id, price: p.price };
           }
         });
-        setTimeout(addAbPrefix, 300);
-        setTimeout(patchListingCardStats, 300);
-        setTimeout(fixListingCardFormatting, 300);
-        setTimeout(patchListingCardStats, 1500);
-        setTimeout(fixListingCardFormatting, 1500);
-        setTimeout(patchListingCardStats, 3500);
+        /* Batch DOM patches at staggered intervals */
+        [300, 1500, 3500].forEach(function(ms) {
+          setTimeout(function() {
+            addAbPrefix();
+            patchListingCardStats();
+            fixListingCardFormatting();
+          }, ms);
+        });
         setTimeout(check, 500);
       })
       .catch(function(e) {

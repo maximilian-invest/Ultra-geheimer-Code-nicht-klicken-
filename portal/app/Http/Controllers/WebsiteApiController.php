@@ -15,7 +15,7 @@ class WebsiteApiController extends Controller
      */
     public function properties(Request $request)
     {
-        $data = Cache::remember('website_properties', 300, function () {
+        $data = Cache::remember('website_properties', 1800, function () {
             $properties = DB::table('properties')
                 ->where(function($q) {
                     // Show if sr-homes portal toggle is enabled
@@ -331,6 +331,11 @@ class WebsiteApiController extends Controller
         if (!file_exists($path)) {
             abort(404);
         }
+        // Prevent directory traversal
+        $realPath = realpath($path);
+        if (!$realPath || !str_starts_with($realPath, storage_path('app'))) {
+            abort(403);
+        }
 
         return response()->file($path, [
             'Content-Type' => $file->mime_type,
@@ -383,13 +388,14 @@ class WebsiteApiController extends Controller
         }
 
         $request->validate([
-            'file' => 'required|file|max:102400', // 100MB max for videos
-            'section' => 'required|string',
-            'content_key' => 'required|string',
+            'file' => 'required|file|max:102400|mimes:jpg,jpeg,png,webp,svg,mp4,webm,mov',
+            'section' => 'required|string|max:100',
+            'content_key' => 'required|string|max:100',
         ]);
 
         $file = $request->file('file');
-        $filename = time() . '_' . $file->getClientOriginalName();
+        $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+        $filename = time() . '_' . $safeName;
         $path = $file->storeAs('website', $filename, 'public');
 
         $url = url(Storage::disk('public')->url($path));

@@ -1587,6 +1587,20 @@ async function deletePropFile(fileId) {
     } catch (e) { toast("Fehler: " + e.message); }
 }
 
+async function toggleWebsiteDownload(f) {
+    try {
+        const r = await fetch(API.value + "&action=toggle_website_download", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ file_id: f.id })
+        });
+        const d = await r.json();
+        if (d.success) {
+            f.is_website_download = d.is_website_download;
+            toast(d.is_website_download ? "Download auf Website aktiviert" : "Download von Website entfernt");
+        }
+    } catch (e) { toast("Fehler: " + e.message); }
+}
+
 
 </script>
 
@@ -2168,6 +2182,14 @@ async function deletePropFile(fileId) {
                             <div class="text-[10px] text-[#71717a] truncate">{{ f.filename }} <span v-if="f.file_size">· {{ formatFileSize(f.file_size) }}</span></div>
                             <a :href="f.url" target="_blank" class="text-[10px] text-[#18181b] hover:underline">Anzeigen</a>
                         </div>
+                        <button v-if="f.source === 'property_files'" @click="toggleWebsiteDownload(f)"
+                            :title="f.is_website_download ? 'Download auf Website aktiv' : 'Auf Website zum Download freigeben'"
+                            class="p-1.5 rounded-lg transition-all duration-200 flex-shrink-0"
+                            :class="f.is_website_download ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100'">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                        </button>
                         <button @click="deletePropFile(f.id)" class="btn btn-ghost btn-icon btn-sm text-red-500 hover:text-red-700"><Trash2 class="w-3.5 h-3.5" /></button>
                     </div>
 

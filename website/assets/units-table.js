@@ -153,97 +153,75 @@
     if (document.getElementById('sr-gallery-nav')) return;
     if (allImageUrls.length <= 1) return;
 
-    /* Find the gallery container — search broadly, React may not use <section> */
-    var gallerySection = null;
-
-    /* Strategy 1: find large property images and walk up to their common container */
+    /* Find gallery images in the DOM */
     var allImgs = document.querySelectorAll('img');
     var galleryImgs = [];
     for (var gi = 0; gi < allImgs.length; gi++) {
       var im = allImgs[gi];
-      if (im.closest('#sr-units-section') || im.closest('#sr-extra-descriptions') || im.closest('#sr-objektdaten') || im.closest('#sr-lightbox') || im.closest('nav') || im.closest('footer')) continue;
+      if (im.closest('#sr-units-section') || im.closest('#sr-extra-descriptions') || im.closest('#sr-objektdaten') || im.closest('#sr-lightbox') || im.closest('#sr-gallery-nav') || im.closest('nav') || im.closest('footer')) continue;
       var r = im.getBoundingClientRect();
-      if (r.width > 200 && r.height > 100) {
-        var src = im.src || '';
-        if (src.indexOf('property') !== -1 || src.indexOf('image/') !== -1 || src.indexOf('storage/') !== -1) {
-          galleryImgs.push(im);
-        }
+      if (r.width < 150 || r.height < 80) continue;
+      var src = im.src || '';
+      if (src.indexOf('property') !== -1 || src.indexOf('image/') !== -1 || src.indexOf('storage/') !== -1) {
+        galleryImgs.push(im);
       }
     }
-    if (galleryImgs.length > 0) {
-      /* Walk up from the first gallery image to find the wrapping container */
-      var el = galleryImgs[0].parentElement;
-      for (var up = 0; up < 8 && el; up++) {
-        /* Good container: contains gallery images and is reasonably large */
-        var elImgs = el.querySelectorAll('img');
-        var elR = el.getBoundingClientRect();
-        if (elImgs.length >= galleryImgs.length && elR.height > 200) {
-          /* Don't go too high — stop if we hit body, main, or root */
-          if (el.tagName === 'BODY' || el.tagName === 'MAIN' || el.id === 'root') break;
-          gallerySection = el;
-          /* Keep walking up 1 more level if it's a direct wrapper (section/div) */
-          if (el.parentElement && el.parentElement.tagName !== 'BODY' && el.parentElement.tagName !== 'MAIN' && el.parentElement.id !== 'root') {
-            var parentImgs = el.parentElement.querySelectorAll('img');
-            var parentH2s = el.parentElement.querySelectorAll('h2');
-            /* Stop if parent has h2s (that's the content section, too high) */
-            if (parentH2s.length === 0 && parentImgs.length <= galleryImgs.length + 2) {
-              gallerySection = el.parentElement;
-            }
-          }
-          break;
-        }
-        el = el.parentElement;
-      }
-    }
+    if (!galleryImgs.length) return;
 
-    /* Strategy 2: find by the "1 / X" counter badge */
-    if (!gallerySection) {
-      var badges = document.querySelectorAll('div');
-      for (var bi = 0; bi < badges.length; bi++) {
-        if (/^\d+\s*\/\s*\d+$/.test(badges[bi].textContent.trim())) {
-          /* Walk up a few levels to find a reasonable container */
-          var parent = badges[bi].parentElement;
-          for (var pu = 0; pu < 5 && parent; pu++) {
-            if (parent.querySelectorAll('img').length >= 1) { gallerySection = parent; break; }
-            parent = parent.parentElement;
-          }
-          if (gallerySection) break;
-        }
-      }
+    /* Find the "Beschreibung" h2 — gallery ends before it */
+    var beschreibungH2 = null;
+    var h2s = document.querySelectorAll('h2');
+    for (var hi = 0; hi < h2s.length; hi++) {
+      if (h2s[hi].textContent.trim() === 'Beschreibung') { beschreibungH2 = h2s[hi]; break; }
     }
-    if (!gallerySection) return;
+    /* Insert nav right before Beschreibung's parent container */
+    var insertBefore = beschreibungH2;
+    if (!insertBefore) return;
+    /* Walk up to find the section-level parent (the container that holds Beschreibung + Details) */
+    var insertParent = insertBefore.parentElement;
+    if (!insertParent) return;
 
     var currentIdx = 0;
-    var mainImg = gallerySection.querySelector('img');
+    /* Use the first (largest) gallery image as the main swappable image */
+    var mainImg = galleryImgs[0];
 
     var nav = document.createElement('div');
     nav.id = 'sr-gallery-nav';
-    nav.style.cssText = 'max-width:1440px;margin:0 auto;padding:8px 64px 0;display:flex;align-items:center;justify-content:space-between;font-family:Outfit,system-ui,sans-serif';
+    nav.style.cssText = 'max-width:1440px;margin:0 auto;padding:16px 64px 24px;display:flex;align-items:center;justify-content:space-between;font-family:Outfit,system-ui,sans-serif';
 
-    var btnStyle = 'background:'+TD+';color:#fff;border:none;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all 0.2s ease;opacity:0.8';
+    var btnStyle = 'background:'+TD+';color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:18px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s ease;opacity:0.8';
+
+    /* Only show dots if <= 10 images, otherwise just counter */
+    var showDots = allImageUrls.length <= 10;
 
     nav.innerHTML =
       '<button id="sr-gal-prev" style="'+btnStyle+'">\u2039</button>' +
-      '<div style="display:flex;align-items:center;gap:16px">' +
-        '<span id="sr-gal-counter" style="font-size:14px;font-weight:600;color:'+TD+';letter-spacing:0.5px">1 / '+allImageUrls.length+'</span>' +
-        '<div id="sr-gal-dots" style="display:flex;gap:6px"></div>' +
-        '<button id="sr-gal-expand" style="background:none;border:1.5px solid '+BD+';color:'+TD+';padding:6px 16px;border-radius:100px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:all 0.2s">Alle anzeigen</button>' +
+      '<div style="display:flex;align-items:center;gap:12px">' +
+        '<span id="sr-gal-counter" style="font-size:13px;font-weight:600;color:'+TD+';letter-spacing:0.5px">1 / '+allImageUrls.length+'</span>' +
+        (showDots ? '<div id="sr-gal-dots" style="display:flex;gap:5px"></div>' : '') +
+        '<button id="sr-gal-expand" style="background:none;border:1.5px solid '+BD+';color:'+TD+';padding:5px 14px;border-radius:100px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all 0.2s">Alle anzeigen</button>' +
       '</div>' +
       '<button id="sr-gal-next" style="'+btnStyle+'">\u203A</button>';
 
-    gallerySection.parentNode.insertBefore(nav, gallerySection.nextSibling);
+    /* Insert before the Beschreibung heading */
+    insertParent.insertBefore(nav, insertBefore);
 
     /* Dots */
-    var dotsEl = document.getElementById('sr-gal-dots');
-    allImageUrls.forEach(function(_, di) {
-      var dot = document.createElement('div');
-      dot.style.cssText = 'width:8px;height:8px;border-radius:50%;background:'+(di===0?A:BD)+';transition:all 0.3s;cursor:pointer';
-      dot.dataset.idx = di;
-      dot.addEventListener('click', function() { goTo(parseInt(this.dataset.idx)); });
-      dotsEl.appendChild(dot);
-    });
+    if (showDots) {
+      var dotsEl = document.getElementById('sr-gal-dots');
+      allImageUrls.forEach(function(_, di) {
+        var dot = document.createElement('div');
+        dot.style.cssText = 'width:7px;height:7px;border-radius:50%;background:'+(di===0?A:BD)+';transition:all 0.3s;cursor:pointer';
+        dot.dataset.idx = di;
+        dot.addEventListener('click', function() { goTo(parseInt(this.dataset.idx)); });
+        dotsEl.appendChild(dot);
+      });
+    }
 
     function updateDots() {
+      if (!showDots) return;
+      var dotsEl = document.getElementById('sr-gal-dots');
+      if (!dotsEl) return;
       var dots = dotsEl.children;
       for (var d = 0; d < dots.length; d++) {
         dots[d].style.background = (d === currentIdx) ? A : BD;
@@ -256,7 +234,7 @@
       if (idx >= allImageUrls.length) idx = 0;
       currentIdx = idx;
 
-      /* Update the main gallery image */
+      /* Update ALL visible gallery images by swapping src */
       if (mainImg) {
         mainImg.style.opacity = '0.5';
         mainImg.style.transition = 'opacity 0.3s ease';
@@ -285,6 +263,11 @@
     var expandBtn = document.getElementById('sr-gal-expand');
     expandBtn.addEventListener('mouseenter', function() { this.style.borderColor = A; this.style.color = A; });
     expandBtn.addEventListener('mouseleave', function() { this.style.borderColor = BD; this.style.color = TD; });
+
+    /* Responsive: adjust padding on mobile */
+    if (window.innerWidth < 768) {
+      nav.style.padding = '12px 16px 16px';
+    }
   }
 
   function fmt(p) {
@@ -392,35 +375,55 @@
     return h;
   }
 
-  /* ── Inject highlights/features on listing overview cards ── */
+  /* ── Fix "150.00 m²" → "150 m²" and "4.0 Zimmer" → "4 Zimmer" on listing cards ── */
+  function fixListingCardFormatting() {
+    if (isDetailPage()) return;
+    var allEls = document.querySelectorAll('*');
+    for (var i = 0; i < allEls.length; i++) {
+      var el = allEls[i];
+      if (el.children.length > 0) continue;
+      if (el.dataset.srFmt === '1') continue;
+      var txt = el.textContent.trim();
+      /* Fix "150.00 m²" → "150 m²" */
+      if (/^\d+\.\d+\s*m/.test(txt)) {
+        el.textContent = txt.replace(/(\d+)\.\d+(\s*m)/, '$1$2');
+        el.dataset.srFmt = '1';
+      }
+      /* Fix "4.0 Zimmer" → "4 Zimmer" */
+      if (/^\d+\.\d+\s*Zimmer/.test(txt)) {
+        el.textContent = txt.replace(/(\d+)\.\d+(\s*Zimmer)/, '$1$2');
+        el.dataset.srFmt = '1';
+      }
+    }
+  }
+
+  /* ── Inject highlights on listing overview cards (Immobilien page only, NOT homepage) ── */
   function injectListingHighlights() {
     if (isDetailPage()) return;
-    /* Find all listing cards — they are typically <a> or <div> with links to property details */
+    /* Only run on /immobilien listing page, skip homepage */
+    var path = window.location.pathname;
+    if (path === '/' || path === '') return;
+
     var cards = document.querySelectorAll('a[href*="/immobilien/"], a[href*="/property/"], a[href*="/objekt/"]');
-    if (!cards.length) {
-      /* Fallback: look for cards containing property images and price text */
-      cards = document.querySelectorAll('[class*="group"]');
-    }
+    if (!cards.length) cards = document.querySelectorAll('[class*="group"]');
+
     cards.forEach(function(card) {
       if (card.dataset.srHighlights === '1') return;
-      /* Find the property ID for this card by matching text content */
       var cardText = card.textContent || '';
       var matchedId = null;
       var keys = Object.keys(propMap);
       for (var ki = 0; ki < keys.length; ki++) {
-        /* Match by ref_id or project_name found in the card text */
         if (cardText.indexOf(keys[ki]) !== -1 && propMap[keys[ki]]) {
           matchedId = propMap[keys[ki]];
           break;
         }
       }
-      /* Also try matching by href */
       if (!matchedId) {
         var href = card.getAttribute('href') || '';
         var hrefMatch = href.match(/\/(\d+)(?:\/|$)/);
         if (hrefMatch) {
           var hid = parseInt(hrefMatch[1]);
-          if (propHighlights[hid] || propFeatures[hid]) matchedId = hid;
+          if (propHighlights[hid]) matchedId = hid;
         }
       }
       if (!matchedId) return;
@@ -429,19 +432,28 @@
       var features = propFeatures[matchedId];
       if (!highlights && (!features || !features.length)) return;
 
-      /* Build tags */
+      /* Parse highlights — handle both JSON array and comma-separated string */
       var tags = [];
-      if (features && features.length) {
-        features.forEach(function(f) { if (tags.length < 6) tags.push(f); });
+      if (highlights) {
+        var hlArr = [];
+        if (typeof highlights === 'string') {
+          if (highlights.charAt(0) === '[') {
+            try { hlArr = JSON.parse(highlights); } catch(e) {}
+          }
+          if (!hlArr.length) {
+            hlArr = highlights.split(/[,;\n|•·–—]+/).map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 2 && s.length < 50; });
+          }
+        } else if (Array.isArray(highlights)) {
+          hlArr = highlights;
+        }
+        hlArr.forEach(function(h) { if (tags.length < 6) tags.push(h); });
       }
-      if (highlights && typeof highlights === 'string') {
-        /* Split highlights by common delimiters */
-        var parts = highlights.split(/[,;\n|•·–—]+/).map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 0 && s.length < 40; });
-        parts.forEach(function(p) { if (tags.length < 6 && tags.indexOf(p) === -1) tags.push(p); });
+      /* Add features (Garten, Terrasse, Bäder etc.) */
+      if (features && features.length) {
+        features.forEach(function(f) { if (tags.length < 6 && tags.indexOf(f) === -1) tags.push(f); });
       }
       if (!tags.length) return;
 
-      /* Find insertion point — look for the subtitle or price element at bottom of card */
       var tagsContainer = document.createElement('div');
       tagsContainer.className = 'sr-highlight-tags';
       tagsContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:8px;padding:0 2px';
@@ -452,7 +464,6 @@
         tagsContainer.appendChild(chip);
       });
 
-      /* Insert at the bottom of the card content area */
       var textContainer = card.querySelector('div > div:last-child') || card.querySelector('div');
       if (textContainer) {
         textContainer.appendChild(tagsContainer);
@@ -508,6 +519,8 @@
             });
             setTimeout(addAbPrefix, 800);
             setTimeout(addAbPrefix, 2500);
+            setTimeout(fixListingCardFormatting, 600);
+            setTimeout(fixListingCardFormatting, 2000);
             setTimeout(injectListingHighlights, 1000);
             setTimeout(injectListingHighlights, 3000);
           }
@@ -1013,6 +1026,7 @@
       var oldNav = document.getElementById('sr-gallery-nav');
       if(oldNav) oldNav.remove();
       if(Object.keys(newbuildProps).length > 0) addAbPrefix();
+      fixListingCardFormatting();
       injectListingHighlights();
     }
   }

@@ -121,7 +121,7 @@ class PerformanceController extends Controller
                 (SELECT SUM(category='besichtigung') FROM activities
                  WHERE YEARWEEK(activity_date,1) = YEARWEEK(first_act.activity_date,1)
                  {$trendSubDateFilter} {$propFilterSub}) as viewing_requests,
-                (SELECT COUNT(*) FROM property_units WHERE kaufanbot_pdf IS NOT NULL AND kaufanbot_pdf != '' AND YEARWEEK(created_at,1) = YEARWEEK(first_act.activity_date,1) AND property_id IN (SELECT id FROM properties WHERE 1=1
+                (SELECT SUM(category='kaufanbot') FROM activities
                  WHERE YEARWEEK(activity_date,1) = YEARWEEK(first_act.activity_date,1)
                  {$trendSubDateFilter} {$propFilterSub}) as offers,
                 (SELECT SUM(category='absage') FROM activities

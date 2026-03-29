@@ -1,0 +1,28 @@
+[
+  {
+    "id": "sr-homes-deploy",
+    "execute-command": "/opt/sr-homes/deploy.sh",
+    "command-working-directory": "/opt/sr-homes",
+    "response-message": "Deploy triggered.",
+    "trigger-rule": {
+      "and": [
+        {
+          "match": {
+            "type": "value",
+            "value": "refs/heads/main",
+            "parameter": {
+              "source": "payload",
+              "name": "ref"
+            }
+          }
+        }
+      ]
+    },
+    "pass-arguments-to-command": [
+      {
+        "source": "payload",
+        "name": "after"
+      }
+    ]
+  }
+]

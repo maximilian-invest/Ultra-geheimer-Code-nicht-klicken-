@@ -14,12 +14,12 @@ class MigrateFromLegacy extends Command
     protected $description = 'Migrate data from legacy World4You database via API export';
 
     private string $apiBase = 'https://kundenportal.sr-homes.at/api/db_export.php';
-    private string $apiKey; // Loaded from config in constructor
+    private string $apiKey = '';
 
     public function __construct()
     {
         parent::__construct();
-        $this->apiKey = config('portal.api_key', '');
+        $this->apiKey = (string) config('portal.api_key', '');
     }
 
     public function handle(): int

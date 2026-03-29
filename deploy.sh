@@ -3,10 +3,16 @@
 # SR-Homes Deploy Script
 # Builds portal (Laravel+Vue) and website (React), then deploys.
 # Triggered by webhook on push to main.
+#
+# Usage:
+#   ./deploy.sh                        # deploys main branch
+#   DEPLOY_BRANCH=dev ./deploy.sh      # deploys specific branch
 # ═══════════════════════════════════════════════════════════════════
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Resolve symlinks to find the real repo directory
+SCRIPT_PATH="$(readlink -f "$0")"
+REPO_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 PORTAL_DIR="$REPO_DIR/portal"
 WEBSITE_SRC_DIR="$REPO_DIR/website/src"
 WEBSITE_DIST_DIR="$REPO_DIR/website/dist"
@@ -23,17 +29,21 @@ log() {
 log "═══ Deploy started ═══"
 
 # ─── 1. Pull latest code ───────────────────────────────────────────
-log "Pulling latest code..."
+BRANCH="${DEPLOY_BRANCH:-main}"
+log "Pulling latest code (branch: $BRANCH)..."
 cd "$REPO_DIR"
-git pull origin main
+git fetch origin "$BRANCH"
+git checkout "$BRANCH" 2>/dev/null || true
+git reset --hard "origin/$BRANCH"
 
 # ─── 2. Build Portal (Laravel + Vue/Inertia) ──────────────────────
 log "Building portal..."
 cd "$PORTAL_DIR"
 
-# PHP dependencies
+# PHP dependencies (--no-scripts avoids artisan errors during autoload)
 log "  composer install..."
-composer install --no-dev --optimize-autoloader --no-interaction
+composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+php artisan package:discover --ansi 2>/dev/null || true
 
 # Node dependencies & Vite build
 log "  npm ci..."
@@ -88,8 +98,8 @@ log "Deploying website to $DEPLOY_WEBSITE..."
 rsync -av --delete \
     "$WEBSITE_DIST_DIR/" "$DEPLOY_WEBSITE/"
 
-# Also copy root-level website files (index.html, favicon, icons)
-for f in index.html favicon.svg icons.svg; do
+# Also copy root-level website files (favicon, icons)
+for f in favicon.svg icons.svg; do
     if [ -f "$REPO_DIR/website/$f" ]; then
         cp "$REPO_DIR/website/$f" "$DEPLOY_WEBSITE/" 2>/dev/null || true
     fi

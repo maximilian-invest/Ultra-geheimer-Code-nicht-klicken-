@@ -31,7 +31,7 @@ class WebsiteApiController extends Controller
                     'id', 'ref_id', 'project_name', 'address', 'city', 'zip',
                     'object_type as type', 'property_category', 'realty_status', 'purchase_price as price',
                     'living_area', 'free_area', 'total_area', 'rooms_amount',
-                    'construction_year', 'year_renovated', 'realty_description', 'highlights',
+                    'construction_year', 'year_renovated', 'realty_description as description', 'highlights',
                     'main_image_id', 'website_gallery_ids',
                     'total_units', 'energy_certificate', 'heating_demand_value',
                     'garage_spaces', 'parking_spaces', 'has_basement',
@@ -156,6 +156,23 @@ class WebsiteApiController extends Controller
         if (!$p) {
             return response()->json(['error' => 'Not found'], 404);
         }
+
+        // Map DB field names to what the React frontend expects
+        $p->description = $p->realty_description ?? null;
+        $p->type = $p->object_type ?? null;
+        $p->price = $p->purchase_price ?? null;
+
+        // Features array from boolean fields
+        $features = [];
+        if (!empty($p->has_garden)) $features[] = 'Garten';
+        if (!empty($p->has_balcony)) $features[] = 'Balkon';
+        if (!empty($p->has_terrace)) $features[] = 'Terrasse';
+        if (!empty($p->has_loggia)) $features[] = 'Loggia';
+        if (!empty($p->has_elevator)) $features[] = 'Lift';
+        if (!empty($p->has_basement)) $features[] = 'Keller';
+        if (!empty($p->garage_spaces) && $p->garage_spaces > 0) $features[] = 'Garage';
+        if (!empty($p->parking_spaces) && $p->parking_spaces > 0) $features[] = 'Stellplatz';
+        $p->features = $features;
 
         // All images — prefer property_images (PropertyEditor), fallback to property_files
         $piImages = DB::table('property_images')

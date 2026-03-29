@@ -56,8 +56,8 @@ npm run build
 log "  Clearing & rebuilding Laravel caches..."
 php artisan config:cache
 php artisan route:cache
-php artisan view:cache
-php artisan event:cache
+php artisan view:cache 2>/dev/null || true
+php artisan event:cache 2>/dev/null || true
 
 # ─── 3. Build Website (React SPA) ─────────────────────────────────
 log "Building website..."

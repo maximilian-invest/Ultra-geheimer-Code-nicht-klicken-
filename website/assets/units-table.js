@@ -1,5 +1,6 @@
 /**
- * SR-Homes Units Table v5 — Serhant-Style
+ * SR-Homes Units Table v6 — Serhant-Style
+ * - Full image gallery lightbox with navigation for ALL properties
  * - Injects extra descriptions (Lage, Ausstattung) for ALL properties
  * - Injects units table for Neubauprojekte
  * - Matches website container layout (max-width 1440px, centered, proper padding)
@@ -20,9 +21,122 @@
 
   var injected = false;
   var descriptionsInjected = false;
+  var lightboxInjected = false;
   var propMap = {};
   var propCategoryMap = {};
   var newbuildProps = {};
+
+  /* ══════════════════════════════════════════════
+     LIGHTBOX — Full gallery with prev/next
+     ══════════════════════════════════════════════ */
+  function initLightbox() {
+    if (lightboxInjected) return;
+    if (document.getElementById('sr-lightbox')) return;
+
+    /* Create lightbox overlay */
+    var lb = document.createElement('div');
+    lb.id = 'sr-lightbox';
+    lb.style.cssText = 'display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.92);backdrop-filter:blur(12px);opacity:0;transition:opacity 0.3s ease;cursor:zoom-out';
+
+    lb.innerHTML =
+      '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:48px">' +
+        '<img id="sr-lb-img" src="" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;user-select:none;transition:opacity 0.25s ease" />' +
+      '</div>' +
+      /* Close button */
+      '<button id="sr-lb-close" style="position:absolute;top:20px;right:24px;background:none;border:none;color:#fff;font-size:32px;cursor:pointer;opacity:0.7;transition:opacity 0.2s;z-index:10;padding:8px;line-height:1">&times;</button>' +
+      /* Prev button */
+      '<button id="sr-lb-prev" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:28px;width:52px;height:52px;border-radius:50%;cursor:pointer;opacity:0.7;transition:all 0.2s;display:flex;align-items:center;justify-content:center">\u2039</button>' +
+      /* Next button */
+      '<button id="sr-lb-next" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:28px;width:52px;height:52px;border-radius:50%;cursor:pointer;opacity:0.7;transition:all 0.2s;display:flex;align-items:center;justify-content:center">\u203A</button>' +
+      /* Counter */
+      '<div id="sr-lb-counter" style="position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;font-weight:500;opacity:0.7;font-family:Outfit,system-ui,sans-serif;letter-spacing:1px"></div>';
+
+    document.body.appendChild(lb);
+
+    var lbImg = document.getElementById('sr-lb-img');
+    var lbCounter = document.getElementById('sr-lb-counter');
+    var images = [];
+    var currentIdx = 0;
+
+    function showImage(idx) {
+      if (idx < 0) idx = images.length - 1;
+      if (idx >= images.length) idx = 0;
+      currentIdx = idx;
+      lbImg.style.opacity = '0';
+      setTimeout(function() {
+        lbImg.src = images[currentIdx];
+        lbImg.onload = function() { lbImg.style.opacity = '1'; };
+        lbCounter.textContent = (currentIdx + 1) + ' / ' + images.length;
+      }, 150);
+    }
+
+    function openLightbox(imgs, startIdx) {
+      images = imgs;
+      currentIdx = startIdx || 0;
+      lb.style.display = 'block';
+      requestAnimationFrame(function() { lb.style.opacity = '1'; });
+      lbImg.src = images[currentIdx];
+      lbCounter.textContent = (currentIdx + 1) + ' / ' + images.length;
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+      lb.style.opacity = '0';
+      setTimeout(function() { lb.style.display = 'none'; }, 300);
+      document.body.style.overflow = '';
+    }
+
+    lb.addEventListener('click', function(e) {
+      if (e.target === lb || e.target === lb.firstElementChild) closeLightbox();
+    });
+    document.getElementById('sr-lb-close').addEventListener('click', closeLightbox);
+    document.getElementById('sr-lb-prev').addEventListener('click', function(e) { e.stopPropagation(); showImage(currentIdx - 1); });
+    document.getElementById('sr-lb-next').addEventListener('click', function(e) { e.stopPropagation(); showImage(currentIdx + 1); });
+
+    /* Hover effects */
+    ['sr-lb-prev','sr-lb-next','sr-lb-close'].forEach(function(id) {
+      var el = document.getElementById(id);
+      el.addEventListener('mouseenter', function() { this.style.opacity = '1'; this.style.background = id === 'sr-lb-close' ? 'none' : 'rgba(255,255,255,0.2)'; });
+      el.addEventListener('mouseleave', function() { this.style.opacity = '0.7'; this.style.background = id === 'sr-lb-close' ? 'none' : 'rgba(255,255,255,0.1)'; });
+    });
+
+    /* Keyboard navigation */
+    document.addEventListener('keydown', function(e) {
+      if (lb.style.display === 'none') return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') showImage(currentIdx - 1);
+      if (e.key === 'ArrowRight') showImage(currentIdx + 1);
+    });
+
+    /* Expose open function */
+    window._srOpenLightbox = openLightbox;
+    lightboxInjected = true;
+  }
+
+  /* Attach click handlers to gallery images on detail page */
+  function attachGalleryClicks(allImageUrls) {
+    if (!window._srOpenLightbox || !allImageUrls.length) return;
+    /* Find the gallery section — the grid with aspect-ratio images */
+    var galleryImgs = document.querySelectorAll('section img[class*="object-cover"]');
+    galleryImgs.forEach(function(img) {
+      if (img.dataset.srLb === '1') return;
+      img.dataset.srLb = '1';
+      img.style.cursor = 'zoom-in';
+      img.addEventListener('click', function(e) {
+        e.stopPropagation();
+        /* Find which index this image is */
+        var src = img.src;
+        var idx = 0;
+        for (var i = 0; i < allImageUrls.length; i++) {
+          if (allImageUrls[i] === src || src.indexOf(allImageUrls[i]) !== -1 || allImageUrls[i].indexOf(src.split('/').pop()) !== -1) {
+            idx = i;
+            break;
+          }
+        }
+        window._srOpenLightbox(allImageUrls, idx);
+      });
+    });
+  }
 
   function fmt(p) {
     if (!p || p <= 0) return '\u2014';
@@ -274,14 +388,29 @@
       .then(function(r){return r.json();})
       .then(function(d){
         if(!d.success||!d.property) return;
+        var prop = d.property;
 
         /* Patch stats grid with ranges for Neubauprojekte */
-        if (d.property.area_range || d.property.rooms_range) {
-          setTimeout(function(){ patchStatsGrid(d.property); }, 300);
-          setTimeout(function(){ patchStatsGrid(d.property); }, 1500);
+        if (prop.area_range || prop.rooms_range) {
+          setTimeout(function(){ patchStatsGrid(prop); }, 300);
+          setTimeout(function(){ patchStatsGrid(prop); }, 1500);
         }
 
-        var html = buildDescriptions(d.property);
+        /* Init lightbox and attach to gallery images */
+        initLightbox();
+        var allUrls = [];
+        if (prop.images && prop.images.length) {
+          prop.images.forEach(function(img) {
+            var u = typeof img === 'string' ? img : img.url;
+            if (u && allUrls.indexOf(u) === -1) allUrls.push(u);
+          });
+        }
+        if (allUrls.length > 0) {
+          setTimeout(function(){ attachGalleryClicks(allUrls); }, 500);
+          setTimeout(function(){ attachGalleryClicks(allUrls); }, 2000);
+        }
+
+        var html = buildDescriptions(prop);
         if(!html) return;
 
         var wrap = document.createElement('div');
@@ -435,6 +564,11 @@
         var oldDesc = document.getElementById('sr-extra-descriptions');
         if(oldDesc) oldDesc.remove();
         descriptionsInjected = false;
+      }
+      if(lightboxInjected) {
+        var oldLb = document.getElementById('sr-lightbox');
+        if(oldLb) oldLb.remove();
+        lightboxInjected = false;
       }
       if(Object.keys(newbuildProps).length > 0) addAbPrefix();
     }

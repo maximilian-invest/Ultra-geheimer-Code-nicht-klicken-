@@ -23,7 +23,7 @@ class PropertyController extends Controller
 
         // Multi-User: broker_id pruefen
         $brokerId = \Auth::id();
-        $brokerSql = $brokerId ? " AND p.broker_id = {$brokerId}" : "";
+        $brokerSql = $brokerId ? " AND p.broker_id = ?" : "";
 
         $property = (array) DB::selectOne("
             SELECT p.*, c.name as owner_name, c.email as owner_email,
@@ -31,7 +31,7 @@ class PropertyController extends Controller
             FROM properties p
             JOIN customers c ON c.id = p.customer_id
             WHERE p.id = ? {$brokerSql}
-        ", [$propertyId]);
+        ", $brokerId ? [$propertyId, $brokerId] : [$propertyId]);
 
         if (empty($property) || !$property['id']) {
             return response()->json(['error' => 'Property not found'], 404);
@@ -69,7 +69,9 @@ class PropertyController extends Controller
                     SUM(status IN ('geplant','bestaetigt') AND viewing_date >= CURDATE()) as upcoming
                 FROM viewings WHERE property_id = ?
             ", [$propertyId]);
-        } catch (\Exception $e) {}
+        } catch (\Exception $e) {
+            \Log::warning('viewing_stats query failed', ['property_id' => $propertyId, 'error' => $e->getMessage()]);
+        }
 
         $norm = StakeholderHelper::normSH('stakeholder');
         $openConvs = (int) DB::selectOne("
@@ -134,7 +136,10 @@ class PropertyController extends Controller
             return response()->json(['error' => 'property_id required'], 400);
         }
 
-        $property = DB::selectOne('SELECT id, ref_id, address FROM properties WHERE id = ?', [$propertyId]);
+        $brokerId = \Auth::id();
+        $property = $brokerId
+            ? DB::selectOne('SELECT id, ref_id, address FROM properties WHERE id = ? AND broker_id = ?', [$propertyId, $brokerId])
+            : DB::selectOne('SELECT id, ref_id, address FROM properties WHERE id = ?', [$propertyId]);
         if (!$property) {
             return response()->json(['error' => 'Property not found'], 404);
         }
@@ -223,12 +228,14 @@ class PropertyController extends Controller
             return response()->json(['error' => 'property_id required'], 400);
         }
 
+        $brokerId = \Auth::id();
+        $brokerSql = $brokerId ? " AND p.broker_id = ?" : "";
         $property = (array) DB::selectOne("
             SELECT p.*, c.name as owner_name
             FROM properties p
             LEFT JOIN customers c ON c.id = p.customer_id
-            WHERE p.id = ?
-        ", [$propertyId]);
+            WHERE p.id = ? {$brokerSql}
+        ", $brokerId ? [$propertyId, $brokerId] : [$propertyId]);
 
         if (empty($property) || !$property['id']) {
             return response()->json(['error' => 'Property not found'], 404);
@@ -401,7 +408,12 @@ class PropertyController extends Controller
             return response()->json(['error' => 'property_id erforderlich'], 422);
         }
 
-        $property = \App\Models\Property::find($propertyId);
+        $brokerId = \Auth::id();
+        $query = \App\Models\Property::where('id', $propertyId);
+        if ($brokerId) {
+            $query->where('broker_id', $brokerId);
+        }
+        $property = $query->first();
         if (!$property) {
             return response()->json(['error' => 'Objekt nicht gefunden'], 404);
         }
@@ -476,7 +488,10 @@ class PropertyController extends Controller
     public function setInactive(Request $request): JsonResponse
     {
         $propertyId = $request->input('property_id');
-        $property = \App\Models\Property::findOrFail($propertyId);
+        $brokerId = \Auth::id();
+        $query = \App\Models\Property::where('id', $propertyId);
+        if ($brokerId) $query->where('broker_id', $brokerId);
+        $property = $query->firstOrFail();
         $property->update(['realty_status' => 'inaktiv']);
         return response()->json(['success' => true, 'message' => "Objekt {$property->ref_id} auf inaktiv gesetzt"]);
     }
@@ -485,7 +500,10 @@ class PropertyController extends Controller
     {
         $propertyId = $request->input('property_id');
         $newStatus = $request->input('realty_status', 'auftrag');
-        $property = \App\Models\Property::findOrFail($propertyId);
+        $brokerId = \Auth::id();
+        $query = \App\Models\Property::where('id', $propertyId);
+        if ($brokerId) $query->where('broker_id', $brokerId);
+        $property = $query->firstOrFail();
         $property->update(['realty_status' => $newStatus]);
         return response()->json(['success' => true, 'message' => "Objekt {$property->ref_id} reaktiviert (Status: {$newStatus})"]);
     }

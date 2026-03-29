@@ -477,7 +477,7 @@ class PortalApiController extends Controller
             'filename'      => $safeName,
             'original_name' => $originalName,
             'file_size'     => filesize($dir . '/' . $safeName),
-            'mime_type'     => mime_content_type($dir . '/' . $safeName),
+            'mime_type'     => (new \finfo(FILEINFO_MIME_TYPE))->file($dir . '/' . $safeName),
             'description'   => $title,
         ]);
 

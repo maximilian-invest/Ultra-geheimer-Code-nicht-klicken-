@@ -14,10 +14,13 @@ class TaskController extends Controller
         $showDone = intval($request->query('done', 0));
         $brokerId = \Auth::id();
         $conditions = [];
+        $params = [];
         if (!$showDone) $conditions[] = 't.is_done = 0';
         // Multi-User: only show tasks for own properties or created by self
         if ($brokerId) {
-            $conditions[] = "(p.broker_id = {$brokerId} OR (t.property_id IS NULL AND t.created_by = {$brokerId}))";
+            $conditions[] = "(p.broker_id = ? OR (t.property_id IS NULL AND t.created_by = ?))";
+            $params[] = $brokerId;
+            $params[] = $brokerId;
         }
         $where = !empty($conditions) ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
@@ -27,7 +30,7 @@ class TaskController extends Controller
             LEFT JOIN properties p ON t.property_id = p.id
             {$where}
             ORDER BY t.is_done ASC, FIELD(t.priority, 'critical', 'high', 'medium', 'low'), t.created_at DESC
-        ");
+        ", $params);
 
         return response()->json(['tasks' => $rows, 'count' => count($rows)]);
     }
@@ -110,7 +113,8 @@ class TaskController extends Controller
 
         // Read recent incoming emails (last 14 days) with their content
         $brokerId = \Auth::id();
-        $brokerFilter = $brokerId ? "AND (p.broker_id = {$brokerId} OR pe.property_id IS NULL)" : "";
+        $brokerFilter = $brokerId ? "AND (p.broker_id = ? OR pe.property_id IS NULL)" : "";
+        $emailParams = $brokerId ? [$brokerId] : [];
         $emails = DB::select("
             SELECT pe.from_name, pe.from_email, pe.subject, pe.body_text, pe.ai_summary,
                    pe.category, pe.property_id, p.ref_id, p.address,
@@ -123,15 +127,16 @@ class TaskController extends Controller
               {$brokerFilter}
             ORDER BY pe.email_date DESC
             LIMIT 40
-        ");
+        ", $emailParams);
 
         // Active properties for context
-        $brokerPropFilter = $brokerId ? "AND broker_id = {$brokerId}" : "";
+        $brokerPropFilter = $brokerId ? "AND broker_id = ?" : "";
+        $propParams = $brokerId ? [$brokerId] : [];
         $properties = DB::select("
             SELECT id, ref_id, address, city, status
             FROM properties WHERE status NOT IN ('verkauft') {$brokerPropFilter}
             ORDER BY ref_id
-        ");
+        ", $propParams);
 
         // Build context
         $ctx = "EINGEHENDE MAILS DER LETZTEN 14 TAGE:\n\n";

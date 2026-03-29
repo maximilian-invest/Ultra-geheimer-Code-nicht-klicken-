@@ -19,10 +19,11 @@ portal/storage/framework/sessions/
 portal/storage/framework/views/
 portal/storage/*.key
 
-# Build artifacts (committed for deployment)
-# portal/public/build/
+# Build artifacts (built on server via deploy.sh)
+portal/public/build/
 portal/public/hot
 portal/public/storage
+website/dist/
 
 # IDE
 .idea/

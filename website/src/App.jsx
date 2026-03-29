@@ -701,8 +701,14 @@ const Footer = ({ setPage, t, cms = DEFAULT_CMS, logos }) => {
       </div>
 
       <div className="mt-20 pt-8 flex flex-col md:flex-row justify-between gap-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        <span className="text-xs text-white/20">SR-Homes GmbH | FN 4556571 i | ATU 71268923 | Konzessionierter Immobilientreuhänder</span>
-        <span className="text-xs text-white/20">2026 SR-Homes. Alle Rechte vorbehalten.</span>
+        <span className="text-xs text-white/20">
+          {(cms.legal && cms.legal.company_name) || "SR-Homes GmbH"} | {(cms.legal && cms.legal.fn_number) || "FN 4556571 i"} | {(cms.legal && cms.legal.uid_number) || "ATU 71268923"} | {(cms.legal && cms.legal.trade_license) || "Konzessionierter Immobilientreuhänder"}
+        </span>
+        <span className="text-xs text-white/20 flex gap-3">
+          <button onClick={() => setPage("impressum")} className="hover:text-white/50 transition-colors underline">Impressum</button>
+          <button onClick={() => setPage("datenschutz")} className="hover:text-white/50 transition-colors underline">Datenschutz</button>
+          <span>© 2026 SR-Homes</span>
+        </span>
       </div>
     </div>
   </footer>
@@ -1750,10 +1756,103 @@ const KontaktPage = ({ t, cms = DEFAULT_CMS }) => (
 );
 
 // ═══════════════════════════════════════════════════════════════════
+// IMPRESSUM PAGE
+// ═══════════════════════════════════════════════════════════════════
+const ImpressumPage = ({ t, cms = DEFAULT_CMS }) => {
+  const legal = cms.legal || {};
+  return (
+    <div className="pt-20">
+      <section className="py-20 md:py-28" style={{ background: t.bg }}>
+        <div className="max-w-3xl mx-auto px-6 md:px-12">
+          <Eyebrow t={t}>Rechtliches</Eyebrow>
+          <h1 className="font-display text-4xl md:text-5xl font-bold mb-12" style={{ color: t.text, letterSpacing: "-0.03em" }}>Impressum</h1>
+
+          <div className="space-y-8">
+            <div className="p-8 rounded-2xl" style={{ background: t.bgCard, border: `1px solid ${t.borderLight}` }}>
+              <h2 className="text-xl font-bold mb-6" style={{ color: t.text }}>Angaben gemäß § 5 ECG</h2>
+              <div className="space-y-4 text-sm leading-relaxed" style={{ color: t.textSecondary }}>
+                <p className="text-lg font-bold" style={{ color: t.text }}>{legal.company_name || "SR-Homes Immobilien GmbH"}</p>
+                <p>{(cms.contact || DEFAULT_CMS.contact).address}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4" style={{ borderTop: `1px solid ${t.borderLight}` }}>
+                  <div><span className="text-xs font-bold uppercase tracking-widest block mb-1" style={{ color: t.textMuted }}>Firmenbuchnummer</span>{legal.fn_number || "FN 4556571 i"}</div>
+                  <div><span className="text-xs font-bold uppercase tracking-widest block mb-1" style={{ color: t.textMuted }}>UID-Nr.</span>{legal.uid_number || "ATU 71268923"}</div>
+                </div>
+                {legal.ceo_name && (
+                  <div className="pt-4" style={{ borderTop: `1px solid ${t.borderLight}` }}>
+                    <span className="text-xs font-bold uppercase tracking-widest block mb-1" style={{ color: t.textMuted }}>Geschäftsführer</span>{legal.ceo_name}
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4" style={{ borderTop: `1px solid ${t.borderLight}` }}>
+                  <div><span className="text-xs font-bold uppercase tracking-widest block mb-1" style={{ color: t.textMuted }}>Firmenbuchgericht</span>{legal.court || "Landesgericht Salzburg"}</div>
+                  <div><span className="text-xs font-bold uppercase tracking-widest block mb-1" style={{ color: t.textMuted }}>Gewerbe</span>{legal.trade_license || "Konzessionierter Immobilientreuhänder"}</div>
+                </div>
+                {legal.authority && (
+                  <div className="pt-4" style={{ borderTop: `1px solid ${t.borderLight}` }}>
+                    <span className="text-xs font-bold uppercase tracking-widest block mb-1" style={{ color: t.textMuted }}>Aufsichtsbehörde</span>{legal.authority}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-8 rounded-2xl" style={{ background: t.bgCard, border: `1px solid ${t.borderLight}` }}>
+              <h2 className="text-xl font-bold mb-4" style={{ color: t.text }}>Kontakt</h2>
+              <div className="space-y-3 text-sm" style={{ color: t.textSecondary }}>
+                <div className="flex items-center gap-3"><Phone size={15} style={{ color: t.accent }} /><a href={`tel:${((cms.contact || DEFAULT_CMS.contact).phone || "").replace(/\s/g, "")}`}>{(cms.contact || DEFAULT_CMS.contact).phone}</a></div>
+                <div className="flex items-center gap-3"><Mail size={15} style={{ color: t.accent }} /><a href={`mailto:${(cms.contact || DEFAULT_CMS.contact).email}`}>{(cms.contact || DEFAULT_CMS.contact).email}</a></div>
+              </div>
+            </div>
+
+            {legal.impressum_extra && (
+              <div className="p-8 rounded-2xl" style={{ background: t.bgCard, border: `1px solid ${t.borderLight}` }}>
+                <div className="prose prose-sm max-w-none" style={{ color: t.textSecondary }} dangerouslySetInnerHTML={{ __html: legal.impressum_extra }} />
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// DATENSCHUTZ PAGE
+// ═══════════════════════════════════════════════════════════════════
+const DatenschutzPage = ({ t, cms = DEFAULT_CMS }) => {
+  const legal = cms.legal || {};
+  return (
+    <div className="pt-20">
+      <section className="py-20 md:py-28" style={{ background: t.bg }}>
+        <div className="max-w-3xl mx-auto px-6 md:px-12">
+          <Eyebrow t={t}>Rechtliches</Eyebrow>
+          <h1 className="font-display text-4xl md:text-5xl font-bold mb-12" style={{ color: t.text, letterSpacing: "-0.03em" }}>Datenschutzerklärung</h1>
+
+          {legal.datenschutz_html ? (
+            <div className="p-8 rounded-2xl" style={{ background: t.bgCard, border: `1px solid ${t.borderLight}` }}>
+              <div className="prose prose-sm max-w-none" style={{ color: t.textSecondary }} dangerouslySetInnerHTML={{ __html: legal.datenschutz_html }} />
+            </div>
+          ) : (
+            <div className="p-8 rounded-2xl" style={{ background: t.bgCard, border: `1px solid ${t.borderLight}` }}>
+              <p style={{ color: t.textMuted }}>Die Datenschutzerklärung wird derzeit aktualisiert. Bei Fragen wenden Sie sich bitte an:</p>
+              <p className="mt-4 font-semibold" style={{ color: t.text }}>{(cms.contact || DEFAULT_CMS.contact).email}</p>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════════
+// ─── URL ROUTING HELPERS ──────────────────────────────────────────
+const viewToPath = { home: "/", immobilien: "/immobilien", detail: "/objekt", verkaufen: "/verkaufen", bewerten: "/bewerten", portal: "/portal", "über": "/ueber-uns", kontakt: "/kontakt", impressum: "/impressum", datenschutz: "/datenschutz" };
+const pathToView = Object.fromEntries(Object.entries(viewToPath).map(([k, v]) => [v, k]));
+const viewTitles = { home: "SR-Homes Immobilien", immobilien: "Immobilien", detail: "Objekt", verkaufen: "Verkaufen", bewerten: "Bewertung", portal: "Kundenportal", "über": "Über uns", kontakt: "Kontakt", impressum: "Impressum", datenschutz: "Datenschutz" };
+
 export default function App() {
-  const [page, setPage] = useState("home");
+  const initialPage = pathToView[window.location.pathname] || "home";
+  const [page, setPage] = useState(initialPage);
   const [scrolled, setScrolled] = useState(false);
   const [selected, setSelected] = useState(null);
   const t = useTheme(false);
@@ -1766,7 +1865,31 @@ export default function App() {
     white: cms.branding?.logo_white || ASSETS.logoWhite,
   }), [cms.branding]);
 
-  const go = useCallback((p) => { setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }, []);
+  const go = useCallback((p) => {
+    if (window._srPopState) return setPage(p);
+    setPage(p);
+    const path = viewToPath[p] || "/";
+    const title = viewTitles[p] || "SR-Homes";
+    window.history.pushState({ view: p }, title, path);
+    document.title = title + " | SR-Homes";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const onPop = () => {
+      const view = pathToView[window.location.pathname] || "home";
+      window._srPopState = true;
+      setPage(view);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => { window._srPopState = false; }, 100);
+    };
+    window.addEventListener("popstate", onPop);
+    // Set initial history state
+    const initPath = viewToPath[initialPage] || "/";
+    window.history.replaceState({ view: initialPage }, document.title, initPath);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [initialPage]);
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 50);
@@ -1776,10 +1899,10 @@ export default function App() {
 
   // Update page title from CMS SEO
   useEffect(() => {
-    if (cms.seo?.meta_title) document.title = cms.seo.meta_title;
+    if (cms.seo?.meta_title && page === "home") document.title = cms.seo.meta_title;
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc && cms.seo?.meta_description) metaDesc.setAttribute("content", cms.seo.meta_description);
-  }, [cms.seo]);
+  }, [cms.seo, page]);
 
   const pages = {
     home: <HomePage setPage={go} setSelected={setSelected} t={t} properties={properties} cms={cms} />,
@@ -1790,6 +1913,8 @@ export default function App() {
     portal: <PortalPage setPage={go} t={t} cms={cms} />,
     über: <ÜberPage setPage={go} t={t} />,
     kontakt: <KontaktPage t={t} cms={cms} />,
+    impressum: <ImpressumPage t={t} cms={cms} />,
+    datenschutz: <DatenschutzPage t={t} cms={cms} />,
   };
 
   return (

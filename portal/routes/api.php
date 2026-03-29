@@ -9,24 +9,6 @@ Route::get('/ping', function () {
     return response()->json(['status' => 'ok', 'timestamp' => now()->toIso8601String()]);
 });
 
-// Deploy diagnostics (temporary)
-Route::get('/deploy-check', function () {
-    $buildPath = public_path('build/manifest.json');
-    $manifest = file_exists($buildPath) ? json_decode(file_get_contents($buildPath), true) : null;
-    $dashboardKey = 'resources/js/Pages/Admin/Dashboard.vue';
-    $dashboardFile = $manifest[$dashboardKey]['file'] ?? null;
-    $dashboardExists = $dashboardFile ? file_exists(public_path('build/' . $dashboardFile)) : false;
-    return response()->json([
-        'manifest_exists' => file_exists($buildPath),
-        'manifest_entries' => $manifest ? count($manifest) : 0,
-        'dashboard_file' => $dashboardFile,
-        'dashboard_exists' => $dashboardExists,
-        'gitignore_build_commented' => str_contains(file_get_contents(base_path('.gitignore')), '# portal/public/build/'),
-        'build_dir_files' => count(glob(public_path('build/assets/*'))),
-        'deploy_commit' => trim(shell_exec('cd ' . base_path() . ' && git log -1 --oneline 2>/dev/null') ?: 'unknown'),
-    ]);
-});
-
 // Legacy admin API — maps ?action=xxx to sub-controllers
 // Session-Middleware erlaubt Auth::user() aus Browser-Requests (Cookie).
 // api.key bleibt fuer externe API-Aufrufe (Email Manager, MCP Tools).

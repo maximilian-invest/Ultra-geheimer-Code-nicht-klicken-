@@ -963,8 +963,8 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                    pe.ai_summary, pe.matched_ref_id, pe.is_processed
             FROM portal_emails pe
             WHERE pe.property_id IS NULL
-            AND pe.direction = 'inbound'
-            AND pe.category IN ('anfrage', 'email-in', 'besichtigung', 'kaufanbot', 'eigentuemer', 'partner')
+            AND pe.category NOT IN ('bounce', 'spam')
+            AND pe.trashed_at IS NULL
             ORDER BY pe.email_date DESC
             LIMIT 100
         ");

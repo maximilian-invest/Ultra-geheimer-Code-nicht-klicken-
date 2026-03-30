@@ -802,9 +802,15 @@ class PropertySettingsController extends Controller
                 sort($pageFiles);
                 $selected = [];
                 $total = count($pageFiles);
-                for ($i = 0; $i < min(2, $total); $i++) $selected[] = $pageFiles[$i];
-                $startFrom = max(2, intval($total * 0.4));
-                for ($i = $startFrom; $i < $total; $i++) $selected[] = $pageFiles[$i];
+                if ($total <= 20) {
+                    // Small PDFs: send ALL pages (exposés are typically 5-15 pages)
+                    $selected = $pageFiles;
+                } else {
+                    // Large PDFs: first 3 + last 60%
+                    for ($i = 0; $i < min(3, $total); $i++) $selected[] = $pageFiles[$i];
+                    $startFrom = max(3, intval($total * 0.4));
+                    for ($i = $startFrom; $i < $total; $i++) $selected[] = $pageFiles[$i];
+                }
                 foreach ($selected as $pf) {
                     $imgData = base64_encode(file_get_contents($pf));
                     $images[] = ['data' => $imgData, 'media_type' => 'image/png'];

@@ -8,7 +8,7 @@ Zwei Produkte in diesem Repo:
 | Produkt | Stack | Live-URL |
 |---------|-------|----------|
 | **Kundenportal** | Laravel 11 + Vue 3 + Inertia | kundenportal.sr-homes.at |
-| **Marketing-Website** | React 18 + Vite (SPA) | sr-homes.at |
+| **Marketing-Website** | Plain HTML/CSS/JS | sr-homes.at |
 
 ## Repo-Struktur
 
@@ -25,12 +25,13 @@ Zwei Produkte in diesem Repo:
     api.php       Alle API-Routen
     web.php       Inertia-Routen
 
-/website/src/     React Marketing-Website
-  App.jsx         Haupt-App (~100 Zeilen, nur Routing)
-  config.js       ASSETS, themes, PROPERTIES, DEFAULT_CMS
-  hooks/          useProperties, useCmsContent, useTheme
-  components/     Nav, Footer, ui (Btn, PropertyCard, etc.)
-  pages/          1 Datei pro Seite (Home, Immobilien, Detail, ...)
+/website-v2/      Marketing-Website (plain HTML/CSS/JS)
+  index.html      Startseite
+  immobilien.html Listings
+  objekt.html     Immobilien-Detail
+  css/styles.css  Globale Styles
+  js/app.js       Gemeinsame Logik
+  js/home.js      / js/listings.js / js/detail.js
 
 /deploy.sh        Build + Deploy + Rollback (läuft auf VPS)
 /hooks.json       Webhook-Config ({{WEBHOOK_SECRET}} Placeholder)
@@ -127,12 +128,8 @@ cd portal && php artisan serve
 
 **Website lokal testen:**
 ```bash
-cd website && npm run dev
-```
-
-**Build testen bevor push:**
-```bash
-cd website && npm run build
+cd website-v2 && python3 -m http.server 8080
+# oder einfach index.html im Browser öffnen
 ```
 
 ## Regeln
@@ -142,4 +139,4 @@ cd website && npm run build
 - `deploy.sh` nicht manuell auf dem Server starten — Webhook macht das
 - Bilder werden über Immoji-CDN (`api.immoji.org`) ausgeliefert
 - PHP-Dateien: PSR-12, keine direkten SQL-Queries (Eloquent)
-- React: keine neuen Dependencies ohne Absprache (Bundle-Size)
+- Website: kein Build-Step, direkt HTML/CSS/JS editieren

@@ -145,8 +145,14 @@ class ImapService
                     }
                 }
                 if ($direction === 'outbound' && in_array(strtolower($fromEmail), $allOwnEmails) && strtolower($fromEmail) !== strtolower($account->email_address)) {
-                    \Log::info("[IMAP] Skip: outbound from {$fromEmail} belongs to other account, not {$account->email_address}");
-                    continue;
+                    // Exception: if the email is TO this account, it's an internal email we should process
+                    if (!$isInternalEmail || strtolower($toEmailAddr) !== strtolower($account->email_address)) {
+                        \Log::info("[IMAP] Skip: outbound from {$fromEmail} belongs to other account, not {$account->email_address}");
+                        continue;
+                    }
+                    // Internal email addressed to us: reclassify as inbound
+                    $direction = 'inbound';
+                    \Log::info("[IMAP] Internal email from {$fromEmail} to {$account->email_address}: treating as inbound");
                 }
 
                 // ── Bounce-Erkennung: unzustellbare E-Mails ─────────────────────────────

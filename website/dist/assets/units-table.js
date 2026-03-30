@@ -1222,4 +1222,26 @@
       });
   }
   fetchPropertiesData();
+
+  /* ── Fix Impressum/Datenschutz footer links visibility & clickability ── */
+  function fixFooterLegalLinks() {
+    var footer = document.querySelector('footer') || document.querySelector('[class*="footer"]');
+    if (!footer) return;
+    var buttons = footer.querySelectorAll('button');
+    buttons.forEach(function(btn) {
+      var t = (btn.textContent || '').trim().toLowerCase();
+      if (t === 'impressum' || t === 'datenschutz') {
+        btn.style.color = 'rgba(255,255,255,0.6)';
+        btn.style.cursor = 'pointer';
+        btn.style.textDecoration = 'underline';
+        btn.style.textUnderlineOffset = '3px';
+        btn.style.fontSize = '13px';
+        btn.style.transition = 'color 0.3s';
+        btn.addEventListener('mouseenter', function() { btn.style.color = '#fff'; });
+        btn.addEventListener('mouseleave', function() { btn.style.color = 'rgba(255,255,255,0.6)'; });
+      }
+    });
+  }
+  setTimeout(fixFooterLegalLinks, 500);
+  setTimeout(fixFooterLegalLinks, 2000);
 })();

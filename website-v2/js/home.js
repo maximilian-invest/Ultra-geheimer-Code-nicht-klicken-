@@ -20,13 +20,13 @@
   const props = raw.map(mapProperty);
   if (countLabel) countLabel.textContent = `Alle ${props.length} Objekte`;
 
-  /* ─── Featured Cards (top 2-3) ─── */
-  const featured = props.slice(0, Math.min(4, props.length));
-  const rest = props.slice(Math.min(4, props.length), Math.min(7, props.length));
+  /* ─── Featured Cards (first 3 large, rest as regular cards) ─── */
+  const featured = props.slice(0, Math.min(3, props.length));
+  const rest = props.slice(Math.min(3, props.length));
 
   let html = '';
 
-  /* Large featured grid */
+  /* Large featured grid: 1 big left + 2 stacked right */
   if (featured.length > 0) {
     html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">';
     html += featuredCard(featured[0], 0);
@@ -39,9 +39,10 @@
     html += '</div>';
   }
 
-  /* Smaller cards grid */
+  /* Regular cards grid — auto-fill based on count */
   if (rest.length > 0) {
-    html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">';
+    const cols = rest.length === 1 ? 'lg:grid-cols-2' : rest.length === 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-3';
+    html += `<div class="grid grid-cols-1 md:grid-cols-2 ${cols} gap-6 mt-6">`;
     rest.forEach(p => { html += propertyCard(p); });
     html += '</div>';
   }

@@ -19,11 +19,10 @@ portal/storage/framework/sessions/
 portal/storage/framework/views/
 portal/storage/*.key
 
-# Build artifacts (built on server via deploy.sh)
+# Build artifacts
 portal/public/build/
 portal/public/hot
 portal/public/storage
-# website/dist/ — committed directly for stable deploys
 
 # IDE
 .idea/
@@ -45,4 +44,3 @@ portal/.phpunit.cache
 portal/auth.json
 portal/storage/legacy_src/
 .claude-flow/
-website/src/node_modules/

@@ -896,9 +896,25 @@ async function toggleFollowupDetail(f) {
         .catch(() => {})
         .finally(() => { followupDetailLoading.value = false; });
 
-    // Use prefetched draft if available, otherwise load
+    // Use embedded draft from server, prefetched draft, or fetch on-demand
     if (f._prefetchedDraft) {
         followupAiDraft.value = f._prefetchedDraft;
+        followupAiLoading.value = false;
+        await ctxPromise;
+    } else if (f.draft && f.draft.body) {
+        // Server-embedded draft from index() — instant, no API call
+        followupAiDraft.value = {
+            body: f.draft.body || "",
+            subject: f.draft.subject || ("Re: " + (f.subject || f.activity || "")),
+            to: f.draft.to || f.from_email || f.contact_email || "",
+            phone: f.contact_phone || "",
+            callScript: f.draft.call_script || null,
+            preferredAction: f.draft.preferred_action || "email",
+            leadPhase: f.draft.lead_phase || null,
+            mailType: f.draft.mail_type || null,
+            leadStatus: f.draft.lead_status || null,
+            mailGoal: f.draft.mail_goal || null,
+        };
         followupAiLoading.value = false;
         await ctxPromise;
     } else {

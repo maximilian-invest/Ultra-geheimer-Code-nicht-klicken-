@@ -315,10 +315,16 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 }
                 if ($draft && !empty($draft->body)) {
                     $f['draft'] = [
-                        'body'    => $draft->body,
-                        'subject' => $draft->subject,
-                        'to'      => $draft->to_email,
-                        'id'      => $draft->id,
+                        'body'             => $draft->body,
+                        'subject'          => $draft->subject,
+                        'to'               => $draft->to_email,
+                        'id'               => $draft->id,
+                        'call_script'      => $draft->call_script ?? null,
+                        'preferred_action' => $draft->preferred_action ?? 'email',
+                        'lead_phase'       => $draft->lead_phase ?? null,
+                        'mail_type'        => $draft->mail_type ?? null,
+                        'lead_status'      => $draft->lead_status ?? null,
+                        'mail_goal'        => $draft->mail_goal ?? null,
                     ];
                 } else {
                     $f['draft'] = null;

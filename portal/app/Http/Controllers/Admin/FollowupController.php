@@ -681,12 +681,17 @@ private static function findEmailInText(string $text, array $excludePatterns = [
 
         // --- CACHE CHECK: Return cached draft if thread hasn't changed ---
         $threadHash = md5($threadContext);
-        $cached = DB::selectOne("
-            SELECT body, subject, call_script, preferred_action, lead_phase, mail_type, lead_status, mail_goal, created_at
-            FROM email_drafts
-            WHERE property_id = ? AND stakeholder = ? AND thread_hash = ?
-            ORDER BY id DESC LIMIT 1
-        ", [$propertyId, $stakeholder, $threadHash]);
+        try {
+            $cached = DB::selectOne("
+                SELECT body, subject, call_script, preferred_action, lead_phase, mail_type, lead_status, mail_goal, created_at
+                FROM email_drafts
+                WHERE property_id = ? AND stakeholder = ? AND thread_hash = ?
+                ORDER BY id DESC LIMIT 1
+            ", [$propertyId, $stakeholder, $threadHash]);
+        } catch (\Exception $e) {
+            \Log::warning('Draft cache lookup failed (migration pending?)', ['error' => $e->getMessage()]);
+            $cached = null;
+        }
 
         if ($cached && $cached->body) {
             // Build thread for display
@@ -723,11 +728,15 @@ private static function findEmailInText(string $text, array $excludePatterns = [
 
         // Knowledge base context
         $kbContext = '';
-        $kbItems = DB::select("
-            SELECT category, title, content FROM property_knowledge
-            WHERE property_id = ? AND is_active = 1
-            ORDER BY confidence DESC LIMIT 10
-        ", [$propertyId]);
+        try {
+            $kbItems = DB::select("
+                SELECT category, title, content FROM property_knowledge
+                WHERE property_id = ? AND is_active = 1
+                ORDER BY confidence DESC LIMIT 10
+            ", [$propertyId]);
+        } catch (\Exception $e) {
+            $kbItems = [];
+        }
 
         if (!empty($kbItems)) {
             $kbContext = "OBJEKTWISSEN:\n";

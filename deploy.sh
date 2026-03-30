@@ -99,6 +99,10 @@ npm ci --no-audit
 log "  npm run build (Vite)..."
 npm run build
 
+# Run database migrations
+log "  Running database migrations..."
+php artisan migrate --force --no-interaction
+
 # Laravel caches
 log "  Clearing & rebuilding Laravel caches..."
 php artisan config:cache

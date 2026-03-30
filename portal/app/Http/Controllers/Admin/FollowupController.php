@@ -397,7 +397,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                        DATEDIFF(NOW(), pe.email_date) as days_waiting
                 FROM portal_emails pe
                 WHERE pe.property_id IS NULL
-                  AND pe.category NOT IN ('bounce', 'spam', 'email-out')
+                  AND pe.category NOT IN ('bounce', 'spam', 'email-out', 'intern')
                   AND (pe.is_deleted = 0 OR pe.is_deleted IS NULL)
                   {$accountFilter}
                   AND pe.from_email NOT REGEXP '(noreply|no-reply|mailer-daemon|postmaster|notification)'

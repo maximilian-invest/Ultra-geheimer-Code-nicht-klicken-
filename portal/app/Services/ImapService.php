@@ -129,14 +129,15 @@ class ImapService
                 // Only treat as "own" if it's a registered account (not just any @sr-homes.at address)
                 // This ensures office@sr-homes.at → hoelzl@sr-homes.at is treated as inbound
                 $isOwnEmail = in_array(strtolower($fromEmail), $allOwnEmails);
+                $isSrHomesFrom = (stripos($fromEmail, 'sr-homes') !== false);
                 $direction = $isOwnEmail ? 'outbound' : 'inbound';
 
-                // Detect internal emails (both from AND to are sr-homes/hoelzl)
+                // Detect internal emails (any sr-homes.at address communicating with a registered account)
                 $toAddresses = mailparse_rfc822_parse_addresses($to);
                 $toEmailAddr = $toAddresses[0]['address'] ?? $to;
-                // Internal = both from AND to are registered accounts
                 $isToOwnEmail = in_array(strtolower($toEmailAddr), $allOwnEmails);
-                $isInternalEmail = $isOwnEmail && $isToOwnEmail;
+                $isSrHomesTo = (stripos($toEmailAddr, 'sr-homes') !== false);
+                $isInternalEmail = ($isOwnEmail || $isSrHomesFrom) && ($isToOwnEmail || $isSrHomesTo);
 
                 // Cross-account protection: skip emails addressed to a DIFFERENT sr-homes account
                 // Fixes World4You catch-all where renzl@ emails appear in hoelzl@ IMAP

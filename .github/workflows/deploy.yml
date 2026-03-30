@@ -1,0 +1,67 @@
+name: Deploy SR-Homes
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Website bauen ──
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: cd website/src && npm ci && npm run build
+
+      # ── Portal bauen ──
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
+      - run: cd portal && composer install --no-scripts --no-interaction && npm ci && npm run build
+
+      # ── Auf Server deployen ──
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+
+            # Repo klonen falls nicht vorhanden
+            if [ ! -d /opt/sr-homes ]; then
+              git clone https://github.com/maximilian-invest/Ultra-geheimer-Code-nicht-klicken-.git /opt/sr-homes
+            fi
+
+            cd /opt/sr-homes
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Website bauen
+            cd website/src && npm ci && npm run build && cd ../..
+
+            # Portal bauen
+            cd portal && composer install --no-scripts --no-interaction && npm ci && npm run build && cd ..
+
+            # Backup aktuelle Version
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            mkdir -p /var/www/backups
+            [ -d /var/www/sr-homes-website ] && cp -r /var/www/sr-homes-website "/var/www/backups/website_${TIMESTAMP}"
+            [ -d /var/www/srhomes ] && cp -r /var/www/srhomes "/var/www/backups/portal_${TIMESTAMP}"
+
+            # Alte Backups aufräumen (nur letzte 5 behalten)
+            cd /var/www/backups && ls -dt */ | tail -n +11 | xargs rm -rf 2>/dev/null || true
+
+            # Deploy
+            rsync -a --delete website/dist/ /var/www/sr-homes-website/
+            rsync -a --delete --exclude='.env' --exclude='storage' portal/ /var/www/srhomes/
+
+            # PHP neustarten
+            systemctl reload php8.3-fpm 2>/dev/null || true
+
+            echo "Deploy erfolgreich: $(date)"

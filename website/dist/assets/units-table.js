@@ -1244,4 +1244,24 @@
   }
   setTimeout(fixFooterLegalLinks, 500);
   setTimeout(fixFooterLegalLinks, 2000);
+
+  /* ── Fix Verkaufen/Bewerten hero padding (content hidden under fixed navbar) ── */
+  function fixSubpageHeroPadding() {
+    var path = window.location.pathname;
+    if (path !== '/verkaufen' && path !== '/bewerten') return;
+    var main = document.querySelector('main');
+    if (!main) return;
+    var firstSection = main.querySelector('section') || main.firstElementChild;
+    if (!firstSection) return;
+    firstSection.style.paddingTop = '100px';
+  }
+  setTimeout(fixSubpageHeroPadding, 200);
+  setTimeout(fixSubpageHeroPadding, 1000);
+  /* Re-run on SPA navigation */
+  var _origPush = history.pushState;
+  history.pushState = function() {
+    _origPush.apply(this, arguments);
+    setTimeout(fixSubpageHeroPadding, 300);
+    setTimeout(fixFooterLegalLinks, 500);
+  };
 })();

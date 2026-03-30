@@ -964,7 +964,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
             FROM portal_emails pe
             WHERE pe.property_id IS NULL
             AND pe.category NOT IN ('bounce', 'spam')
-            AND pe.trashed_at IS NULL
+            AND (pe.is_deleted = 0 OR pe.is_deleted IS NULL)
             ORDER BY pe.email_date DESC
             LIMIT 100
         ");

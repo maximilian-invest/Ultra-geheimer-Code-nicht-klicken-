@@ -62,8 +62,12 @@ function mapProperty(p) {
   }
   const imgs = [];
   if (p.main_image_url) imgs.push(p.main_image_url);
+  // /properties endpoint returns gallery_urls as flat array
   if (p.gallery_urls?.length) p.gallery_urls.forEach(u => { if (u && !imgs.includes(u)) imgs.push(u); });
-  return { ...p, title, price, area, rooms: p.rooms || 0, images: imgs, isNewbuild: p.property_category === 'newbuild' };
+  // /property/{id} endpoint returns images as array of objects with .url
+  if (p.images?.length) p.images.forEach(img => { const u = img.url || img; if (u && !imgs.includes(u)) imgs.push(u); });
+  const hasImages = imgs.length > 0;
+  return { ...p, title, price, area, rooms: p.rooms || 0, images: imgs, hasImages, isNewbuild: p.property_category === 'newbuild' };
 }
 
 /* ─── Format Price ─────────────────────────────────────────── */

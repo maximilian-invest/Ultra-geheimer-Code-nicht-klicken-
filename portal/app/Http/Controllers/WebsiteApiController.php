@@ -15,7 +15,11 @@ class WebsiteApiController extends Controller
      */
     public function properties(Request $request)
     {
-        $data = Cache::remember('website_properties', 1800, function () {
+        // Allow cache bust via ?refresh=1
+        if ($request->query('refresh')) {
+            Cache::forget('website_properties');
+        }
+        $data = Cache::remember('website_properties', 120, function () {
             $properties = DB::table('properties')
                 ->where(function($q) {
                     // Show if sr-homes portal toggle is enabled

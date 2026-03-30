@@ -1231,14 +1231,14 @@
     buttons.forEach(function(btn) {
       var t = (btn.textContent || '').trim().toLowerCase();
       if (t === 'impressum' || t === 'datenschutz') {
-        btn.style.color = 'rgba(255,255,255,0.6)';
-        btn.style.cursor = 'pointer';
-        btn.style.textDecoration = 'underline';
-        btn.style.textUnderlineOffset = '3px';
-        btn.style.fontSize = '13px';
+        btn.style.setProperty('color', 'rgba(255,255,255,0.6)', 'important');
+        btn.style.setProperty('cursor', 'pointer', 'important');
+        btn.style.setProperty('text-decoration', 'underline', 'important');
+        btn.style.setProperty('text-underline-offset', '3px', 'important');
+        btn.style.setProperty('font-size', '13px', 'important');
         btn.style.transition = 'color 0.3s';
-        btn.addEventListener('mouseenter', function() { btn.style.color = '#fff'; });
-        btn.addEventListener('mouseleave', function() { btn.style.color = 'rgba(255,255,255,0.6)'; });
+        btn.addEventListener('mouseenter', function() { btn.style.setProperty('color', '#fff', 'important'); });
+        btn.addEventListener('mouseleave', function() { btn.style.setProperty('color', 'rgba(255,255,255,0.6)', 'important'); });
       }
     });
   }

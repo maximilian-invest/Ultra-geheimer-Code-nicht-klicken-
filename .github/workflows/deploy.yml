@@ -88,30 +88,13 @@ jobs:
             chmod -R 755 /var/www/srhomes
             chmod -R 755 /var/www/sr-homes-v2
 
-            # Setup nginx for V2 on port 8082 (if not already configured)
-            if [ ! -f /etc/nginx/sites-enabled/sr-homes-v2 ]; then
-              cat > /etc/nginx/sites-available/sr-homes-v2 << 'NGINX'
-            server {
-                listen 8082;
-                server_name _;
-                root /var/www/sr-homes-v2;
-                index index.html;
-
-                location / {
-                    try_files $uri $uri.html $uri/ /index.html;
-                }
-
-                location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|mp4|webp)$ {
-                    expires 1y;
-                    add_header Cache-Control "public, immutable";
-                }
-            }
-            NGINX
-              ln -sf /etc/nginx/sites-available/sr-homes-v2 /etc/nginx/sites-enabled/
+            # Add /v2 location to existing website nginx config
+            NGINX_CONF=$(grep -rl "sr-homes-website" /etc/nginx/sites-enabled/ 2>/dev/null | head -1)
+            if [ -n "$NGINX_CONF" ] && ! grep -q "sr-homes-v2" "$NGINX_CONF"; then
+              # Insert /v2 location before the closing brace
+              sed -i '/^}/i \    location /v2/ {\n        alias /var/www/sr-homes-v2/;\n        index index.html;\n        try_files $uri $uri.html $uri/ /v2/index.html;\n    }' "$NGINX_CONF"
               nginx -t && systemctl reload nginx
-              # Open port 8082 in firewall
-              ufw allow 8082/tcp 2>/dev/null || iptables -I INPUT -p tcp --dport 8082 -j ACCEPT 2>/dev/null || true
-              echo "Nginx V2 config created on port 8082"
+              echo "Added /v2 location to existing nginx config"
             fi
 
             systemctl reload php8.3-fpm 2>/dev/null || true

@@ -126,13 +126,17 @@ class ImapService
                 // Determine direction: use hint from folder, but verify from address
                 // Multi-User: pruefen ob fromEmail zu einem unserer Accounts gehoert
                 $allOwnEmails = \App\Models\EmailAccount::where('is_active', true)->pluck('email_address')->map(fn($e) => strtolower($e))->toArray();
-                $isOwnEmail = (stripos($fromEmail, 'sr-homes') !== false || in_array(strtolower($fromEmail), $allOwnEmails));
+                // Only treat as "own" if it's a registered account (not just any @sr-homes.at address)
+                // This ensures office@sr-homes.at → hoelzl@sr-homes.at is treated as inbound
+                $isOwnEmail = in_array(strtolower($fromEmail), $allOwnEmails);
                 $direction = $isOwnEmail ? 'outbound' : 'inbound';
 
                 // Detect internal emails (both from AND to are sr-homes/hoelzl)
                 $toAddresses = mailparse_rfc822_parse_addresses($to);
                 $toEmailAddr = $toAddresses[0]['address'] ?? $to;
-                $isInternalEmail = $isOwnEmail && (stripos($toEmailAddr, 'sr-homes') !== false || in_array(strtolower($toEmailAddr), $allOwnEmails));
+                // Internal = both from AND to are registered accounts
+                $isToOwnEmail = in_array(strtolower($toEmailAddr), $allOwnEmails);
+                $isInternalEmail = $isOwnEmail && $isToOwnEmail;
 
                 // Cross-account protection: skip emails addressed to a DIFFERENT sr-homes account
                 // Fixes World4You catch-all where renzl@ emails appear in hoelzl@ IMAP

@@ -116,9 +116,10 @@
   /* ─── Units Table (Neubauprojekte) ─── */
   const unitsEl = document.getElementById('units-section');
   if (unitsEl && p.units?.length) {
-    const available = p.units.filter(u => u.status === 'available' || u.status === 'verfügbar');
-    const sold = p.units.filter(u => u.status === 'sold' || u.status === 'verkauft');
-    const reserved = p.units.filter(u => u.status === 'reserved' || u.status === 'reserviert');
+    const s = u => (u.status || '').toLowerCase();
+    const available = p.units.filter(u => ['available','verfügbar','frei','free'].includes(s(u)));
+    const sold = p.units.filter(u => ['sold','verkauft'].includes(s(u)));
+    const reserved = p.units.filter(u => ['reserved','reserviert'].includes(s(u)));
 
     let uh = `<h2 class="text-xl font-bold mb-4" style="color:#0A0A08">Verfügbare Einheiten</h2>`;
     uh += `<div class="p-4 rounded-xl mb-6" style="background:#F0ECE6">
@@ -139,13 +140,14 @@
         <th class="text-left py-3 font-semibold" style="color:#9A958C">Status</th>
       </tr></thead><tbody>`;
       [...available, ...reserved].forEach(u => {
-        const badge = u.status === 'reserved' || u.status === 'reserviert' ? 'reserved' : 'available';
+        const st = (u.status || '').toLowerCase();
+        const badge = ['reserved','reserviert'].includes(st) ? 'reserved' : 'available';
         const label = badge === 'reserved' ? 'Reserviert' : 'Verfügbar';
         uh += `<tr class="units-row" style="border-bottom:1px solid #F0ECE6">
           <td class="py-3 font-semibold" style="color:#0A0A08">${esc(u.unit_number || '')}</td>
           <td class="py-3" style="color:#5A564E">${esc(u.unit_type || '')}</td>
-          <td class="py-3" style="color:#5A564E">${u.rooms || '-'}</td>
-          <td class="py-3" style="color:#5A564E">${u.area_m2 ? u.area_m2 + ' m²' : '-'}</td>
+          <td class="py-3" style="color:#5A564E">${u.rooms ? parseFloat(u.rooms) : '-'}</td>
+          <td class="py-3" style="color:#5A564E">${u.area_m2 ? parseFloat(u.area_m2) + ' m²' : '-'}</td>
           <td class="py-3 font-semibold" style="color:#0A0A08">${u.price ? 'EUR ' + fmt(parseFloat(u.price)) : '-'}</td>
           <td class="py-3"><span class="unit-badge ${badge}">${label}</span></td>
         </tr>`;

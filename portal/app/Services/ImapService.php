@@ -129,7 +129,10 @@ class ImapService
                 // Only treat as "own" if it's a registered account (not just any @sr-homes.at address)
                 // This ensures office@sr-homes.at → hoelzl@sr-homes.at is treated as inbound
                 $isOwnEmail = in_array(strtolower($fromEmail), $allOwnEmails);
-                $isSrHomesFrom = (stripos($fromEmail, 'sr-homes') !== false);
+                // Extract all own domains from registered accounts (no hardcoding)
+                $ownDomains = array_unique(array_map(fn($e) => strtolower(explode('@', $e)[1] ?? ''), $allOwnEmails));
+                $fromDomain = strtolower(explode('@', $fromEmail)[1] ?? '');
+                $isSrHomesFrom = in_array($fromDomain, $ownDomains);
                 $direction = $isOwnEmail ? 'outbound' : 'inbound';
 
                 // Detect internal emails (both from AND to are sr-homes/hoelzl)
@@ -137,7 +140,8 @@ class ImapService
                 $toEmailAddr = $toAddresses[0]['address'] ?? $to;
                 // Internal = any sr-homes.at address communicating with a registered account
                 $isToOwnEmail = in_array(strtolower($toEmailAddr), $allOwnEmails);
-                $isSrHomesTo = (stripos($toEmailAddr, 'sr-homes') !== false);
+                $toDomain = strtolower(explode('@', $toEmailAddr)[1] ?? '');
+                $isSrHomesTo = in_array($toDomain, $ownDomains);
                 $isInternalEmail = ($isOwnEmail || $isSrHomesFrom) && ($isToOwnEmail || $isSrHomesTo);
 
                 // Cross-account protection: skip emails addressed to a DIFFERENT sr-homes account
@@ -618,7 +622,14 @@ class ImapService
                 }
 
                 // Never use own name as stakeholder (for non-internal)
-                if (!($isInternalEmail) && (stripos($stakeholder, 'hoelzl') !== false || stripos($stakeholder, 'sr-homes') !== false || stripos($stakeholder, 'Maximilian') !== false)) {
+                // Never use own name as stakeholder: check against registered account names
+                $ownNames = \App\Models\EmailAccount::where('is_active', true)->pluck('from_name')->map(fn($n) => strtolower($n))->filter()->toArray();
+                $stakeholderLower = strtolower($stakeholder);
+                $isOwnName = false;
+                foreach (array_merge($ownNames, $ownDomains) as $check) {
+                    if ($check && stripos($stakeholderLower, $check) !== false) { $isOwnName = true; break; }
+                }
+                if (!($isInternalEmail) && $isOwnName) {
                     $stakeholder = $direction === 'outbound' ? ($toName ?: $to) : ($fromName ?: $from);
                 }
 

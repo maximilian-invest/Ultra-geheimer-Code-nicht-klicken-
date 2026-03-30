@@ -9,6 +9,8 @@ const props = defineProps({
 });
 
 const API = inject("API");
+const userType = inject("userType", ref("admin"));
+const isAdmin = inject("isAdmin", ref(true));
 const userName = inject("userName", ref("Admin"));
 const toast = inject("toast");
 const switchTab = inject("switchTab");
@@ -266,7 +268,8 @@ const visibleTasks = computed(() => {
 });
 
 onMounted(async () => {
-    loadSalesAndCommissions();
+    if (userType.value !== "assistenz") loadSalesAndCommissions();
+    loadRanking();
     await Promise.all([loadTasks(), loadKaufanboteStats(), loadPerformance(), loadUpcoming()]);
 });
 
@@ -389,6 +392,22 @@ async function loadPerformance() {
         buildDashboardCharts();
     } catch (e) { /* silent */ }
 }
+
+// Makler Ranking
+const rankingData = ref([]);
+const rankingPeriod = ref("30");
+const rankingSort = ref("anfragen");
+async function loadRanking() {
+    try {
+        const r = await fetch(API.value + "&action=broker_ranking&period=" + rankingPeriod.value);
+        const d = await r.json();
+        rankingData.value = d.ranking || [];
+    } catch(e) {}
+}
+const sortedRanking = computed(() => {
+    const key = rankingSort.value;
+    return [...rankingData.value].sort((a, b) => (Number(b[key]) || 0) - (Number(a[key]) || 0));
+});
 
 async function loadAlerts() {
     alertsLoading.value = true;
@@ -578,8 +597,8 @@ function buildDashboardCharts() {
                     </div>
                 </div>
 
-                <!-- Provisionen Tile -->
-                <div class="stat-tile" @click="showCommissionModal = true" style="cursor:pointer">
+                <!-- Provisionen Tile (hidden for assistenz) -->
+                <div v-if="userType !== 'assistenz'" class="stat-tile" @click="showCommissionModal = true" style="cursor:pointer">
                     <div class="flex items-center gap-3">
                         <div class="flex items-center justify-center w-10 h-10 rounded-xl" style="background:rgba(16,185,129,0.1)">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" style="color:#10b981" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
@@ -602,6 +621,71 @@ function buildDashboardCharts() {
             <div @click="switchTab('properties')" class="stat-tile">
                 <div class="flex items-center justify-between"><p class="text-sm font-medium text-[var(--muted-foreground)]">Objekte</p><Building class="w-4 h-4 text-[var(--muted-foreground)]" /></div>
                 <p class="text-2xl font-bold font-display">{{ stats.properties || '0' }}</p>
+            </div>
+        </div>
+
+        <!-- Makler Ranking -->
+        <div v-if="rankingData.length > 1" class="card">
+            <div class="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
+                <h3 class="text-sm font-semibold flex items-center gap-2">
+                    <svg class="w-4 h-4" style="color:#ee7606" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    Makler-Ranking
+                </h3>
+                <div class="flex items-center gap-2">
+                    <select v-model="rankingPeriod" @change="loadRanking()" class="form-select text-xs" style="width:auto;height:30px">
+                        <option value="7">7 Tage</option>
+                        <option value="30">30 Tage</option>
+                        <option value="90">90 Tage</option>
+                        <option value="365">1 Jahr</option>
+                    </select>
+                    <select v-model="rankingSort" class="form-select text-xs" style="width:auto;height:30px">
+                        <option value="anfragen">Anfragen</option>
+                        <option value="kaufanbote">Kaufanbote</option>
+                        <option value="besichtigungen">Besichtigungen</option>
+                        <option value="verkaufsvolumen">Verkaufsvolumen</option>
+                        <option value="gesendet">Gesendete Mails</option>
+                    </select>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="border-b border-[var(--border)]" style="background:var(--muted)">
+                            <th class="px-4 py-2.5 text-left font-semibold text-[var(--muted-foreground)]">#</th>
+                            <th class="px-4 py-2.5 text-left font-semibold text-[var(--muted-foreground)]">Makler</th>
+                            <th class="px-4 py-2.5 text-right font-semibold text-[var(--muted-foreground)] cursor-pointer" @click="rankingSort = 'anfragen'" :style="rankingSort === 'anfragen' ? 'color:#ee7606' : ''">Anfragen</th>
+                            <th class="px-4 py-2.5 text-right font-semibold text-[var(--muted-foreground)] cursor-pointer" @click="rankingSort = 'besichtigungen'" :style="rankingSort === 'besichtigungen' ? 'color:#ee7606' : ''">Besichtigungen</th>
+                            <th class="px-4 py-2.5 text-right font-semibold text-[var(--muted-foreground)] cursor-pointer" @click="rankingSort = 'kaufanbote'" :style="rankingSort === 'kaufanbote' ? 'color:#ee7606' : ''">Kaufanbote</th>
+                            <th class="px-4 py-2.5 text-right font-semibold text-[var(--muted-foreground)] cursor-pointer hidden sm:table-cell" @click="rankingSort = 'verkaufsvolumen'" :style="rankingSort === 'verkaufsvolumen' ? 'color:#ee7606' : ''">Volumen</th>
+                            <th class="px-4 py-2.5 text-right font-semibold text-[var(--muted-foreground)] cursor-pointer hidden md:table-cell" @click="rankingSort = 'gesendet'" :style="rankingSort === 'gesendet' ? 'color:#ee7606' : ''">Gesendet</th>
+                            <th class="px-4 py-2.5 text-right font-semibold text-[var(--muted-foreground)] hidden md:table-cell">Antwortzeit</th>
+                            <th class="px-4 py-2.5 text-right font-semibold text-[var(--muted-foreground)] hidden lg:table-cell">Objekte</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(b, i) in sortedRanking" :key="b.id" class="border-b border-[var(--border)] hover:bg-[var(--accent)] transition-colors">
+                            <td class="px-4 py-3">
+                                <span class="w-6 h-6 rounded-full inline-flex items-center justify-center text-[10px] font-bold"
+                                    :style="i === 0 ? 'background:#fbbf24;color:#78350f' : i === 1 ? 'background:#d1d5db;color:#374151' : i === 2 ? 'background:#d97706;color:#fff' : 'background:var(--muted);color:var(--muted-foreground)'">
+                                    {{ i + 1 }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 font-semibold" style="color:var(--foreground)">{{ b.name }}</td>
+                            <td class="px-4 py-3 text-right tabular-nums" :style="rankingSort === 'anfragen' ? 'color:#ee7606;font-weight:700' : ''">{{ b.anfragen || 0 }}</td>
+                            <td class="px-4 py-3 text-right tabular-nums" :style="rankingSort === 'besichtigungen' ? 'color:#ee7606;font-weight:700' : ''">{{ b.besichtigungen || 0 }}</td>
+                            <td class="px-4 py-3 text-right tabular-nums" :style="rankingSort === 'kaufanbote' ? 'color:#ee7606;font-weight:700' : ''">{{ b.kaufanbote || 0 }}</td>
+                            <td class="px-4 py-3 text-right tabular-nums hidden sm:table-cell" :style="rankingSort === 'verkaufsvolumen' ? 'color:#ee7606;font-weight:700' : ''">&euro; {{ Number(b.verkaufsvolumen || 0).toLocaleString('de-DE') }}</td>
+                            <td class="px-4 py-3 text-right tabular-nums hidden md:table-cell" :style="rankingSort === 'gesendet' ? 'color:#ee7606;font-weight:700' : ''">{{ b.gesendet || 0 }}</td>
+                            <td class="px-4 py-3 text-right tabular-nums hidden md:table-cell">
+                                <span v-if="b.avg_antwortzeit_h !== null && b.avg_antwortzeit_h !== undefined" :style="Number(b.avg_antwortzeit_h) <= 4 ? 'color:#10b981' : Number(b.avg_antwortzeit_h) <= 24 ? 'color:#f59e0b' : 'color:#ef4444'">
+                                    {{ b.avg_antwortzeit_h }}h
+                                </span>
+                                <span v-else style="color:var(--muted-foreground)">–</span>
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums hidden lg:table-cell">{{ b.objekte || 0 }}</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -646,6 +730,7 @@ function buildDashboardCharts() {
                 <div class="px-4 pb-2"><VueApexCharts type="donut" :options="platformOptions" :series="platformSeries" height="220" /></div>
             </div>
         </div>
+
         <div v-if="chartsReady" class="grid grid-cols-1 gap-4 lg:grid-cols-7">
             <div class="lg:col-span-4 card">
                 <div class="px-6 py-3"><h3 class="text-sm font-semibold">Verkaufstrichter</h3></div>

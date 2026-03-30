@@ -822,10 +822,16 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         // Multi-User: nur Emails aus eigenen Properties zeigen
         $brokerId = \Auth::id();
         $userType = \Auth::user()->user_type ?? 'makler';
-        // Assistenz sees all emails (no account filter)
+        // Assistenz sees all emails (no account filter), but can filter by broker
         if ($brokerId && $userType !== 'assistenz') {
             $where[] = 'pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = ?)';
             $params[] = $brokerId;
+        }
+        // Assistenz: optional broker filter
+        $filterAccountId = intval($request->query('account_id', 0));
+        if ($filterAccountId && $userType === 'assistenz') {
+            $where[] = 'pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = ?)';
+            $params[] = $filterAccountId;
         }
 
         $whereSql = implode(' AND ', $where);

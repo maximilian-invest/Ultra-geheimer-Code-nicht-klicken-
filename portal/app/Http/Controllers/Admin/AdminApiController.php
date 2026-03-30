@@ -28,6 +28,40 @@ class AdminApiController extends Controller
             return (new AiChatController())->tts($request);
         }
 
+        // Role-based action guard
+        $brokerId = \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        $adminOnlyActions = [
+            'website_content_list', 'website_content_save', 'website_content_delete',
+            'website_content_upload', 'website_toggle_property', 'website_set_main_image', 'website_clear_cache',
+            'email_accounts', 'save_email_account', 'delete_email_account', 'test_email_account',
+            'create_broker', 'update_broker',
+            'toggle_auto_reply',
+            'create_portal_access', 'check_portal_access',
+            'create_customer', 'update_customer', 'delete_customer',
+            'update_portal_user', 'create_portal_user', 'delete_portal_user',
+        ];
+        if (in_array($action, $adminOnlyActions) && $userType !== 'admin') {
+            return response()->json(['error' => 'Keine Berechtigung für diese Aktion'], 403);
+        }
+
+        // Makler: block write actions on properties they don't own
+        $propertyWriteActions = [
+            'update_property', 'delete_property', 'set_on_hold', 'set_inactive', 'reactivate_property',
+            'upload_property_file', 'delete_property_file',
+            'upload_property_image', 'update_property_image', 'delete_property_image',
+            'upload_property_kaufanbot', 'delete_property_kaufanbot', 'update_property_kaufanbot_status',
+        ];
+        if ($userType === 'makler' && in_array($action, $propertyWriteActions)) {
+            $propId = intval($request->input('property_id', $request->query('property_id', 0)));
+            if ($propId) {
+                $propBroker = \DB::table('properties')->where('id', $propId)->value('broker_id');
+                if ($propBroker && $propBroker != $brokerId) {
+                    return response()->json(['error' => 'Keine Berechtigung: Objekt gehört einem anderen Makler'], 403);
+                }
+            }
+        }
+
         try {
         return match ($action) {
             // Briefing & Follow-ups
@@ -610,6 +644,7 @@ class AdminApiController extends Controller
 
             'import_expose'             => $this->importExpose($request),
             'list_brokers'              => $this->listBrokers($request),
+            'broker_ranking'            => $this->brokerRanking($request),
             'create_broker'             => $this->createBroker($request),
             'update_broker'             => $this->updateBroker($request),
             'realtime_session'          => $this->realtimeSession($request),
@@ -2383,8 +2418,99 @@ PY;
     }
 
 
-    /**
-     * List all brokers/makler (admin only).
+    // ------
+    private function brokerRanking(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $period = $request->query('period', '30');
+        $since = date('Y-m-d', strtotime("-{$period} days"));
+        $normSurname = \App\Helpers\StakeholderHelper::normSHSurname('a.stakeholder');
+        $partnerExclude = \App\Helpers\StakeholderHelper::partnerExcludeFilter('a.stakeholder');
+
+        $users = DB::select("SELECT id, name FROM users WHERE user_type IN ('admin','makler') ORDER BY id");
+        $ranking = [];
+
+        foreach ($users as $u) {
+            $propIds = DB::table('properties')->where('broker_id', $u->id)->pluck('id')->toArray();
+            $propPlaceholders = count($propIds) ? implode(',', array_fill(0, count($propIds), '?')) : '0';
+
+            // Anfragen
+            $anfragen = (int) DB::selectOne("
+                SELECT COUNT(*) as cnt FROM portal_emails pe
+                JOIN email_accounts ea ON ea.id = pe.account_id
+                WHERE ea.user_id = ? AND pe.direction = 'inbound'
+                AND pe.category IN ('anfrage','besichtigung','kaufanbot','email-in')
+                AND pe.email_date >= ?
+            ", [$u->id, $since])->cnt;
+
+            // Kaufanbote: same logic as KaufanbotController (unique surname, partner excluded)
+            $kaufanbote = 0;
+            if (count($propIds)) {
+                $kaufRows = DB::select("
+                    SELECT DISTINCT {$normSurname} as skey FROM activities a
+                    WHERE a.property_id IN ({$propPlaceholders})
+                    AND a.category = 'kaufanbot' AND {$partnerExclude}
+                ", $propIds);
+                $kaufanbote = count($kaufRows);
+            }
+
+            // Besichtigungen
+            $besichtigungen = 0;
+            if (count($propIds)) {
+                $besichtigungen = (int) DB::selectOne("
+                    SELECT COUNT(*) as cnt FROM activities a
+                    WHERE a.property_id IN ({$propPlaceholders})
+                    AND a.category = 'besichtigung' AND a.activity_date >= ?
+                ", array_merge($propIds, [$since]))->cnt;
+            }
+
+            // Verkaufsvolumen
+            $verkaufsvolumen = 0;
+            if (count($propIds)) {
+                $verkaufsvolumen = (float) DB::selectOne("
+                    SELECT COALESCE(SUM(price), 0) as vol FROM property_units
+                    WHERE property_id IN ({$propPlaceholders}) AND status = 'verkauft'
+                ", $propIds)->vol;
+            }
+
+            // Objekte (nicht inaktiv)
+            $objekte = DB::table('properties')->where('broker_id', $u->id)
+                ->where(function($q) { $q->where('realty_status', '!=', 'inaktiv')->orWhereNull('realty_status'); })
+                ->count();
+
+            // Gesendet
+            $gesendet = (int) DB::selectOne("
+                SELECT COUNT(*) as cnt FROM portal_emails pe
+                JOIN email_accounts ea ON ea.id = pe.account_id
+                WHERE ea.user_id = ? AND pe.direction = 'outbound' AND pe.email_date >= ?
+            ", [$u->id, $since])->cnt;
+
+            // Antwortzeit
+            $antwortzeit = DB::selectOne("
+                SELECT ROUND(AVG(TIMESTAMPDIFF(HOUR, pe.email_date, (
+                    SELECT MIN(pe2.email_date) FROM portal_emails pe2
+                    JOIN email_accounts ea2 ON ea2.id = pe2.account_id
+                    WHERE ea2.user_id = ? AND pe2.direction = 'outbound'
+                    AND pe2.email_date > pe.email_date AND pe2.stakeholder = pe.stakeholder
+                ))), 1) as avg_h
+                FROM portal_emails pe
+                JOIN email_accounts ea ON ea.id = pe.account_id
+                WHERE ea.user_id = ? AND pe.direction = 'inbound' AND pe.email_date >= ?
+                AND pe.category IN ('anfrage','besichtigung','kaufanbot','email-in')
+            ", [$u->id, $u->id, $since]);
+
+            $ranking[] = [
+                'id' => $u->id, 'name' => $u->name,
+                'anfragen' => $anfragen, 'kaufanbote' => $kaufanbote,
+                'besichtigungen' => $besichtigungen, 'verkaufsvolumen' => $verkaufsvolumen,
+                'objekte' => $objekte, 'gesendet' => $gesendet,
+                'avg_antwortzeit_h' => $antwortzeit->avg_h ?? null,
+            ];
+        }
+
+        return response()->json(['ranking' => $ranking, 'period' => $period, 'since' => $since]);
+    }
+
+    /** List all brokers/makler (admin only).
      */
     private function listBrokers(Request $request): \Illuminate\Http\JsonResponse
     {

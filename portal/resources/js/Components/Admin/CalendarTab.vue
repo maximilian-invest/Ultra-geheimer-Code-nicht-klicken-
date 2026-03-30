@@ -5,13 +5,24 @@ import { ChevronLeft, ChevronRight, Plus, X, Clock, MapPin, FileText, Calendar a
 const API = inject("API");
 const toast = inject("toast");
 const properties = inject("properties");
+const userType = inject("userType", ref("admin"));
+
+// Broker list for assistenz to assign events to a broker
+const brokers = ref([]);
+async function loadBrokers() {
+    try {
+        const r = await fetch(API.value + "&action=list_brokers");
+        const d = await r.json();
+        brokers.value = (d.brokers || []).filter(b => b.user_type !== 'assistenz');
+    } catch(e) {}
+}
 
 // View state
 const viewMode = ref("week"); // week | month
 const currentDate = ref(new Date());
 const events = ref([]);
 const loading = ref(false);
-const calendarConnected = ref(null);
+
 
 // Event modal
 const showModal = ref(false);
@@ -162,33 +173,7 @@ async function loadEvents() {
     loading.value = false;
 }
 
-async function checkStatus() {
-    try {
-        const r = await fetch(API.value + "&action=calendar_status");
-        const d = await r.json();
-        calendarConnected.value = d.connected;
-    } catch { calendarConnected.value = false; }
-}
 
-async function connectCalendar() {
-    try {
-        const r = await fetch(API.value + "&action=google_oauth_start");
-        const d = await r.json();
-        if (d.auth_url) window.open(d.auth_url, "_blank");
-        else if (d.error) toast(d.error);
-    } catch (e) { toast("Fehler: " + e.message); }
-}
-
-async function syncCalendar() {
-    loading.value = true;
-    try {
-        const r = await fetch(API.value + "&action=calendar_sync", { method: "POST" });
-        const d = await r.json();
-        toast("Synchronisiert: " + (d.synced || 0) + " Termine" + (d.besichtigungen ? ", " + d.besichtigungen + " Besichtigungen erkannt" : ""));
-        await loadEvents();
-    } catch (e) { toast("Sync Fehler: " + e.message); }
-    loading.value = false;
-}
 
 // Event modal
 function openCreateModal(date, hour) {
@@ -199,7 +184,7 @@ function openCreateModal(date, hour) {
     modalEvent.value = {
         id: null, summary: "", description: "", location: "",
         start_date: ds, start_time: h, end_date: ds, end_time: hEnd,
-        all_day: false, color: null, property_id: null,
+        all_day: false, color: null, property_id: null, for_user_id: null,
     };
     showModal.value = true;
 }
@@ -230,14 +215,11 @@ async function saveEvent() {
     if (!modalEvent.value.summary.trim()) { toast("Titel erforderlich"); return; }
     saving.value = true;
     const e = modalEvent.value;
-    const start = e.all_day ? e.start_date : e.start_date + "T" + e.start_time + ":00";
-    const end = e.all_day ? (e.end_date || e.start_date) : (e.end_date || e.start_date) + "T" + e.end_time + ":00";
-
-    try {
+        try {
         if (modalMode.value === "create") {
             const r = await fetch(API.value + "&action=calendar_create", {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ summary: e.summary, description: e.description, location: e.location, start, end, all_day: e.all_day, color: e.color }),
+                body: JSON.stringify({ summary: e.summary, description: e.description, location: e.location, start_date: e.start_date, start_time: e.start_time, end_date: e.end_date || e.start_date, end_time: e.end_time, all_day: e.all_day, color: e.color, property_id: e.property_id, for_user_id: e.for_user_id }),
             });
             const d = await r.json();
             if (d.success) { toast("Termin erstellt"); showModal.value = false; await loadEvents(); }
@@ -245,7 +227,7 @@ async function saveEvent() {
         } else {
             const r = await fetch(API.value + "&action=calendar_update", {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ event_id: e.id, summary: e.summary, description: e.description, location: e.location, start, end, color: e.color }),
+                body: JSON.stringify({ id: e.id, summary: e.summary, description: e.description, location: e.location, start_date: e.start_date, start_time: e.start_time, end_date: e.end_date || e.start_date, end_time: e.end_time, all_day: e.all_day, color: e.color, property_id: e.property_id }),
             });
             const d = await r.json();
             if (d.success) { toast("Termin aktualisiert"); showModal.value = false; await loadEvents(); }
@@ -262,7 +244,7 @@ async function deleteEvent() {
     try {
         const r = await fetch(API.value + "&action=calendar_delete", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ event_id: modalEvent.value.id }),
+            body: JSON.stringify({ id: modalEvent.value.id }),
         });
         const d = await r.json();
         if (d.success) { toast("Termin gelöscht"); showModal.value = false; await loadEvents(); }
@@ -274,8 +256,8 @@ async function deleteEvent() {
 watch([viewRange], () => loadEvents(), { deep: true });
 
 onMounted(async () => {
-    await checkStatus();
     await loadEvents();
+    if (userType.value === "assistenz") loadBrokers();
 });
 
 const dayNames = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
@@ -294,8 +276,7 @@ const dayNamesFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag",
                     <h2 class="text-lg font-bold">{{ headerTitle }}</h2>
                     <p class="text-xs text-[var(--muted-foreground)]">
                         {{ events.length }} Termine
-                        <span v-if="calendarConnected === true" class="text-green-500 ml-1">● Google verbunden</span>
-                        <span v-else-if="calendarConnected === false" class="text-[var(--muted-foreground)] ml-1">○ Lokal</span>
+
                     </p>
                 </div>
             </div>
@@ -312,11 +293,7 @@ const dayNamesFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag",
                     <button @click="navigate(1)" class="btn btn-ghost btn-icon btn-sm"><ChevronRight class="w-4 h-4" /></button>
                 </div>
                 <!-- Actions -->
-                <button v-if="calendarConnected" @click="syncCalendar()" class="btn btn-outline btn-sm" :disabled="loading">
-                    <span v-if="loading" class="spinner" style="width:12px;height:12px"></span>
-                    <span>Sync</span>
-                </button>
-                <button v-if="calendarConnected === false" @click="connectCalendar()" class="btn btn-brand btn-sm">Google verbinden</button>
+
                 <button @click="openCreateModal()" class="btn btn-primary btn-sm"><Plus class="w-3.5 h-3.5" /><span>Termin</span></button>
             </div>
         </div>
@@ -473,6 +450,14 @@ const dayNamesFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag",
                         <div>
                             <label class="form-label text-xs flex items-center gap-1"><MapPin class="w-3 h-3" /> Ort</label>
                             <input v-model="modalEvent.location" class="form-input" placeholder="Adresse..." />
+                        </div>
+                        <!-- Assign to broker (assistenz only) -->
+                        <div v-if="userType === 'assistenz' && brokers.length">
+                            <label class="form-label text-xs">Termin für Makler</label>
+                            <select v-model="modalEvent.for_user_id" class="form-input">
+                                <option :value="null">Mein Termin</option>
+                                <option v-for="b in brokers" :key="b.id" :value="b.id">{{ b.name }}</option>
+                            </select>
                         </div>
                         <!-- Description -->
                         <div>

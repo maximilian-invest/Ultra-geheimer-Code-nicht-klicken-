@@ -7,6 +7,7 @@ const API = inject("API");
 const toast = inject("toast");
 const properties = inject("properties");
 const unmatchedCount = inject("unmatchedCount");
+const userType = inject("userType", ref("admin"));
 const refreshCounts = inject("refreshCounts");
 
 // Signature from settings
@@ -120,6 +121,25 @@ const ehSearch = ref("");
 const ehPropertyId = ref("0");
 const ehCategory = ref("");
 const ehDirection = ref("");
+const ehAccountId = ref(""); // account filter for assistenz
+const emailAccounts = ref([]); // [{id, label, email_address}]
+
+async function loadEmailAccounts() {
+    try {
+        const r = await fetch(API.value + "&action=list_brokers");
+        const d = await r.json();
+        // Build account list from brokers' email_accounts field
+        const accs = [];
+        for (const b of (d.brokers || [])) {
+            if (b.email_accounts) {
+                for (const ea of b.email_accounts.split(",")) {
+                    accs.push({ broker_id: b.id, label: b.name, email: ea.trim() });
+                }
+            }
+        }
+        emailAccounts.value = accs;
+    } catch(e) {}
+}
 const ehShowUnmatched = ref(false);
 const ehExpanded = ref(null);
 const ehSelected = ref([]);
@@ -273,6 +293,7 @@ onMounted(() => {
     }
     loadTemplates();
     if (commsView.value === "posteingang" || commsView.value === "gesendet" || commsView.value === "history") { ehDirection.value = commsView.value === "gesendet" ? "outbound" : (commsView.value === "posteingang" ? "inbound" : ""); loadEmailHistory(); }
+    if (userType.value === "assistenz") loadEmailAccounts();
     if (commsView.value === "inbox") loadInbox();
     if (commsView.value === "drafts") loadDrafts();
     if (commsView.value === "trash") loadTrash();
@@ -412,6 +433,7 @@ async function loadEmailHistory() {
         if (ehSearch.value.trim()) url += "&search=" + encodeURIComponent(ehSearch.value.trim());
         if (ehCategory.value) url += "&category=" + ehCategory.value;
         if (ehDirection.value) url += "&direction=" + ehDirection.value;
+        if (ehAccountId.value) url += "&account_id=" + ehAccountId.value;
         if (ehShowUnmatched.value) url += "&unmatched=1";
         if (ehShowUnmatched.value && !inboxProps.value.length) loadInbox();
         const r = await fetch(url);
@@ -1070,6 +1092,10 @@ const formatDateShort = (s) => {
                 <select v-model="ehPropertyId" @change="ehPage = 1; loadEmailHistory()" class="form-select" style="width:auto">
                     <option value="0">Alle Objekte</option>
                     <option v-for="p in properties" :key="p.id" :value="String(p.id)">{{ p.ref_id }} - {{ p.address }}</option>
+                </select>
+                <select v-if="userType === 'assistenz'" v-model="ehAccountId" @change="ehPage = 1; loadEmailHistory()" class="form-select" style="width:auto">
+                    <option value="">Alle Makler</option>
+                    <option v-for="a in emailAccounts" :key="a.email" :value="a.broker_id">{{ a.label }} ({{ a.email }})</option>
                 </select>
                 <select v-model="ehCategory" @change="ehPage = 1; loadEmailHistory()" class="form-select" style="width:auto">
                     <option value="">Alle Kategorien</option>

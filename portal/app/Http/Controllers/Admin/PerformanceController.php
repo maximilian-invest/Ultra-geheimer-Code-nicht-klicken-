@@ -18,7 +18,7 @@ class PerformanceController extends Controller
         $propBindings = $propertyId ? [$propertyId] : [];
         // Multi-User: broker_id Scoping (skip for admin users)
         $brokerId = \Auth::id();
-        $isAdmin = \Auth::user() && \Auth::user()->user_type === 'admin';
+        $userType = \Auth::user()->user_type ?? "makler"; $isAdmin = in_array($userType, ["admin", "assistenz"]);
         $brokerFilterPerf = ($brokerId && !$isAdmin) ? "AND a.property_id IN (SELECT id FROM properties WHERE broker_id = ?)" : "";
         $brokerFilterSub  = ($brokerId && !$isAdmin) ? "AND property_id IN (SELECT id FROM properties WHERE broker_id = ?)" : "";
         $brokerBindings = ($brokerId && !$isAdmin) ? [$brokerId] : [];

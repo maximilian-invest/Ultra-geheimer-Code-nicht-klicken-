@@ -63,7 +63,7 @@ class ConversationController extends Controller
                 ORDER BY a.activity_date ASC, a.id ASC
             ", [$propertyId]);
 
-            $property = DB::selectOne("SELECT address, city, ref_id, price, size_m2, rooms, type FROM properties WHERE id = ?", [$propertyId]);
+            $property = DB::selectOne("SELECT address, city, ref_id, purchase_price as price, total_area as size_m2, rooms_amount as rooms, object_type as type FROM properties WHERE id = ?", [$propertyId]);
 
             $lastMsg = !empty($msgs) ? (array) end($msgs) : [];
 

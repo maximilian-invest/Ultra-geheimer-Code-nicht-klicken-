@@ -238,29 +238,11 @@ async function deleteEntry(section, key) {
 
     <div v-else>
 
-      <!-- ── Horizontal Tab Navigation (pill style, centered) ── -->
-      <div class="flex items-center justify-center gap-3 mb-6">
-        <div class="inline-flex items-center gap-1 overflow-x-auto pb-1 px-1">
-          <button
-            v-for="sec in sections" :key="sec.key"
-            @click="activeSection = sec.key"
-            class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium whitespace-nowrap transition-all shrink-0"
-            :class="activeSection === sec.key
-              ? 'bg-[var(--foreground)] text-[var(--background)]'
-              : 'text-[var(--muted-foreground)] hover:bg-zinc-100 hover:text-[var(--foreground)]'"
-          >
-            <component :is="sec.icon" class="w-3.5 h-3.5" />
-            {{ sec.label }}
-          </button>
-        </div>
-        <a href="https://sr-homes.at" target="_blank"
-          class="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium text-[var(--accent)] hover:bg-zinc-100 transition-all">
-          <ExternalLink class="w-3.5 h-3.5" /> Website
-        </a>
-      </div>
+      <!-- ── Layout: Content + Right Sidebar Nav ── -->
+      <div class="flex gap-6 max-w-[1200px] mx-auto">
 
-      <!-- ── Content area centered with max-width ── -->
-      <div class="max-w-3xl mx-auto">
+        <!-- ── Content area ── -->
+        <div class="flex-1 min-w-0 max-w-3xl">
 
         <!-- ═══ HERO ═══ -->
         <div v-if="activeSection === 'hero'" class="space-y-5">
@@ -843,6 +825,29 @@ async function deleteEntry(section, key) {
               </button>
             </div>
           </div>
+        </div>
+
+        </div>
+
+        <!-- ── Right Sidebar Navigation ── -->
+        <div class="w-44 shrink-0 sticky top-4 self-start hidden lg:block">
+          <nav class="flex flex-col gap-0.5">
+            <button
+              v-for="sec in sections" :key="sec.key"
+              @click="activeSection = sec.key"
+              class="flex items-center gap-2 px-3 py-2 rounded-xl text-[13px] font-medium whitespace-nowrap transition-all text-left"
+              :class="activeSection === sec.key
+                ? 'bg-[var(--foreground)] text-[var(--background)]'
+                : 'text-[var(--muted-foreground)] hover:bg-zinc-100 hover:text-[var(--foreground)]'"
+            >
+              <component :is="sec.icon" class="w-3.5 h-3.5 shrink-0" />
+              {{ sec.label }}
+            </button>
+          </nav>
+          <a href="https://sr-homes.at" target="_blank"
+            class="flex items-center gap-2 px-3 py-2 mt-3 rounded-xl text-[13px] font-medium text-[var(--accent)] hover:bg-zinc-100 transition-all border border-[var(--border)]">
+            <ExternalLink class="w-3.5 h-3.5 shrink-0" /> Website öffnen
+          </a>
         </div>
 
       </div>

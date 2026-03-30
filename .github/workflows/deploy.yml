@@ -109,6 +109,8 @@ jobs:
             NGINX
               ln -sf /etc/nginx/sites-available/sr-homes-v2 /etc/nginx/sites-enabled/
               nginx -t && systemctl reload nginx
+              # Open port 8082 in firewall
+              ufw allow 8082/tcp 2>/dev/null || iptables -I INPUT -p tcp --dport 8082 -j ACCEPT 2>/dev/null || true
               echo "Nginx V2 config created on port 8082"
             fi
 

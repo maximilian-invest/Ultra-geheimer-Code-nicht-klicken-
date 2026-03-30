@@ -3,6 +3,13 @@
    ═══════════════════════════════════════════════════════════════ */
 
 (async function() {
+  /* ─── Load CMS content for hero video ─── */
+  const cms = await fetchCmsContent();
+  const heroVideo = document.querySelector('.hero-video');
+  if (heroVideo && cms.hero?.video_url) {
+    heroVideo.src = cms.hero.video_url;
+  }
+
   const container = document.getElementById('featured-properties');
   const countLabel = document.getElementById('property-count-label');
   if (!container) return;

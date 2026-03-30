@@ -15,7 +15,12 @@ jobs:
         with:
           node-version: 22
       - name: Build Website
-        run: cd website/src && npm ci && npm run build
+        run: |
+          if [ -f website/dist/index.html ]; then
+            echo "Pre-built dist/ found, skipping build"
+          else
+            cd website/src && npm ci && npm run build
+          fi
 
       # ── Portal bauen ──
       - uses: shivammathur/setup-php@v2

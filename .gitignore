@@ -23,7 +23,7 @@ portal/storage/*.key
 portal/public/build/
 portal/public/hot
 portal/public/storage
-website/dist/
+# website/dist/ — committed directly for stable deploys
 
 # IDE
 .idea/

@@ -238,6 +238,23 @@ async function deleteEntry(section, key) {
 
     <div v-else>
 
+      <!-- ── Mobile Tab Navigation (horizontal scroll, hidden on lg+) ── -->
+      <div class="lg:hidden overflow-x-auto pb-1 mb-4 -mx-2 px-2">
+        <div class="inline-flex items-center gap-1">
+          <button
+            v-for="sec in sections" :key="'m-'+sec.key"
+            @click="activeSection = sec.key"
+            class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium whitespace-nowrap transition-all shrink-0"
+            :class="activeSection === sec.key
+              ? 'bg-[var(--foreground)] text-[var(--background)]'
+              : 'text-[var(--muted-foreground)] hover:bg-zinc-100 hover:text-[var(--foreground)]'"
+          >
+            <component :is="sec.icon" class="w-3.5 h-3.5" />
+            {{ sec.label }}
+          </button>
+        </div>
+      </div>
+
       <!-- ── Layout: Content + Right Sidebar Nav ── -->
       <div class="flex gap-6 max-w-[1200px] mx-auto">
 

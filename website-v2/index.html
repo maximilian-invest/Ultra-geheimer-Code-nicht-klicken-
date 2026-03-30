@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="https://api.immoji.org/image/c602e391-bb1f-445e-b783-70d7fd1de866.svg" />
+  <title>SR-Homes Immobilien GmbH | Salzburg &amp; Oberösterreich</title>
+  <meta name="description" content="Ihr vertrauensvoller Partner für hochwertige Immobilien in Salzburg und Oberösterreich. Professionell, transparent, technologisch führend." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body data-page="home" class="bg-[#FAF8F5]">
+
+<!-- ═══ NAVIGATION ═══ -->
+<nav id="main-nav" class="fixed top-0 left-0 right-0 z-50 transition-all duration-700" style="background:transparent;border-bottom:1px solid transparent">
+  <div class="max-w-[1440px] mx-auto px-4 sm:px-6 md:px-12 lg:px-16">
+    <div class="flex items-center justify-between h-16 md:h-20">
+      <a href="/" class="shrink-0 transition-all duration-300 hover:opacity-70">
+        <img src="https://api.immoji.org/image/c602e391-bb1f-445e-b783-70d7fd1de866.svg" alt="SR-Homes" class="h-7 md:h-9 nav-logo-color" style="display:none" />
+        <img src="https://api.immoji.org/image/e747b1e6-58ee-4dc8-a2ab-28ab72798310.svg" alt="SR-Homes" class="h-7 md:h-9 nav-logo-white" />
+      </a>
+      <div class="hidden xl:flex items-center gap-1">
+        <a href="/immobilien.html" class="nav-link line-reveal px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300" style="color:rgba(255,255,255,0.7)">Immobilien</a>
+        <a href="/verkaufen.html" class="nav-link line-reveal px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300" style="color:rgba(255,255,255,0.7)">Verkaufen</a>
+        <a href="/bewerten.html" class="nav-link line-reveal px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300" style="color:rgba(255,255,255,0.7)">Bewerten</a>
+        <a href="/portal.html" class="nav-link line-reveal px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300" style="color:rgba(255,255,255,0.7)">Kundenportal</a>
+        <a href="/ueber-uns.html" class="nav-link line-reveal px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300" style="color:rgba(255,255,255,0.7)">Über uns</a>
+        <a href="/kontakt.html" class="nav-link line-reveal px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300" style="color:rgba(255,255,255,0.7)">Kontakt</a>
+      </div>
+      <div class="flex items-center gap-3 md:gap-4">
+        <a href="tel:+436642600930" class="nav-phone hidden lg:flex items-center gap-2 text-sm font-medium" style="color:rgba(255,255,255,0.7)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          +43 664 2600 930
+        </a>
+        <a href="/kontakt.html" class="hidden md:inline-flex items-center gap-3 font-semibold text-sm px-8 py-4 text-white rounded-full transition-all duration-500 active:scale-[0.97]" style="background:#D4743B;letter-spacing:0.05em">
+          Beratung
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+        </a>
+        <button id="menu-toggle" class="xl:hidden p-2 nav-burger" style="color:#fff">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ MOBILE MENU ═══ -->
+<div id="mobile-menu" class="fixed inset-0 z-[60] flex flex-col justify-center px-8 hidden" style="background:#FAF8F5">
+  <button id="menu-close" class="absolute top-5 right-5 p-2" style="color:#0A0A08">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <a href="/" class="py-4 text-left font-bold tracking-tight transition-colors" style="font-size:clamp(28px,6vw,42px);color:#D4743B;border-bottom:1px solid #E5E0D8">Start</a>
+  <a href="/immobilien.html" class="py-4 text-left font-bold tracking-tight transition-colors" style="font-size:clamp(28px,6vw,42px);color:#0A0A08;border-bottom:1px solid #E5E0D8">Immobilien</a>
+  <a href="/verkaufen.html" class="py-4 text-left font-bold tracking-tight transition-colors" style="font-size:clamp(28px,6vw,42px);color:#0A0A08;border-bottom:1px solid #E5E0D8">Verkaufen</a>
+  <a href="/bewerten.html" class="py-4 text-left font-bold tracking-tight transition-colors" style="font-size:clamp(28px,6vw,42px);color:#0A0A08;border-bottom:1px solid #E5E0D8">Bewerten</a>
+  <a href="/portal.html" class="py-4 text-left font-bold tracking-tight transition-colors" style="font-size:clamp(28px,6vw,42px);color:#0A0A08;border-bottom:1px solid #E5E0D8">Kundenportal</a>
+  <a href="/ueber-uns.html" class="py-4 text-left font-bold tracking-tight transition-colors" style="font-size:clamp(28px,6vw,42px);color:#0A0A08;border-bottom:1px solid #E5E0D8">Über uns</a>
+  <a href="/kontakt.html" class="py-4 text-left font-bold tracking-tight transition-colors" style="font-size:clamp(28px,6vw,42px);color:#0A0A08">Kontakt</a>
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<main>
+
+<!-- ─── 1. HERO ─── -->
+<section class="relative min-h-[100dvh]" style="background:#0A0A08">
+  <div class="absolute inset-0 overflow-hidden">
+    <video autoplay muted loop playsinline class="w-full h-full object-cover hero-video" style="opacity:1;transition:opacity 0.8s ease" src="https://cdn.coverr.co/videos/coverr-aerial-shot-of-city-surrounded-by-mountains-1868/1080p.mp4"></video>
+    <div class="video-overlay"></div>
+  </div>
+  <div class="relative z-10 h-full min-h-[100dvh] flex flex-col justify-end pt-20 md:pt-24" style="padding-bottom:clamp(24px,4vh,80px)">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
+      <div class="max-w-4xl">
+        <h1 class="hero-h1 font-display anim-hero-text anim-d1" style="font-size:clamp(2.5rem,5vw,4.5rem);font-weight:700;line-height:.95;color:#fff;letter-spacing:-0.03em">
+          Ihr nächstes <span style="color:#E8743A">Zuhause</span> wartet
+        </h1>
+        <p class="anim-fade-up anim-d2 mt-4 md:mt-8 text-base md:text-xl leading-relaxed max-w-xl" style="color:rgba(255,255,255,0.55)">
+          Wir verbinden Immobilienexpertise mit modernster Technologie für ein Erlebnis, das den Unterschied macht.
+        </p>
+        <div class="anim-fade-up anim-d3 mt-6 md:mt-10 max-w-3xl">
+          <div class="rounded-2xl overflow-hidden" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(20px)">
+            <div class="p-5 md:p-6">
+              <div class="flex gap-1 mb-5 p-1 rounded-full w-fit" style="background:rgba(255,255,255,0.06)">
+                <button class="px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 tracking-wide" style="background:#E8743A;color:#fff">KAUFEN</button>
+                <button class="px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 tracking-wide" style="background:transparent;color:rgba(255,255,255,0.5)">MIETEN</button>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                  <label class="text-xs font-semibold mb-1.5 block uppercase tracking-widest" style="color:rgba(255,255,255,0.3)">Objekttyp</label>
+                  <select class="w-full px-4 py-3 rounded-xl text-sm font-medium border-0" style="background:rgba(255,255,255,0.08);color:#fff">
+                    <option>Alle Typen</option><option>Haus</option><option>Wohnung</option><option>Grundstück</option><option>Neubauprojekt</option><option>Gewerbe</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs font-semibold mb-1.5 block uppercase tracking-widest" style="color:rgba(255,255,255,0.3)">Region</label>
+                  <select class="w-full px-4 py-3 rounded-xl text-sm font-medium border-0" style="background:rgba(255,255,255,0.08);color:#fff">
+                    <option>Alle Regionen</option><option>Salzburg Stadt</option><option>Flachgau</option><option>Innviertel</option><option>Mondseeland</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs font-semibold mb-1.5 block uppercase tracking-widest" style="color:rgba(255,255,255,0.3)">Preis bis</label>
+                  <select class="w-full px-4 py-3 rounded-xl text-sm font-medium border-0" style="background:rgba(255,255,255,0.08);color:#fff">
+                    <option>Kein Limit</option><option>EUR 200.000</option><option>EUR 350.000</option><option>EUR 500.000</option><option>EUR 750.000</option><option>EUR 1 Mio.+</option>
+                  </select>
+                </div>
+                <div class="flex items-end">
+                  <a href="/immobilien.html" class="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]" style="background:#E8743A;letter-spacing:0.1em">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    SUCHEN
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 2. STATS ─── -->
+<section class="py-24 md:py-36 laptop-py" style="background:#FAF8F5;border-bottom:1px solid #F0ECE6">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-8">
+      <div class="text-center" data-animate>
+        <div class="flex items-baseline justify-center gap-1">
+          <span class="stat-number text-5xl md:text-7xl font-bold tracking-tighter" style="color:#0A0A08">250</span>
+          <span class="text-lg md:text-xl font-semibold" style="color:#D4743B">+</span>
+        </div>
+        <span class="text-sm font-medium mt-2 block uppercase tracking-widest" style="color:#9A958C;letter-spacing:0.15em">Vermittelt</span>
+      </div>
+      <div class="text-center" data-animate>
+        <div class="flex items-baseline justify-center gap-1">
+          <span class="stat-number text-5xl md:text-7xl font-bold tracking-tighter" style="color:#0A0A08">98</span>
+          <span class="text-lg md:text-xl font-semibold" style="color:#D4743B">%</span>
+        </div>
+        <span class="text-sm font-medium mt-2 block uppercase tracking-widest" style="color:#9A958C;letter-spacing:0.15em">Zufriedenheit</span>
+      </div>
+      <div class="text-center" data-animate>
+        <div class="flex items-baseline justify-center gap-1">
+          <span class="stat-number text-5xl md:text-7xl font-bold tracking-tighter" style="color:#0A0A08">52</span>
+          <span class="text-lg md:text-xl font-semibold" style="color:#D4743B">Mio</span>
+        </div>
+        <span class="text-sm font-medium mt-2 block uppercase tracking-widest" style="color:#9A958C;letter-spacing:0.15em">Volumen 2025</span>
+      </div>
+      <div class="text-center" data-animate>
+        <div class="flex items-baseline justify-center gap-1">
+          <span class="stat-number text-5xl md:text-7xl font-bold tracking-tighter" style="color:#0A0A08">15</span>
+          <span class="text-lg md:text-xl font-semibold" style="color:#D4743B">+</span>
+        </div>
+        <span class="text-sm font-medium mt-2 block uppercase tracking-widest" style="color:#9A958C;letter-spacing:0.15em">Jahre Erfahrung</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 3. TOP PROPERTIES ─── -->
+<section class="py-24 md:py-36 laptop-py" style="background:#FAF8F5">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-14">
+      <div>
+        <div class="flex items-center gap-3 mb-5">
+          <div style="width:32px;height:2px;background:#D4743B;border-radius:2px"></div>
+          <span class="uppercase tracking-[0.2em] text-xs font-semibold" style="color:#D4743B">Exklusive Objekte</span>
+        </div>
+        <h2 class="font-display section-heading" style="font-size:clamp(2rem,4vw,3.5rem);font-weight:700;color:#0A0A08;line-height:1;letter-spacing:-0.03em">Unsere Top-Immobilien</h2>
+      </div>
+      <a href="/immobilien.html" class="inline-flex items-center gap-3 font-semibold text-sm px-8 py-4 rounded-full transition-all duration-500" style="color:#0A0A08;border:1.5px solid #E5E0D8;letter-spacing:0.05em">
+        <span id="property-count-label">Alle Objekte</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </a>
+    </div>
+    <div id="featured-properties" class="space-y-6">
+      <p class="text-sm" style="color:#9A958C">Immobilien werden geladen...</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 4. PARALLAX ─── -->
+<section class="relative" style="height:500px">
+  <img src="https://api.immoji.org/image/desktop-7214fedb-3350-449d-ae94-09510717b479.webp" alt="" class="absolute inset-0 w-full h-full object-cover" />
+  <div class="absolute inset-0" style="background:linear-gradient(to right,rgba(10,10,8,0.85) 0%,rgba(10,10,8,0.3) 60%,transparent 100%)"></div>
+  <div class="relative z-10 h-full flex items-center">
+    <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16 w-full">
+      <div class="max-w-xl" data-animate>
+        <h2 class="font-display text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-white tracking-tight leading-none mb-6">Unser Herz schlägt für Immobilien.</h2>
+        <p class="text-base text-white/50 leading-relaxed mb-8">Ob Wohnimmobilien, Gewerbeobjekte oder Kapitalanlagen — wir sind Ihr fachkundiger Partner. Für Verkäufer, Vermieter, Käufer und Mieter gleichermaßen.</p>
+        <a href="/ueber-uns.html" class="inline-flex items-center gap-3 font-semibold text-base px-10 py-5 text-white rounded-full transition-all duration-500 active:scale-[0.97]" style="background:#D4743B;letter-spacing:0.05em">
+          Über uns
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 5. LEISTUNGEN ─── -->
+<section class="py-24 md:py-36 laptop-py" style="background:#FAF8F5">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-16">
+      <div class="lg:col-span-5 lg:sticky lg:top-32 self-start" data-animate>
+        <div class="flex items-center gap-3 mb-5">
+          <div style="width:32px;height:2px;background:#D4743B;border-radius:2px"></div>
+          <span class="uppercase tracking-[0.2em] text-xs font-semibold" style="color:#D4743B">Unsere Leistungen</span>
+        </div>
+        <h2 class="font-display mb-6 section-heading" style="font-size:clamp(2rem,4vw,3.5rem);font-weight:700;color:#0A0A08;line-height:1;letter-spacing:-0.03em">Rundum-Service auf höchstem Niveau</h2>
+        <p class="text-base leading-relaxed mb-10" style="color:#5A564E">Von der präzisen Marktbewertung über professionelle Vermarktung bis zum erfolgreichen Abschluss — wir übernehmen alles.</p>
+        <div class="flex flex-col sm:flex-row gap-4">
+          <a href="/verkaufen.html" class="inline-flex items-center gap-3 font-semibold text-sm px-8 py-4 text-white rounded-full" style="background:#D4743B;letter-spacing:0.05em">
+            Verkaufen <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+          </a>
+          <a href="/bewerten.html" class="inline-flex items-center gap-3 font-semibold text-sm px-8 py-4 rounded-full" style="color:#0A0A08;border:1.5px solid #E5E0D8;letter-spacing:0.05em">
+            Bewerten <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <!-- Service Cards -->
+        <div class="hover-lift hover-glow p-7 rounded-2xl" style="background:#fff;border:1px solid #F0ECE6">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(212,116,59,0.08)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <h3 class="text-base font-bold tracking-tight mb-2" style="color:#0A0A08">Präzise Bewertung</h3>
+          <p class="text-sm leading-relaxed" style="color:#9A958C">Datenbasierte Marktpreisermittlung mit regionaler Expertise.</p>
+        </div>
+        <div class="hover-lift hover-glow p-7 rounded-2xl" style="background:#fff;border:1px solid #F0ECE6">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(212,116,59,0.08)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <h3 class="text-base font-bold tracking-tight mb-2" style="color:#0A0A08">Premium Exposé</h3>
+          <p class="text-sm leading-relaxed" style="color:#9A958C">Professionelle Fotografie, virtuelle Rundgänge, hochwertige Digitalexposés.</p>
+        </div>
+        <div class="hover-lift hover-glow p-7 rounded-2xl" style="background:#fff;border:1px solid #F0ECE6">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(212,116,59,0.08)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <h3 class="text-base font-bold tracking-tight mb-2" style="color:#0A0A08">Multi-Plattform</h3>
+          <p class="text-sm leading-relaxed" style="color:#9A958C">Maximale Reichweite auf willhaben, immowelt, ImmobilienScout24 und mehr.</p>
+        </div>
+        <div class="hover-lift hover-glow p-7 rounded-2xl" style="background:#fff;border:1px solid #F0ECE6">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(212,116,59,0.08)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3 class="text-base font-bold tracking-tight mb-2" style="color:#0A0A08">Rechtssicherheit</h3>
+          <p class="text-sm leading-relaxed" style="color:#9A958C">Komplette Abwicklung: Vertragsgestaltung, notarielle Begleitung.</p>
+        </div>
+        <div class="hover-lift hover-glow p-7 rounded-2xl" style="background:#fff;border:1px solid #F0ECE6">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(212,116,59,0.08)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h3 class="text-base font-bold tracking-tight mb-2" style="color:#0A0A08">Persönlicher Makler</h3>
+          <p class="text-sm leading-relaxed" style="color:#9A958C">Ihr dedizierter Ansprechpartner kennt den lokalen Markt.</p>
+        </div>
+        <div class="hover-lift hover-glow p-7 rounded-2xl" style="background:#fff;border:1px solid #F0ECE6">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(212,116,59,0.08)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <h3 class="text-base font-bold tracking-tight mb-2" style="color:#0A0A08">Digitales Portal</h3>
+          <p class="text-sm leading-relaxed" style="color:#9A958C">24/7 transparenter Einblick in den Vermarktungsstand.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 6. KUNDENPORTAL ─── -->
+<section class="py-24 md:py-36 overflow-hidden" style="background:#0A0A08">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+    <div class="text-center mb-20" data-animate>
+      <div class="flex items-center gap-3 mb-5 justify-center">
+        <div style="width:32px;height:2px;background:#E8743A;border-radius:2px"></div>
+        <span class="uppercase tracking-[0.2em] text-xs font-semibold" style="color:#E8743A">Ihr Kundenportal</span>
+      </div>
+      <h2 class="font-display section-heading mx-auto" style="font-size:clamp(2rem,5vw,4rem);font-weight:700;color:#fff;line-height:1;letter-spacing:-0.03em;max-width:700px">Volle Transparenz. Jederzeit. Überall.</h2>
+      <p class="text-lg mt-6 max-w-2xl mx-auto leading-relaxed" style="color:rgba(255,255,255,0.4)">Als SR-Homes Kunde sehen Sie in Echtzeit, was mit Ihrer Immobilie passiert. Kein Rätselraten — nur Fakten, Daten und klare nächste Schritte.</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div class="p-7 rounded-2xl transition-all duration-500 hover:translate-y-[-4px]" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(232,116,58,0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8743A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <h3 class="text-base font-bold text-white">Live-Aktivitäten</h3>
+        </div>
+        <div class="mb-4"><span class="text-3xl font-black tracking-tighter text-white">815+</span><span class="text-xs text-white/30 ml-2 uppercase tracking-wider">Aktivitäten getrackt</span></div>
+        <p class="text-sm leading-relaxed" style="color:rgba(255,255,255,0.4)">Jede Anfrage, jedes Exposé, jede Besichtigung — Sie sehen alles in Echtzeit. Wissen Sie immer genau, wo Sie stehen.</p>
+      </div>
+      <div class="p-7 rounded-2xl transition-all duration-500 hover:translate-y-[-4px]" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(232,116,58,0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8743A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <h3 class="text-base font-bold text-white">Besichtigungs-Feedback</h3>
+        </div>
+        <div class="mb-4"><span class="text-3xl font-black tracking-tighter text-white">100%</span><span class="text-xs text-white/30 ml-2 uppercase tracking-wider">Transparenz</span></div>
+        <p class="text-sm leading-relaxed" style="color:rgba(255,255,255,0.4)">Lesen Sie, was Interessenten nach der Besichtigung sagen. Direktes, ungefiltertes Feedback — die Basis für kluge Entscheidungen.</p>
+      </div>
+      <div class="p-7 rounded-2xl transition-all duration-500 hover:translate-y-[-4px]" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(232,116,58,0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8743A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <h3 class="text-base font-bold text-white">Vermarktungs-Trichter</h3>
+        </div>
+        <div class="mb-4"><span class="text-3xl font-black tracking-tighter text-white">192</span><span class="text-xs text-white/30 ml-2 uppercase tracking-wider">Anfragen gesamt</span></div>
+        <p class="text-sm leading-relaxed" style="color:rgba(255,255,255,0.4)">Verfolgen Sie den Weg vom Lead zum Kaufanbot. Wie viele Anfragen, Besichtigungen und Angebote gibt es? Alles visualisiert.</p>
+      </div>
+      <div class="p-7 rounded-2xl transition-all duration-500 hover:translate-y-[-4px]" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(232,116,58,0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8743A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </div>
+          <h3 class="text-base font-bold text-white">Plattform-Analyse</h3>
+        </div>
+        <div class="mb-4"><span class="text-3xl font-black tracking-tighter text-white">5</span><span class="text-xs text-white/30 ml-2 uppercase tracking-wider">Plattformen verbunden</span></div>
+        <p class="text-sm leading-relaxed" style="color:rgba(255,255,255,0.4)">Sehen Sie genau, welche Plattform die meisten qualifizierten Anfragen liefert. willhaben, immowelt, ImmobilienScout24 — alles aufgeschlüsselt.</p>
+      </div>
+      <div class="p-7 rounded-2xl transition-all duration-500 hover:translate-y-[-4px]" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(232,116,58,0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8743A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+          </div>
+          <h3 class="text-base font-bold text-white">Marktbericht</h3>
+        </div>
+        <div class="mb-4"><span class="text-3xl font-black tracking-tighter text-white">EUR 52M</span><span class="text-xs text-white/30 ml-2 uppercase tracking-wider">analysiertes Volumen</span></div>
+        <p class="text-sm leading-relaxed" style="color:rgba(255,255,255,0.4)">Datengestützte Marktanalyse für Ihre Region: Preisentwicklung, EZB-Leitzins, Vergleichsobjekte. Fundierte Entscheidungsgrundlage.</p>
+      </div>
+      <div class="p-7 rounded-2xl transition-all duration-500 hover:translate-y-[-4px]" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(232,116,58,0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8743A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <h3 class="text-base font-bold text-white">Direkter Draht</h3>
+        </div>
+        <div class="mb-4"><span class="text-3xl font-black tracking-tighter text-white">24/7</span><span class="text-xs text-white/30 ml-2 uppercase tracking-wider">Verfügbar</span></div>
+        <p class="text-sm leading-relaxed" style="color:rgba(255,255,255,0.4)">Senden Sie Nachrichten, teilen Sie Dokumente, stellen Sie Fragen — alles sicher und archiviert in Ihrem persönlichen Portal.</p>
+      </div>
+    </div>
+    <div class="text-center mt-14">
+      <a href="/portal.html" class="inline-flex items-center gap-3 font-semibold text-base px-10 py-5 text-white rounded-full transition-all" style="background:#E8743A;letter-spacing:0.05em">
+        Portal entdecken <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 7. DATEN EXPERTISE ─── -->
+<section class="py-24 md:py-36 laptop-py" style="background:#FAF8F5">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      <div data-animate>
+        <div class="flex items-center gap-3 mb-5">
+          <div style="width:32px;height:2px;background:#D4743B;border-radius:2px"></div>
+          <span class="uppercase tracking-[0.2em] text-xs font-semibold" style="color:#D4743B">Datengetriebene Expertise</span>
+        </div>
+        <h2 class="font-display mb-6 section-heading" style="font-size:clamp(2rem,4vw,3.5rem);font-weight:700;color:#0A0A08;line-height:1;letter-spacing:-0.03em">Entscheidungen basierend auf Daten, nicht Bauchgefühl</h2>
+        <p class="text-base leading-relaxed mb-8" style="color:#5A564E">Unser Analyse-System verarbeitet täglich hunderte Datenpunkte: EZB-Leitzinsentwicklungen, regionale Immobilienpreise, Plattform-Performance und Markttrends. Diese Intelligenz fliesst in jede Beratung und jede Vermarktungsstrategie ein.</p>
+        <div class="space-y-5">
+          <div class="flex items-start gap-4 p-4 rounded-xl" style="background:#F0ECE6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" class="mt-0.5 shrink-0" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><div><div class="text-sm font-bold" style="color:#0A0A08">Regionaler Marktbericht</div><div class="text-xs mt-0.5" style="color:#9A958C">Salzburg, Flachgau, Innviertel — aktuelle Preistrends und Prognosen</div></div></div>
+          <div class="flex items-start gap-4 p-4 rounded-xl" style="background:#F0ECE6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" class="mt-0.5 shrink-0" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><div><div class="text-sm font-bold" style="color:#0A0A08">EZB-Leitzins Monitoring</div><div class="text-xs mt-0.5" style="color:#9A958C">Wie Zinsentwicklungen den Immobilienmarkt beeinflussen</div></div></div>
+          <div class="flex items-start gap-4 p-4 rounded-xl" style="background:#F0ECE6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" class="mt-0.5 shrink-0" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><div><div class="text-sm font-bold" style="color:#0A0A08">Vergleichsobjekt-Analyse</div><div class="text-xs mt-0.5" style="color:#9A958C">Reale Verkaufspreise ähnlicher Immobilien in Ihrer Umgebung</div></div></div>
+          <div class="flex items-start gap-4 p-4 rounded-xl" style="background:#F0ECE6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" class="mt-0.5 shrink-0" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><div><div class="text-sm font-bold" style="color:#0A0A08">Plattform-Performance</div><div class="text-xs mt-0.5" style="color:#9A958C">Welche Kanäle die qualifiziertesten Anfragen liefern</div></div></div>
+          <div class="flex items-start gap-4 p-4 rounded-xl" style="background:#F0ECE6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" class="mt-0.5 shrink-0" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><div><div class="text-sm font-bold" style="color:#0A0A08">Verkaufstrichter-Analyse</div><div class="text-xs mt-0.5" style="color:#9A958C">Conversion-Raten von Anfrage bis Kaufanbot</div></div></div>
+        </div>
+      </div>
+      <!-- Market Widget -->
+      <div class="p-1.5 rounded-3xl" style="background:#F0ECE6;border:1px solid #F0ECE6">
+        <div class="rounded-2xl overflow-hidden p-6" style="background:#fff">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <div class="text-xs font-bold uppercase tracking-widest" style="color:#9A958C">Marktanalyse</div>
+              <div class="text-lg font-bold" style="color:#0A0A08">Salzburg Region</div>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-semibold" style="background:rgba(212,116,59,0.08);color:#D4743B">Live</span>
+          </div>
+          <div class="grid grid-cols-3 gap-3 mb-6">
+            <div class="p-4 rounded-xl" style="background:#F0ECE6"><div class="text-xs mb-1" style="color:#9A958C">Durchschn. m²-Preis</div><div class="text-lg font-bold" style="color:#0A0A08">EUR 5.280</div><div class="text-xs font-semibold" style="color:#D4743B">+3.2%</div></div>
+            <div class="p-4 rounded-xl" style="background:#F0ECE6"><div class="text-xs mb-1" style="color:#9A958C">EZB Leitzins</div><div class="text-lg font-bold" style="color:#0A0A08">2,65%</div><div class="text-xs font-semibold" style="color:#D4743B">-0.25%</div></div>
+            <div class="p-4 rounded-xl" style="background:#F0ECE6"><div class="text-xs mb-1" style="color:#9A958C">Ø Vermarktungszeit</div><div class="text-lg font-bold" style="color:#0A0A08">42 Tage</div><div class="text-xs font-semibold" style="color:#D4743B">-8 T.</div></div>
+          </div>
+          <div class="mb-4">
+            <div class="text-xs font-bold mb-3 uppercase tracking-wider" style="color:#9A958C">Anfragen-Trend (8 Wochen)</div>
+            <div class="flex items-end gap-2" style="height:120px">
+              <div class="flex-1 rounded-t-md" style="height:45%;background:rgba(212,116,59,0.08)"></div>
+              <div class="flex-1 rounded-t-md" style="height:62%;background:rgba(212,116,59,0.08)"></div>
+              <div class="flex-1 rounded-t-md" style="height:55%;background:rgba(212,116,59,0.08)"></div>
+              <div class="flex-1 rounded-t-md" style="height:78%;background:rgba(212,116,59,0.08)"></div>
+              <div class="flex-1 rounded-t-md" style="height:85%;background:rgba(212,116,59,0.08)"></div>
+              <div class="flex-1 rounded-t-md" style="height:72%;background:rgba(212,116,59,0.08)"></div>
+              <div class="flex-1 rounded-t-md" style="height:90%;background:rgba(212,116,59,0.08)"></div>
+              <div class="flex-1 rounded-t-md" style="height:95%;background:#D4743B"></div>
+            </div>
+            <div class="flex justify-between mt-2 text-xs" style="color:#C5C0B8"><span>KW 5</span><span>KW 6</span><span>KW 7</span><span>KW 8</span><span>KW 9</span><span>KW 10</span><span>KW 11</span><span>KW 12</span></div>
+          </div>
+          <div class="pt-4" style="border-top:1px solid #F0ECE6">
+            <div class="text-xs font-bold mb-3 uppercase tracking-wider" style="color:#9A958C">Plattform-Performance</div>
+            <div class="mb-3"><div class="flex justify-between text-xs mb-1"><span style="color:#5A564E">willhaben.at</span><span class="font-bold" style="color:#0A0A08">42%</span></div><div class="h-2 rounded-full overflow-hidden" style="background:#F0ECE6"><div class="h-full rounded-full" style="width:42%;background:#D4743B"></div></div></div>
+            <div class="mb-3"><div class="flex justify-between text-xs mb-1"><span style="color:#5A564E">SR-Homes Website</span><span class="font-bold" style="color:#0A0A08">28%</span></div><div class="h-2 rounded-full overflow-hidden" style="background:#F0ECE6"><div class="h-full rounded-full" style="width:28%;background:rgba(212,116,59,0.6)"></div></div></div>
+            <div class="mb-3"><div class="flex justify-between text-xs mb-1"><span style="color:#5A564E">immowelt.at</span><span class="font-bold" style="color:#0A0A08">18%</span></div><div class="h-2 rounded-full overflow-hidden" style="background:#F0ECE6"><div class="h-full rounded-full" style="width:18%;background:rgba(212,116,59,0.4)"></div></div></div>
+            <div class="mb-3"><div class="flex justify-between text-xs mb-1"><span style="color:#5A564E">ImmobilienScout24</span><span class="font-bold" style="color:#0A0A08">12%</span></div><div class="h-2 rounded-full overflow-hidden" style="background:#F0ECE6"><div class="h-full rounded-full" style="width:12%;background:rgba(212,116,59,0.25)"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 8. PROZESS ─── -->
+<section class="py-24 md:py-36 laptop-py" style="background:#F0ECE6">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+    <div class="text-center mb-20" data-animate>
+      <div class="flex items-center gap-3 mb-5 justify-center">
+        <div style="width:32px;height:2px;background:#D4743B;border-radius:2px"></div>
+        <span class="uppercase tracking-[0.2em] text-xs font-semibold" style="color:#D4743B">Unser Prozess</span>
+      </div>
+      <h2 class="font-display section-heading" style="font-size:clamp(2rem,4vw,3.5rem);font-weight:700;color:#0A0A08;line-height:1;letter-spacing:-0.03em">In vier Schritten zum Erfolg</h2>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="hover-lift p-8 rounded-2xl relative" style="background:#fff;border:1px solid #F0ECE6">
+        <span class="text-6xl font-black tracking-tighter absolute top-4 right-6" style="color:rgba(212,116,59,0.08)">01</span>
+        <div class="relative">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-6" style="background:rgba(212,116,59,0.08)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h3 class="text-xl font-bold tracking-tight mb-3" style="color:#0A0A08">Erstberatung</h3>
+          <p class="text-sm leading-relaxed" style="color:#9A958C">Persönliches Kennenlernen, Vor-Ort-Besichtigung und gemeinsame Preisfindung auf Basis unserer Marktdaten.</p>
+        </div>
+      </div>
+      <div class="hover-lift p-8 rounded-2xl relative" style="background:#fff;border:1px solid #F0ECE6">
+        <span class="text-6xl font-black tracking-tighter absolute top-4 right-6" style="color:rgba(212,116,59,0.08)">02</span>
+        <div class="relative">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-6" style="background:rgba(212,116,59,0.08)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <h3 class="text-xl font-bold tracking-tight mb-3" style="color:#0A0A08">Aufbereitung</h3>
+          <p class="text-sm leading-relaxed" style="color:#9A958C">Professionelle Fotografie, virtuelle Rundgänge, Premium-Exposé, Beschaffung aller Unterlagen.</p>
+        </div>
+      </div>
+      <div class="hover-lift p-8 rounded-2xl relative" style="background:#fff;border:1px solid #F0ECE6">
+        <span class="text-6xl font-black tracking-tighter absolute top-4 right-6" style="color:rgba(212,116,59,0.08)">03</span>
+        <div class="relative">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-6" style="background:rgba(212,116,59,0.08)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <h3 class="text-xl font-bold tracking-tight mb-3" style="color:#0A0A08">Vermarktung</h3>
+          <p class="text-sm leading-relaxed" style="color:#9A958C">Multi-Plattform-Strategie, qualifizierte Interessenten, Besichtigungsorganisation. Alles live im Portal.</p>
+        </div>
+      </div>
+      <div class="hover-lift p-8 rounded-2xl relative" style="background:#fff;border:1px solid #F0ECE6">
+        <span class="text-6xl font-black tracking-tighter absolute top-4 right-6" style="color:rgba(212,116,59,0.08)">04</span>
+        <div class="relative">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-6" style="background:rgba(212,116,59,0.08)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D4743B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <h3 class="text-xl font-bold tracking-tight mb-3" style="color:#0A0A08">Abschluss</h3>
+          <p class="text-sm leading-relaxed" style="color:#9A958C">Kaufvertragsverhandlung, notarielle Begleitung, Übergabe mit Protokoll. Ihr Makler bis zum letzten Schritt.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 9. TEAM ─── -->
+<section class="relative" style="height:600px">
+  <img src="https://api.immoji.org/image/original/507f07b3-579d-4b20-a74b-90146e3abb02" alt="SR-Homes Team" class="absolute inset-0 w-full h-full object-cover" />
+  <div class="absolute inset-0" style="background:linear-gradient(to right,rgba(10,10,8,0.9) 0%,rgba(10,10,8,0.4) 60%,rgba(10,10,8,0.2) 100%)"></div>
+  <div class="relative z-10 h-full flex items-center">
+    <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16 w-full">
+      <div class="max-w-lg" data-animate>
+        <div class="flex items-center gap-3 mb-5">
+          <div style="width:32px;height:2px;background:#E8743A;border-radius:2px"></div>
+          <span class="uppercase tracking-[0.2em] text-xs font-semibold" style="color:#E8743A">Unser Team</span>
+        </div>
+        <h2 class="font-display text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-white tracking-tight leading-none mb-6">Menschen, die den Unterschied machen.</h2>
+        <p class="text-base text-white/50 leading-relaxed mb-8">Maximilian Hölzl und sein Team verbinden jahrelange Erfahrung mit Leidenschaft für Immobilien. Persönlich, kompetent, engagiert.</p>
+        <a href="/ueber-uns.html" class="inline-flex items-center gap-3 font-semibold text-base px-10 py-5 text-white rounded-full" style="background:#E8743A;letter-spacing:0.05em">
+          Team kennenlernen <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 10. TESTIMONIAL ─── -->
+<section class="py-24 md:py-36 laptop-py" style="background:#FAF8F5">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+    <div class="max-w-4xl mx-auto text-center" data-animate>
+      <div class="flex justify-center gap-1 mb-8">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="#D4743B" stroke="#D4743B" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="#D4743B" stroke="#D4743B" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="#D4743B" stroke="#D4743B" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="#D4743B" stroke="#D4743B" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="#D4743B" stroke="#D4743B" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <blockquote class="font-display text-xl md:text-3xl font-medium leading-snug mb-8" style="color:#0A0A08;font-style:italic">
+        "Die Zusammenarbeit mit SR-Homes war herausragend. Vom ersten Gespräch bis zur Übergabe fühlen wir uns perfekt betreut. Das Kundenportal ist ein Game-Changer — wir konnten jeden Schritt live mitverfolgen."
+      </blockquote>
+      <div class="text-sm font-semibold" style="color:#0A0A08">Familie Steinberger</div>
+      <div class="text-xs mt-1" style="color:#9A958C">Verkauf Einfamilienhaus, Salzburg</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 11. CTA ─── -->
+<section class="py-24 md:py-36 laptop-py" style="background:#F0ECE6">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+    <div class="relative rounded-3xl overflow-hidden" style="min-height:500px">
+      <img src="https://api.immoji.org/image/original/cff9990a-00ab-402a-b8f9-0836c62e8ebb" alt="" class="absolute inset-0 w-full h-full object-cover" />
+      <div class="absolute inset-0" style="background:linear-gradient(135deg,rgba(10,10,8,0.92) 0%,rgba(10,10,8,0.6) 100%)"></div>
+      <div class="relative z-10 flex flex-col items-center justify-center text-center px-8 py-24" data-animate>
+        <h2 class="font-display text-3xl md:text-4xl lg:text-5xl xl:text-7xl font-bold text-white tracking-tight leading-none mb-6">
+          Bereit für den<br><span style="color:#E8743A">nächsten Schritt?</span>
+        </h2>
+        <p class="text-lg text-white/[0.45] max-w-xl mb-10 leading-relaxed">Vereinbaren Sie Ihr kostenloses Erstgespräch. Wir nehmen uns Zeit für Ihre Fragen und entwickeln gemeinsam die beste Strategie.</p>
+        <div class="flex flex-wrap gap-4 justify-center">
+          <a href="/kontakt.html" class="inline-flex items-center gap-3 font-semibold text-base px-10 py-5 text-white rounded-full" style="background:#E8743A;letter-spacing:0.05em">
+            Erstgespräch vereinbaren <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+          </a>
+          <a href="tel:+436642600930" class="inline-flex items-center gap-3 font-semibold text-base px-10 py-5 text-white rounded-full" style="border:1.5px solid rgba(255,255,255,0.2);letter-spacing:0.05em">
+            +43 664 2600 930
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ═══ FOOTER ═══ -->
+<footer style="background:#0A0A08">
+  <!-- Marquee -->
+  <div class="overflow-hidden pt-6">
+    <div class="marquee-track whitespace-nowrap">
+      <span class="text-[8rem] font-black" style="color:rgba(255,255,255,0.06);letter-spacing:-0.03em">SR-HOMES IMMOBILIEN&nbsp;&nbsp;</span>
+      <span class="text-[8rem] font-black" style="color:rgba(255,255,255,0.06);letter-spacing:-0.03em">SR-HOMES IMMOBILIEN&nbsp;&nbsp;</span>
+      <span class="text-[8rem] font-black" style="color:rgba(255,255,255,0.06);letter-spacing:-0.03em">SR-HOMES IMMOBILIEN&nbsp;&nbsp;</span>
+      <span class="text-[8rem] font-black" style="color:rgba(255,255,255,0.06);letter-spacing:-0.03em">SR-HOMES IMMOBILIEN&nbsp;&nbsp;</span>
+    </div>
+  </div>
+  <!-- Content -->
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16 pt-20 pb-16">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+      <div class="lg:col-span-4">
+        <img src="https://api.immoji.org/image/e747b1e6-58ee-4dc8-a2ab-28ab72798310.svg" alt="SR-Homes" class="h-9 mb-6" />
+        <p class="text-sm leading-relaxed mb-8" style="color:rgba(255,255,255,0.4)">Ihr vertrauensvoller Partner für hochwertige Immobilien in Salzburg und Oberösterreich.</p>
+        <div class="flex gap-3">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold cursor-pointer transition-all hover:text-white" style="border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.3)">LI</div>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold cursor-pointer transition-all hover:text-white" style="border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.3)">IG</div>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold cursor-pointer transition-all hover:text-white" style="border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.3)">FB</div>
+        </div>
+      </div>
+      <div class="lg:col-span-2">
+        <h4 class="text-xs font-bold uppercase tracking-[0.2em] mb-6" style="color:rgba(255,255,255,0.25)">Immobilien</h4>
+        <a href="/immobilien.html" class="block text-sm mb-3 transition-colors hover:text-white" style="color:rgba(255,255,255,0.4)">Kaufen</a>
+        <a href="/immobilien.html" class="block text-sm mb-3 transition-colors hover:text-white" style="color:rgba(255,255,255,0.4)">Mieten</a>
+        <a href="/immobilien.html" class="block text-sm mb-3 transition-colors hover:text-white" style="color:rgba(255,255,255,0.4)">Neubauprojekte</a>
+        <a href="/immobilien.html" class="block text-sm mb-3 transition-colors hover:text-white" style="color:rgba(255,255,255,0.4)">Grundstücke</a>
+      </div>
+      <div class="lg:col-span-2">
+        <h4 class="text-xs font-bold uppercase tracking-[0.2em] mb-6" style="color:rgba(255,255,255,0.25)">Services</h4>
+        <a href="/verkaufen.html" class="block text-sm mb-3 transition-colors hover:text-white" style="color:rgba(255,255,255,0.4)">Verkaufen</a>
+        <a href="/bewerten.html" class="block text-sm mb-3 transition-colors hover:text-white" style="color:rgba(255,255,255,0.4)">Bewerten</a>
+        <a href="/portal.html" class="block text-sm mb-3 transition-colors hover:text-white" style="color:rgba(255,255,255,0.4)">Kundenportal</a>
+      </div>
+      <div class="lg:col-span-4">
+        <h4 class="text-xs font-bold uppercase tracking-[0.2em] mb-6" style="color:rgba(255,255,255,0.25)">Kontakt</h4>
+        <div class="space-y-4 text-sm" style="color:rgba(255,255,255,0.4)">
+          <div class="flex items-start gap-3">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E8743A" stroke-width="2" class="mt-0.5 shrink-0" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span>Innsbrucker Bundesstraße 73/Top 5<br>A-5020 Salzburg, Österreich</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E8743A" stroke-width="2" class="shrink-0" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <span>+43 664 2600 930</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E8743A" stroke-width="2" class="shrink-0" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <span>office@sr-homes.at</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E8743A" stroke-width="2" class="shrink-0" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Mo — Fr 8:00 bis 18:00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Bottom Bar -->
+    <div class="mt-20 pt-8 flex flex-col md:flex-row justify-between gap-4" style="border-top:1px solid rgba(255,255,255,0.05)">
+      <span class="text-xs" style="color:rgba(255,255,255,0.2)">SR-Homes GmbH | FN 4556571 i | ATU 71268923 | Konzessionierter Immobilientreuhänder</span>
+      <span class="text-xs flex items-center gap-4" style="color:rgba(255,255,255,0.2)">
+        &copy; 2026 SR-Homes. Alle Rechte vorbehalten.
+        <a href="/impressum.html" class="underline underline-offset-2 transition-colors hover:text-white/50" style="color:rgba(255,255,255,0.4)">Impressum</a>
+        <a href="/datenschutz.html" class="underline underline-offset-2 transition-colors hover:text-white/50" style="color:rgba(255,255,255,0.4)">Datenschutz</a>
+      </span>
+    </div>
+  </div>
+</footer>
+
+<!-- Grain -->
+<div class="grain"></div>
+
+<!-- Scripts -->
+<script src="/js/app.js"></script>
+<script src="/js/home.js"></script>
+</body>
+</html>

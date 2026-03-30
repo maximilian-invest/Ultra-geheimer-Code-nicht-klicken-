@@ -829,8 +829,18 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         }
 
         $whereSql = implode(' AND ', $where);
+        $whereSql2 = str_replace('pe.', 'pe2.', $whereSql);
 
-        $total = (int) DB::selectOne("SELECT COUNT(*) as cnt FROM portal_emails pe WHERE {$whereSql}", $params)->cnt;
+        // Group by conversation (stakeholder + property_id) in SQL, show newest email per conversation
+        $total = (int) DB::selectOne("
+            SELECT COUNT(*) as cnt FROM (
+                SELECT LOWER(TRIM(COALESCE(pe.stakeholder, pe.from_name, pe.from_email, ''))) as sh,
+                       COALESCE(pe.property_id, 0) as pid
+                FROM portal_emails pe
+                WHERE {$whereSql}
+                GROUP BY sh, pid
+            ) sub
+        ", $params)->cnt;
 
         $emails = DB::select("
             SELECT
@@ -839,10 +849,19 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 pe.category, pe.stakeholder, pe.ai_summary, pe.has_attachment,
                 pe.attachment_names, pe.property_id, pe.matched_ref_id,
                 pe.is_deleted, pe.deleted_at,
-                p.address as property_address, p.ref_id as property_ref_id, p.city as property_city
+                p.address as property_address, p.ref_id as property_ref_id, p.city as property_city,
+                conv.thread_count
             FROM portal_emails pe
+            INNER JOIN (
+                SELECT MAX(pe2.id) as latest_id,
+                       COUNT(*) as thread_count,
+                       LOWER(TRIM(COALESCE(pe2.stakeholder, pe2.from_name, pe2.from_email, ''))) as sh,
+                       COALESCE(pe2.property_id, 0) as pid
+                FROM portal_emails pe2
+                WHERE {$whereSql2}
+                GROUP BY sh, pid
+            ) conv ON pe.id = conv.latest_id
             LEFT JOIN properties p ON pe.property_id = p.id
-            WHERE {$whereSql}
             ORDER BY pe.email_date DESC
             LIMIT {$perPage} OFFSET {$offset}
         ", $params);
@@ -863,20 +882,6 @@ private static function findEmailInText(string $text, array $excludePatterns = [
             $em['prospect_email'] = $this->extractProspectEmail($em['from_email'] ?? null, $em['body_text'] ?? null);
             return (object) $em;
         }, $emails);
-
-        // Group emails by (stakeholder, property_id) — show only the newest per conversation
-        $grouped = [];
-        $seenKeys = [];
-        foreach ($emails as $em) {
-            $sh = strtolower(trim($em->stakeholder ?? $em->from_name ?? $em->from_email ?? ''));
-            $pid = $em->property_id ?? 0;
-            $key = $sh . '|' . $pid;
-            if (!isset($seenKeys[$key])) {
-                $seenKeys[$key] = true;
-                $grouped[] = $em;
-            }
-        }
-        $emails = $grouped;
 
         return response()->json([
             'emails'      => $emails,

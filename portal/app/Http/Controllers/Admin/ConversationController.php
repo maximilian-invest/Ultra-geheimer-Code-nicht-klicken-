@@ -13,9 +13,10 @@ class ConversationController extends Controller
     public function index(Request $request): JsonResponse
     {
         $propertyId  = intval($request->query('property_id', 0));
-        // Multi-User: broker_id Scoping
+        // Multi-User: broker_id Scoping (assistenz sees all)
         $brokerId = \Auth::id();
-        $brokerConvFilter = $brokerId ? "AND a.property_id IN (SELECT id FROM properties WHERE broker_id = {$brokerId})" : "";
+        $userType = \Auth::user()->user_type ?? 'makler';
+        $brokerConvFilter = ($brokerId && $userType !== 'assistenz') ? "AND a.property_id IN (SELECT id FROM properties WHERE broker_id = {$brokerId})" : "";
         $stakeholder = $request->query('stakeholder', '');
         $page    = max(1, intval($request->query('page', 1)));
         $perPage = min(50, max(1, intval($request->query('per_page', 20))));

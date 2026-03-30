@@ -629,10 +629,10 @@ class EmailController extends Controller
             return response()->json(['error' => 'Missing required fields: account_id, to_email, subject'], 400);
         }
 
-        // Security: Makler can only send from their own account
+        // Security: every user can only send from their own account(s)
         $brokerId = \Auth::id();
         $user = \Auth::user();
-        if ($brokerId && $user && $user->user_type !== 'admin') {
+        if ($brokerId) {
             $account = \DB::table('email_accounts')->where('id', $accountId)->first();
             if (!$account || $account->user_id != $brokerId) {
                 return response()->json(['error' => 'Nicht berechtigt, von diesem Konto zu senden'], 403);
@@ -821,9 +821,9 @@ private static function findEmailInText(string $text, array $excludePatterns = [
 
         // Multi-User: nur Emails aus eigenen Properties zeigen
         $brokerId = \Auth::id();
-        if ($brokerId) {
-            $user = \Auth::user();
-            // Strict account filter: only show emails from own email accounts
+        $userType = \Auth::user()->user_type ?? 'makler';
+        // Assistenz sees all emails (no account filter)
+        if ($brokerId && $userType !== 'assistenz') {
             $where[] = 'pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = ?)';
             $params[] = $brokerId;
         }
@@ -882,6 +882,8 @@ private static function findEmailInText(string $text, array $excludePatterns = [
             $em['prospect_email'] = $this->extractProspectEmail($em['from_email'] ?? null, $em['body_text'] ?? null);
             return (object) $em;
         }, $emails);
+
+        // Grouping is now done in SQL via INNER JOIN subquery above
 
         return response()->json([
             'emails'      => $emails,

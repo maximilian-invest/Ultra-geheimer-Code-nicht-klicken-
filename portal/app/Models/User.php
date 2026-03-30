@@ -42,4 +42,14 @@ class User extends Authenticatable
     {
         return $this->user_type === 'eigentuemer';
     }
+
+    public function isAssistenz(): bool
+    {
+        return $this->user_type === 'assistenz';
+    }
+
+    public function isMakler(): bool
+    {
+        return $this->user_type === 'makler';
+    }
 }

@@ -9,6 +9,14 @@ const API = inject("API");
 const toast = inject("toast");
 const properties = inject("properties");
 const kbCounts = inject("kbCounts");
+const userType = inject("userType", ref("admin"));
+
+// Makler can only edit their own properties (readonly=false)
+function canEditProperty(prop) {
+    if (!prop) return true;
+    if (userType.value === 'admin' || userType.value === 'assistenz') return true;
+    return !prop.readonly;
+}
 
 const searchQuery = ref("");
 

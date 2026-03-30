@@ -297,7 +297,12 @@ function closeBell(e) {
     }
 }
 
-const navItems = [
+const userType = computed(() => page.props.auth?.user?.user_type || 'makler');
+const isAdmin = computed(() => userType.value === 'admin');
+provide("userType", userType);
+provide("isAdmin", isAdmin);
+
+const allNavItems = [
     { key: "today", label: "Dashboard", icon: LayoutDashboard },
     { key: "priorities", label: "Aktionen", icon: Zap },
     { key: "comms", label: "Kommunikation", icon: MessageSquare },
@@ -306,8 +311,9 @@ const navItems = [
     { key: "analytics", label: "Marktanalyse", icon: TrendingUp },
     { key: "admin", label: "Kontakte", icon: Users },
     { key: "calendar", label: "Kalender", icon: Calendar },
-    { key: "website", label: "Website", icon: Globe },
+    { key: "website", label: "Website", icon: Globe, adminOnly: true },
 ];
+const navItems = computed(() => allNavItems.filter(i => !i.adminOnly || isAdmin.value));
 
 const dateStr = computed(() =>
     new Date().toLocaleDateString("de-AT", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })
@@ -369,10 +375,10 @@ function navBadge(key) {
                 <div class="flex items-center gap-2.5 mb-2">
                     <div class="w-7 h-7 rounded-full flex items-center justify-center font-medium text-[10px] flex-shrink-0 bg-[var(--muted)] text-[var(--muted-foreground)]">{{ userInitials }}</div>
                     <div v-if="!sidebarCollapsed" class="flex-1 min-w-0"><div class="text-xs font-semibold truncate">{{ userName }}</div></div>
-                    <button v-if="!sidebarCollapsed" @click="switchTab('settings')" class="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors" title="Einstellungen"><Settings class="w-3.5 h-3.5" /></button>
+                    <button v-if="!sidebarCollapsed && isAdmin" @click="switchTab('settings')" class="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors" title="Einstellungen"><Settings class="w-3.5 h-3.5" /></button>
                     <a v-if="!sidebarCollapsed" href="#" @click.prevent="useForm({}).post(route('logout'))" class="text-[var(--muted-foreground)]"><LogOut class="w-3.5 h-3.5" /></a>
                 </div>
-                <button v-if="sidebarCollapsed" @click="switchTab('settings')" class="w-7 h-7 rounded-full flex items-center justify-center mb-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors" title="Einstellungen"><Settings class="w-3.5 h-3.5" /></button>
+                <button v-if="sidebarCollapsed && isAdmin" @click="switchTab('settings')" class="w-7 h-7 rounded-full flex items-center justify-center mb-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors" title="Einstellungen"><Settings class="w-3.5 h-3.5" /></button>
                 <div v-if="!sidebarCollapsed" @click.stop="toggleDarkMode()" class="flex items-center gap-2 px-1 cursor-pointer select-none">
                     <Moon v-if="!darkMode" class="w-3.5 h-3.5 text-[var(--muted-foreground)]" />
                     <Sun v-else class="w-3.5 h-3.5 text-[var(--muted-foreground)]" />

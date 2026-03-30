@@ -18,7 +18,10 @@ class DashboardController extends Controller
     {
         // Stats for sidebar (broker-scoped)
         $brokerId = \Auth::id();
-        $brokerPropertyIds = $brokerId
+        $userType = \Auth::user()->user_type ?? 'makler';
+        // Assistenz sees ALL properties, admin/makler see only their own
+        $scopeAll = in_array($userType, ['assistenz']);
+        $brokerPropertyIds = ($brokerId && !$scopeAll)
             ? Property::where('broker_id', $brokerId)->pluck('id')->toArray()
             : Property::pluck('id')->toArray();
 
@@ -38,11 +41,11 @@ class DashboardController extends Controller
             'customers' => Customer::count(),
         ];
 
-        $properties = Property::select('id', 'ref_id', 'project_name', 'title', 'address', 'city', 'realty_status', 'property_category', 'customer_id', 'owner_name', 'owner_email', 'owner_phone', 'purchase_price', 'total_area', 'rooms_amount', 'object_type', 'project_group_id', 'parent_id', 'openimmo_id', 'show_on_website', 'created_at',
+        $properties = Property::select('id', 'broker_id', 'ref_id', 'project_name', 'title', 'address', 'city', 'realty_status', 'property_category', 'customer_id', 'owner_name', 'owner_email', 'owner_phone', 'purchase_price', 'total_area', 'rooms_amount', 'object_type', 'project_group_id', 'parent_id', 'openimmo_id', 'show_on_website', 'created_at',
             DB::raw('COALESCE(on_hold, 0) as on_hold'), 'on_hold_note',
             DB::raw('(SELECT COUNT(*) FROM property_files WHERE property_files.property_id = properties.id) as files_count'),
             DB::raw('(SELECT COALESCE(SUM(price), 0) FROM property_units WHERE property_units.property_id = properties.id AND property_units.is_parking = 0) as total_volume'))
-            ->when(\Auth::id(), fn($q) => $q->where('broker_id', \Auth::id()))
+            // All users see all properties; makler gets readonly flag on non-owned ones
             ->orderBy('address')
             ->get()
             ->map(function($p) {
@@ -62,6 +65,12 @@ class DashboardController extends Controller
                         ->orderBy('sort_order')
                         ->first();
                     $p->thumbnail_url = $fileImg ? url('/storage/' . $fileImg->path) : null;
+                }
+                // Makler: readonly flag on properties owned by other brokers
+                if ($userType === 'makler' && $brokerId && $p->broker_id != $brokerId) {
+                    $p->readonly = true;
+                } else {
+                    $p->readonly = false;
                 }
                 return $p;
             });

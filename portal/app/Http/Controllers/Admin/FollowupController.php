@@ -59,8 +59,11 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         // Multi-User: broker_id des eingeloggten Users
         $currentUser = \Auth::user();
         $brokerId = $currentUser ? $currentUser->id : null;
-        $brokerFilter = $brokerId ? "AND p.broker_id = {$brokerId}" : "";
-        $accountFilter = $brokerId ? "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$brokerId} OR user_id IS NULL)" : "";
+        $userType = $currentUser->user_type ?? 'makler';
+        // Assistenz sees all data (no broker/account filter)
+        $scopeAll = in_array($userType, ['assistenz']);
+        $brokerFilter = ($brokerId && !$scopeAll) ? "AND p.broker_id = {$brokerId}" : "";
+        $accountFilter = ($brokerId && !$scopeAll) ? "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$brokerId} OR user_id IS NULL)" : "";
 
         $filter  = $request->query('filter', 'all');
         $mode    = $request->query('mode', 'unanswered');

@@ -2393,7 +2393,7 @@ PY;
                    (SELECT COUNT(*) FROM properties p WHERE p.broker_id = u.id) as property_count,
                    (SELECT GROUP_CONCAT(ea.email_address) FROM email_accounts ea WHERE ea.user_id = u.id) as email_accounts
             FROM users u
-            WHERE u.user_type IN ('admin', 'makler')
+            WHERE u.user_type IN ('admin', 'makler', 'assistenz')
             ORDER BY u.id
         ");
 
@@ -2427,7 +2427,7 @@ PY;
             'email' => $email,
             'password' => bcrypt($password),
             'phone' => $phone ?: null,
-            'user_type' => 'makler',
+            'user_type' => in_array($data['user_type'] ?? '', ['makler', 'assistenz']) ? $data['user_type'] : 'makler',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -2520,13 +2520,16 @@ PY;
         $brokerId = intval($data['broker_id'] ?? 0);
         if (!$brokerId) return response()->json(['error' => 'broker_id required'], 400);
 
-        $user = DB::selectOne("SELECT * FROM users WHERE id = ? AND user_type IN ('admin','makler')", [$brokerId]);
+        $user = DB::selectOne("SELECT * FROM users WHERE id = ? AND user_type IN ('admin','makler','assistenz')", [$brokerId]);
         if (!$user) return response()->json(['error' => 'Makler nicht gefunden'], 404);
 
         // Update user fields
         $update = [];
         if (isset($data['name'])) $update['name'] = trim($data['name']);
         if (isset($data['phone'])) $update['phone'] = trim($data['phone']);
+        if (isset($data['user_type']) && in_array($data['user_type'], ['makler', 'assistenz'])) {
+            $update['user_type'] = $data['user_type'];
+        }
         if (isset($data['password']) && trim($data['password'])) {
             $update['password'] = bcrypt(trim($data['password']));
         }

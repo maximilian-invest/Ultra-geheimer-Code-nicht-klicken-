@@ -146,7 +146,7 @@ class ContactController extends Controller
         foreach ($owners as &$owner) {
             $owner = (array) $owner;
             $owner['properties'] = array_map(fn($p) => (array) $p, DB::select("
-                SELECT id, ref_id, address, city, status, type, price
+                SELECT id, ref_id, address, city, realty_status as status, object_type as type, purchase_price as price
                 FROM properties
                 WHERE customer_id = ?
                 ORDER BY address

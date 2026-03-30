@@ -132,9 +132,10 @@ class ImapService
                 $isSrHomesFrom = (stripos($fromEmail, 'sr-homes') !== false);
                 $direction = $isOwnEmail ? 'outbound' : 'inbound';
 
-                // Detect internal emails (any sr-homes.at address communicating with a registered account)
+                // Detect internal emails (both from AND to are sr-homes/hoelzl)
                 $toAddresses = mailparse_rfc822_parse_addresses($to);
                 $toEmailAddr = $toAddresses[0]['address'] ?? $to;
+                // Internal = any sr-homes.at address communicating with a registered account
                 $isToOwnEmail = in_array(strtolower($toEmailAddr), $allOwnEmails);
                 $isSrHomesTo = (stripos($toEmailAddr, 'sr-homes') !== false);
                 $isInternalEmail = ($isOwnEmail || $isSrHomesFrom) && ($isToOwnEmail || $isSrHomesTo);

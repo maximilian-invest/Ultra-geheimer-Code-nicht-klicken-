@@ -44,11 +44,12 @@ class DashboardController extends Controller
         $properties = Property::select('id', 'broker_id', 'ref_id', 'project_name', 'title', 'address', 'city', 'realty_status', 'property_category', 'customer_id', 'owner_name', 'owner_email', 'owner_phone', 'purchase_price', 'total_area', 'rooms_amount', 'object_type', 'project_group_id', 'parent_id', 'openimmo_id', 'show_on_website', 'created_at',
             DB::raw('COALESCE(on_hold, 0) as on_hold'), 'on_hold_note',
             DB::raw('(SELECT COUNT(*) FROM property_files WHERE property_files.property_id = properties.id) as files_count'),
-            DB::raw('(SELECT COALESCE(SUM(price), 0) FROM property_units WHERE property_units.property_id = properties.id AND property_units.is_parking = 0) as total_volume'))
+            DB::raw('(SELECT COALESCE(SUM(price), 0) FROM property_units WHERE property_units.property_id = properties.id AND property_units.is_parking = 0) as total_volume'),
+            DB::raw('(SELECT name FROM users WHERE users.id = properties.broker_id LIMIT 1) as broker_name'))
             // All users see all properties; makler gets readonly flag on non-owned ones
             ->orderBy('address')
             ->get()
-            ->map(function($p) {
+            ->map(function($p) use ($userType, $brokerId) {
                 // Thumbnail: 1) property_images (title image), 2) property_files (image mime)
                 $img = DB::table('property_images')
                     ->where('property_id', $p->id)
@@ -66,12 +67,9 @@ class DashboardController extends Controller
                         ->first();
                     $p->thumbnail_url = $fileImg ? url('/storage/' . $fileImg->path) : null;
                 }
-                // Makler: readonly flag on properties owned by other brokers
-                if ($userType === 'makler' && $brokerId && $p->broker_id != $brokerId) {
-                    $p->readonly = true;
-                } else {
-                    $p->readonly = false;
-                }
+                // Mark properties not owned by current user
+                $p->readonly = ($userType === 'makler' && $brokerId && $p->broker_id != $brokerId);
+                $p->is_other_broker = ($brokerId && $p->broker_id != $brokerId);
                 return $p;
             });
 

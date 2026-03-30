@@ -550,9 +550,47 @@ const inaktivProperties = computed(() => {
     return list.filter(p => p.realty_status === 'inaktiv');
 });
 
-const filteredProperties = computed(() => {
+const selectedBrokers = ref(new Set()); // empty = show own, broker_ids = show those
+const brokerFilterOpen = ref(false);
+
+// All unique brokers from properties
+const availableBrokers = computed(() => {
+    const all = (properties?.value ?? properties) || [];
+    const map = {};
+    for (const p of all) {
+        if (p.broker_id && p.broker_name) {
+            map[p.broker_id] = p.broker_name;
+        }
+    }
+    return Object.entries(map).map(([id, name]) => ({ id: Number(id), name })).sort((a, b) => a.name.localeCompare(b.name));
+});
+
+// Current user's broker_id (from page props)
+const myBrokerId = computed(() => {
+    const page = inject("page", null);
+    // Fallback: find the broker whose properties are not readonly
+    const all = (properties?.value ?? properties) || [];
+    const own = all.find(p => !p.is_other_broker);
+    return own?.broker_id || null;
+});
+
+function toggleBroker(id) {
+    const s = new Set(selectedBrokers.value);
+    if (s.has(id)) s.delete(id); else s.add(id);
+    selectedBrokers.value = s;
+}
+
+function selectAllBrokers() {
+    selectedBrokers.value = new Set(availableBrokers.value.map(b => b.id));
+}
+
+function clearBrokerFilter() {
+    selectedBrokers.value = new Set();
+    brokerFilterOpen.value = false;
+}
+
+const allFilteredProperties = computed(() => {
     let list = (properties?.value ?? properties) || [];
-    // Separate active and inaktiv
     if (showInaktiv.value) {
       list = list.filter(p => p.realty_status === 'inaktiv');
     } else {
@@ -563,19 +601,39 @@ const filteredProperties = computed(() => {
       list = list.filter((p) => 
         (p.address || "").toLowerCase().includes(q) || 
         (p.ref_id || "").toLowerCase().includes(q) || 
-        (p.city || "").toLowerCase().includes(q)
+        (p.city || "").toLowerCase().includes(q) ||
+        (p.broker_name || "").toLowerCase().includes(q)
       );
     }
     if (categoryFilter.value) {
       list = list.filter(p => p.property_category === categoryFilter.value);
     }
-    // Sort by creation date (newest first)
     list.sort((a, b) => {
       const da = a.created_at ? new Date(a.created_at) : new Date(0);
       const db = b.created_at ? new Date(b.created_at) : new Date(0);
       return db - da;
     });
     return list;
+});
+
+// Own properties (not readonly)
+const myProperties = computed(() => allFilteredProperties.value.filter(p => !p.is_other_broker));
+// Other brokers' properties (readonly), grouped by broker
+const otherProperties = computed(() => allFilteredProperties.value.filter(p => p.is_other_broker));
+const otherByBroker = computed(() => {
+    const map = {};
+    for (const p of otherProperties.value) {
+        const name = p.broker_name || 'Nicht zugewiesen';
+        if (!map[name]) map[name] = [];
+        map[name].push(p);
+    }
+    return map;
+});
+
+// What gets shown in the main list
+const filteredProperties = computed(() => {
+    if (selectedBrokers.value.size === 0) return myProperties.value;
+    return allFilteredProperties.value.filter(p => selectedBrokers.value.has(p.broker_id));
 });
 
 const groupedDisplay = computed(() => {
@@ -1616,10 +1674,41 @@ async function toggleWebsiteDownload(f) {
     <div class="px-3 sm:px-5 py-4 sm:py-5 space-y-3">
         <!-- Header -->
         <div class="flex items-center justify-between gap-3">
-            <h2 class="text-base font-semibold" style="color:#111;letter-spacing:-0.02em">{{ showInaktiv ? 'Inaktive Objekte' : 'Objekte' }} <span class="text-[13px] font-normal" style="color:#a1a1aa">({{ filteredProperties.length }})</span></h2>
-            <button @click="openEditor(null)" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-[11px] font-medium text-white rounded-lg transition-all duration-200 active:scale-[0.98]" style="background:#111">
-                <Plus class="w-3.5 h-3.5" /> Neues Objekt
-            </button>
+            <h2 class="text-base font-semibold" style="color:#111;letter-spacing:-0.02em">{{ showInaktiv ? 'Inaktive Objekte' : (selectedBrokers.size ? 'Objekte' : 'Meine Objekte') }} <span class="text-[13px] font-normal" style="color:#a1a1aa">({{ filteredProperties.length }})</span></h2>
+            <div class="flex items-center gap-2">
+                <div v-if="availableBrokers.length > 1" class="relative">
+                    <button @click="brokerFilterOpen = !brokerFilterOpen"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium rounded-lg transition-all duration-200"
+                        :style="selectedBrokers.size ? 'background:#6366f1;color:white' : 'background:#f4f4f5;color:#71717a'">
+                        <Users class="w-3.5 h-3.5" />
+                        {{ selectedBrokers.size ? selectedBrokers.size + ' Makler' : 'Makler' }}
+                        <ChevronDown class="w-3 h-3" />
+                    </button>
+                    <div v-if="brokerFilterOpen" class="fixed inset-0 z-40" @click="brokerFilterOpen = false"></div>
+                    <div v-if="brokerFilterOpen" class="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-xl min-w-[220px] py-1" @click.stop>
+                        <div class="px-3 py-2 border-b border-[var(--border)] flex items-center justify-between">
+                            <span class="text-[10px] font-semibold uppercase tracking-wider" style="color:#a1a1aa">Makler filtern</span>
+                            <div class="flex gap-1">
+                                <button @click="selectAllBrokers()" class="text-[10px] px-1.5 py-0.5 rounded hover:bg-[var(--muted)]" style="color:#6366f1">Alle</button>
+                                <button @click="clearBrokerFilter()" class="text-[10px] px-1.5 py-0.5 rounded hover:bg-[var(--muted)]" style="color:#71717a">Reset</button>
+                            </div>
+                        </div>
+                        <label v-for="b in availableBrokers" :key="b.id"
+                            class="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-[var(--muted)] transition-colors text-[12px]"
+                            @click="toggleBroker(b.id)">
+                            <span class="w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all"
+                                :style="selectedBrokers.has(b.id) ? 'background:#6366f1;border-color:#6366f1' : 'border-color:#d4d4d8'">
+                                <Check v-if="selectedBrokers.has(b.id)" class="w-2.5 h-2.5 text-white" />
+                            </span>
+                            <span class="flex-1 truncate" style="color:#111">{{ b.name }}</span>
+                            <span class="text-[10px] tabular-nums" style="color:#a1a1aa">{{ allFilteredProperties.filter(p => p.broker_id === b.id).length }}</span>
+                        </label>
+                    </div>
+                </div>
+                <button @click="openEditor(null)" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-[11px] font-medium text-white rounded-lg transition-all duration-200 active:scale-[0.98]" style="background:#111">
+                    <Plus class="w-3.5 h-3.5" /> Neues Objekt
+                </button>
+            </div>
         </div>
 
         <!-- Search + View Toggle -->
@@ -1706,6 +1795,7 @@ async function toggleWebsiteDownload(f) {
                     <div class="px-3 py-2">
                       <div class="text-[12px] font-semibold truncate" style="color:#111">{{ prop.title || prop.project_name || prop.address }}</div>
                       <div class="text-[11px] truncate" style="color:#888">{{ prop.address }}, {{ prop.city }}</div>
+                      <div v-if="selectedBrokers.size && prop.broker_name" class="text-[9px] font-medium mt-0.5 px-1.5 py-0.5 rounded inline-block" style="background:#f0f0ff;color:#6366f1">{{ prop.broker_name }}</div>
                       <div class="flex items-center justify-between mt-1">
                         <span class="text-[10px]" style="color:#aaa">{{ prop.ref_id }}</span>
                         <span v-if="prop.purchase_price" class="text-[11px] font-medium" style="color:#111">&euro; {{ Number(prop.purchase_price).toLocaleString('de-AT') }}</span>

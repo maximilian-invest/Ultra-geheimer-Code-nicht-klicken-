@@ -719,7 +719,7 @@ class KnowledgeController extends Controller
             return response()->json(['error' => 'property_id required'], 400);
         }
 
-        $prop = DB::selectOne('SELECT ref_id, address, city, type, status FROM properties WHERE id = ?', [$propertyId]);
+        $prop = DB::selectOne('SELECT ref_id, address, city, object_type as type, realty_status as status FROM properties WHERE id = ?', [$propertyId]);
         if (!$prop) {
             return response()->json(['error' => 'Property not found'], 404);
         }

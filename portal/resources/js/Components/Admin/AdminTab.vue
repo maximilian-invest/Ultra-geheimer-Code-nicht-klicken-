@@ -265,7 +265,7 @@ async function loadTeam() {
 }
 
 function resetTeamForm() {
-    teamForm.value = { name: '', email: '', password: '', phone: '', email_address: '', imap_host: '', imap_port: 993, imap_username: '', imap_password: '', smtp_host: '', smtp_port: 587, smtp_username: '', smtp_password: '', property_ids: [] };
+    teamForm.value = { name: '', email: '', password: '', phone: '', user_type: 'makler', email_address: '', imap_host: '', imap_port: 993, imap_username: '', imap_password: '', smtp_host: '', smtp_port: 587, smtp_username: '', smtp_password: '', property_ids: [] };
     teamError.value = '';
     editingBroker.value = null;
 }
@@ -301,6 +301,7 @@ function editBroker(b) {
     const brokerPropIds = allPropertiesForTeam.value.filter(p => p.broker_id == b.id).map(p => p.id);
     teamForm.value = {
         name: b.name, email: b.email, password: '', phone: b.phone || '',
+        user_type: b.user_type || 'makler',
         email_address: '', imap_host: '', imap_port: 993, imap_username: '', imap_password: '',
         smtp_host: '', smtp_port: 587, smtp_username: '', smtp_password: '',
         property_ids: brokerPropIds,
@@ -687,7 +688,7 @@ async function deletePortalUser(owner) {
                 <div v-for="b in teamList" :key="b.id" class="card p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="text-sm font-semibold">{{ b.name }}</div>
+                            <div class="text-sm font-semibold">{{ b.name }} <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full ml-1" :style="b.user_type === 'assistenz' ? 'background:#dbeafe;color:#2563eb' : 'background:#f0fdf4;color:#16a34a'">{{ b.user_type === 'assistenz' ? 'Assistenz' : 'Makler' }}</span></div>
                             <div class="text-xs text-[var(--muted-foreground)]">{{ b.email }}</div>
                             <div class="flex items-center gap-3 mt-1 text-[11px] text-[var(--muted-foreground)]">
                                 <span>{{ b.property_count || 0 }} Objekte</span>
@@ -727,9 +728,18 @@ async function deletePortalUser(owner) {
                             <label class="text-xs font-semibold text-[var(--muted-foreground)]">Login E-Mail</label>
                             <input v-model="teamForm.email" type="email" class="form-input mt-1" :disabled="!!editingBroker" placeholder="makler@sr-homes.at" />
                         </div>
-                        <div>
-                            <label class="text-xs font-semibold text-[var(--muted-foreground)]">{{ editingBroker ? 'Neues Passwort (leer = unverändert)' : 'Passwort' }}</label>
-                            <input v-model="teamForm.password" type="text" class="form-input mt-1" :placeholder="editingBroker ? 'Leer lassen wenn unverändert' : 'Initiales Passwort'" />
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-xs font-semibold text-[var(--muted-foreground)]">{{ editingBroker ? 'Neues Passwort (leer = unverändert)' : 'Passwort' }}</label>
+                                <input v-model="teamForm.password" type="text" class="form-input mt-1" :placeholder="editingBroker ? 'Leer lassen wenn unverändert' : 'Initiales Passwort'" />
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-[var(--muted-foreground)]">Rolle</label>
+                                <select v-model="teamForm.user_type" class="form-input mt-1">
+                                    <option value="makler">Makler</option>
+                                    <option value="assistenz">Assistenz</option>
+                                </select>
+                            </div>
                         </div>
 
                         <!-- Email Account -->

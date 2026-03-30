@@ -817,7 +817,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         }
 
         $unmatched = trim($request->query('unmatched', ''));
-        if ($unmatched === '1') $where[] = 'pe.property_id IS NULL';
+        if ($unmatched === '1') { $where[] = 'pe.property_id IS NULL'; $where[] = "pe.category NOT IN ('bounce','spam','email-out','intern')"; }
 
         // Multi-User: nur Emails aus eigenen Properties zeigen
         $brokerId = \Auth::id();
@@ -964,17 +964,28 @@ private static function findEmailInText(string $text, array $excludePatterns = [
      */
     public function unmatched(Request $request): JsonResponse
     {
+        // Account-scoped: each user sees only their own unmatched emails
+        $brokerId = \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        $accountFilter = '';
+        $params = [];
+        if ($brokerId && $userType !== 'assistenz') {
+            $accountFilter = 'AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = ? OR user_id IS NULL)';
+            $params[] = $brokerId;
+        }
+
         $emails = DB::select("
             SELECT pe.id, pe.message_id, pe.direction, pe.from_email, pe.from_name,
                    pe.to_email, pe.subject, pe.email_date, pe.category, pe.stakeholder,
                    pe.ai_summary, pe.matched_ref_id, pe.is_processed
             FROM portal_emails pe
             WHERE pe.property_id IS NULL
-            AND pe.category NOT IN ('bounce', 'spam')
+            AND pe.category NOT IN ('bounce', 'spam', 'email-out', 'intern')
             AND (pe.is_deleted = 0 OR pe.is_deleted IS NULL)
+            {$accountFilter}
             ORDER BY pe.email_date DESC
             LIMIT 100
-        ");
+        ", $params);
 
         $properties = DB::select("SELECT id, ref_id, address, city FROM properties ORDER BY address");
 

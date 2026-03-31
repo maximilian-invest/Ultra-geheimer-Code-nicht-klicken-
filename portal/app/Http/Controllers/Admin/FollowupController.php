@@ -62,15 +62,33 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         $userType = $currentUser->user_type ?? 'makler';
         $scopeAll = in_array($userType, ['assistenz', 'backoffice', 'admin']);
         $brokerFilterParam = $request->query('broker_filter');
-        // broker_filter: inject a flag into the inner subquery via LEFT JOIN email_accounts
+        // broker_filter: pre-fetch account IDs for selected broker, then filter in inner subquery
         if ($brokerFilterParam && is_numeric($brokerFilterParam)) {
             $bid = intval($brokerFilterParam);
-            $brokerInnerJoin   = "LEFT JOIN email_accounts ea_b ON ea_b.id = pe.account_id";
-            $brokerInnerSelect = ", MAX(CASE WHEN ea_b.user_id = {$bid} THEN 1 ELSE 0 END) as matched_broker";
-            $brokerFilter      = "AND conv.matched_broker = 1";
-            $brokerFilterStats = "AND p.broker_id = {$bid}";
-            $accountFilter     = "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$bid})";
-            $brokerFilterProp  = "AND p.broker_id = {$bid}";
+            $accountIdList = '';
+            try {
+                $brokerAccounts = DB::select("SELECT id FROM email_accounts WHERE user_id = ?", [$bid]);
+                $accountIdList = implode(',', array_map(fn($a) => $a->id, $brokerAccounts));
+            } catch (\Exception $e) {
+                // user_id column might not exist — fallback below
+            }
+
+            if ($accountIdList) {
+                $brokerInnerJoin   = "";
+                $brokerInnerSelect = ", MAX(pe.account_id IN ({$accountIdList})) as matched_broker";
+                $brokerFilter      = "AND conv.matched_broker = 1";
+                $brokerFilterStats = "AND p.broker_id = {$bid}";
+                $accountFilter     = "AND pe.account_id IN ({$accountIdList})";
+                $brokerFilterProp  = "AND p.broker_id = {$bid}";
+            } else {
+                // No email accounts found — fallback to property-level filter
+                $brokerInnerJoin   = "";
+                $brokerInnerSelect = "";
+                $brokerFilter      = "AND p.broker_id = {$bid}";
+                $brokerFilterStats = $brokerFilter;
+                $accountFilter     = "";
+                $brokerFilterProp  = $brokerFilter;
+            }
         } else {
             $brokerInnerJoin   = "";
             $brokerInnerSelect = "";

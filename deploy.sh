@@ -19,8 +19,7 @@ set -euo pipefail
 SCRIPT_PATH="$(readlink -f "$0")"
 REPO_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 PORTAL_DIR="$REPO_DIR/portal"
-WEBSITE_SRC_DIR="$REPO_DIR/website/src"
-WEBSITE_DIST_DIR="$REPO_DIR/website/dist"
+WEBSITE_SRC_DIR="$REPO_DIR/website-v2"
 
 DEPLOY_PORTAL="/var/www/srhomes"
 DEPLOY_WEBSITE="/var/www/sr-homes-website"
@@ -110,15 +109,8 @@ php artisan route:cache
 php artisan view:cache 2>/dev/null || true
 php artisan event:cache 2>/dev/null || true
 
-# ─── 3. Build Website (React SPA) ─────────────────────────────────
-log "Building website..."
-cd "$WEBSITE_SRC_DIR"
-
-log "  npm ci..."
-npm ci --no-audit
-
-log "  npm run build (Vite)..."
-npm run build
+# ─── 3. Website (plain HTML/CSS/JS — no build step) ──────────────
+log "Website: plain HTML/CSS/JS, no build needed."
 
 # ─── 4. Run tests (if available) ──────────────────────────────────
 log "Running tests..."
@@ -134,12 +126,7 @@ else
     log "  No Laravel tests configured — skipping."
 fi
 
-# Website build check (already succeeded if we got here, just verify output)
-if [ ! -d "$WEBSITE_DIST_DIR" ] || [ -z "$(ls -A "$WEBSITE_DIST_DIR" 2>/dev/null)" ]; then
-    log "  ERROR: Website build output is empty!"
-    exit 1
-fi
-log "  Website build verified ($(find "$WEBSITE_DIST_DIR" -type f | wc -l) files)."
+log "  Website source: $WEBSITE_SRC_DIR ($(find "$WEBSITE_SRC_DIR" -type f | wc -l) files)."
 
 # ─── 5. Deploy Portal ─────────────────────────────────────────────
 log "Deploying portal to $DEPLOY_PORTAL..."
@@ -168,7 +155,7 @@ chown -R www-data:www-data "$DEPLOY_PORTAL/storage" "$DEPLOY_PORTAL/bootstrap/ca
 # ─── 6. Deploy Website ────────────────────────────────────────────
 log "Deploying website to $DEPLOY_WEBSITE..."
 rsync -av --delete \
-    "$WEBSITE_DIST_DIR/" "$DEPLOY_WEBSITE/"
+    "$WEBSITE_SRC_DIR/" "$DEPLOY_WEBSITE/"
 
 # Also copy root-level website files (favicon, icons)
 for f in favicon.svg icons.svg; do

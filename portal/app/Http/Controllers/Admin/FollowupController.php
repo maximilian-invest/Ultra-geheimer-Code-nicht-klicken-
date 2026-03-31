@@ -62,8 +62,15 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         $userType = $currentUser->user_type ?? 'makler';
         // Assistenz sees all data (no broker/account filter)
         $scopeAll = in_array($userType, ['assistenz']);
-        $brokerFilter = ($brokerId && !$scopeAll) ? "AND p.broker_id = {$brokerId}" : "";
-        $accountFilter = ($brokerId && !$scopeAll) ? "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$brokerId} OR user_id IS NULL)" : "";
+        // Assistenz can pass broker_filter param to filter by specific broker
+        $brokerFilterParam = $request->query('broker_filter');
+        if ($scopeAll && $brokerFilterParam && is_numeric($brokerFilterParam)) {
+            $brokerFilter = "AND p.broker_id = " . intval($brokerFilterParam);
+            $accountFilter = "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = " . intval($brokerFilterParam) . " OR user_id IS NULL)";
+        } else {
+            $brokerFilter = ($brokerId && !$scopeAll) ? "AND p.broker_id = {$brokerId}" : "";
+            $accountFilter = ($brokerId && !$scopeAll) ? "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$brokerId} OR user_id IS NULL)" : "";
+        }
 
         $filter  = $request->query('filter', 'all');
         $mode    = $request->query('mode', 'unanswered');

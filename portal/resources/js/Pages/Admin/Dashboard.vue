@@ -572,7 +572,7 @@ body { font-family: "Inter", system-ui, sans-serif; font-size: 14px; -webkit-fon
 .card { background: var(--card); border-radius: calc(var(--radius) + 4px); border: 1px solid var(--border); box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); }
 html.dark .card { box-shadow: none; }
 .stat-tile { background: var(--card); border-radius: calc(var(--radius) + 4px); padding: 14px 16px; border: 1px solid var(--border); box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); transition: all 0.15s; cursor: pointer; }
-.stat-tile:hover { border-color: var(--ring); }
+.stat-tile:hover { border-color: var(--ring); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 html.dark .stat-tile { box-shadow: none; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 500; font-size: 14px; transition: all 0.15s; white-space: nowrap; border-radius: calc(var(--radius) - 2px); cursor: pointer; height: 36px; padding: 0 16px; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); border: none; }

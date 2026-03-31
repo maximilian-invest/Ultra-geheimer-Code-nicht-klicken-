@@ -516,10 +516,10 @@ function buildDashboardCharts() {
 <template>
     <div class="px-4 py-6 space-y-6">
         <!-- Greeting + Action Items -->
-        <div class="card">
-            <div class="px-6 py-4 flex items-center gap-3 border-b border-[var(--border)]">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-[var(--muted)]">
-                    <SunIcon class="w-5 h-5 text-[var(--muted-foreground)]" />
+        <div class="card overflow-hidden">
+            <div class="px-6 py-4 flex items-center gap-3 border-b border-[var(--border)]" style="background:linear-gradient(135deg,rgba(238,118,6,0.05) 0%,transparent 60%)">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(238,118,6,0.1)">
+                    <SunIcon class="w-5 h-5" style="color:#ee7606" />
                 </div>
                 <div class="flex-1">
                     <h2 class="text-base font-semibold">{{ greeting }}</h2>
@@ -568,67 +568,107 @@ function buildDashboardCharts() {
         </div>
 
         <!-- Stat Tiles -->
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <div @click="switchTab('priorities')" class="stat-tile">
-                <div class="flex items-center justify-between"><p class="text-sm font-medium text-[var(--muted-foreground)]">Unbeantwortet</p><MailX class="w-4 h-4 text-[var(--muted-foreground)]" /></div>
-                <p class="text-2xl font-bold font-display">{{ unansweredCount || '0' }}</p>
-            </div>
-            <div @click="switchTab('priorities')" class="stat-tile">
-                <div class="flex items-center justify-between"><p class="text-sm font-medium text-[var(--muted-foreground)]">Nachfassen</p><Clock class="w-4 h-4 text-[var(--muted-foreground)]" /></div>
-                <p class="text-2xl font-bold font-display">{{ followupCount || '0' }}</p>
-            </div>
-            <div @click="showKaufanboteModal = true" class="stat-tile">
-                <div class="flex items-center justify-between"><p class="text-sm font-medium text-[var(--muted-foreground)]">Kaufanbote</p><BadgeCheck class="w-4 h-4 text-[var(--muted-foreground)]" /></div>
-                <p class="text-2xl font-bold font-display">{{ realKaufanbote.length || kaufanboteStats.total || '0' }}</p>
-            </div>
-
-                <!-- Verkaufsvolumen Tile -->
-                <div class="stat-tile" @click="showSalesModal = true" style="cursor:pointer">
-                    <div class="flex items-center gap-3">
-                        <div class="flex items-center justify-center w-10 h-10 rounded-xl" style="background:rgba(238,118,6,0.1)">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" style="color:#ee7606" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-[10px] font-medium text-[var(--muted-foreground)]">Verkaufsvolumen (Jahr)</p>
-                            <p class="text-xl font-bold font-display whitespace-nowrap" v-if="salesVolumeData" style="color:#ee7606">&euro; {{ Number(salesVolumeData.total_volume || 0).toLocaleString('de-DE') }}</p>
-                            <p class="text-xl font-bold font-display" v-else style="color:var(--muted-foreground)">&ndash;</p>
-                        </div>
-
+        <div class="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
+            <div @click="switchTab('priorities')" class="stat-tile group">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(239,68,68,0.1)">
+                        <MailX class="w-4 h-4" style="color:#ef4444" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wide leading-none mb-1">Unbeantwortet</p>
+                        <p class="text-xl font-bold font-display leading-none">{{ unansweredCount || '0' }}</p>
                     </div>
                 </div>
-
-                <!-- Provisionen Tile (hidden for assistenz) -->
-                <div v-if="userType !== 'assistenz'" class="stat-tile" @click="showCommissionModal = true" style="cursor:pointer">
-                    <div class="flex items-center gap-3">
-                        <div class="flex items-center justify-center w-10 h-10 rounded-xl" style="background:rgba(16,185,129,0.1)">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" style="color:#10b981" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-[10px] font-medium text-[var(--muted-foreground)]">Provisionen (Makler)</p>
-                            <p class="text-xl font-bold font-display whitespace-nowrap" v-if="commissionData" style="color:#10b981">&euro; {{ Number(commissionData.total_makler || 0).toLocaleString('de-DE') }}</p>
-                            <p class="text-xl font-bold font-display" v-else style="color:var(--muted-foreground)">&ndash;</p>
-                        </div>
-
+                <div class="h-0.5 rounded-full mt-3 opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(239,68,68,0.3)"></div>
+            </div>
+            <div @click="switchTab('priorities')" class="stat-tile group">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(238,118,6,0.1)">
+                        <Clock class="w-4 h-4" style="color:#ee7606" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wide leading-none mb-1">Nachfassen</p>
+                        <p class="text-xl font-bold font-display leading-none">{{ followupCount || '0' }}</p>
                     </div>
                 </div>
-
-                
-
-            <div @click="switchTab('comms')" class="stat-tile">
-                <div class="flex items-center justify-between"><p class="text-sm font-medium text-[var(--muted-foreground)]">Posteingang</p><Inbox class="w-4 h-4 text-[var(--muted-foreground)]" /></div>
-                <p class="text-2xl font-bold font-display">{{ unmatchedCount || '0' }}</p>
+                <div class="h-0.5 rounded-full mt-3 opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(238,118,6,0.3)"></div>
             </div>
-            <div @click="switchTab('properties')" class="stat-tile">
-                <div class="flex items-center justify-between"><p class="text-sm font-medium text-[var(--muted-foreground)]">Objekte</p><Building class="w-4 h-4 text-[var(--muted-foreground)]" /></div>
-                <p class="text-2xl font-bold font-display">{{ stats.properties || '0' }}</p>
+            <div @click="showKaufanboteModal = true" class="stat-tile group">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(16,185,129,0.1)">
+                        <BadgeCheck class="w-4 h-4" style="color:#10b981" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wide leading-none mb-1">Kaufanbote</p>
+                        <p class="text-xl font-bold font-display leading-none">{{ realKaufanbote.length || kaufanboteStats.total || '0' }}</p>
+                    </div>
+                </div>
+                <div class="h-0.5 rounded-full mt-3 opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(16,185,129,0.3)"></div>
+            </div>
+
+            <!-- Verkaufsvolumen Tile -->
+            <div class="stat-tile group" @click="showSalesModal = true" style="cursor:pointer">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 flex items-center justify-center rounded-xl flex-shrink-0" style="background:rgba(238,118,6,0.1)">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" style="color:#ee7606" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wide leading-none mb-1">Volumen (Jahr)</p>
+                        <p class="text-xl font-bold font-display whitespace-nowrap leading-none" v-if="salesVolumeData" style="color:#ee7606">&euro; {{ Number(salesVolumeData.total_volume || 0).toLocaleString('de-DE') }}</p>
+                        <p class="text-xl font-bold font-display leading-none" v-else style="color:var(--muted-foreground)">&ndash;</p>
+                    </div>
+                </div>
+                <div class="h-0.5 rounded-full mt-3 opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(238,118,6,0.3)"></div>
+            </div>
+
+            <!-- Provisionen Tile (hidden for assistenz) -->
+            <div v-if="userType !== 'assistenz'" class="stat-tile group" @click="showCommissionModal = true" style="cursor:pointer">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 flex items-center justify-center rounded-xl flex-shrink-0" style="background:rgba(16,185,129,0.1)">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" style="color:#10b981" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wide leading-none mb-1">Provisionen</p>
+                        <p class="text-xl font-bold font-display whitespace-nowrap leading-none" v-if="commissionData" style="color:#10b981">&euro; {{ Number(commissionData.total_makler || 0).toLocaleString('de-DE') }}</p>
+                        <p class="text-xl font-bold font-display leading-none" v-else style="color:var(--muted-foreground)">&ndash;</p>
+                    </div>
+                </div>
+                <div class="h-0.5 rounded-full mt-3 opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(16,185,129,0.3)"></div>
+            </div>
+
+            <div @click="switchTab('comms')" class="stat-tile group">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(59,130,246,0.1)">
+                        <Inbox class="w-4 h-4" style="color:#3b82f6" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wide leading-none mb-1">Posteingang</p>
+                        <p class="text-xl font-bold font-display leading-none">{{ unmatchedCount || '0' }}</p>
+                    </div>
+                </div>
+                <div class="h-0.5 rounded-full mt-3 opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(59,130,246,0.3)"></div>
+            </div>
+            <div @click="switchTab('properties')" class="stat-tile group">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(139,92,246,0.1)">
+                        <Building class="w-4 h-4" style="color:#8b5cf6" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wide leading-none mb-1">Objekte</p>
+                        <p class="text-xl font-bold font-display leading-none">{{ stats.properties || '0' }}</p>
+                    </div>
+                </div>
+                <div class="h-0.5 rounded-full mt-3 opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(139,92,246,0.3)"></div>
             </div>
         </div>
 
         <!-- Makler Ranking -->
         <div v-if="rankingData.length > 1" class="card">
-            <div class="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
+            <div class="px-6 py-3 border-b border-[var(--border)] flex items-center justify-between">
                 <h3 class="text-sm font-semibold flex items-center gap-2">
-                    <svg class="w-4 h-4" style="color:#ee7606" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:rgba(238,118,6,0.1)">
+                        <svg class="w-3.5 h-3.5" style="color:#ee7606" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    </div>
                     Makler-Ranking
                 </h3>
                 <div class="flex items-center gap-2">
@@ -719,25 +759,45 @@ function buildDashboardCharts() {
             </div>
         </div>
 
-                <!-- Dashboard Charts -->
+        <!-- Dashboard Charts -->
         <div v-if="chartsReady" class="grid grid-cols-1 gap-4 lg:grid-cols-7">
             <div class="lg:col-span-4 card">
-                <div class="px-6 py-3"><h3 class="text-sm font-semibold">Anfragen-Trend (8 Wochen)</h3></div>
+                <div class="px-6 py-3 border-b border-[var(--border)]">
+                    <h3 class="text-sm font-semibold flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full inline-block" style="background:#ee7606"></span>
+                        Anfragen-Trend (8 Wochen)
+                    </h3>
+                </div>
                 <div class="px-4 pb-2"><VueApexCharts type="area" :options="trendOptions" :series="trendSeries" height="220" /></div>
             </div>
             <div class="lg:col-span-3 card">
-                <div class="px-6 py-3"><h3 class="text-sm font-semibold">Plattform-Verteilung</h3></div>
+                <div class="px-6 py-3 border-b border-[var(--border)]">
+                    <h3 class="text-sm font-semibold flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full inline-block" style="background:#3b82f6"></span>
+                        Plattform-Verteilung
+                    </h3>
+                </div>
                 <div class="px-4 pb-2"><VueApexCharts type="donut" :options="platformOptions" :series="platformSeries" height="220" /></div>
             </div>
         </div>
 
         <div v-if="chartsReady" class="grid grid-cols-1 gap-4 lg:grid-cols-7">
             <div class="lg:col-span-4 card">
-                <div class="px-6 py-3"><h3 class="text-sm font-semibold">Verkaufstrichter</h3></div>
+                <div class="px-6 py-3 border-b border-[var(--border)]">
+                    <h3 class="text-sm font-semibold flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full inline-block" style="background:#10b981"></span>
+                        Verkaufstrichter
+                    </h3>
+                </div>
                 <div class="px-4 pb-2"><VueApexCharts type="bar" :options="funnelOptions" :series="funnelSeries" height="200" /></div>
             </div>
             <div class="lg:col-span-3 card">
-                <div class="px-6 py-3"><h3 class="text-sm font-semibold">Antwortzeit</h3></div>
+                <div class="px-6 py-3 border-b border-[var(--border)]">
+                    <h3 class="text-sm font-semibold flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full inline-block" style="background:#8b5cf6"></span>
+                        Antwortzeit
+                    </h3>
+                </div>
                 <div class="px-4 pb-2"><VueApexCharts type="radialBar" :options="responseOptions" :series="responseSeries" height="200" /></div>
             </div>
         </div>
@@ -745,9 +805,12 @@ function buildDashboardCharts() {
         <!-- Tasks -->
         <div class="card">
             <div class="px-6 py-3 flex items-center justify-between border-b border-[var(--border)]">
-                <h3 class="text-sm font-semibold">Aufgaben</h3>
+                <h3 class="text-sm font-semibold flex items-center gap-2">
+                    <CheckSquare class="w-4 h-4 text-[var(--muted-foreground)]" />
+                    Aufgaben
+                </h3>
                 <div class="flex items-center gap-2">
-                    <button @click="generateAiTodos()" :disabled="aiTodosLoading" class="btn btn-outline btn-sm">
+                    <button @click="generateAiTodos()" :disabled="aiTodosLoading" class="btn btn-sm" style="background:rgba(238,118,6,0.08);color:#ee7606;border:1px solid rgba(238,118,6,0.2)">
                         <span v-if="aiTodosLoading" class="spinner" style="width:12px;height:12px"></span>
                         <Sparkles v-else class="w-3.5 h-3.5" />
                         <span>KI Todos</span>

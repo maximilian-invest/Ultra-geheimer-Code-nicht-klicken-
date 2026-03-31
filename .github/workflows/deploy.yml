@@ -19,8 +19,8 @@ jobs:
       - name: Build Portal
         run: cd portal && composer install --no-scripts --no-interaction && npm ci && npm run build
 
-      # ── Alles per SSH deployen ──
-      - name: Deploy to Server
+      # ── PHP-Dateien per SSH+rsync deployen (git pull auf Server) ──
+      - name: Deploy PHP to Server
         uses: appleboy/ssh-action@v1
         env:
           GITHUB_SHA: ${{ github.sha }}
@@ -31,13 +31,22 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           envs: GITHUB_SHA
           script: |
-            echo "Starting deploy for $GITHUB_SHA"
-
-            # Verzeichnisse erstellen falls nicht vorhanden
-            mkdir -p /var/www/sr-homes-website
+            echo "Deploying PHP for $GITHUB_SHA"
             mkdir -p /var/www/srhomes
-
-            echo "Deploy erfolgreich: $(date)"
+            mkdir -p /var/www/sr-homes-website
+            cd /var/www/sr-deploy
+            git fetch origin
+            git reset --hard origin/main
+            rsync -a portal/app/           /var/www/srhomes/app/
+            rsync -a portal/routes/        /var/www/srhomes/routes/
+            rsync -a portal/config/        /var/www/srhomes/config/
+            rsync -a portal/database/      /var/www/srhomes/database/
+            rsync -a portal/resources/views/ /var/www/srhomes/resources/views/
+            php /var/www/srhomes/artisan config:clear 2>/dev/null || true
+            php /var/www/srhomes/artisan cache:clear 2>/dev/null || true
+            php /var/www/srhomes/artisan view:clear 2>/dev/null || true
+            systemctl reload php8.3-fpm 2>/dev/null || true
+            echo "✓ PHP deployed: $(date)"
 
       # ── Website-Dateien hochladen ──
       - name: Upload Website

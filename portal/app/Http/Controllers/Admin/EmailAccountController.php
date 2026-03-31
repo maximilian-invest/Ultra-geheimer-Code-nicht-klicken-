@@ -19,9 +19,15 @@ class EmailAccountController extends Controller
     {
         $brokerId = \Auth::id();
         $user = \Auth::user();
-        $isAdmin = $user && $user->user_type === 'admin';
-        if (false && $isAdmin) { // Disabled: each user only sees own accounts
-            $accounts = DB::select('SELECT * FROM email_accounts ORDER BY id');
+        $isAssistenz = $user && in_array($user->user_type, ['assistenz', 'backoffice']);
+
+        // Assistenz/Backoffice can fetch accounts for a specific broker
+        $forBroker = $request->query('for_broker');
+        if ($forBroker && is_numeric($forBroker) && $isAssistenz) {
+            $accounts = DB::select('SELECT * FROM email_accounts WHERE user_id = ? ORDER BY id', [intval($forBroker)]);
+        } else if ($isAssistenz && !$forBroker) {
+            // Assistenz without for_broker: show all active accounts
+            $accounts = DB::select('SELECT * FROM email_accounts WHERE is_active = 1 ORDER BY id');
         } else if ($brokerId) {
             $accounts = DB::select('SELECT * FROM email_accounts WHERE user_id = ? ORDER BY id', [$brokerId]);
         } else {

@@ -629,12 +629,17 @@ class EmailController extends Controller
             return response()->json(['error' => 'Missing required fields: account_id, to_email, subject'], 400);
         }
 
-        // Security: every user can only send from their own account(s)
+        // Security: check account access
         $brokerId = \Auth::id();
         $user = \Auth::user();
+        $isAssistenz = $user && in_array($user->user_type, ['assistenz', 'backoffice']);
         if ($brokerId) {
             $account = \DB::table('email_accounts')->where('id', $accountId)->first();
-            if (!$account || $account->user_id != $brokerId) {
+            if (!$account) {
+                return response()->json(['error' => 'Email-Account nicht gefunden'], 404);
+            }
+            // Assistenz/Backoffice may send from any active account
+            if (!$isAssistenz && $account->user_id != $brokerId) {
                 return response()->json(['error' => 'Nicht berechtigt, von diesem Konto zu senden'], 403);
             }
         }

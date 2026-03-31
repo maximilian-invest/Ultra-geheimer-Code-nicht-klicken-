@@ -136,6 +136,9 @@ async function toggleUnansweredDetail(item) {
         expandedAiLoading.value = false;
     }
 
+    // Load send account for this item's broker
+    loadSendAccounts(item.broker_id);
+
     // Load property files
     expandedFiles.value = [];
     expandedSelectedFiles.value = [];
@@ -189,6 +192,22 @@ async function toggleUnansweredDetail(item) {
 
 const aiSending = ref(false);
 const followupSending = ref(false);
+
+// Send account selector (pre-selected to broker's account)
+const sendAccounts = ref([]);
+const sendAccountId = ref(null);
+
+async function loadSendAccounts(brokerId) {
+    sendAccounts.value = [];
+    sendAccountId.value = null;
+    try {
+        const param = brokerId ? "&for_broker=" + brokerId : "";
+        const r = await fetch(API.value + "&action=email_accounts" + param);
+        const d = await r.json();
+        sendAccounts.value = (d.accounts || []).filter(a => a.is_active !== false);
+        if (sendAccounts.value.length) sendAccountId.value = sendAccounts.value[0].id;
+    } catch {}
+}
 
 async function useAiDraft(item) {
     const draft = expandedAiDraft.value;
@@ -274,12 +293,7 @@ async function useAiDraft(item) {
         }
 
         const fd = new FormData();
-        let accountId = "1";
-        try {
-            const acr = await fetch(API.value + "&action=email_accounts");
-            const acd = await acr.json();
-            if (acd.accounts && acd.accounts.length) accountId = String(acd.accounts[0].id);
-        } catch {}
+        const accountId = sendAccountId.value ? String(sendAccountId.value) : "1";
         fd.append("account_id", accountId);
         fd.append("to_email", draft.to || item.from_email || "");
         fd.append("to_name", item.from_name || item.stakeholder || "");
@@ -626,8 +640,7 @@ async function wizardDirectSend() {
         try { const _sr = await fetch(API.value + "&action=get_settings"); const _sd = await _sr.json(); if (_sd.signature_name) sig = "\n\n--\n" + (_sd.signature_name||"")+"\n"+(_sd.signature_title||"")+"\n"+(_sd.signature_company||"")+"\nTel: "+(_sd.signature_phone||"")+"\n"+(_sd.signature_website||""); } catch {}
         const htmlBody = (wizardEditBody.value + sig).replace(/\n/g, "<br>");
         const fd = new FormData();
-        let wAccId = "1";
-        try { const wr = await fetch(API.value + "&action=email_accounts"); const wd = await wr.json(); if (wd.accounts && wd.accounts.length) wAccId = String(wd.accounts[0].id); } catch {}
+        const wAccId = sendAccountId.value ? String(sendAccountId.value) : "1";
         fd.append("account_id", wAccId);
         fd.append("to_email", wizardEmail.value);
         fd.append("to_name", item.from_name || "");
@@ -1086,12 +1099,7 @@ async function sendStage1Draft(f) {
             }
         } catch {}
         const htmlBody = draft.body.replace(/\n/g, "<br>") + sigHtml;
-        let accountId = "1";
-        try {
-            const acr = await fetch(API.value + "&action=email_accounts");
-            const acd = await acr.json();
-            if (acd.accounts && acd.accounts.length) accountId = String(acd.accounts[0].id);
-        } catch {}
+        const accountId = sendAccountId.value ? String(sendAccountId.value) : "1";
         const fd = new FormData();
         fd.append("account_id", accountId);
         fd.append("to_email", draft.to || f.from_email || f.contact_email || "");
@@ -2197,7 +2205,14 @@ function formatKanbanDate(s) {
                                     </span>
                                 </div>
                                 <textarea v-model="expandedAiDraft.body" class="text-xs leading-relaxed rounded-lg p-3 bg-white dark:bg-white w-full resize-y" style="border: 1px solid var(--border); min-height: 200px; font-family: inherit;"></textarea>
-                                <button @click.stop="sendUnansweredReply(item)" class="px-4 py-2 text-xs font-medium text-white bg-zinc-900 rounded-xl hover:bg-zinc-800 transition-all duration-200 active:scale-[0.97] btn-sm">Senden</button>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <button @click.stop="sendUnansweredReply(item)" class="px-4 py-2 text-xs font-medium text-white bg-zinc-900 rounded-xl hover:bg-zinc-800 transition-all duration-200 active:scale-[0.97] btn-sm">Senden</button>
+                                    <span v-if="sendAccounts.length > 1" class="text-[10px] text-zinc-500">via</span>
+                                    <select v-if="sendAccounts.length > 1" v-model="sendAccountId" class="text-[11px] rounded-lg px-2 py-1.5" style="border:1px solid var(--border);max-width:220px">
+                                        <option v-for="acc in sendAccounts" :key="acc.id" :value="acc.id">{{ acc.email_address }}</option>
+                                    </select>
+                                    <span v-else-if="sendAccounts.length === 1" class="text-[10px] text-zinc-400">via {{ sendAccounts[0].email_address }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>

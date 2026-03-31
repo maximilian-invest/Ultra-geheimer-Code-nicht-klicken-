@@ -60,7 +60,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         $currentUser = \Auth::user();
         $brokerId = $currentUser ? $currentUser->id : null;
         $userType = $currentUser->user_type ?? 'makler';
-        $scopeAll = in_array($userType, ['assistenz', 'backoffice', 'admin']);
+        $scopeAll = in_array($userType, ['assistenz', 'backoffice']);
         $brokerFilterParam = $request->query('broker_filter');
         // broker_filter: pre-fetch account IDs for selected broker, then filter in inner subquery
         if ($brokerFilterParam && is_numeric($brokerFilterParam)) {
@@ -89,14 +89,37 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 $accountFilter     = "";
                 $brokerFilterProp  = $brokerFilter;
             }
+        } else if ($brokerId && !$scopeAll) {
+            // Makler/Admin: filter by own email accounts
+            $ownAccountIdList = '';
+            try {
+                $ownAccounts = DB::select("SELECT id FROM email_accounts WHERE user_id = ?", [$brokerId]);
+                $ownAccountIdList = implode(',', array_map(fn($a) => $a->id, $ownAccounts));
+            } catch (\Exception $e) {}
+
+            if ($ownAccountIdList) {
+                $brokerInnerJoin   = "";
+                $brokerInnerSelect = ", MAX(pe.account_id IN ({$ownAccountIdList})) as matched_broker";
+                $brokerFilter      = "AND conv.matched_broker = 1";
+                $brokerFilterStats = "AND p.broker_id = {$brokerId}";
+                $accountFilter     = "AND pe.account_id IN ({$ownAccountIdList})";
+                $brokerFilterProp  = "AND p.broker_id = {$brokerId}";
+            } else {
+                $brokerInnerJoin   = "";
+                $brokerInnerSelect = "";
+                $brokerFilter      = "AND p.broker_id = {$brokerId}";
+                $brokerFilterStats = $brokerFilter;
+                $accountFilter     = "";
+                $brokerFilterProp  = $brokerFilter;
+            }
         } else {
+            // Assistenz/Backoffice without broker_filter: see all
             $brokerInnerJoin   = "";
             $brokerInnerSelect = "";
-            $scopedByBroker    = $brokerId && !$scopeAll;
-            $brokerFilter      = $scopedByBroker ? "AND p.broker_id = {$brokerId}" : "";
-            $brokerFilterStats = $brokerFilter;
-            $accountFilter     = $scopedByBroker ? "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$brokerId} OR user_id IS NULL)" : "";
-            $brokerFilterProp  = $brokerFilter;
+            $brokerFilter      = "";
+            $brokerFilterStats = "";
+            $accountFilter     = "";
+            $brokerFilterProp  = "";
         }
 
         $filter  = $request->query('filter', 'all');

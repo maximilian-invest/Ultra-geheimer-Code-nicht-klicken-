@@ -2087,6 +2087,13 @@ function formatKanbanDate(s) {
                                                 <CheckCircle class="w-4 h-4" />
                                             </button>
 
+                                            <!-- Email Account Selector -->
+                                            <select v-if="sendAccounts.length" v-model="sendAccountId"
+                                                class="h-10 sm:h-9 text-xs rounded-xl px-2.5 cursor-pointer"
+                                                style="background:white;color:#18181b;border:1px solid rgba(228,228,231,0.8);max-width:200px">
+                                                <option v-for="acc in sendAccounts" :key="acc.id" :value="acc.id">{{ acc.email_address }}</option>
+                                            </select>
+
                                             <!-- Send -->
                                             <button @click="item._selectedFiles = [...expandedSelectedFiles]; item._expandedFiles = [...expandedFiles]; useAiDraft(item)" :disabled="aiSending"
                                                 class="h-10 sm:h-9 px-5 rounded-xl flex items-center justify-center gap-2 transition-all font-semibold text-sm"

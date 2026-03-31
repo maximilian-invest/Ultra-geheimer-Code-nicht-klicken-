@@ -15,8 +15,9 @@ git fetch origin
 git reset --hard origin/main
 echo "✓ Code pulled"
 
-# 2. Sync portal (exclude vendor, node_modules, .env, storage uploads/logs/cache)
-rsync -av --delete \
+# 2. Sync portal PHP/config files (no build artifacts)
+mkdir -p "$PORTAL_DIR"
+rsync -a --delete \
   --exclude="vendor/" \
   --exclude="node_modules/" \
   --exclude=".env" \
@@ -39,34 +40,32 @@ rsync -av --delete \
   "$DEPLOY_DIR/portal/" "$PORTAL_DIR/"
 echo "✓ Portal synced"
 
-# 3. Sync website (React SPA)
-rsync -av --delete \
-  "$DEPLOY_DIR/website/" "$WEBSITE_DIR/"
-echo "✓ Website synced"
-
-# 3b. Sync website-v2 (Vanilla HTML - the live website)
-if [ -d "$DEPLOY_DIR/website-v2" ]; then
-  rsync -av --delete \
-    "$DEPLOY_DIR/website-v2/" "$WEBSITE_V2_DIR/"
-  echo "✓ Website v2 synced"
-fi
-
-# 4. Build portal (Vue/JS)
+# 3. Build portal Vue/JS
 cd "$PORTAL_DIR"
 if [ -f "package.json" ]; then
-  npm ci --quiet
-  npm run build
-  echo "✓ Portal built"
+  npm ci --quiet 2>&1 | tail -3
+  npm run build 2>&1 | tail -5
+  echo "✓ Portal JS built"
 fi
 
-# 5. Clear Laravel cache
+# 4. Clear Laravel cache + reload PHP-FPM (clears OPcache)
 php artisan config:clear 2>/dev/null || true
 php artisan cache:clear 2>/dev/null || true
 php artisan view:clear 2>/dev/null || true
-echo "✓ Laravel cache cleared"
+systemctl reload php8.3-fpm 2>/dev/null || service php8.3-fpm reload 2>/dev/null || pkill -USR2 php-fpm 2>/dev/null || true
+echo "✓ PHP cache cleared"
 
-# 6. Reload PHP-FPM to clear OPcache
-systemctl reload php8.3-fpm 2>/dev/null || service php8.3-fpm reload 2>/dev/null || true
-echo "✓ PHP-FPM reloaded"
+# 5. Sync website-v2 (plain HTML/CSS/JS - the live marketing site)
+if [ -d "$DEPLOY_DIR/website-v2" ]; then
+  mkdir -p "$WEBSITE_V2_DIR"
+  rsync -a --delete "$DEPLOY_DIR/website-v2/" "$WEBSITE_V2_DIR/"
+  echo "✓ Website v2 synced"
+fi
+
+# 6. Sync legacy website if it exists
+if [ -d "$DEPLOY_DIR/website" ]; then
+  mkdir -p "$WEBSITE_DIR"
+  rsync -a --delete "$DEPLOY_DIR/website/" "$WEBSITE_DIR/" 2>/dev/null || true
+fi
 
 echo "=== Deploy complete ==="

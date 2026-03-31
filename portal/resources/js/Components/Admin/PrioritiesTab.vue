@@ -744,7 +744,9 @@ async function loadUnanswered(filter) {
     unansweredLoading.value = true;
     try {
         const brokerParam = (maklerFilter.value && maklerFilter.value !== 'all') ? "&broker_filter=" + maklerFilter.value : "";
-        const r = await fetch(API.value + "&action=followups&mode=unanswered&filter=" + filter + brokerParam);
+        const url = API.value + "&action=followups&mode=unanswered&filter=" + filter + brokerParam;
+        console.log('[loadUnanswered] fetching:', url);
+        const r = await fetch(url);
         const d = await r.json();
         unansweredList.value = d.followups || [];
         unmatchedList.value = d.unmatched || [];
@@ -1307,7 +1309,8 @@ async function loadBrokerList() {
 
 const availableMakler = computed(() => brokerList.value);
 
-watch(maklerFilter, () => {
+watch(maklerFilter, (val) => {
+    console.log('[MaklerFilter] changed to:', val, typeof val);
     loadUnanswered(unansweredFilter.value);
     loadFollowups(followupFilter.value);
     loadStage1();

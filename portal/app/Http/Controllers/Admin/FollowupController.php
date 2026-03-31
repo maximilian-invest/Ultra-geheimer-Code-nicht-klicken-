@@ -62,29 +62,41 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         $userType = $currentUser->user_type ?? 'makler';
         $scopeAll = in_array($userType, ['assistenz', 'backoffice', 'admin']);
         $brokerFilterParam = $request->query('broker_filter');
-        $normA3 = StakeholderHelper::normSH('a3.stakeholder');
-        // broker_filter param overrides everything — any authenticated user can use it
+        // broker_filter: pre-fetch account IDs for selected broker, then filter in inner subquery
         if ($brokerFilterParam && is_numeric($brokerFilterParam)) {
             $bid = intval($brokerFilterParam);
-            $brokerFilter = "AND EXISTS (
-                SELECT 1 FROM activities a3
-                JOIN portal_emails pe3 ON pe3.id = a3.source_email_id
-                JOIN email_accounts ea3 ON ea3.id = pe3.account_id
-                WHERE a3.property_id = conv.property_id
-                AND {$normA3} = conv.norm_name
-                AND ea3.user_id = {$bid}
-            )";
-            $accountFilter = "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$bid} OR user_id IS NULL)";
+            $accountIdList = '';
+            try {
+                $brokerAccounts = DB::select("SELECT id FROM email_accounts WHERE user_id = ?", [$bid]);
+                $accountIdList = implode(',', array_map(fn($a) => $a->id, $brokerAccounts));
+            } catch (\Exception $e) {
+                // user_id column might not exist — fallback below
+            }
+
+            if ($accountIdList) {
+                $brokerInnerJoin   = "";
+                $brokerInnerSelect = ", MAX(pe.account_id IN ({$accountIdList})) as matched_broker";
+                $brokerFilter      = "AND conv.matched_broker = 1";
+                $brokerFilterStats = "AND p.broker_id = {$bid}";
+                $accountFilter     = "AND pe.account_id IN ({$accountIdList})";
+                $brokerFilterProp  = "AND p.broker_id = {$bid}";
+            } else {
+                // No email accounts found — fallback to property-level filter
+                $brokerInnerJoin   = "";
+                $brokerInnerSelect = "";
+                $brokerFilter      = "AND p.broker_id = {$bid}";
+                $brokerFilterStats = $brokerFilter;
+                $accountFilter     = "";
+                $brokerFilterProp  = $brokerFilter;
+            }
         } else {
-            $brokerFilter = ($brokerId && !$scopeAll) ? "AND EXISTS (
-                SELECT 1 FROM activities a3
-                JOIN portal_emails pe3 ON pe3.id = a3.source_email_id
-                JOIN email_accounts ea3 ON ea3.id = pe3.account_id
-                WHERE a3.property_id = conv.property_id
-                AND {$normA3} = conv.norm_name
-                AND ea3.user_id = {$brokerId}
-            )" : "";
-            $accountFilter = ($brokerId && !$scopeAll) ? "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$brokerId} OR user_id IS NULL)" : "";
+            $brokerInnerJoin   = "";
+            $brokerInnerSelect = "";
+            $scopedByBroker    = $brokerId && !$scopeAll;
+            $brokerFilter      = $scopedByBroker ? "AND p.broker_id = {$brokerId}" : "";
+            $brokerFilterStats = $brokerFilter;
+            $accountFilter     = $scopedByBroker ? "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$brokerId} OR user_id IS NULL)" : "";
+            $brokerFilterProp  = $brokerFilter;
         }
 
         $filter  = $request->query('filter', 'all');
@@ -96,7 +108,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
 
         // Stage-1-Modus: 24h Nachfassen – frühe Rückgabe
         if ($mode === 'stage1') {
-            $stage1Results = $this->getStage1Followups($norm, $sysFilter, $brokerFilter);
+            $stage1Results = $this->getStage1Followups($norm, $sysFilter, $brokerFilterProp);
             return response()->json([
                 'total_open'         => 0,
                 'total_followup'     => 0,
@@ -174,8 +186,10 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                     SUBSTRING_INDEX(GROUP_CONCAT(CASE WHEN a.source_email_id IS NOT NULL THEN 1 ELSE 0 END ORDER BY a.id DESC), ',', 1) as last_has_email,
                     MAX(CASE WHEN a.snooze_until IS NOT NULL AND a.snooze_until > NOW() THEN a.snooze_until ELSE NULL END) as snooze_until,
                     SUM(CASE WHEN a.category = 'nachfassen' AND COALESCE(a.followup_stage, 0) != 1 THEN 1 ELSE 0 END) as stage2_nachfassen_count
+                    {$brokerInnerSelect}
                 FROM activities a
                 LEFT JOIN portal_emails pe ON pe.id = a.source_email_id
+                {$brokerInnerJoin}
                 WHERE {$sysFilter}
                 GROUP BY norm_name, a.property_id
             ) conv
@@ -379,7 +393,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 FROM activities a
                 LEFT JOIN portal_emails pe ON pe.id = a.source_email_id
                 JOIN properties p ON p.id = a.property_id
-                WHERE {$sysFilter} AND a.property_id IS NOT NULL AND COALESCE(p.on_hold, 0) = 0 {$brokerFilter}
+                WHERE {$sysFilter} AND a.property_id IS NOT NULL AND COALESCE(p.on_hold, 0) = 0 {$brokerFilterStats}
                 GROUP BY norm_name, a.property_id
                 HAVING last_cat NOT IN ('email-out', 'expose', 'update', 'nachfassen') AND DATEDIFF(NOW(), last_date) >= 0 AND last_has_email = 1
             ) sub
@@ -397,7 +411,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 FROM activities a
                 LEFT JOIN portal_emails pe ON pe.id = a.source_email_id
                 JOIN properties p ON p.id = a.property_id
-                WHERE {$sysFilter} AND a.property_id IS NOT NULL AND COALESCE(p.on_hold, 0) = 0 {$brokerFilter}
+                WHERE {$sysFilter} AND a.property_id IS NOT NULL AND COALESCE(p.on_hold, 0) = 0 {$brokerFilterStats}
                 GROUP BY norm_name, a.property_id
                 HAVING last_cat IN ('email-out', 'expose', 'nachfassen') AND DATEDIFF(NOW(), last_date) >= 3 AND has_erstanfrage = 1 AND inbound_replies = 0 AND stage2_nachfassen_count < 2
             ) sub
@@ -411,7 +425,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
             SELECT p.id as property_id, p.ref_id, p.address, p.on_hold_note, p.on_hold_since,
                 (SELECT COUNT(DISTINCT {$normA2}) FROM activities a2 WHERE a2.property_id = p.id AND {$sysFilterA2}) as conv_count
             FROM properties p
-            WHERE p.on_hold = 1 {$brokerFilter}
+            WHERE p.on_hold = 1 {$brokerFilterProp}
             ORDER BY p.on_hold_since DESC
         ");
 

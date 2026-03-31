@@ -13,7 +13,7 @@ const properties = inject("properties");
 const userName = inject("userName", "Admin");
 const calendarEmbedUrl = inject("calendarEmbedUrl", "");
 const userType = inject("userType", ref("makler"));
-const isAssistenz = computed(() => userType.value === "assistenz" || userType.value === "backoffice");
+const isAssistenz = computed(() => ['assistenz', 'backoffice', 'admin'].includes(userType.value));
 
 
 const unansweredList = ref([]);
@@ -724,6 +724,7 @@ onMounted(() => {
     loadAutoReplyLogs();
     loadBrokerList();
     loadAutoReplySettings();
+    loadBrokerList();
 });
 
 function switchSubTab(tab) {
@@ -745,7 +746,6 @@ async function loadUnanswered(filter) {
     try {
         const brokerParam = (maklerFilter.value && maklerFilter.value !== 'all') ? "&broker_filter=" + maklerFilter.value : "";
         const url = API.value + "&action=followups&mode=unanswered&filter=" + filter + brokerParam;
-        console.log('[loadUnanswered] fetching:', url);
         const r = await fetch(url);
         const d = await r.json();
         unansweredList.value = d.followups || [];
@@ -1309,12 +1309,12 @@ async function loadBrokerList() {
 
 const availableMakler = computed(() => brokerList.value);
 
-watch(maklerFilter, (val) => {
-    console.log('[MaklerFilter] changed to:', val, typeof val);
+watch(maklerFilter, () => {
     loadUnanswered(unansweredFilter.value);
     loadFollowups(followupFilter.value);
     loadStage1();
 });
+
 
 // Computed followup groups
 const filteredUnansweredList = computed(() => {
@@ -1891,14 +1891,13 @@ function formatKanbanDate(s) {
 
         <!-- ============ UNBEANTWORTETE ============ -->
         <div v-if="activeSubTab === 'unanswered'">
-            <!-- Makler Filter (Assistenz only) -->
-            <div class="flex items-center gap-2 mb-3">
+            <!-- Makler Filter (Assistenz/Backoffice/Admin only) -->
+            <div v-if="isAssistenz" class="flex items-center gap-2 mb-3">
                 <span class="text-[11px] font-semibold flex-shrink-0" style="color:#D4622B">Makler:</span>
                 <select v-model="maklerFilter" class="form-select text-xs" style="height:34px;max-width:200px">
                     <option value="all">Alle Makler</option>
                     <option v-for="b in availableMakler" :key="b.id" :value="b.id">{{ b.name }}</option>
                 </select>
-                <span class="text-[10px] font-mono px-2 py-1 rounded" style="background:#f3f4f6;color:#888">DBG: {{ maklerFilter }}</span>
             </div>
             <!-- Inner tabs: Zugeordnete / Nicht zugeordnete -->
             <div class="flex gap-1 mb-3">

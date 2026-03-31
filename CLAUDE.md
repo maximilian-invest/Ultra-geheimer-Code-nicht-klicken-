@@ -41,7 +41,7 @@ Zwei Produkte in diesem Repo:
 ## Server
 
 - **IP**: 187.124.166.153
-- **OS**: Ubuntu, PHP 8.3, Node 20
+- **OS**: Ubuntu, PHP 8.3, Node 22
 - **Portal-Pfad**: `/var/www/srhomes`
 - **Website-Pfad**: `/var/www/sr-homes-website`
 - **Webhook**: Port 9000, `/hooks/sr-homes-deploy`
@@ -50,19 +50,27 @@ Zwei Produkte in diesem Repo:
 
 ## Deploy-Workflow
 
+**Primär: GitHub Actions** (`.github/workflows/deploy.yml`)
 ```
 git push origin main
-  → GitHub Webhook (HMAC-SHA256 signiert)
-  → Port 9000 auf VPS
-  → deploy.sh
-     1. git pull
-     2. composer install + npm ci + npm run build (Portal)
-     3. npm ci + npm run build (Website)
-     4. Backup aktueller Stand
-     5. rsync → /var/www/srhomes + /var/www/sr-homes-website
-     6. php-fpm reload
-     (bei Fehler: automatischer Rollback auf Backup)
+  → GitHub Actions
+  → Ein einziger SSH-Step auf dem Server:
+     1. cd /var/www/sr-deploy && git fetch && git reset --hard origin/main
+     2. rsync portal/ → /var/www/srhomes/ (excl. vendor, node_modules, .env, storage/*)
+     3. composer install --no-dev (für ziggy + andere Build-Dependencies)
+     4. npm ci && npm run build (Vite/Vue JS-Build AUF DEM SERVER)
+     5. php artisan config:clear + cache:clear + view:clear
+     6. systemctl reload php8.3-fpm
+     7. rsync website-v2/ → /var/www/sr-homes-v2/
 ```
+
+**WICHTIG:**
+- JS wird AUF DEM SERVER gebaut, NICHT im CI (CI-Build hat zu oft gefehlt)
+- `composer install` ist nötig vor `npm run build` (ziggy Dependency)
+- PHP-Änderungen UND JS-Änderungen werden im gleichen SSH-Step deployed
+- Nur pushes auf `main` triggern den Deploy
+
+**Sekundär: Webhook** (deploy.sh, Port 9000) — Fallback/Legacy
 
 **Wichtig:** Nur Pushes auf `main` triggern Deploy. Der Webhook-Secret liegt auf dem Server unter `/opt/sr-homes/.webhook-secret`.
 
@@ -104,8 +112,16 @@ POST /api/portal_api.php?action=xxx
 | `Task` | property_id, broker_id, due_at, done |
 
 ## User-Typen (portal)
-- `admin` / `makler` / `backoffice` → Admin-Dashboard
+- `admin` / `makler` → Admin-Dashboard (sieht nur eigene Mails, gefiltert per email_accounts.user_id)
+- `assistenz` / `backoffice` → Admin-Dashboard (sieht alle Mails, Makler-Filter-Dropdown, kann im Namen jedes Maklers senden)
 - `kunde` → Portal-Dashboard (nur eigene Immobilien)
+
+## Email-Account-System
+- `email_accounts` Tabelle: IMAP/SMTP Konfiguration pro Makler
+- `email_accounts.user_id` → verknüpft Account mit User (Makler)
+- `portal_emails.account_id` → welcher Account die Mail empfangen/gesendet hat
+- **Broker-Filter-Logik**: Conversations werden per `portal_emails.account_id` dem Makler zugeordnet (nicht per `properties.broker_id`)
+- **Assistenz sendet**: Wählt Absender-Account im "Von:" Feld (pre-selected auf Makler des Items)
 
 ## Website CMS-Sections
 `hero`, `stats`, `about`, `services`, `portal`, `contact`,

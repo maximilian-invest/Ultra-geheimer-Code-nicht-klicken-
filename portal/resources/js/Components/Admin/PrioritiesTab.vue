@@ -1,6 +1,6 @@
 <script setup>
 import { catBadgeStyle, catLabel, catFilterStyle } from '@/utils/categoryBadge.js';
-import { ref, inject, onMounted, computed } from "vue";
+import { ref, inject, onMounted, computed, watch } from "vue";
 import { MailX, Clock, Sparkles, Send, Pause, Play, CheckCircle, BellOff, KanbanSquare, AlertCircle, AlertTriangle, Info, ArrowRight, X, Phone, Mail, ChevronLeft, ChevronRight, Loader2, Home, Check, ChevronDown, CalendarDays, Paperclip } from "lucide-vue-next";
 
 const API = inject("API");
@@ -1307,13 +1307,11 @@ async function loadBrokerList() {
 
 const availableMakler = computed(() => brokerList.value);
 
-async function onMaklerFilterChange() {
-    await Promise.all([
-        loadUnanswered(unansweredFilter.value),
-        loadFollowups(followupFilter.value),
-        loadStage1(),
-    ]);
-}
+watch(maklerFilter, () => {
+    loadUnanswered(unansweredFilter.value);
+    loadFollowups(followupFilter.value);
+    loadStage1();
+});
 
 // Computed followup groups
 const filteredUnansweredList = computed(() => {
@@ -1893,7 +1891,7 @@ function formatKanbanDate(s) {
             <!-- Makler Filter (Assistenz only) -->
             <div class="flex items-center gap-2 mb-3">
                 <span class="text-[11px] font-semibold flex-shrink-0" style="color:#D4622B">Makler:</span>
-                <select v-model="maklerFilter" @change="onMaklerFilterChange()" class="form-select text-xs" style="height:34px;max-width:200px">
+                <select v-model="maklerFilter" class="form-select text-xs" style="height:34px;max-width:200px">
                     <option value="all">Alle Makler</option>
                     <option v-for="b in availableMakler" :key="b.id" :value="b.id">{{ b.name }}</option>
                 </select>
@@ -2281,7 +2279,7 @@ function formatKanbanDate(s) {
             <!-- Makler Filter (Assistenz only) -->
             <div class="flex items-center gap-2 mb-3">
                 <span class="text-[11px] font-semibold flex-shrink-0" style="color:#D4622B">Makler:</span>
-                <select v-model="maklerFilter" @change="onMaklerFilterChange()" class="form-select text-xs" style="height:34px;max-width:200px">
+                <select v-model="maklerFilter" class="form-select text-xs" style="height:34px;max-width:200px">
                     <option value="all">Alle Makler</option>
                     <option v-for="b in availableMakler" :key="b.id" :value="b.id">{{ b.name }}</option>
                 </select>

@@ -13,7 +13,7 @@ const properties = inject("properties");
 const userName = inject("userName", "Admin");
 const calendarEmbedUrl = inject("calendarEmbedUrl", "");
 const userType = inject("userType", ref("makler"));
-const isAssistenz = computed(() => ["assistenz", "backoffice", "admin"].includes(userType.value));
+const isAssistenz = computed(() => userType.value === "backoffice");
 
 
 const unansweredList = ref([]);
@@ -1292,7 +1292,7 @@ function formatDate(s) {
 const maklerFilter = ref('all');
 const availableMakler = computed(() => {
     const names = new Set();
-    [...unansweredList.value, ...(followupData.value?.followups || []), ...(followupData.value?.stage1_followups || [])].forEach(i => {
+    [...unansweredList.value, ...(followupData.value?.followups || []), ...stage1Followups.value].forEach(i => {
         if (i.broker_name) names.add(i.broker_name);
     });
     return [...names].sort();
@@ -1881,7 +1881,7 @@ function formatKanbanDate(s) {
         <!-- ============ UNBEANTWORTETE ============ -->
         <div v-if="activeSubTab === 'unanswered'">
             <!-- Makler Filter (Assistenz only) -->
-            <div v-if="isAssistenz && availableMakler.length" class="flex flex-wrap items-center gap-2 mb-3 p-3 rounded-2xl" style="background:rgba(238,118,6,0.04);border:1px solid rgba(238,118,6,0.12)">
+            <div v-if="isAssistenz" class="flex flex-wrap items-center gap-2 mb-3 p-3 rounded-2xl" style="background:rgba(238,118,6,0.04);border:1px solid rgba(238,118,6,0.12)">
                 <span class="text-[10px] font-semibold uppercase tracking-wider flex-shrink-0" style="color:#D4622B">Makler:</span>
                 <button @click="maklerFilter = 'all'"
                     class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 active:scale-[0.97]"
@@ -2275,7 +2275,7 @@ function formatKanbanDate(s) {
         <div v-if="activeSubTab === 'followups'">
 
             <!-- Makler Filter (Assistenz only) -->
-            <div v-if="isAssistenz && availableMakler.length" class="flex flex-wrap items-center gap-2 mb-3 p-3 rounded-2xl" style="background:rgba(238,118,6,0.04);border:1px solid rgba(238,118,6,0.12)">
+            <div v-if="isAssistenz" class="flex flex-wrap items-center gap-2 mb-3 p-3 rounded-2xl" style="background:rgba(238,118,6,0.04);border:1px solid rgba(238,118,6,0.12)">
                 <span class="text-[10px] font-semibold uppercase tracking-wider flex-shrink-0" style="color:#D4622B">Makler:</span>
                 <button @click="maklerFilter = 'all'"
                     class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 active:scale-[0.97]"

@@ -2209,7 +2209,7 @@ function formatKanbanDate(s) {
                                     <button @click.stop="sendUnansweredReply(item)" class="px-4 py-2 text-xs font-medium text-white bg-zinc-900 rounded-xl hover:bg-zinc-800 transition-all duration-200 active:scale-[0.97] btn-sm">Senden</button>
                                     <template v-if="sendAccounts.length">
                                         <span class="text-[10px] text-zinc-500">via</span>
-                                        <select v-model="sendAccountId" class="text-[11px] rounded-lg px-2 py-1.5" style="border:1px solid var(--border);max-width:220px">
+                                        <select v-model="sendAccountId" class="text-[11px] rounded-lg px-2 py-1.5 cursor-pointer" style="border:1px solid var(--border);max-width:220px;-webkit-appearance:menulist;appearance:menulist">
                                             <option v-for="acc in sendAccounts" :key="acc.id" :value="acc.id">{{ acc.email_address }}</option>
                                         </select>
                                     </template>

@@ -60,8 +60,8 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         $currentUser = \Auth::user();
         $brokerId = $currentUser ? $currentUser->id : null;
         $userType = $currentUser->user_type ?? 'makler';
-        // Assistenz sees all data (no broker/account filter)
-        $scopeAll = in_array($userType, ['assistenz']);
+        // Assistenz/Backoffice sees all data (no broker/account filter)
+        $scopeAll = in_array($userType, ['assistenz', 'backoffice']);
         // Assistenz can pass broker_filter param to filter by specific broker
         $brokerFilterParam = $request->query('broker_filter');
         if ($scopeAll && $brokerFilterParam && is_numeric($brokerFilterParam)) {

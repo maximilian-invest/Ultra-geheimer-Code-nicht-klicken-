@@ -12,14 +12,7 @@ jobs:
 
       # ── Website: pre-built in website/dist/, kein Build nötig ──
 
-      # ── Portal bauen ──
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: 8.3
-      - name: Build Portal
-        run: cd portal && composer install --no-scripts --no-interaction && npm ci && npm run build
-
-      # ── PHP-Dateien per SSH+rsync deployen (git pull auf Server) ──
+      # ── PHP-Dateien per SSH+rsync deployen (immer zuerst, unabhängig vom JS-Build) ──
       - name: Deploy PHP to Server
         uses: appleboy/ssh-action@v1
         env:
@@ -47,6 +40,16 @@ jobs:
             php /var/www/srhomes/artisan view:clear 2>/dev/null || true
             systemctl reload php8.3-fpm 2>/dev/null || true
             echo "✓ PHP deployed: $(date)"
+
+      # ── Portal JS bauen ──
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build Portal
+        run: cd portal && composer install --no-scripts --no-interaction && npm ci && npm run build
 
       # ── Website-Dateien hochladen ──
       - name: Upload Website

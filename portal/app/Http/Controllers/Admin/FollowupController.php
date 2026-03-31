@@ -129,7 +129,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 p.address, p.city, p.ref_id, p.object_type as property_type,
                 c.phone as contact_phone,
                 c.email as contact_email,
-                COALESCE(u.signature_name, u.name) as broker_name
+                u.name as broker_name
             FROM (
                 SELECT
                     {$norm} as norm_name,
@@ -891,7 +891,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 p.address, p.city, p.ref_id, p.object_type as property_type,
                 c.phone as contact_phone,
                 c.email as contact_email,
-                COALESCE(u.signature_name, u.name) as broker_name,
+                u.name as broker_name,
                 1 as followup_stage
             FROM (
                 SELECT

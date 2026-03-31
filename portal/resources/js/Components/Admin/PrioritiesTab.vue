@@ -13,7 +13,7 @@ const properties = inject("properties");
 const userName = inject("userName", "Admin");
 const calendarEmbedUrl = inject("calendarEmbedUrl", "");
 const userType = inject("userType", ref("makler"));
-const isAssistenz = computed(() => userType.value === "assistenz");
+const isAssistenz = computed(() => userType.value === "assistenz" || userType.value === "backoffice");
 
 
 const unansweredList = ref([]);

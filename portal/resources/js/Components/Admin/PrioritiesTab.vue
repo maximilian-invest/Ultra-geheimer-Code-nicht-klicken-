@@ -2001,10 +2001,19 @@ function formatKanbanDate(s) {
                                             <div v-if="!showEmailFields" @click.stop="showEmailFields = true"
                                                 class="px-4 py-2 flex items-center gap-2 cursor-pointer select-none hover:bg-[var(--accent)] transition-colors">
                                                 <Mail class="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
-                                                <span class="text-sm truncate flex-1 min-w-0"><span class="text-zinc-500">An:</span> <span class="font-medium">{{ expandedAiDraft.to || 'Keine Adresse' }}</span></span>
+                                                <span class="text-sm truncate flex-1 min-w-0">
+                                                    <span v-if="sendAccounts.length" class="text-zinc-400 mr-2">{{ sendAccounts.find(a => a.id === sendAccountId)?.email_address }} →</span>
+                                                    <span class="text-zinc-500">An:</span> <span class="font-medium">{{ expandedAiDraft.to || 'Keine Adresse' }}</span>
+                                                </span>
                                                 <ChevronDown class="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
                                             </div>
                                             <template v-if="showEmailFields">
+                                                <div v-if="sendAccounts.length" class="flex items-center gap-2 px-3 py-2" style="border-bottom:1px solid var(--border)">
+                                                    <span class="text-xs text-zinc-500 flex-shrink-0 w-8">Von:</span>
+                                                    <select v-model="sendAccountId" class="flex-1 text-sm bg-transparent outline-none min-w-0 cursor-pointer" style="color:#18181b;border:none;-webkit-appearance:menulist;appearance:menulist">
+                                                        <option v-for="acc in sendAccounts" :key="acc.id" :value="acc.id">{{ acc.email_address }}</option>
+                                                    </select>
+                                                </div>
                                                 <div class="flex items-center gap-2 px-3 py-2" style="border-bottom:1px solid var(--border)">
                                                     <span class="text-xs text-zinc-500 flex-shrink-0 w-8">An:</span>
                                                     <input v-model="expandedAiDraft.to"
@@ -2086,13 +2095,6 @@ function formatKanbanDate(s) {
                                                 title="Erledigt">
                                                 <CheckCircle class="w-4 h-4" />
                                             </button>
-
-                                            <!-- Email Account Selector -->
-                                            <select v-if="sendAccounts.length" v-model="sendAccountId"
-                                                class="h-10 sm:h-9 text-xs rounded-xl px-2.5 cursor-pointer"
-                                                style="background:white;color:#18181b;border:1px solid rgba(228,228,231,0.8);max-width:200px">
-                                                <option v-for="acc in sendAccounts" :key="acc.id" :value="acc.id">{{ acc.email_address }}</option>
-                                            </select>
 
                                             <!-- Send -->
                                             <button @click="item._selectedFiles = [...expandedSelectedFiles]; item._expandedFiles = [...expandedFiles]; useAiDraft(item)" :disabled="aiSending"

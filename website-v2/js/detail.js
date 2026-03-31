@@ -69,10 +69,43 @@
   /* ─── Description ─── */
   const descEl = document.getElementById('description');
   if (descEl && p.description) {
-    let dh = `<h2 class="text-xl font-bold mb-4" style="color:#0A0A08">Beschreibung</h2><p class="text-sm leading-relaxed mb-6" style="color:#5A564E">${esc(p.description)}</p>`;
-    if (p.location_description) dh += `<h2 class="text-xl font-bold mb-4 mt-8" style="color:#0A0A08">Lage</h2><p class="text-sm leading-relaxed mb-6" style="color:#5A564E">${esc(p.location_description)}</p>`;
-    if (p.equipment_description) dh += `<h2 class="text-xl font-bold mb-4 mt-8" style="color:#0A0A08">Ausstattung im Detail</h2><p class="text-sm leading-relaxed mb-6" style="color:#5A564E">${esc(p.equipment_description)}</p>`;
-    if (p.other_description) dh += `<h2 class="text-xl font-bold mb-4 mt-8" style="color:#0A0A08">Sonstiges</h2><p class="text-sm leading-relaxed mb-6" style="color:#5A564E">${esc(p.other_description)}</p>`;
+    const tabs = [];
+    tabs.push({ id: 'desc', label: 'Beschreibung', content: esc(p.description).replace(/\n/g, '<br>') });
+    if (p.location_description) tabs.push({ id: 'lage', label: 'Lage', content: esc(p.location_description).replace(/\n/g, '<br>') });
+    if (p.equipment_description) tabs.push({ id: 'ausstattung', label: 'Ausstattung', content: esc(p.equipment_description).replace(/\n/g, '<br>') });
+    if (p.other_description) tabs.push({ id: 'sonstiges', label: 'Sonstiges', content: esc(p.other_description).replace(/\n/g, '<br>') });
+
+    // Historie tab
+    let historyData = p.property_history;
+    if (typeof historyData === 'string') { try { historyData = JSON.parse(historyData); } catch(e) { historyData = null; } }
+    if (historyData && historyData.length) {
+      let tlHtml = '<div class="relative py-4">';
+      tlHtml += '<div class="absolute left-[28px] top-0 bottom-0 w-[2px]" style="background:linear-gradient(to bottom, #D4743B, #D4743B22)"></div>';
+      historyData.forEach((h, i) => {
+        const delay = i * 150;
+        tlHtml += '<div class="relative flex gap-6 mb-8 group" style="opacity:0;animation:tlFadeIn 0.6s ease ' + delay + 'ms forwards">' +
+          '<div class="flex-shrink-0 relative z-10" style="width:58px">' +
+            '<div class="w-[58px] h-[58px] rounded-2xl flex items-center justify-center text-sm font-black tracking-tight text-white shadow-lg" style="background:linear-gradient(135deg, #D4743B, #B85A2A)">' + esc(h.year) + '</div>' +
+          '</div>' +
+          '<div class="flex-1 pt-1">' +
+            '<div class="text-base font-bold tracking-tight" style="color:#0A0A08">' + esc(h.title) + '</div>' +
+            (h.description ? '<p class="text-sm leading-relaxed mt-2" style="color:#5A564E">' + esc(h.description).replace(/\n/g, '<br>') + '</p>' : '') +
+          '</div>' +
+        '</div>';
+      });
+      tlHtml += '</div><style>@keyframes tlFadeIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}</style>';
+      tabs.push({ id: 'historie', label: 'Historie', content: tlHtml, isHtml: true });
+    }
+
+    let dh = '';
+    dh += '<div class="flex gap-1 mb-6" style="border-bottom:2px solid #F0ECE6">';
+    tabs.forEach((t, i) => {
+      dh += `<button onclick="document.querySelectorAll('.desc-tab-content').forEach(el=>el.style.display='none');document.getElementById('tab-${t.id}').style.display='';document.querySelectorAll('.desc-tab-btn').forEach(b=>{b.style.borderColor='transparent';b.style.color='#9A958C'});this.style.borderColor='#D4743B';this.style.color='#0A0A08'" class="desc-tab-btn px-5 py-3 text-sm font-semibold transition-colors" style="border-bottom:2px solid ${i === 0 ? '#D4743B' : 'transparent'};margin-bottom:-2px;color:${i === 0 ? '#0A0A08' : '#9A958C'};background:none;cursor:pointer">${t.label}</button>`;
+    });
+    dh += '</div>';
+    tabs.forEach((t, i) => {
+      dh += `<div id="tab-${t.id}" class="desc-tab-content" style="display:${i === 0 ? 'block' : 'none'}">${t.isHtml ? t.content : `<div class="text-sm leading-relaxed" style="color:#5A564E">${t.content}</div>`}</div>`;
+    });
     descEl.innerHTML = dh;
   }
 
@@ -87,13 +120,27 @@
   const detailsEl = document.getElementById('details-table');
   if (detailsEl) {
     const rows = [];
+    if (p.type) rows.push(['Objekttyp', p.type]);
+    if (p.area_living) rows.push(['Wohnfläche', `${p.area_living} m²`]);
+    if (p.total_area && p.total_area != p.area_living) rows.push(['Gesamtfläche', `${p.total_area} m²`]);
+    if (p.free_area) rows.push(['Grundstücksfläche', `${p.free_area} m²`]);
+    if (p.rooms) rows.push(['Zimmer', p.rooms]);
+    if (p.bathrooms) rows.push(['Badezimmer', p.bathrooms]);
+    if (p.area_balcony) rows.push(['Balkonfläche', `${p.area_balcony} m²`]);
+    if (p.area_terrace) rows.push(['Terrasse', `${p.area_terrace} m²`]);
+    if (p.area_garden) rows.push(['Gartenfläche', `${p.area_garden} m²`]);
     if (p.year_built) rows.push(['Baujahr', p.year_built]);
     if (p.year_renovated) rows.push(['Renoviert', p.year_renovated]);
-    if (p.energy_certificate) rows.push(['Energieausweis', p.energy_certificate]);
-    if (p.heating_demand_value) rows.push(['Heizwärmebedarf', `${p.heating_demand_value} kWh/m²a`]);
+    if (p.heating) rows.push(['Heizung', p.heating]);
+    if (p.energy_hwb) rows.push(['HWB', `${p.energy_hwb} kWh/m²a`]);
+    if (p.energy_fgee) rows.push(['fGEE', p.energy_fgee]);
+    if (p.energy_class) rows.push(['Energieklasse', p.energy_class]);
+    if (p.energy_certificate && !p.energy_hwb) rows.push(['Energieausweis', p.energy_certificate]);
+    if (p.heating_demand_value && !p.energy_hwb) rows.push(['Heizwärmebedarf', `${p.heating_demand_value} kWh/m²a`]);
+    if (p.operating_costs) rows.push(['Betriebskosten', `€ ${Number(p.operating_costs).toLocaleString('de-AT')}`]);
     if (p.condition_note) rows.push(['Zustand', p.condition_note]);
+    if (p.available_from) rows.push(['Verfügbar ab', p.available_from]);
     if (p.city) rows.push(['Region', p.city]);
-    rows.push(['Plattformen', 'SR-Homes']);
     if (rows.length) {
       detailsEl.innerHTML = `<h2 class="text-xl font-bold mb-4" style="color:#0A0A08">Details</h2>
         <div class="divide-y" style="border-color:#F0ECE6">${rows.map(([k, v]) => `<div class="flex justify-between py-3"><span class="text-sm" style="color:#9A958C">${k}</span><span class="text-sm font-medium" style="color:#0A0A08">${v}</span></div>`).join('')}</div>`;

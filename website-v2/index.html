@@ -78,7 +78,7 @@
 <!-- ─── 2. STATS ─── -->
 <section class="py-24 md:py-36 laptop-py" style="background:#FAF8F5;border-bottom:1px solid #F0ECE6">
   <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-8">
+    <div id="stats-grid" class="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-8">
       <div class="text-center" data-animate>
         <div class="flex items-baseline justify-center gap-1">
           <span class="stat-number text-5xl md:text-7xl font-bold tracking-tighter" style="color:#0A0A08">250</span>
@@ -151,6 +151,22 @@
   </div>
 </section>
 
+<!-- ─── 4. ERFOLGREICH VERMITTELT ─── -->
+<section id="sold-section" class="py-24 md:py-36 laptop-py" style="background:#0A0A08;display:none">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+    <div class="text-center mb-16" data-animate>
+      <div class="flex items-center justify-center gap-3 mb-5">
+        <div style="width:32px;height:2px;background:#D4743B;border-radius:2px"></div>
+        <span class="uppercase tracking-[0.2em] text-xs font-semibold" style="color:#D4743B">Erfolgreich vermittelt</span>
+        <div style="width:32px;height:2px;background:#D4743B;border-radius:2px"></div>
+      </div>
+      <h2 class="font-display" style="font-size:clamp(2rem,4vw,3.5rem);font-weight:700;color:#fff;line-height:1;letter-spacing:-0.03em">Referenzobjekte</h2>
+      <p class="text-base mt-4 max-w-2xl mx-auto" style="color:rgba(255,255,255,0.5)">Eine Auswahl unserer erfolgreich abgeschlossenen Vermittlungen.</p>
+    </div>
+    <div id="sold-properties" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  </div>
+</section>
+
 <!-- ─── 5. LEISTUNGEN ─── -->
 <section class="py-24 md:py-36 laptop-py" style="background:#FAF8F5">
   <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
@@ -171,7 +187,7 @@
           </a>
         </div>
       </div>
-      <div class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div id="services-grid" class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-5">
         <!-- Service Cards -->
         <div class="hover-lift hover-glow p-7 rounded-2xl" style="background:#fff;border:1px solid #F0ECE6">
           <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(212,116,59,0.08)">

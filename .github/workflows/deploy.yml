@@ -34,20 +34,34 @@ jobs:
             git reset --hard origin/main
             echo "✓ Code pulled"
 
-            # 2. Sync PHP files
+            # 2. Sync all portal files (like deploy.sh does)
             mkdir -p /var/www/srhomes
-            rsync -a portal/app/              /var/www/srhomes/app/
-            rsync -a portal/routes/           /var/www/srhomes/routes/
-            rsync -a portal/config/           /var/www/srhomes/config/
-            rsync -a portal/database/         /var/www/srhomes/database/
-            rsync -a portal/resources/views/  /var/www/srhomes/resources/views/
-            rsync -a portal/resources/js/     /var/www/srhomes/resources/js/
-            rsync -a portal/resources/css/    /var/www/srhomes/resources/css/
-            rsync -a portal/package.json portal/package-lock.json portal/vite.config.js /var/www/srhomes/ 2>/dev/null || true
-            echo "✓ PHP + resources synced"
+            rsync -a --delete \
+              --exclude="vendor/" \
+              --exclude="node_modules/" \
+              --exclude=".env" \
+              --exclude=".env.backup" \
+              --exclude=".env.production" \
+              --exclude="storage/app/public/property_files/" \
+              --exclude="storage/app/public/property_images/" \
+              --exclude="storage/app/public/website/" \
+              --exclude="storage/app/public/kaufanbote/" \
+              --exclude="storage/app/public/global_files/" \
+              --exclude="storage/logs/" \
+              --exclude="storage/framework/cache/" \
+              --exclude="storage/framework/sessions/" \
+              --exclude="storage/framework/views/" \
+              --exclude="storage/*.key" \
+              --exclude="public/build/" \
+              --exclude="public/hot" \
+              --exclude="public/storage" \
+              --exclude="auth.json" \
+              portal/ /var/www/srhomes/
+            echo "✓ Portal synced"
 
             # 3. Build JS on server
             cd /var/www/srhomes
+            composer install --no-scripts --no-interaction --no-dev 2>&1 | tail -3
             npm ci --quiet 2>&1 | tail -3
             npm run build 2>&1 | tail -5
             echo "✓ JS built"

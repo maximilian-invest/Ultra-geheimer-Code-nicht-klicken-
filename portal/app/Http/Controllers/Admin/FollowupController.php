@@ -128,7 +128,8 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 END as urgency,
                 p.address, p.city, p.ref_id, p.object_type as property_type,
                 c.phone as contact_phone,
-                c.email as contact_email
+                c.email as contact_email,
+                COALESCE(u.signature_name, u.name) as broker_name
             FROM (
                 SELECT
                     {$norm} as norm_name,
@@ -163,6 +164,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 FROM contacts
                 GROUP BY full_name COLLATE utf8mb4_unicode_ci
             ) c ON c.full_name COLLATE utf8mb4_unicode_ci = conv.display_name COLLATE utf8mb4_unicode_ci
+            LEFT JOIN users u ON u.id = p.broker_id
             WHERE {$categoryFilter}
               AND DATEDIFF(NOW(), conv.last_date) >= {$minDays}
               AND conv.property_id IS NOT NULL
@@ -889,6 +891,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 p.address, p.city, p.ref_id, p.object_type as property_type,
                 c.phone as contact_phone,
                 c.email as contact_email,
+                COALESCE(u.signature_name, u.name) as broker_name,
                 1 as followup_stage
             FROM (
                 SELECT
@@ -919,6 +922,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 FROM contacts
                 GROUP BY full_name COLLATE utf8mb4_unicode_ci
             ) c ON c.full_name COLLATE utf8mb4_unicode_ci = conv.display_name COLLATE utf8mb4_unicode_ci
+            LEFT JOIN users u ON u.id = p.broker_id
             WHERE conv.last_category IN ('expose', 'email-out')
               AND DATEDIFF(NOW(), conv.last_date) >= 1
               AND DATEDIFF(NOW(), conv.last_date) < 4

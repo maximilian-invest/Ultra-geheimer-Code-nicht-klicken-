@@ -12,6 +12,8 @@ const refreshCounts = inject("refreshCounts", () => {});
 const properties = inject("properties");
 const userName = inject("userName", "Admin");
 const calendarEmbedUrl = inject("calendarEmbedUrl", "");
+const userType = inject("userType", ref("makler"));
+const isAssistenz = computed(() => userType.value === "assistenz");
 
 
 const unansweredList = ref([]);
@@ -1286,10 +1288,21 @@ function formatDate(s) {
     return s.split("-").reverse().join(".");
 }
 
+// Makler filter (Assistenz only)
+const maklerFilter = ref('all');
+const availableMakler = computed(() => {
+    const names = new Set();
+    [...unansweredList.value, ...(followupData.value?.followups || []), ...(followupData.value?.stage1_followups || [])].forEach(i => {
+        if (i.broker_name) names.add(i.broker_name);
+    });
+    return [...names].sort();
+});
+
 // Computed followup groups
 const filteredUnansweredList = computed(() => {
-    if (unansweredCategoryFilter.value === 'all') return unansweredList.value;
-    return unansweredList.value.filter(i => i.category === unansweredCategoryFilter.value);
+    let list = unansweredCategoryFilter.value === 'all' ? unansweredList.value : unansweredList.value.filter(i => i.category === unansweredCategoryFilter.value);
+    if (maklerFilter.value !== 'all') list = list.filter(i => i.broker_name === maklerFilter.value);
+    return list;
 });
 
 const unansweredCategories = computed(() => {
@@ -1301,10 +1314,17 @@ const unansweredCategories = computed(() => {
     return cats;
 });
 
-const kaufanbotFollowups = computed(() => (followupData.value?.followups || []).filter((f) => f.category === "kaufanbot"));
-const urgentFollowups = computed(() => (followupData.value?.followups || []).filter((f) => f.category !== "kaufanbot" && f.days_waiting >= 14));
-const warningFollowups = computed(() => (followupData.value?.followups || []).filter((f) => f.category !== "kaufanbot" && f.days_waiting >= 7 && f.days_waiting < 14));
-const infoFollowups = computed(() => (followupData.value?.followups || []).filter((f) => f.category !== "kaufanbot" && f.days_waiting >= 3 && f.days_waiting < 7));
+const filteredFollowups = computed(() => {
+    const list = followupData.value?.followups || [];
+    return maklerFilter.value === 'all' ? list : list.filter(f => f.broker_name === maklerFilter.value);
+});
+const filteredStage1Followups = computed(() => {
+    return maklerFilter.value === 'all' ? stage1Followups.value : stage1Followups.value.filter(f => f.broker_name === maklerFilter.value);
+});
+const kaufanbotFollowups = computed(() => filteredFollowups.value.filter((f) => f.category === "kaufanbot"));
+const urgentFollowups = computed(() => filteredFollowups.value.filter((f) => f.category !== "kaufanbot" && f.days_waiting >= 14));
+const warningFollowups = computed(() => filteredFollowups.value.filter((f) => f.category !== "kaufanbot" && f.days_waiting >= 7 && f.days_waiting < 14));
+const infoFollowups = computed(() => filteredFollowups.value.filter((f) => f.category !== "kaufanbot" && f.days_waiting >= 3 && f.days_waiting < 7));
 
 // Collapsed state per group (persisted)
 const collapsedGroups = ref(JSON.parse(localStorage.getItem('sr-collapsed-followup-groups') || '{}'));
@@ -1860,6 +1880,20 @@ function formatKanbanDate(s) {
 
         <!-- ============ UNBEANTWORTETE ============ -->
         <div v-if="activeSubTab === 'unanswered'">
+            <!-- Makler Filter (Assistenz only) -->
+            <div v-if="isAssistenz && availableMakler.length" class="flex flex-wrap items-center gap-2 mb-3 p-3 rounded-2xl" style="background:rgba(238,118,6,0.04);border:1px solid rgba(238,118,6,0.12)">
+                <span class="text-[10px] font-semibold uppercase tracking-wider flex-shrink-0" style="color:#D4622B">Makler:</span>
+                <button @click="maklerFilter = 'all'"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 active:scale-[0.97]"
+                    :style="maklerFilter === 'all' ? 'background:#D4622B;color:#fff;box-shadow:0 2px 8px rgba(212,98,43,0.3)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
+                    Alle
+                </button>
+                <button v-for="name in availableMakler" :key="name" @click="maklerFilter = name"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 active:scale-[0.97]"
+                    :style="maklerFilter === name ? 'background:#18181b;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.2)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
+                    {{ name }}
+                </button>
+            </div>
             <!-- Inner tabs: Zugeordnete / Nicht zugeordnete -->
             <div class="flex gap-1 mb-3">
                 <button @click="unansweredInnerTab = 'assigned'"
@@ -1907,21 +1941,24 @@ function formatKanbanDate(s) {
                 <div v-else class="divide-y divide-[var(--border)]">
                     <template v-for="item in filteredUnansweredList" :key="item.id">
                         <div @click="toggleUnansweredDetail(item)"
-                            class="px-4 py-4 sm:py-2.5 flex items-center gap-3 hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors group cursor-pointer"
+                            class="px-4 py-3 hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors group cursor-pointer"
                             :class="[expandedUnanswered === item.id ? 'bg-[var(--accent)]' : '', item.category === 'bounce' ? 'border-l-2 border-fuchsia-400' : '']">
-                            <div class="flex items-center gap-2 flex-1 min-w-0">
+                            <!-- Top row: name + urgency dot + days -->
+                            <div class="flex items-center gap-2 min-w-0">
                                 <span class="w-2 h-2 rounded-full flex-shrink-0" :class="item.days_waiting >= 14 ? 'bg-red-500' : item.days_waiting >= 7 ? 'bg-amber-500' : 'bg-blue-500'"></span>
-                                <span class="text-sm font-medium truncate min-w-0">{{ item.from_name || item.stakeholder }}</span>
-                                <div class="flex items-center gap-1.5 flex-shrink-0" @click.stop>
-                                    <span @click="editingAssignment = {item, type:'prop'}" class="badge badge-muted text-[10px] cursor-pointer hover:ring-2 hover:ring-[var(--brand)]/30"><Home class="w-2.5 h-2.5" />{{ item.ref_id || 'Zuweisen' }}</span>
-                                    <span @click="editingAssignment = {item, type:'cat'}" class="badge text-[10px] cursor-pointer hover:ring-2 hover:ring-[var(--brand)]/30" :style="catBadgeStyle(item.category)">{{ catLabel(item.category) }}</span>
-                                </div>
-                                <span class="text-[10px] font-medium flex-shrink-0 tabular-nums" :class="item.days_waiting >= 14 ? 'text-red-500' : item.days_waiting >= 7 ? 'text-amber-500' : 'text-blue-500'">{{ item.days_waiting }}d</span>
+                                <span class="text-sm font-semibold truncate flex-1 min-w-0">{{ item.from_name || item.stakeholder }}</span>
+                                <span class="text-xs font-bold tabular-nums flex-shrink-0 px-1.5 py-0.5 rounded-lg" :class="item.days_waiting >= 14 ? 'bg-red-50 text-red-600' : item.days_waiting >= 7 ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'">{{ item.days_waiting }}d</span>
+                                <ChevronDown class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform" :class="expandedUnanswered === item.id ? 'rotate-180' : ''" />
                             </div>
-                            <ChevronDown class="w-5 h-5 text-zinc-500 flex-shrink-0 sm:hidden transition-transform" :class="expandedUnanswered === item.id ? 'rotate-180' : ''" />
-                            <div class="hidden sm:flex gap-1 flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" @click.stop>
-                                <button @click="toggleUnansweredDetail(item)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg hover:brightness-110 hover:shadow-md transition-all duration-200 active:scale-[0.97]" style="height:26px;font-size:11px;background:linear-gradient(135deg,#D4622B,#c25a25);color:#fff;border:none"><Sparkles class="w-3 h-3" /> KI-Entwurf</button>
-                                <button @click="markHandled(item.stakeholder || item.from_name, item.property_id)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-white text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-sm transition-all duration-200 active:scale-[0.97]" style="height:26px;font-size:11px"><CheckCircle class="w-3 h-3" /> Erledigt</button>
+                            <!-- Bottom row: object ref + category + broker (assistenz) + actions -->
+                            <div class="flex items-center gap-1.5 mt-1.5 flex-wrap" @click.stop>
+                                <span @click="editingAssignment = {item, type:'prop'}" class="badge badge-muted text-[10px] cursor-pointer hover:ring-2 hover:ring-[var(--brand)]/30"><Home class="w-2.5 h-2.5 mr-0.5" />{{ item.ref_id || 'Zuweisen' }}</span>
+                                <span @click="editingAssignment = {item, type:'cat'}" class="badge text-[10px] cursor-pointer hover:ring-2 hover:ring-[var(--brand)]/30" :style="catBadgeStyle(item.category)">{{ catLabel(item.category) }}</span>
+                                <span v-if="isAssistenz && item.broker_name" class="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0" style="background:rgba(238,118,6,0.08);color:#D4622B">{{ item.broker_name }}</span>
+                                <div class="flex gap-1 ml-auto">
+                                    <button @click.stop="toggleUnansweredDetail(item)" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-lg transition-all duration-200 active:scale-[0.97]" style="height:26px;background:linear-gradient(135deg,#D4622B,#c25a25);color:#fff;border:none"><Sparkles class="w-3 h-3" /><span class="hidden sm:inline">KI-Entwurf</span></button>
+                                    <button @click.stop="markHandled(item.stakeholder || item.from_name, item.property_id)" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium bg-white text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-all duration-200 active:scale-[0.97]" style="height:26px"><CheckCircle class="w-3 h-3" /><span class="hidden sm:inline">Erledigt</span></button>
+                                </div>
                             </div>
                         </div>
                         <!-- Expanded detail — 2-column layout matching Nachfassen design -->
@@ -2237,36 +2274,56 @@ function formatKanbanDate(s) {
         <!-- ============ NACHFASSEN ============ -->
         <div v-if="activeSubTab === 'followups'">
 
+            <!-- Makler Filter (Assistenz only) -->
+            <div v-if="isAssistenz && availableMakler.length" class="flex flex-wrap items-center gap-2 mb-3 p-3 rounded-2xl" style="background:rgba(238,118,6,0.04);border:1px solid rgba(238,118,6,0.12)">
+                <span class="text-[10px] font-semibold uppercase tracking-wider flex-shrink-0" style="color:#D4622B">Makler:</span>
+                <button @click="maklerFilter = 'all'"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 active:scale-[0.97]"
+                    :style="maklerFilter === 'all' ? 'background:#D4622B;color:#fff;box-shadow:0 2px 8px rgba(212,98,43,0.3)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
+                    Alle
+                </button>
+                <button v-for="name in availableMakler" :key="name" @click="maklerFilter = name"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 active:scale-[0.97]"
+                    :style="maklerFilter === name ? 'background:#18181b;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.2)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
+                    {{ name }}
+                </button>
+            </div>
+
             <!-- === STUFE 1: 24h Nachfassen === -->
-            <div v-if="stage1Followups.length || stage1Loading" class="mb-4">
+            <div v-if="filteredStage1Followups.length || stage1Loading" class="mb-4">
                 <div class="bg-white rounded-2xl overflow-hidden overflow-hidden">
                     <div @click="toggleGroup('stage1')" class="px-4 py-2 flex items-center gap-2 cursor-pointer hover:brightness-95 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" style="background:rgba(245,158,11,0.07);border-bottom:1px solid var(--border)">
                         <ChevronDown class="w-4 h-4 flex-shrink-0 transition-transform" :class="collapsedGroups.stage1 ? '-rotate-90' : ''" style="color:#d97706" />
                         <span class="text-xs font-semibold" style="color:#d97706">⚡ 24h – Erste Erinnerung nach Exposé</span>
                         <span v-if="stage1Count" class="text-[10px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:rgba(245,158,11,0.15);color:#d97706">{{ stage1Count }}</span>
                         <span class="flex-1"></span>
-                        <button v-if="stage1Followups.length && !collapsedGroups.stage1" @click.stop="requestSendAll('stage1', stage1Followups)" :disabled="sendAllRunning"
+                        <button v-if="filteredStage1Followups.length && !collapsedGroups.stage1" @click.stop="requestSendAll('stage1', filteredStage1Followups)" :disabled="sendAllRunning"
                             class="text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-colors" style="background:#d97706;color:white">
                             <template v-if="sendAllRunning === 'stage1'">{{ sendAllProgress.sent }}/{{ sendAllProgress.total }}...</template>
-                            <template v-else>Alle senden ({{ stage1Followups.length }})</template>
+                            <template v-else>Alle senden ({{ filteredStage1Followups.length }})</template>
                         </button>
                     </div>
-                    <div v-if="collapsedGroups.stage1" class="px-4 py-2 text-[10px] text-zinc-500">{{ stage1Followups.length }} Einträge eingeklappt</div>
+                    <div v-if="collapsedGroups.stage1" class="px-4 py-2 text-[10px] text-zinc-500">{{ filteredStage1Followups.length }} Einträge eingeklappt</div>
                     <template v-else>
                     <div v-if="stage1Loading" class="px-4 py-4 text-center"><span class="w-5 h-5 border-2 border-zinc-300 border-t-zinc-600 rounded-full animate-spin inline-block"></span></div>
                     <div v-else class="divide-y divide-[var(--border)]">
-                        <template v-for="f in stage1Followups" :key="f.id">
-                            <div @click="toggleStage1Detail(f)" class="px-4 py-4 sm:py-2.5 flex items-center gap-3 hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors group cursor-pointer">
-                                <div class="flex items-center gap-2 flex-1 min-w-0">
-                                    <span class="text-sm font-medium truncate flex-1 min-w-0">{{ f.from_name }}</span>
-                                    <span class="badge badge-muted text-[10px] flex-shrink-0">{{ f.ref_id }}</span>
-                                    <span v-if="f.contact_phone" class="text-[10px] flex-shrink-0 hidden sm:flex items-center gap-0.5" style="color:#71717a"><Phone class="w-2.5 h-2.5" />{{ f.contact_phone }}</span>
-                                    <span class="text-[10px] font-medium flex-shrink-0 tabular-nums" style="color:#d97706">{{ f.days_waiting }}d</span>
+                        <template v-for="f in filteredStage1Followups" :key="f.id">
+                            <div @click="toggleStage1Detail(f)" class="px-4 py-3 hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors group cursor-pointer">
+                                <!-- Top row -->
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <span class="text-sm font-semibold truncate flex-1 min-w-0">{{ f.from_name }}</span>
+                                    <span class="text-xs font-bold tabular-nums px-1.5 py-0.5 rounded-lg flex-shrink-0" style="background:rgba(217,119,6,0.1);color:#d97706">{{ f.days_waiting }}d</span>
+                                    <ChevronDown class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform" :class="expandedStage1 === f.id ? 'rotate-180' : ''" />
                                 </div>
-                                <ChevronDown class="w-5 h-5 text-zinc-500 flex-shrink-0 sm:hidden transition-transform" :class="expandedStage1 === f.id ? 'rotate-180' : ''" />
-                                <div class="hidden sm:flex gap-1 flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" @click.stop>
-                                    <button @click.stop="toggleStage1Detail(f)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg hover:brightness-110 hover:shadow-md transition-all duration-200 active:scale-[0.97]" style="height:26px;font-size:11px;background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border:none"><Sparkles class="w-3 h-3" /> KI-Entwurf</button>
-                                    <button @click="markHandled(f.from_name, f.property_id)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-white text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-sm transition-all duration-200 active:scale-[0.97]" style="height:26px;font-size:11px"><CheckCircle class="w-3 h-3" /> Erledigt</button>
+                                <!-- Bottom row -->
+                                <div class="flex items-center gap-1.5 mt-1.5 flex-wrap" @click.stop>
+                                    <span class="badge badge-muted text-[10px]">{{ f.ref_id }}</span>
+                                    <span v-if="f.contact_phone" class="text-[10px] flex items-center gap-0.5" style="color:#71717a"><Phone class="w-2.5 h-2.5" />{{ f.contact_phone }}</span>
+                                    <span v-if="isAssistenz && f.broker_name" class="text-[10px] font-medium px-2 py-0.5 rounded-full" style="background:rgba(238,118,6,0.08);color:#D4622B">{{ f.broker_name }}</span>
+                                    <div class="flex gap-1 ml-auto">
+                                        <button @click.stop="toggleStage1Detail(f)" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-lg transition-all duration-200 active:scale-[0.97]" style="height:26px;background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border:none"><Sparkles class="w-3 h-3" /><span class="hidden sm:inline">KI-Entwurf</span></button>
+                                        <button @click.stop="markHandled(f.from_name, f.property_id)" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium bg-white text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-all duration-200 active:scale-[0.97]" style="height:26px"><CheckCircle class="w-3 h-3" /><span class="hidden sm:inline">Erledigt</span></button>
+                                    </div>
                                 </div>
                             </div>
                             <!-- Stage 1 Expanded Detail — 2-column layout -->
@@ -2446,21 +2503,26 @@ function formatKanbanDate(s) {
                     <div v-if="collapsedGroups.kaufanbot" class="px-4 py-2 text-[10px] text-zinc-500">{{ kaufanbotFollowups.length }} Einträge eingeklappt</div>
                     <div v-else class="divide-y divide-[var(--border)]">
                         <template v-for="f in kaufanbotFollowups" :key="f.id">
-                            <div @click="toggleFollowupDetail(f)" class="px-4 py-4 sm:py-2.5 flex items-center gap-3 hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors group cursor-pointer">
-                                <div class="flex items-center gap-2 flex-1 min-w-0">
-                                    <span class="text-sm font-medium truncate flex-1 min-w-0">{{ f.from_name }}</span>
-                                    <span class="badge badge-muted text-[10px] flex-shrink-0">{{ f.ref_id }}</span>
-                                    <span v-if="f.contact_phone" class="text-[10px] text-zinc-500 flex-shrink-0 hidden sm:flex items-center gap-0.5"><Phone class="w-2.5 h-2.5" />{{ f.contact_phone }}</span>
-                                    <span class="text-[10px] font-medium flex-shrink-0 tabular-nums" :class="f.days_waiting >= 14 ? 'text-red-500' : f.days_waiting >= 7 ? 'text-amber-500' : 'text-blue-500'">{{ f.days_waiting }}d</span>
+                            <div @click="toggleFollowupDetail(f)" class="px-4 py-3 hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors group cursor-pointer">
+                                <!-- Top row: name + days -->
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <span class="text-sm font-semibold truncate flex-1 min-w-0">{{ f.from_name }}</span>
+                                    <span class="text-xs font-bold tabular-nums px-1.5 py-0.5 rounded-lg flex-shrink-0" :class="f.days_waiting >= 14 ? 'bg-red-50 text-red-600' : f.days_waiting >= 7 ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'">{{ f.days_waiting }}d</span>
+                                    <ChevronDown class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform" :class="expandedFollowup === f.id ? 'rotate-180' : ''" />
                                 </div>
-                                <ChevronDown class="w-5 h-5 text-zinc-500 flex-shrink-0 sm:hidden transition-transform" :class="expandedFollowup === f.id ? 'rotate-180' : ''" />
-                                <div class="hidden sm:flex gap-1 flex-shrink-0 transition-opacity" :class="bulkMode ? 'sm:opacity-100' : 'sm:opacity-0 sm:group-hover:sm:opacity-100'" @click.stop>
-                                    <button @click.stop="toggleFollowupDetail(f)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg hover:brightness-110 hover:shadow-md transition-all duration-200 active:scale-[0.97]" style="height:26px;font-size:11px;background:linear-gradient(135deg,#D4622B,#c25a25);color:#fff;border:none" :title="expandedFollowup === f.id ? 'Zuklappen' : 'Details + KI-Vorschlag'"><Sparkles class="w-3 h-3" /> KI-Entwurf</button>
-                                    <button @click="markHandled(f.from_name, f.property_id)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-white text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-sm transition-all duration-200 active:scale-[0.97]" style="height:26px;font-size:11px"><CheckCircle class="w-3 h-3" /></button>
-                                    <div class="relative">
-                                        <button @click="snoozeOpenId = snoozeOpenId === f.id ? null : f.id" class="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-zinc-100 transition-all duration-200" style="height:26px"><BellOff class="w-3 h-3" /></button>
-                                        <div v-if="snoozeOpenId === f.id" class="absolute right-0 top-full mt-1 z-50 bg-white border border-zinc-200/80 rounded-lg shadow-lg py-1 min-w-[100px]">
-                                            <button v-for="opt in snoozeOptions" :key="opt.days" @click="snoozeFollowup(f, opt.days)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent)]">{{ opt.label }}</button>
+                                <!-- Bottom row: meta + actions -->
+                                <div class="flex items-center gap-1.5 mt-1.5 flex-wrap" @click.stop>
+                                    <span class="badge badge-muted text-[10px]">{{ f.ref_id }}</span>
+                                    <span v-if="f.contact_phone" class="text-[10px] flex items-center gap-0.5" style="color:#71717a"><Phone class="w-2.5 h-2.5" />{{ f.contact_phone }}</span>
+                                    <span v-if="isAssistenz && f.broker_name" class="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0" style="background:rgba(238,118,6,0.08);color:#D4622B">{{ f.broker_name }}</span>
+                                    <div class="flex gap-1 ml-auto" :class="bulkMode ? '' : ''">
+                                        <button @click.stop="toggleFollowupDetail(f)" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-lg transition-all duration-200 active:scale-[0.97]" style="height:26px;background:linear-gradient(135deg,#D4622B,#c25a25);color:#fff;border:none"><Sparkles class="w-3 h-3" /><span class="hidden sm:inline">KI-Entwurf</span></button>
+                                        <button @click.stop="markHandled(f.from_name, f.property_id)" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium bg-white text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-all duration-200 active:scale-[0.97]" style="height:26px"><CheckCircle class="w-3 h-3" /></button>
+                                        <div class="relative">
+                                            <button @click.stop="snoozeOpenId = snoozeOpenId === f.id ? null : f.id" class="inline-flex items-center justify-center rounded-lg hover:bg-zinc-100 transition-all duration-200 bg-white border border-zinc-200" style="height:26px;width:26px"><BellOff class="w-3 h-3" /></button>
+                                            <div v-if="snoozeOpenId === f.id" class="absolute right-0 top-full mt-1 z-50 bg-white border border-zinc-200/80 rounded-lg shadow-lg py-1 min-w-[100px]">
+                                                <button v-for="opt in snoozeOptions" :key="opt.days" @click="snoozeFollowup(f, opt.days)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent)]">{{ opt.label }}</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -2628,21 +2690,26 @@ function formatKanbanDate(s) {
                     <div v-if="collapsedGroups.urgent" class="px-4 py-2 text-[10px] text-zinc-500">{{ urgentFollowups.length }} Einträge eingeklappt</div>
                     <div v-else class="divide-y divide-[var(--border)]">
                         <template v-for="f in urgentFollowups" :key="f.id">
-                            <div @click="toggleFollowupDetail(f)" class="px-4 py-4 sm:py-2.5 flex items-center gap-3 hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors group cursor-pointer">
-                                <div class="flex items-center gap-2 flex-1 min-w-0">
-                                    <span class="text-sm font-medium truncate flex-1 min-w-0">{{ f.from_name }}</span>
-                                    <span class="badge badge-muted text-[10px] flex-shrink-0">{{ f.ref_id }}</span>
-                                    <span v-if="f.contact_phone" class="text-[10px] text-zinc-500 flex-shrink-0 hidden sm:flex items-center gap-0.5"><Phone class="w-2.5 h-2.5" />{{ f.contact_phone }}</span>
-                                    <span class="text-[10px] font-medium flex-shrink-0 tabular-nums" :class="f.days_waiting >= 14 ? 'text-red-500' : f.days_waiting >= 7 ? 'text-amber-500' : 'text-blue-500'">{{ f.days_waiting }}d</span>
+                            <div @click="toggleFollowupDetail(f)" class="px-4 py-3 hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors group cursor-pointer">
+                                <!-- Top row: name + days -->
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <span class="text-sm font-semibold truncate flex-1 min-w-0">{{ f.from_name }}</span>
+                                    <span class="text-xs font-bold tabular-nums px-1.5 py-0.5 rounded-lg flex-shrink-0" :class="f.days_waiting >= 14 ? 'bg-red-50 text-red-600' : f.days_waiting >= 7 ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'">{{ f.days_waiting }}d</span>
+                                    <ChevronDown class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform" :class="expandedFollowup === f.id ? 'rotate-180' : ''" />
                                 </div>
-                                <ChevronDown class="w-5 h-5 text-zinc-500 flex-shrink-0 sm:hidden transition-transform" :class="expandedFollowup === f.id ? 'rotate-180' : ''" />
-                                <div class="hidden sm:flex gap-1 flex-shrink-0 transition-opacity" :class="bulkMode ? 'sm:opacity-100' : 'sm:opacity-0 sm:group-hover:sm:opacity-100'" @click.stop>
-                                    <button @click.stop="toggleFollowupDetail(f)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg hover:brightness-110 hover:shadow-md transition-all duration-200 active:scale-[0.97]" style="height:26px;font-size:11px;background:linear-gradient(135deg,#D4622B,#c25a25);color:#fff;border:none" :title="expandedFollowup === f.id ? 'Zuklappen' : 'Details + KI-Vorschlag'"><Sparkles class="w-3 h-3" /> KI-Entwurf</button>
-                                    <button @click="markHandled(f.from_name, f.property_id)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-white text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-sm transition-all duration-200 active:scale-[0.97]" style="height:26px;font-size:11px"><CheckCircle class="w-3 h-3" /></button>
-                                    <div class="relative">
-                                        <button @click="snoozeOpenId = snoozeOpenId === f.id ? null : f.id" class="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-zinc-100 transition-all duration-200" style="height:26px"><BellOff class="w-3 h-3" /></button>
-                                        <div v-if="snoozeOpenId === f.id" class="absolute right-0 top-full mt-1 z-50 bg-white border border-zinc-200/80 rounded-lg shadow-lg py-1 min-w-[100px]">
-                                            <button v-for="opt in snoozeOptions" :key="opt.days" @click="snoozeFollowup(f, opt.days)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent)]">{{ opt.label }}</button>
+                                <!-- Bottom row: meta + actions -->
+                                <div class="flex items-center gap-1.5 mt-1.5 flex-wrap" @click.stop>
+                                    <span class="badge badge-muted text-[10px]">{{ f.ref_id }}</span>
+                                    <span v-if="f.contact_phone" class="text-[10px] flex items-center gap-0.5" style="color:#71717a"><Phone class="w-2.5 h-2.5" />{{ f.contact_phone }}</span>
+                                    <span v-if="isAssistenz && f.broker_name" class="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0" style="background:rgba(238,118,6,0.08);color:#D4622B">{{ f.broker_name }}</span>
+                                    <div class="flex gap-1 ml-auto" :class="bulkMode ? '' : ''">
+                                        <button @click.stop="toggleFollowupDetail(f)" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-lg transition-all duration-200 active:scale-[0.97]" style="height:26px;background:linear-gradient(135deg,#D4622B,#c25a25);color:#fff;border:none"><Sparkles class="w-3 h-3" /><span class="hidden sm:inline">KI-Entwurf</span></button>
+                                        <button @click.stop="markHandled(f.from_name, f.property_id)" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium bg-white text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-all duration-200 active:scale-[0.97]" style="height:26px"><CheckCircle class="w-3 h-3" /></button>
+                                        <div class="relative">
+                                            <button @click.stop="snoozeOpenId = snoozeOpenId === f.id ? null : f.id" class="inline-flex items-center justify-center rounded-lg hover:bg-zinc-100 transition-all duration-200 bg-white border border-zinc-200" style="height:26px;width:26px"><BellOff class="w-3 h-3" /></button>
+                                            <div v-if="snoozeOpenId === f.id" class="absolute right-0 top-full mt-1 z-50 bg-white border border-zinc-200/80 rounded-lg shadow-lg py-1 min-w-[100px]">
+                                                <button v-for="opt in snoozeOptions" :key="opt.days" @click="snoozeFollowup(f, opt.days)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent)]">{{ opt.label }}</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -2810,21 +2877,26 @@ function formatKanbanDate(s) {
                     <div v-if="collapsedGroups.warning" class="px-4 py-2 text-[10px] text-zinc-500">{{ warningFollowups.length }} Einträge eingeklappt</div>
                     <div v-else class="divide-y divide-[var(--border)]">
                         <template v-for="f in warningFollowups" :key="f.id">
-                            <div @click="toggleFollowupDetail(f)" class="px-4 py-4 sm:py-2.5 flex items-center gap-3 hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors group cursor-pointer">
-                                <div class="flex items-center gap-2 flex-1 min-w-0">
-                                    <span class="text-sm font-medium truncate flex-1 min-w-0">{{ f.from_name }}</span>
-                                    <span class="badge badge-muted text-[10px] flex-shrink-0">{{ f.ref_id }}</span>
-                                    <span v-if="f.contact_phone" class="text-[10px] text-zinc-500 flex-shrink-0 hidden sm:flex items-center gap-0.5"><Phone class="w-2.5 h-2.5" />{{ f.contact_phone }}</span>
-                                    <span class="text-[10px] font-medium flex-shrink-0 tabular-nums" :class="f.days_waiting >= 14 ? 'text-red-500' : f.days_waiting >= 7 ? 'text-amber-500' : 'text-blue-500'">{{ f.days_waiting }}d</span>
+                            <div @click="toggleFollowupDetail(f)" class="px-4 py-3 hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors group cursor-pointer">
+                                <!-- Top row: name + days -->
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <span class="text-sm font-semibold truncate flex-1 min-w-0">{{ f.from_name }}</span>
+                                    <span class="text-xs font-bold tabular-nums px-1.5 py-0.5 rounded-lg flex-shrink-0" :class="f.days_waiting >= 14 ? 'bg-red-50 text-red-600' : f.days_waiting >= 7 ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'">{{ f.days_waiting }}d</span>
+                                    <ChevronDown class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform" :class="expandedFollowup === f.id ? 'rotate-180' : ''" />
                                 </div>
-                                <ChevronDown class="w-5 h-5 text-zinc-500 flex-shrink-0 sm:hidden transition-transform" :class="expandedFollowup === f.id ? 'rotate-180' : ''" />
-                                <div class="hidden sm:flex gap-1 flex-shrink-0 transition-opacity" :class="bulkMode ? 'sm:opacity-100' : 'sm:opacity-0 sm:group-hover:sm:opacity-100'" @click.stop>
-                                    <button @click.stop="toggleFollowupDetail(f)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg hover:brightness-110 hover:shadow-md transition-all duration-200 active:scale-[0.97]" style="height:26px;font-size:11px;background:linear-gradient(135deg,#D4622B,#c25a25);color:#fff;border:none" :title="expandedFollowup === f.id ? 'Zuklappen' : 'Details + KI-Vorschlag'"><Sparkles class="w-3 h-3" /> KI-Entwurf</button>
-                                    <button @click="markHandled(f.from_name, f.property_id)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-white text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-sm transition-all duration-200 active:scale-[0.97]" style="height:26px;font-size:11px"><CheckCircle class="w-3 h-3" /></button>
-                                    <div class="relative">
-                                        <button @click="snoozeOpenId = snoozeOpenId === f.id ? null : f.id" class="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-zinc-100 transition-all duration-200" style="height:26px"><BellOff class="w-3 h-3" /></button>
-                                        <div v-if="snoozeOpenId === f.id" class="absolute right-0 top-full mt-1 z-50 bg-white border border-zinc-200/80 rounded-lg shadow-lg py-1 min-w-[100px]">
-                                            <button v-for="opt in snoozeOptions" :key="opt.days" @click="snoozeFollowup(f, opt.days)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent)]">{{ opt.label }}</button>
+                                <!-- Bottom row: meta + actions -->
+                                <div class="flex items-center gap-1.5 mt-1.5 flex-wrap" @click.stop>
+                                    <span class="badge badge-muted text-[10px]">{{ f.ref_id }}</span>
+                                    <span v-if="f.contact_phone" class="text-[10px] flex items-center gap-0.5" style="color:#71717a"><Phone class="w-2.5 h-2.5" />{{ f.contact_phone }}</span>
+                                    <span v-if="isAssistenz && f.broker_name" class="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0" style="background:rgba(238,118,6,0.08);color:#D4622B">{{ f.broker_name }}</span>
+                                    <div class="flex gap-1 ml-auto" :class="bulkMode ? '' : ''">
+                                        <button @click.stop="toggleFollowupDetail(f)" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-lg transition-all duration-200 active:scale-[0.97]" style="height:26px;background:linear-gradient(135deg,#D4622B,#c25a25);color:#fff;border:none"><Sparkles class="w-3 h-3" /><span class="hidden sm:inline">KI-Entwurf</span></button>
+                                        <button @click.stop="markHandled(f.from_name, f.property_id)" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium bg-white text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-all duration-200 active:scale-[0.97]" style="height:26px"><CheckCircle class="w-3 h-3" /></button>
+                                        <div class="relative">
+                                            <button @click.stop="snoozeOpenId = snoozeOpenId === f.id ? null : f.id" class="inline-flex items-center justify-center rounded-lg hover:bg-zinc-100 transition-all duration-200 bg-white border border-zinc-200" style="height:26px;width:26px"><BellOff class="w-3 h-3" /></button>
+                                            <div v-if="snoozeOpenId === f.id" class="absolute right-0 top-full mt-1 z-50 bg-white border border-zinc-200/80 rounded-lg shadow-lg py-1 min-w-[100px]">
+                                                <button v-for="opt in snoozeOptions" :key="opt.days" @click="snoozeFollowup(f, opt.days)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent)]">{{ opt.label }}</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -2992,21 +3064,26 @@ function formatKanbanDate(s) {
                     <div v-if="collapsedGroups.info" class="px-4 py-2 text-[10px] text-zinc-500">{{ infoFollowups.length }} Einträge eingeklappt</div>
                     <div v-else class="divide-y divide-[var(--border)]">
                         <template v-for="f in infoFollowups" :key="f.id">
-                            <div @click="toggleFollowupDetail(f)" class="px-4 py-4 sm:py-2.5 flex items-center gap-3 hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors group cursor-pointer">
-                                <div class="flex items-center gap-2 flex-1 min-w-0">
-                                    <span class="text-sm font-medium truncate flex-1 min-w-0">{{ f.from_name }}</span>
-                                    <span class="badge badge-muted text-[10px] flex-shrink-0">{{ f.ref_id }}</span>
-                                    <span v-if="f.contact_phone" class="text-[10px] text-zinc-500 flex-shrink-0 hidden sm:flex items-center gap-0.5"><Phone class="w-2.5 h-2.5" />{{ f.contact_phone }}</span>
-                                    <span class="text-[10px] font-medium flex-shrink-0 tabular-nums" :class="f.days_waiting >= 14 ? 'text-red-500' : f.days_waiting >= 7 ? 'text-amber-500' : 'text-blue-500'">{{ f.days_waiting }}d</span>
+                            <div @click="toggleFollowupDetail(f)" class="px-4 py-3 hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors group cursor-pointer">
+                                <!-- Top row: name + days -->
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <span class="text-sm font-semibold truncate flex-1 min-w-0">{{ f.from_name }}</span>
+                                    <span class="text-xs font-bold tabular-nums px-1.5 py-0.5 rounded-lg flex-shrink-0" :class="f.days_waiting >= 14 ? 'bg-red-50 text-red-600' : f.days_waiting >= 7 ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'">{{ f.days_waiting }}d</span>
+                                    <ChevronDown class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform" :class="expandedFollowup === f.id ? 'rotate-180' : ''" />
                                 </div>
-                                <ChevronDown class="w-5 h-5 text-zinc-500 flex-shrink-0 sm:hidden transition-transform" :class="expandedFollowup === f.id ? 'rotate-180' : ''" />
-                                <div class="hidden sm:flex gap-1 flex-shrink-0 transition-opacity" :class="bulkMode ? 'sm:opacity-100' : 'sm:opacity-0 sm:group-hover:sm:opacity-100'" @click.stop>
-                                    <button @click.stop="toggleFollowupDetail(f)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg hover:brightness-110 hover:shadow-md transition-all duration-200 active:scale-[0.97]" style="height:26px;font-size:11px;background:linear-gradient(135deg,#D4622B,#c25a25);color:#fff;border:none" :title="expandedFollowup === f.id ? 'Zuklappen' : 'Details + KI-Vorschlag'"><Sparkles class="w-3 h-3" /> KI-Entwurf</button>
-                                    <button @click="markHandled(f.from_name, f.property_id)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-white text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-sm transition-all duration-200 active:scale-[0.97]" style="height:26px;font-size:11px"><CheckCircle class="w-3 h-3" /></button>
-                                    <div class="relative">
-                                        <button @click="snoozeOpenId = snoozeOpenId === f.id ? null : f.id" class="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-zinc-100 transition-all duration-200" style="height:26px"><BellOff class="w-3 h-3" /></button>
-                                        <div v-if="snoozeOpenId === f.id" class="absolute right-0 top-full mt-1 z-50 bg-white border border-zinc-200/80 rounded-lg shadow-lg py-1 min-w-[100px]">
-                                            <button v-for="opt in snoozeOptions" :key="opt.days" @click="snoozeFollowup(f, opt.days)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent)]">{{ opt.label }}</button>
+                                <!-- Bottom row: meta + actions -->
+                                <div class="flex items-center gap-1.5 mt-1.5 flex-wrap" @click.stop>
+                                    <span class="badge badge-muted text-[10px]">{{ f.ref_id }}</span>
+                                    <span v-if="f.contact_phone" class="text-[10px] flex items-center gap-0.5" style="color:#71717a"><Phone class="w-2.5 h-2.5" />{{ f.contact_phone }}</span>
+                                    <span v-if="isAssistenz && f.broker_name" class="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0" style="background:rgba(238,118,6,0.08);color:#D4622B">{{ f.broker_name }}</span>
+                                    <div class="flex gap-1 ml-auto" :class="bulkMode ? '' : ''">
+                                        <button @click.stop="toggleFollowupDetail(f)" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-lg transition-all duration-200 active:scale-[0.97]" style="height:26px;background:linear-gradient(135deg,#D4622B,#c25a25);color:#fff;border:none"><Sparkles class="w-3 h-3" /><span class="hidden sm:inline">KI-Entwurf</span></button>
+                                        <button @click.stop="markHandled(f.from_name, f.property_id)" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium bg-white text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-all duration-200 active:scale-[0.97]" style="height:26px"><CheckCircle class="w-3 h-3" /></button>
+                                        <div class="relative">
+                                            <button @click.stop="snoozeOpenId = snoozeOpenId === f.id ? null : f.id" class="inline-flex items-center justify-center rounded-lg hover:bg-zinc-100 transition-all duration-200 bg-white border border-zinc-200" style="height:26px;width:26px"><BellOff class="w-3 h-3" /></button>
+                                            <div v-if="snoozeOpenId === f.id" class="absolute right-0 top-full mt-1 z-50 bg-white border border-zinc-200/80 rounded-lg shadow-lg py-1 min-w-[100px]">
+                                                <button v-for="opt in snoozeOptions" :key="opt.days" @click="snoozeFollowup(f, opt.days)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent)]">{{ opt.label }}</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

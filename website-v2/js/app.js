@@ -98,7 +98,7 @@ function initNavScroll() {
   const isHome = document.body.dataset.page === 'home';
   function update() {
     const scrolled = window.scrollY > 60;
-    if (scrolled) {
+    if (scrolled || !isHome) {
       nav.style.background = 'rgba(250,248,245,0.7)';
       nav.style.backdropFilter = 'blur(24px) saturate(1.3)';
       nav.style.borderBottom = '1px solid rgba(229,224,216,0.5)';
@@ -108,7 +108,7 @@ function initNavScroll() {
       nav.querySelector('.nav-phone').style.color = '#5A564E';
       const burger = nav.querySelector('.nav-burger');
       if (burger) burger.style.color = '#0A0A08';
-    } else if (isHome) {
+    } else {
       nav.style.background = 'transparent';
       nav.style.backdropFilter = 'none';
       nav.style.borderBottom = '1px solid transparent';
@@ -135,9 +135,24 @@ function initMobileMenu() {
   menu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => menu.classList.add('hidden')));
 }
 
-/* ─── Init ─────────────────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', () => {
+/* ─── Component Loader ─────────────────────────────────────── */
+async function loadComponents() {
+  try {
+    const base = document.querySelector('base')?.href || '';
+    const root = base || (location.pathname.endsWith('/') ? location.href : location.href.replace(/\/[^/]*$/, '/'));
+    const [navHtml, footerHtml] = await Promise.all([
+      fetch(root + 'components/nav.html').then(r => r.text()),
+      fetch(root + 'components/footer.html').then(r => r.text()),
+    ]);
+    const navEl = document.getElementById('nav-placeholder');
+    if (navEl) { navEl.insertAdjacentHTML('afterend', navHtml); navEl.remove(); }
+    const footerEl = document.getElementById('footer-placeholder');
+    if (footerEl) { footerEl.insertAdjacentHTML('beforebegin', footerHtml); footerEl.remove(); }
+  } catch(e) { console.error('Component load failed:', e); }
   initNavScroll();
   initMobileMenu();
   setTimeout(initScrollAnimations, 100);
-});
+}
+
+/* ─── Init ─────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', loadComponents);

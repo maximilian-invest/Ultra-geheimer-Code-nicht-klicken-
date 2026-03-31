@@ -722,6 +722,7 @@ onMounted(() => {
     loadAlerts();
     loadKanban();
     loadAutoReplyLogs();
+    loadBrokerList();
     loadAutoReplySettings();
 });
 
@@ -1290,18 +1291,23 @@ function formatDate(s) {
 
 // Makler filter (Assistenz only)
 const maklerFilter = ref('all');
-const availableMakler = computed(() => {
-    const names = new Set();
-    [...unansweredList.value, ...(followupData.value?.followups || []), ...stage1Followups.value].forEach(i => {
-        if (i.broker_name) names.add(i.broker_name);
-    });
-    return [...names].sort();
-});
+const brokerList = ref([]); // loaded from API
+
+async function loadBrokerList() {
+    if (!isAssistenz.value || brokerList.value.length) return;
+    try {
+        const r = await fetch(API.value + '&action=list_brokers');
+        const d = await r.json();
+        brokerList.value = (d.brokers || []).filter(b => ['admin','makler'].includes(b.user_type));
+    } catch {}
+}
+
+const availableMakler = computed(() => brokerList.value);
 
 // Computed followup groups
 const filteredUnansweredList = computed(() => {
     let list = unansweredCategoryFilter.value === 'all' ? unansweredList.value : unansweredList.value.filter(i => i.category === unansweredCategoryFilter.value);
-    if (maklerFilter.value !== 'all') list = list.filter(i => i.broker_name === maklerFilter.value);
+    if (maklerFilter.value !== 'all') list = list.filter(i => String(i.broker_id) === String(maklerFilter.value));
     return list;
 });
 
@@ -1316,10 +1322,10 @@ const unansweredCategories = computed(() => {
 
 const filteredFollowups = computed(() => {
     const list = followupData.value?.followups || [];
-    return maklerFilter.value === 'all' ? list : list.filter(f => f.broker_name === maklerFilter.value);
+    return maklerFilter.value === 'all' ? list : list.filter(f => String(f.broker_id) === String(maklerFilter.value));
 });
 const filteredStage1Followups = computed(() => {
-    return maklerFilter.value === 'all' ? stage1Followups.value : stage1Followups.value.filter(f => f.broker_name === maklerFilter.value);
+    return maklerFilter.value === 'all' ? stage1Followups.value : stage1Followups.value.filter(f => String(f.broker_id) === String(maklerFilter.value));
 });
 const kaufanbotFollowups = computed(() => filteredFollowups.value.filter((f) => f.category === "kaufanbot"));
 const urgentFollowups = computed(() => filteredFollowups.value.filter((f) => f.category !== "kaufanbot" && f.days_waiting >= 14));
@@ -1888,10 +1894,10 @@ function formatKanbanDate(s) {
                     :style="maklerFilter === 'all' ? 'background:#D4622B;color:#fff;box-shadow:0 2px 8px rgba(212,98,43,0.3)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
                     Alle
                 </button>
-                <button v-for="name in availableMakler" :key="name" @click="maklerFilter = name"
+                <button v-for="b in availableMakler" :key="b.id" @click="maklerFilter = b.id"
                     class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 active:scale-[0.97]"
-                    :style="maklerFilter === name ? 'background:#18181b;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.2)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
-                    {{ name }}
+                    :style="String(maklerFilter) === String(b.id) ? 'background:#18181b;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.2)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
+                    {{ b.name }}
                 </button>
             </div>
             <!-- Inner tabs: Zugeordnete / Nicht zugeordnete -->
@@ -2282,10 +2288,10 @@ function formatKanbanDate(s) {
                     :style="maklerFilter === 'all' ? 'background:#D4622B;color:#fff;box-shadow:0 2px 8px rgba(212,98,43,0.3)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
                     Alle
                 </button>
-                <button v-for="name in availableMakler" :key="name" @click="maklerFilter = name"
+                <button v-for="b in availableMakler" :key="b.id" @click="maklerFilter = b.id"
                     class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 active:scale-[0.97]"
-                    :style="maklerFilter === name ? 'background:#18181b;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.2)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
-                    {{ name }}
+                    :style="String(maklerFilter) === String(b.id) ? 'background:#18181b;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.2)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
+                    {{ b.name }}
                 </button>
             </div>
 

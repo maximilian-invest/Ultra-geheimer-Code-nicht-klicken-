@@ -127,6 +127,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                     ELSE 'info'
                 END as urgency,
                 p.address, p.city, p.ref_id, p.object_type as property_type,
+                p.broker_id,
                 c.phone as contact_phone,
                 c.email as contact_email,
                 u.name as broker_name
@@ -889,6 +890,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 DATEDIFF(NOW(), conv.last_date) as days_waiting,
                 'info' as urgency,
                 p.address, p.city, p.ref_id, p.object_type as property_type,
+                p.broker_id,
                 c.phone as contact_phone,
                 c.email as contact_email,
                 u.name as broker_name,

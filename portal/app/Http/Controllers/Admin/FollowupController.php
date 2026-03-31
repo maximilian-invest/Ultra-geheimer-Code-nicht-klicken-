@@ -66,21 +66,21 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         $brokerFilterParam = $request->query('broker_filter');
         if ($scopeAll && $brokerFilterParam && is_numeric($brokerFilterParam)) {
             $bid = intval($brokerFilterParam);
-            // Filter by broker_id OR by email account (in case broker_id is not set on properties)
-            $brokerFilter = "AND (p.broker_id = {$bid} OR p.id IN (
+            // Filter purely by email account: properties where any email ran through this broker's inbox
+            $brokerFilter = "AND p.id IN (
                 SELECT DISTINCT a2.property_id FROM activities a2
                 JOIN portal_emails pe2 ON pe2.id = a2.source_email_id
                 JOIN email_accounts ea ON ea.id = pe2.account_id
                 WHERE ea.user_id = {$bid}
-            ))";
+            )";
             $accountFilter = "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$bid} OR user_id IS NULL)";
         } else {
-            $brokerFilter = ($brokerId && !$scopeAll) ? "AND (p.broker_id = {$brokerId} OR p.id IN (
+            $brokerFilter = ($brokerId && !$scopeAll) ? "AND p.id IN (
                 SELECT DISTINCT a2.property_id FROM activities a2
                 JOIN portal_emails pe2 ON pe2.id = a2.source_email_id
                 JOIN email_accounts ea ON ea.id = pe2.account_id
                 WHERE ea.user_id = {$brokerId}
-            ))" : "";
+            )" : "";
             $accountFilter = ($brokerId && !$scopeAll) ? "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$brokerId} OR user_id IS NULL)" : "";
         }
 

@@ -2207,11 +2207,12 @@ function formatKanbanDate(s) {
                                 <textarea v-model="expandedAiDraft.body" class="text-xs leading-relaxed rounded-lg p-3 bg-white dark:bg-white w-full resize-y" style="border: 1px solid var(--border); min-height: 200px; font-family: inherit;"></textarea>
                                 <div class="flex items-center gap-2 mt-1">
                                     <button @click.stop="sendUnansweredReply(item)" class="px-4 py-2 text-xs font-medium text-white bg-zinc-900 rounded-xl hover:bg-zinc-800 transition-all duration-200 active:scale-[0.97] btn-sm">Senden</button>
-                                    <span v-if="sendAccounts.length > 1" class="text-[10px] text-zinc-500">via</span>
-                                    <select v-if="sendAccounts.length > 1" v-model="sendAccountId" class="text-[11px] rounded-lg px-2 py-1.5" style="border:1px solid var(--border);max-width:220px">
-                                        <option v-for="acc in sendAccounts" :key="acc.id" :value="acc.id">{{ acc.email_address }}</option>
-                                    </select>
-                                    <span v-else-if="sendAccounts.length === 1" class="text-[10px] text-zinc-400">via {{ sendAccounts[0].email_address }}</span>
+                                    <template v-if="sendAccounts.length">
+                                        <span class="text-[10px] text-zinc-500">via</span>
+                                        <select v-model="sendAccountId" class="text-[11px] rounded-lg px-2 py-1.5" style="border:1px solid var(--border);max-width:220px">
+                                            <option v-for="acc in sendAccounts" :key="acc.id" :value="acc.id">{{ acc.email_address }}</option>
+                                        </select>
+                                    </template>
                                 </div>
                             </div>
                         </div>

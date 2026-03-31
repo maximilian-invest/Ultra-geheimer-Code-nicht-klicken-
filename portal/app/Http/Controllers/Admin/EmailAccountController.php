@@ -23,11 +23,15 @@ class EmailAccountController extends Controller
 
         // Assistenz/Backoffice can fetch accounts for a specific broker
         $forBroker = $request->query('for_broker');
-        if ($forBroker && is_numeric($forBroker) && $isAssistenz) {
-            $accounts = DB::select('SELECT * FROM email_accounts WHERE user_id = ? ORDER BY id', [intval($forBroker)]);
-        } else if ($isAssistenz && !$forBroker) {
-            // Assistenz without for_broker: show all active accounts
-            $accounts = DB::select('SELECT * FROM email_accounts WHERE is_active = 1 ORDER BY id');
+        if ($isAssistenz) {
+            if ($forBroker && is_numeric($forBroker)) {
+                // Try to find accounts for the specific broker
+                $accounts = DB::select('SELECT * FROM email_accounts WHERE user_id = ? AND is_active = 1 ORDER BY id', [intval($forBroker)]);
+            }
+            // Fallback: show all active accounts (if for_broker not set, or user_id not populated)
+            if (empty($accounts)) {
+                $accounts = DB::select('SELECT * FROM email_accounts WHERE is_active = 1 ORDER BY id');
+            }
         } else if ($brokerId) {
             $accounts = DB::select('SELECT * FROM email_accounts WHERE user_id = ? ORDER BY id', [$brokerId]);
         } else {

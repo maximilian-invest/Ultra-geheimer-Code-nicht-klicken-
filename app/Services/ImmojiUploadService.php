@@ -1,0 +1,708 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class ImmojiUploadService
+{
+    private const API_URL = 'https://api.immoji.org/graphql';
+
+    private string $token;
+
+    public function __construct(string $token)
+    {
+        $this->token = $token;
+    }
+
+    /**
+     * Sign in to Immoji and return an access token.
+     */
+    public static function signIn(string $email, string $password): string
+    {
+        $query = 'mutation { signIn(loginUserInput: {email: "' . addslashes($email) . '", password: "' . addslashes($password) . '"}) { accessToken } }';
+
+        $response = Http::withHeaders([
+            'Content-Type' => 'application/json',
+        ])->timeout(30)->post(self::API_URL, ['query' => $query]);
+
+        if ($response->failed()) {
+            throw new \RuntimeException('Immoji signIn HTTP ' . $response->status());
+        }
+
+        $data = $response->json();
+
+        if (isset($data['errors'])) {
+            throw new \RuntimeException($data['errors'][0]['message'] ?? 'SignIn fehlgeschlagen');
+        }
+
+        $token = $data['data']['signIn']['accessToken'] ?? null;
+        if (!$token) {
+            throw new \RuntimeException('Kein accessToken in Immoji Antwort');
+        }
+
+        return $token;
+    }
+
+    /**
+     * Test the connection by querying the total realty count.
+     */
+    public function testConnection(): int
+    {
+        $result = $this->query('{ realties(page: 1) { totalCount } }');
+
+        if (isset($result['errors'])) {
+            throw new \RuntimeException($result['errors'][0]['message'] ?? 'Unknown error');
+        }
+
+        return $result['data']['realties']['totalCount'] ?? 0;
+    }
+
+    /**
+     * Main method: create or update a property in Immoji.
+     * If property has openimmo_id (= Immoji UUID), update; else create.
+     */
+    public function pushProperty(array $property): array
+    {
+        $immojiId = $property['openimmo_id'] ?? null;
+
+        if ($immojiId) {
+            $this->updateRealty($immojiId, $property);
+            return ['action' => 'updated', 'immoji_id' => $immojiId];
+        }
+
+        $immojiId = $this->createRealty($property);
+        return ['action' => 'created', 'immoji_id' => $immojiId];
+    }
+
+    /**
+     * Create a new realty in Immoji and return the Immoji UUID.
+     */
+    public function createRealty(array $property): string
+    {
+        $general = self::mapPropertyToImmojiGeneral($property);
+
+        $query = 'mutation($input: CreateRealtyGeneralInput!) { createRealty(createRealtyGeneralInput: $input) { id } }';
+
+        $variables = [
+            'input' => [
+                'object' => $general['object'] ?? ['title' => $property['title'] ?? 'Untitled'],
+                'address' => $general['address'] ?? [],
+                'general' => $general['general'] ?? [],
+            ],
+        ];
+
+        $result = $this->query($query, $variables);
+
+        $immojiId = $result['data']['createRealty']['id'] ?? null;
+
+        if (!$immojiId) {
+            throw new \RuntimeException('Immoji createRealty returned no ID. Response: ' . json_encode($result));
+        }
+
+        // Now do a full update with all fields
+        $this->updateRealty($immojiId, $property);
+
+        return $immojiId;
+    }
+
+    /**
+     * Update an existing realty in Immoji with all mapped data.
+     */
+    public function updateRealty(string $immojiId, array $property): void
+    {
+        $generalInput = self::mapPropertyToImmojiGeneral($property);
+        $costsInput = self::mapPropertyToImmojiCosts($property);
+        $areasInput = self::mapPropertyToImmojiAreas($property);
+        $descriptionsInput = self::mapPropertyToImmojiDescriptions($property);
+
+        $query = 'mutation($input: UpdateRealtyInput!) { updateRealty(updateRealtyInput: $input) { id } }';
+
+        $filesInput = $this->uploadAndMapImages($property);
+
+        $variables = [
+            'input' => array_filter([
+                'id' => $immojiId,
+                'generalInput' => $generalInput,
+                'costsInput' => $costsInput,
+                'areasInput' => $areasInput,
+                'descriptionsInput' => $descriptionsInput,
+                'filesInput' => $filesInput,
+            ], fn($v) => $v !== null),
+        ];
+
+        $result = $this->query($query, $variables);
+
+        if (isset($result['errors'])) {
+            throw new \RuntimeException('Immoji updateRealty failed: ' . json_encode($result['errors']));
+        }
+    }
+
+    /**
+     * Map SR-Homes property to Immoji generalInput structure.
+     */
+    public static function mapPropertyToImmojiGeneral(array $prop): array
+    {
+        $marketingType = match (strtolower($prop['marketing_type'] ?? '')) {
+            'kauf' => 'PURCHASE',
+            'miete' => 'RENT',
+            default => null,
+        };
+
+        $realtyStatus = match (strtolower($prop['status'] ?? '')) {
+            'auftrag', 'inserat', 'anfragen', 'besichtigungen' => 'ACTIVE',
+            'verkauft' => 'SOLD',
+            'inaktiv' => 'INACTIVE',
+            default => null,
+        };
+
+        $furnishing = match (strtolower($prop['furnishing'] ?? '')) {
+            'voll', 'vollmöbliert', 'full' => 'FULL',
+            'teil', 'teilmöbliert', 'partial' => 'PARTIAL',
+            'keine', 'unmöbliert', 'none', '' => null,
+            default => null,
+        };
+
+        // Energy certificate
+        $energyCertificate = [];
+        if (!empty($prop['heating_demand_value'])) {
+            $energyCertificate['heatingDemand'] = [
+                'value' => (string) $prop['heating_demand_value'],
+                'class' => $prop['heating_demand_class'] ?? null,
+            ];
+        }
+        if (!empty($prop['energy_efficiency_value'])) {
+            $fgee = str_replace('.', ',', (string) $prop['energy_efficiency_value']);
+            $energyCertificate['energyEfficiencyFactor'] = [
+                'value' => $fgee,
+                'class' => null,
+            ];
+        }
+
+        return [
+            'object' => array_filter([
+                'realtyStatus' => $realtyStatus,
+                'usageType' => 'PRIVATE',
+                'marketingType' => $marketingType,
+                'title' => $prop['title'] ?? null,
+                'realtyManagerId' => self::mapBrokerToImmojiUser($prop['broker_id'] ?? null),
+            ], fn($v) => $v !== null),
+            'general' => array_filter([
+                'objectType' => self::mapObjectType($prop['object_type'] ?? ''),
+                'objectSubtype' => self::mapObjectSubtype($prop['object_subtype'] ?? null),
+                'objectNumber' => $prop['ref_id'] ?? null,
+                'constructionType' => $prop['construction_type'] ?? null,
+                'realtyCondition' => self::mapCondition($prop['realty_condition'] ?? null),
+                'constructionYear' => isset($prop['construction_year']) ? (int) $prop['construction_year'] : null,
+                'furnishing' => $furnishing,
+                'roomsAmount' => isset($prop['rooms_amount']) ? (float) $prop['rooms_amount'] : null,
+                'freeFrom' => $prop['available_from'] ?? $prop['available_text'] ?? null,
+            ], fn($v) => $v !== null),
+            'address' => array_filter([
+                'country' => 'AT',
+                'street' => $prop['address'] ?? null,
+                'postalCode' => $prop['zip'] ?? null,
+                'city' => $prop['city'] ?? null,
+                'latitude' => isset($prop['latitude']) ? (float) $prop['latitude'] : null,
+                'longitude' => isset($prop['longitude']) ? (float) $prop['longitude'] : null,
+            ], fn($v) => $v !== null),
+            'energyCertificate' => !empty($energyCertificate) ? $energyCertificate : null,
+        ];
+    }
+
+    /**
+     * Map SR-Homes property to Immoji costsInput structure.
+     */
+    public static function mapPropertyToImmojiCosts(array $prop): array
+    {
+        $costs = [
+            'purchasePrice' => ['netAmount' => isset($prop['purchase_price']) ? (float) $prop['purchase_price'] : null, 'vat' => null],
+            'rentalPrice' => ['netAmount' => isset($prop['rental_price']) ? (float) $prop['rental_price'] : null, 'vat' => null],
+            'operatingCosts' => ['netAmount' => isset($prop['operating_costs']) ? (float) $prop['operating_costs'] : null, 'vat' => null],
+            'heatingCosts' => ['netAmount' => null, 'vat' => null],
+            'warmWaterCosts' => ['netAmount' => null, 'vat' => null],
+            'coolingCosts' => ['netAmount' => null, 'vat' => null],
+            'maintenanceReserves' => ['netAmount' => isset($prop['maintenance_reserves']) ? (float) $prop['maintenance_reserves'] : null, 'vat' => null],
+            'administrativeCosts' => ['netAmount' => null, 'vat' => null],
+            'elevatorCosts' => ['netAmount' => null, 'vat' => null],
+            'parkingCosts' => ['netAmount' => null, 'vat' => null],
+            'otherCosts' => ['netAmount' => null, 'vat' => null],
+        ];
+
+        $customerCommission = null;
+        if (!empty($prop['buyer_commission_percent'])) {
+            $customerCommission = [
+                'amount' => (float) $prop['buyer_commission_percent'],
+                'unit' => 'PERCENT_OF_PURCHASE_PRICE',
+                'vat' => null,
+            ];
+        }
+
+        $sellerCommission = null;
+        if (!empty($prop['commission_percent'])) {
+            $sellerCommission = [
+                'amount' => (float) $prop['commission_percent'],
+                'unit' => 'PERCENT_OF_PURCHASE_PRICE',
+                'vat' => null,
+            ];
+        }
+
+        $provision = array_filter([
+            'commissionPaidBySeller' => false,
+            'customerCommission' => $customerCommission,
+            'sellerCommission' => $sellerCommission,
+        ], fn($v) => $v !== null);
+
+        return [
+            'costs' => $costs,
+            'provision' => $provision,
+        ];
+    }
+
+    /**
+     * Map SR-Homes property to Immoji areasInput structure.
+     */
+    public static function mapPropertyToImmojiAreas(array $prop): array
+    {
+        $generalAreas = array_filter([
+            'totalArea' => isset($prop['total_area']) ? (float) $prop['total_area'] : null,
+            'livingArea' => isset($prop['living_area']) ? (float) $prop['living_area'] : null,
+            'realtyArea' => isset($prop['realty_area']) ? (float) $prop['realty_area'] : null,
+            'freeArea' => isset($prop['free_area']) ? (float) $prop['free_area'] : null,
+            'officeSpace' => isset($prop['office_space']) ? (float) $prop['office_space'] : null,
+        ], fn($v) => $v !== null);
+
+        // Room areas
+        $roomAreas = [];
+        if (!empty($prop['bedrooms'])) {
+            $roomAreas['bedroom'] = ['amount' => (int) $prop['bedrooms'], 'area' => null];
+        }
+        if (!empty($prop['bathrooms'])) {
+            $roomAreas['bathroom'] = ['amount' => (int) $prop['bathrooms'], 'area' => null];
+        }
+        if (!empty($prop['toilets'])) {
+            $roomAreas['toilet'] = ['amount' => (int) $prop['toilets'], 'area' => null];
+        }
+
+        // Other areas
+        $otherAreas = [];
+
+        // Garden
+        $gardenAmount = !empty($prop['area_garden']) ? 1 : (!empty($prop['has_garden']) ? 1 : null);
+        if ($gardenAmount || !empty($prop['area_garden'])) {
+            $otherAreas['garden'] = [
+                'amount' => $gardenAmount ?? 1,
+                'area' => isset($prop['area_garden']) ? (float) $prop['area_garden'] : null,
+            ];
+        }
+
+        // Balcony
+        $balconyAmount = !empty($prop['area_balcony']) ? 1 : (!empty($prop['has_balcony']) ? 1 : null);
+        if ($balconyAmount || !empty($prop['area_balcony'])) {
+            $otherAreas['balcony'] = [
+                'amount' => $balconyAmount ?? 1,
+                'area' => isset($prop['area_balcony']) ? (float) $prop['area_balcony'] : null,
+            ];
+        }
+
+        // Terrace
+        $terraceAmount = !empty($prop['area_terrace']) ? 1 : (!empty($prop['has_terrace']) ? 1 : null);
+        if ($terraceAmount || !empty($prop['area_terrace'])) {
+            $otherAreas['terrace'] = [
+                'amount' => $terraceAmount ?? 1,
+                'area' => isset($prop['area_terrace']) ? (float) $prop['area_terrace'] : null,
+            ];
+        }
+
+        // Loggia
+        $loggiaAmount = !empty($prop['area_loggia']) ? 1 : (!empty($prop['has_loggia']) ? 1 : null);
+        if ($loggiaAmount || !empty($prop['area_loggia'])) {
+            $otherAreas['loggia'] = [
+                'amount' => $loggiaAmount ?? 1,
+                'area' => isset($prop['area_loggia']) ? (float) $prop['area_loggia'] : null,
+            ];
+        }
+
+        // Basement
+        $basementAmount = !empty($prop['area_basement']) ? 1 : (!empty($prop['has_basement']) ? 1 : null);
+        if ($basementAmount || !empty($prop['area_basement'])) {
+            $otherAreas['basement'] = [
+                'amount' => $basementAmount ?? 1,
+                'area' => isset($prop['area_basement']) ? (float) $prop['area_basement'] : null,
+            ];
+        }
+
+        // Pool
+        if (!empty($prop['has_pool'])) {
+            $otherAreas['pool'] = ['amount' => 1, 'area' => null];
+        }
+
+        // Sauna
+        if (!empty($prop['has_sauna'])) {
+            $otherAreas['sauna'] = ['amount' => 1, 'area' => null];
+        }
+
+        // Parking spaces
+        $parkingSpaces = [];
+        if (!empty($prop['parking_spaces'])) {
+            $parkingSpaces[] = [
+                'type' => 'CAR_PARKING_SPACE',
+                'amount' => (int) $prop['parking_spaces'],
+            ];
+        }
+        if (!empty($prop['garage_spaces'])) {
+            $parkingSpaces[] = [
+                'type' => 'GARAGE',
+                'amount' => (int) $prop['garage_spaces'],
+            ];
+        }
+
+        return [
+            'generalAreas' => $generalAreas ?: null,
+            'roomAreas' => $roomAreas ?: null,
+            'otherAreas' => $otherAreas ?: null,
+            'parkingSpaces' => $parkingSpaces ?: [],
+        ];
+    }
+
+    /**
+     * Map SR-Homes property to Immoji descriptionsInput structure.
+     */
+    public static function mapPropertyToImmojiDescriptions(array $prop): array
+    {
+        return array_filter([
+            'realtyDescription' => $prop['realty_description'] ?? null,
+            'locationDescription' => $prop['location_description'] ?? null,
+            'equipmentDescription' => $prop['equipment_description'] ?? null,
+            'otherDescription' => $prop['other_description'] ?? null,
+        ], fn($v) => $v !== null);
+    }
+
+    /**
+     * Map SR-Homes type to Immoji objectType ENUM.
+     */
+    public static function mapObjectType(string $srType): string
+    {
+        return match (strtolower(trim($srType))) {
+            'eigentumswohnung', 'wohnung', 'apartment' => 'APARTMENT',
+            'einfamilienhaus', 'haus', 'house', 'reihenhaus', 'doppelhaus', 'mehrfamilienhaus', 'bungalow', 'villa' => 'HOUSE',
+            'grundstueck', 'grundstück', 'land' => 'LAND',
+            'gewerbe', 'commercial', 'geschäft', 'geschaeft' => 'COMMERCIAL',
+            'büro', 'buero', 'office' => 'OFFICE',
+            'garage', 'stellplatz', 'parking' => 'GARAGE',
+            default => 'APARTMENT',
+        };
+    }
+
+    /**
+     * Map SR-Homes sub_type to Immoji objectSubtype.
+     */
+    public static function mapObjectSubtype(?string $srSubType): ?string
+    {
+        if (empty($srSubType)) {
+            return null;
+        }
+
+        return match (strtolower(trim($srSubType))) {
+            'etagenwohnung', 'floor_apartment' => 'FLOOR_APARTMENT',
+            'penthouse' => 'PENTHOUSE',
+            'maisonette' => 'MAISONETTE',
+            'dachgeschoss', 'dachgeschosswohnung', 'attic' => 'ATTIC_APARTMENT',
+            'gartenwohnung', 'garden_apartment' => 'GARDEN_APARTMENT',
+            'erdgeschoss', 'erdgeschosswohnung', 'ground_floor' => 'GROUND_FLOOR_APARTMENT',
+            'doppelhaushälfte', 'doppelhaushaelfte', 'semi_detached' => 'SEMI_DETACHED_HOUSE',
+            'einfamilienhaus', 'detached', 'freistehend' => 'DETACHED_HOUSE',
+            'reihenhaus', 'terraced', 'row_house' => 'TERRACED_HOUSE',
+            'bungalow' => 'BUNGALOW',
+            'villa' => 'VILLA',
+            'mehrfamilienhaus', 'multi_family' => 'MULTI_FAMILY_HOUSE',
+            'bauernhaus', 'farmhouse' => 'FARMHOUSE',
+            default => null,
+        };
+    }
+
+    /**
+     * Map SR-Homes object_condition to Immoji realtyCondition ENUM.
+     */
+    public static function mapCondition(?string $condition): ?string
+    {
+        if (empty($condition)) {
+            return null;
+        }
+
+        return match (strtolower(trim($condition))) {
+            'erstbezug', 'first_occupancy', 'neubau' => 'FIRST_OCCUPANCY',
+            'modernisiert', 'modernized' => 'MODERNIZED',
+            'saniert', 'refurbished', 'renoviert' => 'FULLY_RENOVATED',
+            'teilsaniert', 'partially_renovated' => 'PARTIALLY_RENOVATED',
+            'sanierungsbedürftig', 'sanierungsbedurftig', 'need_of_renovation', 'renovierungsbedürftig', 'abbruchreif' => 'DILAPIDATED',
+            'gepflegt', 'well_maintained', 'gut' => 'MAINTAINED',
+            'neuwertig', 'as_new', 'mint_condition' => 'AS_NEW',
+            default => null,
+        };
+    }
+
+    /**
+     * Map SR-Homes broker_id to Immoji user UUID.
+     */
+    public static function mapBrokerToImmojiUser($brokerId): ?string
+    {
+        if (!$brokerId) return null;
+
+        // SR-Homes user_id => Immoji user UUID
+        $map = [
+            1  => 'be606262-830c-4580-bd97-03f9da45b960', // Maximilian Hölzl (hoelzl@sr-homes.at)
+            16 => '2e583e32-80a1-4e9a-aed8-3a017a5450bb', // Susanne Renzl (renzl@sr-homes.at)
+        ];
+
+        return $map[(int) $brokerId] ?? null;
+    }
+
+    /**
+     * Upload property images to Immoji and return filesInput structure.
+     * 1. Upload each image file to POST /upload/realty/type/media
+     * 2. Get back tmp/UUID.ext source references
+     * 3. Return filesInput with images array + optional coverImage
+     */
+    public function uploadAndMapImages(array $prop): ?array
+    {
+        $propertyId = $prop['id'] ?? null;
+        if (!$propertyId) return null;
+
+        $images = \Illuminate\Support\Facades\DB::table('property_images')
+            ->where('property_id', $propertyId)
+            ->orderBy('sort_order')
+            ->get();
+
+        if ($images->isEmpty()) return null;
+
+        $storagePath = storage_path('app/public/');
+        $mediaItems = [];
+        $coverImage = null;
+
+        foreach ($images as $index => $img) {
+            $title = $img->title ?: $img->original_name ?: ('Bild ' . ($index + 1));
+            $order = (float) ($img->sort_order ?? $index);
+
+            // Skip upload if already synced to Immoji — reuse existing source
+            if (!empty($img->immoji_source)) {
+                $source = $img->immoji_source;
+                if ($img->is_title_image) {
+                    $coverImage = ['source' => $source, 'title' => $title, 'order' => 0.0];
+                } else {
+                    $mediaItems[] = ['source' => $source, 'title' => $title, 'order' => $order];
+                }
+                continue;
+            }
+
+            $filePath = $storagePath . $img->path;
+            if (!file_exists($filePath)) {
+                Log::warning("Immoji upload: file not found: {$filePath}");
+                continue;
+            }
+
+            try {
+                $mediaType = $img->is_title_image ? 'cover' : 'media';
+                $source = $this->uploadFile($filePath, $img->mime_type ?? 'image/jpeg', $mediaType);
+
+                // Save immoji_source so we skip this image next time
+                \Illuminate\Support\Facades\DB::table('property_images')
+                    ->where('id', $img->id)
+                    ->update(['immoji_source' => $source]);
+
+                if ($img->is_title_image) {
+                    $coverImage = ['source' => $source, 'title' => $title, 'order' => 0.0];
+                } else {
+                    $mediaItems[] = ['source' => $source, 'title' => $title, 'order' => $order];
+                }
+            } catch (\Exception $e) {
+                Log::warning("Immoji image upload failed for {$img->original_name}: " . $e->getMessage());
+                continue;
+            }
+        }
+
+        if (empty($mediaItems) && !$coverImage) return null;
+
+        $result = [];
+        if (!empty($mediaItems)) {
+            $result['images'] = $mediaItems;
+        }
+        if ($coverImage) {
+            $result['coverImage'] = $coverImage;
+        }
+        return $result;
+    }
+
+    /**
+     * Upload a single file to Immoji's REST upload endpoint.
+     * Returns the temporary source path (e.g. "tmp/UUID.ext").
+     */
+    private function uploadFile(string $filePath, string $mimeType, string $type = 'media'): string
+    {
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->token,
+        ])->timeout(120)->attach(
+            'file',
+            file_get_contents($filePath),
+            basename($filePath),
+            ['Content-Type' => $mimeType]
+        )->post("https://api.immoji.org/upload/realty/type/{$type}");
+
+        if ($response->failed()) {
+            throw new \RuntimeException('Immoji file upload failed: HTTP ' . $response->status());
+        }
+
+        $data = $response->json();
+        $source = $data['file'] ?? null;
+
+        if (!$source) {
+            throw new \RuntimeException('Immoji file upload returned no source: ' . json_encode($data));
+        }
+
+        return $source;
+    }
+
+    /**
+     * Execute a GraphQL query against the Immoji API.
+     */
+    private function query(string $query, array $variables = []): array
+    {
+        $payload = ['query' => $query];
+        if (!empty($variables)) {
+            $payload['variables'] = $variables;
+        }
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->token,
+            'Content-Type' => 'application/json',
+        ])->timeout(120)->post(self::API_URL, $payload);
+
+        if ($response->failed()) {
+            Log::error('Immoji GraphQL request failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new \RuntimeException('Immoji API request failed with status ' . $response->status() . ': ' . $response->body());
+        }
+
+        $data = $response->json();
+
+        if (isset($data['errors'])) {
+            Log::warning('Immoji GraphQL returned errors', ['errors' => $data['errors']]);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Get portal export status for a realty from Immoji.
+     */
+    public function getPortalExportStatus(string $immojiId): array
+    {
+        $query = <<<GQL
+        {
+            realty(id: "$immojiId") {
+                id
+                portalData {
+                    willhabenExportEnabled immoweltExportEnabled immoscoutExportEnabled
+                    dibeoExportEnabled kurierExportEnabled immoSNExportEnabled
+                    allesKralleExportEnabled homepageExportEnabled
+                    willhabenLastExport immoweltLastExport immoscoutLastExport
+                    dibeoLastExport kurierLastExport immoSNLastExport
+                }
+            }
+        }
+        GQL;
+
+        // Use inline query (no variables needed for simple ID)
+        $result = $this->query($query);
+
+        if (isset($result["errors"])) {
+            throw new \RuntimeException("Immoji getPortalExportStatus failed: " . json_encode($result["errors"]));
+        }
+
+        $portalData = $result["data"]["realty"]["portalData"] ?? null;
+        if (empty($portalData)) {
+            return [
+                'willhabenExportEnabled' => null,
+                'immoweltExportEnabled' => null,
+                'immoscoutExportEnabled' => null,
+                'dibeoExportEnabled' => null,
+                'kurierExportEnabled' => null,
+                'immoSNExportEnabled' => null,
+                'allesKralleExportEnabled' => null,
+                'homepageExportEnabled' => null,
+                'willhabenLastExport' => null,
+                'immoweltLastExport' => null,
+                'immoscoutLastExport' => null,
+                'dibeoLastExport' => null,
+                'kurierLastExport' => null,
+                'immoSNLastExport' => null,
+            ];
+        }
+        return $portalData;
+    }
+
+    /**
+     * Set portal export flags for a realty.
+     * $portals is an associative array like ["willhabenExportEnabled" => true, "immoweltExportEnabled" => false]
+     */
+    public function setPortalExports(string $immojiId, array $portals): void
+    {
+        $query = "mutation(\$input: UpdateRealtyInput!) { updateRealty(updateRealtyInput: \$input) { id } }";
+
+        $variables = [
+            "input" => [
+                "id" => $immojiId,
+                "portalDataInput" => $portals,
+            ],
+        ];
+
+        $result = $this->query($query, $variables);
+
+        if (isset($result["errors"])) {
+            throw new \RuntimeException("Immoji setPortalExports failed: " . json_encode($result["errors"]));
+        }
+    }
+
+    /**
+     * Portal name mapping: SR-Homes portal names -> Immoji field names
+     */
+    public static function portalFieldMap(): array
+    {
+        return [
+            "willhaben" => "willhabenExportEnabled",
+            "immowelt" => "immoweltExportEnabled",
+            "immoscout24" => "immoscoutExportEnabled",
+            "dibeo" => "dibeoExportEnabled",
+            "kurier" => "kurierExportEnabled",
+            "immoSN" => "immoSNExportEnabled",
+            "allesKralle" => "allesKralleExportEnabled",
+            "homepage" => "homepageExportEnabled",
+        ];
+    }
+
+
+    /**
+     * Get portal capacity overview: limits and active export counts.
+     */
+    public function getPortalCapacity(): array
+    {
+        // Only query limits per portal (usage counts not reliably available via API)
+        $portalEnums = ['WILLHABEN' => 'willhaben', 'IMMOWELT' => 'immowelt', 'IMMOSCOUT' => 'immoscout', 'IMMO_SN' => 'immoSN', 'DIBEO' => 'dibeo', 'KURIER' => 'kurier'];
+        $result = [];
+        foreach ($portalEnums as $enum => $key) {
+            try {
+                $r = $this->query("{ portalData(portal: $enum) { exportLimit } }");
+                $limit = (isset($r['errors'])) ? null : ($r['data']['portalData']['exportLimit'] ?? null);
+            } catch (\Exception $e) {
+                $limit = null;
+            }
+            $result[$key] = ['limit' => $limit];
+        }
+        $result['allesKralle'] = ['limit' => null];
+        return $result;
+    }
+
+}

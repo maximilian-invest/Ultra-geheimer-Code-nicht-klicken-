@@ -1887,18 +1887,12 @@ function formatKanbanDate(s) {
         <!-- ============ UNBEANTWORTETE ============ -->
         <div v-if="activeSubTab === 'unanswered'">
             <!-- Makler Filter (Assistenz only) -->
-            <div class="flex flex-wrap items-center gap-2 mb-3 p-3 rounded-2xl" style="background:rgba(238,118,6,0.04);border:1px solid rgba(238,118,6,0.12)">
-                <span class="text-[10px] font-semibold uppercase tracking-wider flex-shrink-0" style="color:#D4622B">Makler:</span>
-                <button @click="maklerFilter = 'all'"
-                    class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 active:scale-[0.97]"
-                    :style="maklerFilter === 'all' ? 'background:#D4622B;color:#fff;box-shadow:0 2px 8px rgba(212,98,43,0.3)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
-                    Alle
-                </button>
-                <button v-for="b in availableMakler" :key="b.id" @click="maklerFilter = b.id"
-                    class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 active:scale-[0.97]"
-                    :style="String(maklerFilter) === String(b.id) ? 'background:#18181b;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.2)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
-                    {{ b.name }}
-                </button>
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-[11px] font-semibold flex-shrink-0" style="color:#D4622B">Makler:</span>
+                <select v-model="maklerFilter" class="form-select text-xs flex-1" style="height:34px;max-width:200px">
+                    <option value="all">Alle Makler</option>
+                    <option v-for="b in availableMakler" :key="b.id" :value="b.id">{{ b.name }}</option>
+                </select>
             </div>
             <!-- Inner tabs: Zugeordnete / Nicht zugeordnete -->
             <div class="flex gap-1 mb-3">
@@ -2281,18 +2275,12 @@ function formatKanbanDate(s) {
         <div v-if="activeSubTab === 'followups'">
 
             <!-- Makler Filter (Assistenz only) -->
-            <div class="flex flex-wrap items-center gap-2 mb-3 p-3 rounded-2xl" style="background:rgba(238,118,6,0.04);border:1px solid rgba(238,118,6,0.12)">
-                <span class="text-[10px] font-semibold uppercase tracking-wider flex-shrink-0" style="color:#D4622B">Makler:</span>
-                <button @click="maklerFilter = 'all'"
-                    class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 active:scale-[0.97]"
-                    :style="maklerFilter === 'all' ? 'background:#D4622B;color:#fff;box-shadow:0 2px 8px rgba(212,98,43,0.3)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
-                    Alle
-                </button>
-                <button v-for="b in availableMakler" :key="b.id" @click="maklerFilter = b.id"
-                    class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-150 active:scale-[0.97]"
-                    :style="String(maklerFilter) === String(b.id) ? 'background:#18181b;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.2)' : 'background:white;color:#71717a;border:1px solid rgba(228,228,231,0.8)'">
-                    {{ b.name }}
-                </button>
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-[11px] font-semibold flex-shrink-0" style="color:#D4622B">Makler:</span>
+                <select v-model="maklerFilter" class="form-select text-xs flex-1" style="height:34px;max-width:200px">
+                    <option value="all">Alle Makler</option>
+                    <option v-for="b in availableMakler" :key="b.id" :value="b.id">{{ b.name }}</option>
+                </select>
             </div>
 
             <!-- === STUFE 1: 24h Nachfassen === -->

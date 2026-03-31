@@ -481,6 +481,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
             'total_unmatched'      => $countUnmatched,
             'on_hold'              => $onHoldList,
             'on_hold_unanswered'   => $onHoldUnanswered,
+            '_debug'               => ['user_type' => $userType, 'scope_all' => $scopeAll, 'broker_filter_param' => $brokerFilterParam, 'broker_filter_sql' => $brokerFilter],
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 

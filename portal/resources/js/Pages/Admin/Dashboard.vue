@@ -102,6 +102,7 @@ provide("calendarEmbedUrl", calendarEmbedUrl);
 const bellOpen = ref(false);
 const notifications = ref([]);
 const notifLoading = ref(false);
+const notifLoaded = ref(false);
 
 // Viewing creation form
 const showViewingForm = ref(false);
@@ -111,6 +112,7 @@ const viewingSubmitting = ref(false);
 async function loadNotifications() {
     if (notifLoading.value) return;
     notifLoading.value = true;
+    notifLoaded.value = true;
     try {
         const items = [];
 
@@ -405,7 +407,7 @@ function navBadge(key) {
                     <span class="text-xs text-[var(--muted-foreground)] hidden sm:inline">{{ dateShort }}</span>
                     <!-- Notification Bell -->
                     <div class="relative">
-                        <button @click.stop="bellOpen = !bellOpen; if (bellOpen && !notifications.length) loadNotifications()" class="bell-button btn btn-ghost btn-icon btn-sm relative">
+                        <button @click.stop="bellOpen = !bellOpen; if (bellOpen && !notifLoaded) loadNotifications()" class="bell-button btn btn-ghost btn-icon btn-sm relative">
                             <Bell class="w-4 h-4" />
                             <span v-if="notifCount > 0" class="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style="background:#ef4444;min-width:18px;height:18px;padding:0 4px">{{ notifCount > 9 ? '9+' : notifCount }}</span>
                         </button>

@@ -64,22 +64,28 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         $scopeAll = in_array($userType, ['assistenz', 'backoffice']);
         // Assistenz can pass broker_filter param to filter by specific broker
         $brokerFilterParam = $request->query('broker_filter');
+        $normA3 = StakeholderHelper::normSH('a3.stakeholder');
         if ($scopeAll && $brokerFilterParam && is_numeric($brokerFilterParam)) {
             $bid = intval($brokerFilterParam);
-            // Filter purely by email account: properties where any email ran through this broker's inbox
-            $brokerFilter = "AND p.id IN (
-                SELECT DISTINCT a2.property_id FROM activities a2
-                JOIN portal_emails pe2 ON pe2.id = a2.source_email_id
-                JOIN email_accounts ea ON ea.id = pe2.account_id
-                WHERE ea.user_id = {$bid}
+            // Filter per (stakeholder, property): only show conversations where THIS contact's
+            // emails came through this broker's inbox
+            $brokerFilter = "AND EXISTS (
+                SELECT 1 FROM activities a3
+                JOIN portal_emails pe3 ON pe3.id = a3.source_email_id
+                JOIN email_accounts ea3 ON ea3.id = pe3.account_id
+                WHERE a3.property_id = conv.property_id
+                AND {$normA3} = conv.norm_name
+                AND ea3.user_id = {$bid}
             )";
             $accountFilter = "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$bid} OR user_id IS NULL)";
         } else {
-            $brokerFilter = ($brokerId && !$scopeAll) ? "AND p.id IN (
-                SELECT DISTINCT a2.property_id FROM activities a2
-                JOIN portal_emails pe2 ON pe2.id = a2.source_email_id
-                JOIN email_accounts ea ON ea.id = pe2.account_id
-                WHERE ea.user_id = {$brokerId}
+            $brokerFilter = ($brokerId && !$scopeAll) ? "AND EXISTS (
+                SELECT 1 FROM activities a3
+                JOIN portal_emails pe3 ON pe3.id = a3.source_email_id
+                JOIN email_accounts ea3 ON ea3.id = pe3.account_id
+                WHERE a3.property_id = conv.property_id
+                AND {$normA3} = conv.norm_name
+                AND ea3.user_id = {$brokerId}
             )" : "";
             $accountFilter = ($brokerId && !$scopeAll) ? "AND pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = {$brokerId} OR user_id IS NULL)" : "";
         }

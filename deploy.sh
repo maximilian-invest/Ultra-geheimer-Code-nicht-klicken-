@@ -51,11 +51,22 @@ if [ -d "$DEPLOY_DIR/website-v2" ]; then
   echo "✓ Website v2 synced"
 fi
 
-# 4. Clear Laravel cache
+# 4. Build portal (Vue/JS)
 cd "$PORTAL_DIR"
+if [ -f "package.json" ]; then
+  npm ci --quiet
+  npm run build
+  echo "✓ Portal built"
+fi
+
+# 5. Clear Laravel cache
 php artisan config:clear 2>/dev/null || true
 php artisan cache:clear 2>/dev/null || true
 php artisan view:clear 2>/dev/null || true
 echo "✓ Laravel cache cleared"
+
+# 6. Reload PHP-FPM to clear OPcache
+systemctl reload php8.3-fpm 2>/dev/null || service php8.3-fpm reload 2>/dev/null || true
+echo "✓ PHP-FPM reloaded"
 
 echo "=== Deploy complete ==="

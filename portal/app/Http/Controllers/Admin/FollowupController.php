@@ -60,15 +60,12 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         $currentUser = \Auth::user();
         $brokerId = $currentUser ? $currentUser->id : null;
         $userType = $currentUser->user_type ?? 'makler';
-        // Assistenz/Backoffice sees all data (no broker/account filter)
-        $scopeAll = in_array($userType, ['assistenz', 'backoffice']);
-        // Assistenz can pass broker_filter param to filter by specific broker
+        $scopeAll = in_array($userType, ['assistenz', 'backoffice', 'admin']);
         $brokerFilterParam = $request->query('broker_filter');
         $normA3 = StakeholderHelper::normSH('a3.stakeholder');
-        if ($scopeAll && $brokerFilterParam && is_numeric($brokerFilterParam)) {
+        // broker_filter param overrides everything — any authenticated user can use it
+        if ($brokerFilterParam && is_numeric($brokerFilterParam)) {
             $bid = intval($brokerFilterParam);
-            // Filter per (stakeholder, property): only show conversations where THIS contact's
-            // emails came through this broker's inbox
             $brokerFilter = "AND EXISTS (
                 SELECT 1 FROM activities a3
                 JOIN portal_emails pe3 ON pe3.id = a3.source_email_id

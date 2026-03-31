@@ -743,7 +743,8 @@ async function loadUnanswered(filter) {
     unansweredFilter.value = filter;
     unansweredLoading.value = true;
     try {
-        const r = await fetch(API.value + "&action=followups&mode=unanswered&filter=" + filter);
+        const brokerParam = (maklerFilter.value && maklerFilter.value !== 'all') ? "&broker_filter=" + maklerFilter.value : "";
+        const r = await fetch(API.value + "&action=followups&mode=unanswered&filter=" + filter + brokerParam);
         const d = await r.json();
         unansweredList.value = d.followups || [];
         unmatchedList.value = d.unmatched || [];
@@ -760,7 +761,8 @@ async function loadFollowups(filter) {
     followupFilter.value = filter;
     followupLoading.value = true;
     try {
-        const r = await fetch(API.value + "&action=followups&mode=followup&filter=" + filter);
+        const brokerParam = (maklerFilter.value && maklerFilter.value !== 'all') ? "&broker_filter=" + maklerFilter.value : "";
+        const r = await fetch(API.value + "&action=followups&mode=followup&filter=" + filter + brokerParam);
         followupData.value = await r.json();
         followupCount.value = followupData.value.total_followup || 0;
         onHoldList.value = followupData.value.on_hold || [];
@@ -989,7 +991,8 @@ async function useFollowupDraft(f) {
 async function loadStage1() {
     stage1Loading.value = true;
     try {
-        const r = await fetch(API.value + "&action=followups_stage1");
+        const brokerParam = (maklerFilter.value && maklerFilter.value !== 'all') ? "&broker_filter=" + maklerFilter.value : "";
+        const r = await fetch(API.value + "&action=followups_stage1" + brokerParam);
         const d = await r.json();
         stage1Followups.value = d.followups || [];
         stage1Count.value = d.total_stage1 || stage1Followups.value.length;
@@ -1304,11 +1307,17 @@ async function loadBrokerList() {
 
 const availableMakler = computed(() => brokerList.value);
 
+async function onMaklerFilterChange() {
+    await Promise.all([
+        loadUnanswered(unansweredFilter.value),
+        loadFollowups(followupFilter.value),
+        loadStage1(),
+    ]);
+}
+
 // Computed followup groups
 const filteredUnansweredList = computed(() => {
-    let list = unansweredCategoryFilter.value === 'all' ? unansweredList.value : unansweredList.value.filter(i => i.category === unansweredCategoryFilter.value);
-    if (maklerFilter.value !== 'all') list = list.filter(i => String(i.broker_id) === String(maklerFilter.value));
-    return list;
+    return unansweredCategoryFilter.value === 'all' ? unansweredList.value : unansweredList.value.filter(i => i.category === unansweredCategoryFilter.value);
 });
 
 const unansweredCategories = computed(() => {
@@ -1320,13 +1329,8 @@ const unansweredCategories = computed(() => {
     return cats;
 });
 
-const filteredFollowups = computed(() => {
-    const list = followupData.value?.followups || [];
-    return maklerFilter.value === 'all' ? list : list.filter(f => String(f.broker_id) === String(maklerFilter.value));
-});
-const filteredStage1Followups = computed(() => {
-    return maklerFilter.value === 'all' ? stage1Followups.value : stage1Followups.value.filter(f => String(f.broker_id) === String(maklerFilter.value));
-});
+const filteredFollowups = computed(() => followupData.value?.followups || []);
+const filteredStage1Followups = computed(() => stage1Followups.value);
 const kaufanbotFollowups = computed(() => filteredFollowups.value.filter((f) => f.category === "kaufanbot"));
 const urgentFollowups = computed(() => filteredFollowups.value.filter((f) => f.category !== "kaufanbot" && f.days_waiting >= 14));
 const warningFollowups = computed(() => filteredFollowups.value.filter((f) => f.category !== "kaufanbot" && f.days_waiting >= 7 && f.days_waiting < 14));
@@ -1889,7 +1893,7 @@ function formatKanbanDate(s) {
             <!-- Makler Filter (Assistenz only) -->
             <div class="flex items-center gap-2 mb-3">
                 <span class="text-[11px] font-semibold flex-shrink-0" style="color:#D4622B">Makler:</span>
-                <select v-model="maklerFilter" class="form-select text-xs flex-1" style="height:34px;max-width:200px">
+                <select v-model="maklerFilter" @change="onMaklerFilterChange()" class="form-select text-xs" style="height:34px;max-width:200px">
                     <option value="all">Alle Makler</option>
                     <option v-for="b in availableMakler" :key="b.id" :value="b.id">{{ b.name }}</option>
                 </select>
@@ -2277,7 +2281,7 @@ function formatKanbanDate(s) {
             <!-- Makler Filter (Assistenz only) -->
             <div class="flex items-center gap-2 mb-3">
                 <span class="text-[11px] font-semibold flex-shrink-0" style="color:#D4622B">Makler:</span>
-                <select v-model="maklerFilter" class="form-select text-xs flex-1" style="height:34px;max-width:200px">
+                <select v-model="maklerFilter" @change="onMaklerFilterChange()" class="form-select text-xs" style="height:34px;max-width:200px">
                     <option value="all">Alle Makler</option>
                     <option v-for="b in availableMakler" :key="b.id" :value="b.id">{{ b.name }}</option>
                 </select>

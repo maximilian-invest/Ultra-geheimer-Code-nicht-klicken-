@@ -1898,6 +1898,7 @@ function formatKanbanDate(s) {
                     <option value="all">Alle Makler</option>
                     <option v-for="b in availableMakler" :key="b.id" :value="b.id">{{ b.name }}</option>
                 </select>
+                <span class="text-[10px] font-mono px-2 py-1 rounded" style="background:#f3f4f6;color:#888">DBG: {{ maklerFilter }}</span>
             </div>
             <!-- Inner tabs: Zugeordnete / Nicht zugeordnete -->
             <div class="flex gap-1 mb-3">

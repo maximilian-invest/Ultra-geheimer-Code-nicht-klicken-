@@ -236,6 +236,26 @@ const exposeFiles = ref([]);
 const exposeSelectedFiles = ref([]);
 const exposeUploading = ref(false);
 
+const propertyFiles = ref([]);
+
+async function loadPropertyFiles() {
+  try {
+    const r = await fetch(API.value + "&action=get_property_files&property_id=" + props.property.id);
+    const d = await r.json();
+    propertyFiles.value = d.files || [];
+  } catch(e) { propertyFiles.value = []; }
+}
+
+const kbEntries = ref([]);
+
+async function loadKBEntries() {
+  try {
+    const r = await fetch(API.value + "&action=list_knowledge&property_id=" + props.property.id);
+    const d = await r.json();
+    kbEntries.value = (d.entries || d.knowledge || []).slice(0, 10);
+  } catch(e) { kbEntries.value = []; }
+}
+
 async function loadExposeFiles() {
   try {
     const r = await fetch(API.value + "&action=get_property_files&property_id=" + props.property.id);
@@ -416,6 +436,8 @@ watch(() => props.visible, async (v) => {
     loadPortalAccess();
     loadCustomersList();
     if (props.property.property_category === "newbuild") loadUnitStats();
+    loadPropertyFiles();
+    loadKBEntries();
     loadProjectGroups();
   }
 });
@@ -634,21 +656,21 @@ function unitRowClass(status) {
 <template>
   <!-- ═══ MAIN DIALOG ═══ -->
   <Dialog :open="visible && !!property" @update:open="val => { if (!val) $emit('close') }">
-    <DialogContent class="max-w-[950px] p-0 gap-0 max-h-[92vh] flex flex-col overflow-hidden">
+    <DialogContent class="max-w-[950px] p-0 gap-0 max-h-[100dvh] sm:max-h-[92vh] flex flex-col overflow-hidden" @interactOutside.prevent>
 
       <!-- ─── Header ─── -->
-      <div class="px-6 pt-5 pb-4 flex-shrink-0 border-b border-border">
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex items-start gap-3 min-w-0">
-            <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-muted flex-shrink-0 mt-0.5">
-              <Home class="w-5 h-5 text-muted-foreground" />
+      <div class="px-3 sm:px-6 pt-3 sm:pt-5 pb-3 sm:pb-4 flex-shrink-0 border-b" style="border-color:hsl(240 5.9% 90%)">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
+          <div class="flex items-center gap-3.5 min-w-0">
+            <div class="w-11 h-11 rounded-lg hidden sm:flex items-center justify-center flex-shrink-0" style="background:hsl(33 100% 96%)">
+              <Home class="w-5 h-5" style="color:hsl(21 90% 48%)" />
             </div>
             <div class="min-w-0">
-              <DialogTitle class="text-base font-bold text-foreground tracking-tight truncate">
+              <DialogTitle class="text-lg font-bold tracking-tight truncate" style="color:hsl(240 10% 3.9%);letter-spacing:-0.02em">
                 {{ property?.project_name || property?.address }}
               </DialogTitle>
-              <DialogDescription class="text-sm text-muted-foreground mt-0.5">
-                {{ property?.city }}{{ property?.zip ? ', ' + property.zip : '' }}
+              <DialogDescription class="text-[13px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">
+                {{ property?.city }}{{ property?.zip ? ' ' + property.zip : '' }}
                 <template v-if="property?.property_category">
                   &bull; {{ property.property_category === 'newbuild' ? 'Neubauprojekt' : 'Bestandsobjekt' }}
                 </template>
@@ -656,178 +678,189 @@ function unitRowClass(status) {
                   &bull; {{ property.children.length }} Einheiten
                 </template>
               </DialogDescription>
-              <div class="flex items-center gap-3 mt-1.5 flex-wrap">
-                <span v-if="property?.purchase_price" class="text-base font-bold text-foreground tabular-nums">
-                  {{ Number(property.purchase_price).toLocaleString("de-DE") }} EUR
-                </span>
-                <span v-if="property?.total_area" class="text-sm text-muted-foreground">{{ property.total_area }} m2</span>
-                <span v-if="property?.rooms_amount" class="text-sm text-muted-foreground">{{ property.rooms_amount }} Zi.</span>
-              </div>
             </div>
           </div>
 
-          <div class="flex items-center gap-1.5 flex-shrink-0">
-            <Button variant="outline" size="sm" @click="$emit('openEditor', property?.id)">
-              <Pencil class="w-3.5 h-3.5 mr-1.5" />
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <Badge v-if="!property?.on_hold" class="text-[10px] px-2.5 py-0.5" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)">Aktiv</Badge>
+            <Badge v-else class="text-[10px] px-2.5 py-0.5" style="background:hsl(33 100% 96%);color:hsl(21 90% 48%);border:1px solid hsl(33 100% 90%)">Pausiert</Badge>
+            <Button variant="outline" size="sm" class="h-8 text-xs" @click="$emit('openEditor', property?.id)">
+              <Pencil class="w-3 h-3 mr-1.5" />
               Bearbeiten
             </Button>
-            <Button v-if="!property?.on_hold" variant="outline" size="icon" class="h-8 w-8" @click.stop="$emit('toggleOnHold', property)" title="Pausieren">
-              <Pause class="w-3.5 h-3.5 text-amber-600" />
-            </Button>
-            <Button v-else variant="outline" size="icon" class="h-8 w-8" @click.stop="$emit('toggleOnHold', property)" title="Aktivieren">
-              <Play class="w-3.5 h-3.5 text-emerald-600" />
-            </Button>
-            <Button variant="outline" size="icon" class="h-8 w-8" @click.stop="$emit('deleteProperty', property)" title="Loeschen">
-              <Trash2 class="w-3.5 h-3.5 text-red-500" />
-            </Button>
-            <Button variant="ghost" size="icon" class="h-8 w-8" @click="$emit('close')">
-              <X class="w-4 h-4 text-muted-foreground" />
-            </Button>
+            <button class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-zinc-100 transition-colors" @click="$emit('close')"><X class="w-4 h-4 text-zinc-400" /></button>
           </div>
         </div>
       </div>
 
       <!-- ─── Tabs ─── -->
       <Tabs v-model="activeTab" class="flex-1 min-h-0 flex flex-col">
-        <TabsList class="w-full justify-start rounded-none border-b bg-transparent h-auto px-6 pt-2 pb-0 gap-0">
-          <TabsTrigger value="objekt" class="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-2.5 pt-1.5 text-[13px]">
-            Objekt
-          </TabsTrigger>
-          <TabsTrigger value="aktivitaeten" class="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-2.5 pt-1.5 text-[13px]">
-            Aktivitaeten
-          </TabsTrigger>
-          <TabsTrigger value="kaufanbote" class="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-2.5 pt-1.5 text-[13px]">
-            Kaufanbote
-          </TabsTrigger>
-        </TabsList>
+        <div class="px-3 sm:px-6 pt-3 sm:pt-4 pb-0 flex-shrink-0">
+          <TabsList class="inline-flex h-auto p-0.5 gap-0.5 rounded-lg overflow-x-auto" style="background:hsl(240 4.8% 95.9%)">
+            <TabsTrigger value="objekt" class="rounded-md px-4 py-1.5 text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:font-semibold" style="color:hsl(240 3.8% 46.1%)" >
+              Objekt
+            </TabsTrigger>
+            <TabsTrigger value="aktivitaeten" class="rounded-md px-4 py-1.5 text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:font-semibold" style="color:hsl(240 3.8% 46.1%)">
+              Aktivitaeten
+            </TabsTrigger>
+            <TabsTrigger value="kaufanbote" class="rounded-md px-4 py-1.5 text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:font-semibold" style="color:hsl(240 3.8% 46.1%)">
+              Kaufanbote
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <!-- ════════════════════════════════════════════════ -->
         <!-- TAB: OBJEKT                                     -->
         <!-- ════════════════════════════════════════════════ -->
-        <TabsContent value="objekt" class="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
-          <ScrollArea class="h-full">
-            <div class="px-6 py-5 space-y-4">
+        <TabsContent value="objekt" class="flex-1 min-h-0 mt-0 overflow-y-auto data-[state=inactive]:hidden">
+            <div class="px-3 sm:px-6 py-3 sm:py-4 space-y-1.5">
 
               <!-- KPIs (5 columns) -->
-              <div class="grid grid-cols-5 gap-2.5 mb-4">
-                <div class="p-3 bg-muted rounded-lg">
-                  <div class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Kaufpreis</div>
-                  <div class="text-base font-bold text-foreground tabular-nums">
-                    {{ property?.purchase_price ? Number(property.purchase_price).toLocaleString('de-DE') + ' €' : '–' }}
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 mb-2">
+                <div class="py-3 px-3.5 rounded-lg" style="background:hsl(240 4.8% 95.9%)">
+                  <div class="text-[10px] font-medium uppercase tracking-wider mb-1" style="color:hsl(240 3.8% 46.1%)">Kaufpreis</div>
+                  <div class="text-[14px] sm:text-[17px] font-bold tabular-nums" style="color:hsl(240 10% 3.9%)">
+                    {{ property?.purchase_price ? '€ ' + Number(property.purchase_price).toLocaleString('de-DE') : '–' }}
                   </div>
                 </div>
-                <div class="p-3 bg-muted rounded-lg">
-                  <div class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Rendite</div>
-                  <div class="text-base font-bold text-foreground tabular-nums">
-                    {{ property?.yield_percent ? property.yield_percent + ' %' : '–' }}
-                  </div>
-                </div>
-                <div class="p-3 bg-muted rounded-lg">
-                  <div class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Fläche</div>
-                  <div class="text-base font-bold text-foreground tabular-nums">
+                <div class="py-3 px-3.5 rounded-lg" style="background:hsl(240 4.8% 95.9%)">
+                  <div class="text-[10px] font-medium uppercase tracking-wider mb-1" style="color:hsl(240 3.8% 46.1%)">Flaeche</div>
+                  <div class="text-[14px] sm:text-[17px] font-bold tabular-nums" style="color:hsl(240 10% 3.9%)">
                     {{ property?.total_area ? property.total_area + ' m²' : '–' }}
                   </div>
                 </div>
-                <div class="p-3 bg-muted rounded-lg">
-                  <div class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Einheiten</div>
-                  <div class="text-base font-bold text-foreground tabular-nums">
+                <div class="py-3 px-3.5 rounded-lg" style="background:hsl(240 4.8% 95.9%)">
+                  <div class="text-[10px] font-medium uppercase tracking-wider mb-1" style="color:hsl(240 3.8% 46.1%)">Einheiten</div>
+                  <div class="text-[14px] sm:text-[17px] font-bold tabular-nums" style="color:hsl(240 10% 3.9%)">
                     {{ property?.children?.length || unitStats?.total || '–' }}
                   </div>
                 </div>
-                <div class="p-3 bg-muted rounded-lg">
-                  <div class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Provision</div>
-                  <div class="text-base font-bold text-foreground tabular-nums">
-                    {{ property?.commission_percent ? property.commission_percent + ' %' : '–' }}
+                <div class="py-3 px-3.5 rounded-lg" style="background:hsl(240 4.8% 95.9%)">
+                  <div class="text-[10px] font-medium uppercase tracking-wider mb-1" style="color:hsl(240 3.8% 46.1%)">Provision</div>
+                  <div class="text-[14px] sm:text-[17px] font-bold tabular-nums" style="color:hsl(240 10% 3.9%)">
+                    {{ property?.commission_percent ? property.commission_percent + '%' : '–' }}
                   </div>
                 </div>
               </div>
 
               <!-- ══════ COLLAPSIBLE: Objektdaten ══════ -->
-              <Collapsible v-model:open="openSections.objektdaten" class="border border-border rounded-lg">
-                <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-2.5 hover:bg-muted/50 rounded-lg">
+              <Collapsible v-model:open="openSections.objektdaten" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+                <CollapsibleTrigger class="flex items-center justify-between w-full px-3 sm:px-4 py-2.5 hover:bg-gray-50/50 rounded-lg">
                   <div class="flex items-center gap-2">
-                    <ChevronDown v-if="!openSections.objektdaten" class="w-3 h-3 text-muted-foreground" />
-                    <ChevronUp v-else class="w-3 h-3 text-muted-foreground" />
-                    <Pencil class="w-3.5 h-3.5 text-foreground" />
-                    <span class="text-[13px] font-semibold text-foreground">Objektdaten</span>
+                    <ChevronUp v-if="openSections.objektdaten" class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <ChevronDown v-else class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <Pencil class="w-3.5 h-3.5" style="color:hsl(240 10% 3.9%)" />
+                    <span class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">Objektdaten</span>
+                  </div>
+                  <div class="hidden sm:flex items-center gap-1.5" @click.stop>
+                    <button class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded hover:bg-gray-100" style="color:hsl(263 70% 50%)"
+                      :disabled="exposeLoading && exposeMode === 'fields'"
+                      @click="async () => { if (!exposeLoading) { await loadExposeFiles(); exposeFileSelect = true; exposeMode = 'fields'; } }">
+                      <Sparkles class="w-2.5 h-2.5" />
+                      {{ exposeLoading && exposeMode === 'fields' ? 'analysiert...' : 'KI auslesen' }}
+                    </button>
+                    <button class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded hover:bg-gray-100" style="color:hsl(240 3.8% 46.1%)"
+                      @click="$emit('openEditor', property.id)">
+                      Bearbeiten
+                    </button>
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div class="px-4 pb-3 space-y-3">
-                    <p class="text-xs text-muted-foreground">Alle Felder bearbeiten, Daten verwalten.</p>
-                    <div class="flex items-center gap-2">
-                      <Button size="sm" class="h-8 text-xs" @click="$emit('openEditor', property.id)">
-                        <Pencil class="w-3 h-3 mr-1.5" /> Objekt bearbeiten
-                      </Button>
-                      <Button size="sm" variant="outline" class="h-8 text-xs gap-1.5"
-                        :disabled="exposeLoading && exposeMode === 'fields'"
-                        @click="async () => { if (!exposeLoading) { await loadExposeFiles(); exposeFileSelect = true; exposeMode = 'fields'; } }">
-                        <Sparkles class="w-3 h-3" />
-                        <span v-if="exposeLoading && exposeMode === 'fields'">KI analysiert...</span>
-                        <span v-else>Dateien auslesen</span>
-                      </Button>
+                  <div class="px-3 sm:px-4 pb-3">
+                    <div class="grid gap-x-3.5 gap-y-1 sm:grid-cols-[140px_1fr_140px_1fr_140px_1fr] grid-cols-[100px_1fr]" style="font-size:12px">
+                      <span style="color:hsl(240 3.8% 46.1%);font-size:11px">Baujahr</span>
+                      <span style="color:hsl(240 10% 3.9%)">{{ property?.construction_year || '–' }}</span>
+                      <span style="color:hsl(240 3.8% 46.1%);font-size:11px">Grundstueck</span>
+                      <span style="color:hsl(240 10% 3.9%)">{{ property?.plot_area ? property.plot_area + ' m²' : '–' }}</span>
+                      <span style="color:hsl(240 3.8% 46.1%);font-size:11px">Zustand</span>
+                      <span style="color:hsl(240 10% 3.9%)">{{ property?.condition || '–' }}</span>
+                      <span style="color:hsl(240 3.8% 46.1%);font-size:11px">Heizung</span>
+                      <span style="color:hsl(240 10% 3.9%)">{{ property?.heating_type || '–' }}</span>
+                      <span style="color:hsl(240 3.8% 46.1%);font-size:11px">Aufzug</span>
+                      <span style="color:hsl(240 10% 3.9%)">{{ property?.elevator ? 'Ja' : 'Nein' }}</span>
+                      <span style="color:hsl(240 3.8% 46.1%);font-size:11px">HWB</span>
+                      <span style="color:hsl(240 10% 3.9%)">{{ property?.hwb || '–' }}</span>
+                      <span style="color:hsl(240 3.8% 46.1%);font-size:11px">Keller</span>
+                      <span style="color:hsl(240 10% 3.9%)">{{ property?.basement ? 'Ja' : 'Nein' }}</span>
+                      <span style="color:hsl(240 3.8% 46.1%);font-size:11px">Garage</span>
+                      <span style="color:hsl(240 10% 3.9%)">{{ property?.garage || '–' }}</span>
+                      <span style="color:hsl(240 3.8% 46.1%);font-size:11px">Stockwerke</span>
+                      <span style="color:hsl(240 10% 3.9%)">{{ property?.floors || '–' }}</span>
                     </div>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
 
               <!-- ══════ COLLAPSIBLE: Eigentuemer & Portal ══════ -->
-              <Collapsible v-if="!property?.parent_id" v-model:open="openSections.eigentuemerPortal" class="border border-border rounded-lg">
-                <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-2.5 hover:bg-muted/50 rounded-lg">
+              <Collapsible v-if="!property?.parent_id" v-model:open="openSections.eigentuemerPortal" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+                <CollapsibleTrigger class="flex items-center justify-between w-full px-3 sm:px-4 py-2.5 hover:bg-gray-50/50 rounded-lg">
                   <div class="flex items-center gap-2">
-                    <ChevronDown v-if="!openSections.eigentuemerPortal" class="w-3 h-3 text-muted-foreground" />
-                    <ChevronUp v-else class="w-3 h-3 text-muted-foreground" />
-                    <Key class="w-3.5 h-3.5" style="color:#D4622B" />
-                    <span class="text-[13px] font-semibold text-foreground">Eigentuemer & Portal</span>
+                    <ChevronUp v-if="openSections.eigentuemerPortal" class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <ChevronDown v-else class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <Users class="w-3.5 h-3.5" style="color:hsl(21 90% 48%)" />
+                    <span class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">Eigentuemer & Portal</span>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <Badge v-if="portalUser" class="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px]">Aktiv</Badge>
-                    <Badge v-else-if="!ownerData.customer_id" variant="outline" class="text-amber-600 border-amber-300 text-[10px]">!</Badge>
-                  </div>
+                  <Badge v-if="portalUser" class="text-[10px] px-2 py-0" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)">Zugang aktiv</Badge>
+                  <Badge v-else-if="ownerData.customer_id" class="text-[10px] px-2 py-0" style="background:hsl(33 100% 96%);color:hsl(21 90% 48%);border:1px solid hsl(33 100% 90%)">Kein Zugang</Badge>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div class="px-4 pb-3 space-y-2">
-                    <div class="text-xs text-muted-foreground">
-                      <span v-if="ownerData.owner_name">
-                        {{ ownerData.owner_name }}
-                        <span v-if="portalUser"> — Zugang aktiv</span>
-                        <span v-else> — kein Zugang</span>
-                      </span>
-                      <span v-else>Eigentuemer zuweisen</span>
+                  <div class="px-3 sm:px-4 pb-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <!-- Owner card -->
+                      <div class="p-2.5 rounded-md" style="border:1px solid hsl(240 5.9% 90%)">
+                        <div class="text-xs font-semibold" style="color:hsl(240 10% 3.9%)">{{ ownerData.owner_name || 'Kein Eigentuemer' }}</div>
+                        <div class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">Eigentuemer{{ ownerData.owner_email ? ' · ' + ownerData.owner_email : '' }}</div>
+                        <div v-if="ownerData.owner_phone" class="text-[11px]" style="color:hsl(240 3.8% 46.1%)">{{ ownerData.owner_phone }}</div>
+                      </div>
+                      <!-- Portal card -->
+                      <div class="p-2.5 rounded-md" style="border:1px solid hsl(240 5.9% 90%)">
+                        <div class="text-xs font-semibold" style="color:hsl(240 10% 3.9%)">Portal-Login</div>
+                        <div class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">{{ portalUser ? portalUser.email : 'Nicht eingerichtet' }}</div>
+                        <div class="text-[11px]" style="color:hsl(240 3.8% 46.1%)">{{ portalUser ? 'Aktiv' : '–' }}</div>
+                      </div>
+                      <!-- Manage button card -->
+                      <div class="p-2.5 rounded-md flex items-center justify-center cursor-pointer hover:bg-gray-50" style="border:1px solid hsl(240 5.9% 90%)" @click="portalPopupOpen = true">
+                        <div class="text-center">
+                          <Key class="w-4 h-4 mx-auto mb-1" style="color:hsl(21 90% 48%)" />
+                          <div class="text-[11px] font-medium" style="color:hsl(240 10% 3.9%)">Verwalten</div>
+                        </div>
+                      </div>
                     </div>
-                    <Button size="sm" variant="outline" class="h-8 text-xs" @click="portalPopupOpen = true">
-                      <Key class="w-3 h-3 mr-1.5" style="color:#D4622B" /> Verwalten
-                    </Button>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
 
               <!-- ══════ COLLAPSIBLE: Einheiten (newbuild only) ══════ -->
-              <Collapsible v-if="property?.property_category === 'newbuild' && !property?.parent_id" v-model:open="openSections.einheiten" class="border border-orange-200 rounded-lg">
-                <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-2.5 hover:bg-muted/50 rounded-lg">
+              <Collapsible v-if="property?.property_category === 'newbuild' && !property?.parent_id" v-model:open="openSections.einheiten" class="rounded-lg" style="border:1px solid hsl(33 100% 85%)">
+                <CollapsibleTrigger class="flex items-center justify-between w-full px-3 sm:px-4 py-2.5 hover:bg-gray-50/50 rounded-lg">
                   <div class="flex items-center gap-2">
-                    <ChevronDown v-if="!openSections.einheiten" class="w-3 h-3 text-muted-foreground" />
-                    <ChevronUp v-else class="w-3 h-3 text-muted-foreground" />
-                    <Building2 class="w-3.5 h-3.5 text-orange-600" />
-                    <span class="text-[13px] font-semibold text-foreground">Einheiten</span>
+                    <ChevronUp v-if="openSections.einheiten" class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <ChevronDown v-else class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <Building2 class="w-3.5 h-3.5" style="color:hsl(21 90% 48%)" />
+                    <span class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">Einheiten</span>
+                    <span class="text-[8px] font-medium px-1.5 py-0.5 rounded-full" style="background:hsl(33 100% 96%);color:hsl(21 90% 48%);border:1px solid hsl(33 100% 90%)">Neubau</span>
                   </div>
-                  <Badge v-if="unitStats" class="bg-orange-100 text-orange-700 hover:bg-orange-100 text-[10px]">{{ unitStats.total }}</Badge>
+                  <div class="flex items-center gap-1" v-if="unitStats">
+                    <span class="text-[9px] font-medium px-1.5 py-0 rounded-full" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)">{{ unitStats.frei || 0 }} frei</span>
+                    <span class="text-[9px] font-medium px-1.5 py-0 rounded-full" style="background:hsl(33 100% 96%);color:hsl(21 90% 48%);border:1px solid hsl(33 100% 90%)">{{ unitStats.reserviert || 0 }} res.</span>
+                    <span class="text-[9px] font-medium px-1.5 py-0 rounded-full" style="background:hsl(0 93% 97%);color:hsl(0 72% 51%);border:1px solid hsl(0 93% 90%)">{{ unitStats.verkauft || 0 }} verk.</span>
+                  </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div class="px-4 pb-3 space-y-3">
                     <!-- Filter row -->
                     <div class="flex items-center gap-2">
-                      <select v-model="unitFilter" class="h-8 px-2 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring">
+                      <select v-model="unitFilter" class="h-8 px-2 py-0 text-xs rounded-md bg-white focus:outline-none focus:ring-1" style="border:1px solid hsl(240 5.9% 90%);color:hsl(240 10% 3.9%);min-width:110px;line-height:1.5">
                         <option value="alle">Alle Status</option>
                         <option value="frei">Frei</option>
                         <option value="reserviert">Reserviert</option>
                         <option value="verkauft">Verkauft</option>
                       </select>
                       <div class="relative flex-1">
-                        <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                        <Input v-model="unitSearch" placeholder="Top, Typ suchen..." class="h-8 pl-8 text-xs" />
+                        <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                        <Input v-model="unitSearch" placeholder="Top, Typ suchen..." class="h-8 pl-7 text-[11px]" />
                       </div>
-                      <Button size="sm" class="h-8 text-xs" @click="$emit('openSettings', property.id)">
+                      <Button size="sm" variant="outline" class="h-8 text-[11px]" @click="$emit('openSettings', property.id)">
                         Verwalten
                       </Button>
                     </div>
@@ -836,31 +869,32 @@ function unitRowClass(status) {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead class="text-[11px] h-8">Top</TableHead>
-                            <TableHead class="text-[11px] h-8">Typ</TableHead>
-                            <TableHead class="text-[11px] h-8 text-right">Zimmer</TableHead>
-                            <TableHead class="text-[11px] h-8 text-right">Flaeche</TableHead>
-                            <TableHead class="text-[11px] h-8 text-right">Preis</TableHead>
-                            <TableHead class="text-[11px] h-8 text-right">EUR/m2</TableHead>
-                            <TableHead class="text-[11px] h-8">Status</TableHead>
+                            <TableHead class="text-[11px] h-7">Top</TableHead>
+                            <TableHead class="text-[11px] h-7">Typ</TableHead>
+                            <TableHead class="text-[11px] h-7 text-right">Zimmer</TableHead>
+                            <TableHead class="text-[11px] h-7 text-right">Flaeche</TableHead>
+                            <TableHead class="text-[11px] h-7 text-right">Preis</TableHead>
+                            <TableHead class="text-[11px] h-7 text-right">EUR/m2</TableHead>
+                            <TableHead class="text-[11px] h-7">Status</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           <TableRow v-for="u in filteredUnits" :key="u.id" :class="unitRowClass(u.status)">
-                            <TableCell class="text-xs py-1.5">{{ u.top_number || u.unit_number || '-' }}</TableCell>
+                            <TableCell class="text-xs py-1.5 font-semibold">{{ u.top_number || u.unit_number || '-' }}</TableCell>
                             <TableCell class="text-xs py-1.5">{{ u.unit_type || '-' }}</TableCell>
                             <TableCell class="text-xs py-1.5 text-right tabular-nums">{{ u.rooms_amount || '-' }}</TableCell>
                             <TableCell class="text-xs py-1.5 text-right tabular-nums">{{ u.area_m2 ? parseFloat(u.area_m2).toFixed(1) : '-' }}</TableCell>
-                            <TableCell class="text-xs py-1.5 text-right tabular-nums">{{ u.price ? Number(u.price).toLocaleString('de-DE') : '-' }}</TableCell>
-                            <TableCell class="text-xs py-1.5 text-right tabular-nums">{{ u.price && u.area_m2 ? Math.round(Number(u.price) / parseFloat(u.area_m2)).toLocaleString('de-DE') : '-' }}</TableCell>
+                            <TableCell class="text-xs py-1.5 text-right tabular-nums">{{ u.price ? '€ ' + Number(u.price).toLocaleString('de-DE') : '-' }}</TableCell>
+                            <TableCell class="text-xs py-1.5 text-right tabular-nums">{{ u.price && u.area_m2 ? '€ ' + Math.round(Number(u.price) / parseFloat(u.area_m2)).toLocaleString('de-DE') : '-' }}</TableCell>
                             <TableCell class="text-xs py-1.5">
-                              <Badge :class="u.status === 'verkauft' ? 'bg-red-100 text-red-700 hover:bg-red-100' : u.status === 'reserviert' ? 'bg-amber-100 text-amber-700 hover:bg-amber-100' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'" class="text-[10px]">
+                              <span :class="u.status === 'verkauft' ? '' : u.status === 'reserviert' ? '' : ''" class="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+                                :style="u.status === 'verkauft' ? 'background:hsl(0 93% 97%);color:hsl(0 72% 51%);border:1px solid hsl(0 93% 90%)' : u.status === 'reserviert' ? 'background:hsl(33 100% 96%);color:hsl(21 90% 48%);border:1px solid hsl(33 100% 90%)' : 'background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)'">
                                 {{ u.status || 'frei' }}
-                              </Badge>
+                              </span>
                             </TableCell>
                           </TableRow>
                           <TableRow v-if="!filteredUnits.length">
-                            <TableCell colspan="7" class="text-center text-xs text-muted-foreground py-4">Keine Einheiten gefunden</TableCell>
+                            <TableCell colspan="7" class="text-center text-xs py-4" style="color:hsl(240 3.8% 46.1%)">Keine Einheiten gefunden</TableCell>
                           </TableRow>
                         </TableBody>
                       </Table>
@@ -870,19 +904,23 @@ function unitRowClass(status) {
               </Collapsible>
 
               <!-- ══════ COLLAPSIBLE: Stellplaetze (newbuild only) ══════ -->
-              <Collapsible v-if="property?.property_category === 'newbuild' && !property?.parent_id" v-model:open="openSections.stellplaetze" class="border border-border rounded-lg">
-                <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-2.5 hover:bg-muted/50 rounded-lg">
+              <Collapsible v-if="property?.property_category === 'newbuild' && !property?.parent_id" v-model:open="openSections.stellplaetze" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+                <CollapsibleTrigger class="flex items-center justify-between w-full px-3 sm:px-4 py-2.5 hover:bg-gray-50/50 rounded-lg">
                   <div class="flex items-center gap-2">
-                    <ChevronDown v-if="!openSections.stellplaetze" class="w-3 h-3 text-muted-foreground" />
-                    <ChevronUp v-else class="w-3 h-3 text-muted-foreground" />
+                    <ChevronUp v-if="openSections.stellplaetze" class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <ChevronDown v-else class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
                     <ParkingSquare class="w-3.5 h-3.5 text-indigo-600" />
-                    <span class="text-[13px] font-semibold text-foreground">Stellplaetze</span>
+                    <span class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">Stellplaetze</span>
                   </div>
+                  <button class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded hover:bg-gray-100" style="color:hsl(240 3.8% 46.1%)"
+                    @click.stop="$emit('openSettings', property.id)">
+                    Oeffnen
+                  </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div class="px-4 pb-3">
-                    <p class="text-xs text-muted-foreground mb-2">Parkplaetze & Garagen verwalten</p>
-                    <Button size="sm" variant="outline" class="h-8 text-xs" @click="$emit('openSettings', property.id)">
+                  <div class="px-3 sm:px-4 pb-3">
+                    <p class="text-[11px] mb-2" style="color:hsl(240 3.8% 46.1%)">Parkplaetze & Garagen verwalten</p>
+                    <Button size="sm" variant="outline" class="h-7 text-[11px]" @click="$emit('openSettings', property.id)">
                       <ParkingSquare class="w-3 h-3 mr-1.5" /> Stellplaetze oeffnen
                     </Button>
                   </div>
@@ -890,91 +928,121 @@ function unitRowClass(status) {
               </Collapsible>
 
               <!-- ══════ COLLAPSIBLE: Wissens-DB ══════ -->
-              <Collapsible v-if="!property?.parent_id" v-model:open="openSections.wissensdb" class="border border-border rounded-lg">
-                <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-2.5 hover:bg-muted/50 rounded-lg">
+              <Collapsible v-if="!property?.parent_id" v-model:open="openSections.wissensdb" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+                <CollapsibleTrigger class="flex items-center justify-between w-full px-3 sm:px-4 py-2.5 hover:bg-gray-50/50 rounded-lg">
                   <div class="flex items-center gap-2">
-                    <ChevronDown v-if="!openSections.wissensdb" class="w-3 h-3 text-muted-foreground" />
-                    <ChevronUp v-else class="w-3 h-3 text-muted-foreground" />
+                    <ChevronUp v-if="openSections.wissensdb" class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <ChevronDown v-else class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
                     <BookOpen class="w-3.5 h-3.5 text-emerald-600" />
-                    <span class="text-[13px] font-semibold text-foreground">Wissens-DB</span>
+                    <span class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">Wissens-DB</span>
                   </div>
-                  <Badge v-if="kbCounts?.[property?.id]" class="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px]">{{ kbCounts[property.id] }}</Badge>
+                  <div class="hidden sm:flex items-center gap-1.5" @click.stop>
+                    <span v-if="kbCounts?.[property?.id]" class="text-[9px] font-medium px-1.5 py-0 rounded-full" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)">{{ kbCounts[property.id] }}</span>
+                    <button class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded hover:bg-gray-100" style="color:hsl(263 70% 50%)"
+                      :disabled="exposeLoading && exposeMode === 'kb'"
+                      @click="async () => { if (!exposeLoading) { await loadExposeFiles(); exposeFileSelect = true; exposeMode = 'kb'; } }">
+                      <Sparkles class="w-2.5 h-2.5" />
+                      {{ exposeLoading && exposeMode === 'kb' ? 'analysiert...' : 'KI auslesen' }}
+                    </button>
+                    <button class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded hover:bg-gray-100" style="color:hsl(240 3.8% 46.1%)"
+                      @click="$emit('openKnowledge', property.id, property.address)">
+                      Oeffnen
+                    </button>
+                  </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div class="px-4 pb-3 space-y-2">
-                    <p class="text-xs text-muted-foreground">{{ (kbCounts?.[property?.id] || 0) }} Eintraege in der Wissens-Datenbank.</p>
-                    <div class="flex items-center gap-2">
-                      <Button size="sm" variant="outline" class="h-8 text-xs" @click="$emit('openKnowledge', property.id, property.address)">
-                        <BookOpen class="w-3 h-3 mr-1.5" /> Wissens-DB oeffnen
-                      </Button>
-                      <Button size="sm" variant="outline" class="h-8 text-xs gap-1.5"
-                        :disabled="exposeLoading && exposeMode === 'kb'"
-                        @click="async () => { if (!exposeLoading) { await loadExposeFiles(); exposeFileSelect = true; exposeMode = 'kb'; } }">
-                        <Sparkles class="w-3 h-3" />
-                        <span v-if="exposeLoading && exposeMode === 'kb'">KI analysiert...</span>
-                        <span v-else>Dateien auslesen</span>
-                      </Button>
+                  <div class="px-3 sm:px-4 pb-3">
+                    <div v-if="kbEntries.length" class="space-y-1">
+                      <div v-for="entry in kbEntries" :key="entry.id" class="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-gray-50" style="font-size:12px">
+                        <BookOpen class="w-3 h-3 flex-shrink-0 text-emerald-500" />
+                        <span class="flex-1 truncate" style="color:hsl(240 10% 3.9%)">{{ entry.title }}</span>
+                        <span v-if="entry.category" class="text-[9px] px-1.5 py-0 rounded-full flex-shrink-0" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)">{{ entry.category }}</span>
+                      </div>
+                      <div v-if="kbCounts?.[property?.id] > 10" class="text-[11px] pt-1" style="color:hsl(240 3.8% 46.1%)">... und {{ kbCounts[property.id] - 10 }} weitere</div>
                     </div>
+                    <p v-else class="text-[11px]" style="color:hsl(240 3.8% 46.1%)">Keine Wissens-Eintraege vorhanden.</p>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
 
               <!-- ══════ COLLAPSIBLE: Dateien ══════ -->
-              <Collapsible v-if="!property?.parent_id" v-model:open="openSections.dateien" class="border border-border rounded-lg">
-                <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-2.5 hover:bg-muted/50 rounded-lg">
+              <Collapsible v-if="!property?.parent_id" v-model:open="openSections.dateien" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+                <CollapsibleTrigger class="flex items-center justify-between w-full px-3 sm:px-4 py-2.5 hover:bg-gray-50/50 rounded-lg">
                   <div class="flex items-center gap-2">
-                    <ChevronDown v-if="!openSections.dateien" class="w-3 h-3 text-muted-foreground" />
-                    <ChevronUp v-else class="w-3 h-3 text-muted-foreground" />
+                    <ChevronUp v-if="openSections.dateien" class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <ChevronDown v-else class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
                     <FileText class="w-3.5 h-3.5 text-red-600" />
-                    <span class="text-[13px] font-semibold text-foreground">Dateien</span>
+                    <span class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">Dateien</span>
                   </div>
-                  <Badge v-if="property?.files_count" class="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px]">{{ property.files_count }}</Badge>
+                  <div class="flex items-center gap-1.5" @click.stop>
+                    <span v-if="property?.files_count" class="text-[9px] font-medium px-1.5 py-0 rounded-full" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)">{{ property.files_count }}</span>
+                    <button class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded hover:bg-gray-100" style="color:hsl(240 3.8% 46.1%)"
+                      @click="$emit('openFiles', property.id, property.address)">
+                      Oeffnen
+                    </button>
+                  </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div class="px-4 pb-3 space-y-2">
-                    <p class="text-xs text-muted-foreground">{{ property?.files_count || 0 }} Dokumente gespeichert.</p>
-                    <Button size="sm" variant="outline" class="h-8 text-xs" @click="$emit('openFiles', property.id, property.address)">
-                      <FileText class="w-3 h-3 mr-1.5" /> Dateien oeffnen
-                    </Button>
+                  <div class="px-3 sm:px-4 pb-3">
+                    <div v-if="propertyFiles.length" class="space-y-1">
+                      <div v-for="f in propertyFiles" :key="f.id" class="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-gray-50" style="font-size:12px">
+                        <FileText class="w-3.5 h-3.5 flex-shrink-0" style="color:hsl(0 72% 51%)" />
+                        <span class="flex-1 truncate" style="color:hsl(240 10% 3.9%)">{{ f.label || f.filename }}</span>
+                        <span class="text-[10px] flex-shrink-0" style="color:hsl(240 3.8% 46.1%)">{{ f.filename?.split('.').pop()?.toUpperCase() }}</span>
+                      </div>
+                    </div>
+                    <p v-else class="text-[11px]" style="color:hsl(240 3.8% 46.1%)">Keine Dateien vorhanden.</p>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
 
               <!-- ══════ COLLAPSIBLE: Historie (non-newbuild) ══════ -->
-              <Collapsible v-if="property?.property_category !== 'newbuild' && !property?.parent_id" v-model:open="openSections.historie" class="border border-border rounded-lg">
-                <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-2.5 hover:bg-muted/50 rounded-lg">
+              <Collapsible v-if="property?.property_category !== 'newbuild' && !property?.parent_id" v-model:open="openSections.historie" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+                <CollapsibleTrigger class="flex items-center justify-between w-full px-3 sm:px-4 py-2.5 hover:bg-gray-50/50 rounded-lg">
                   <div class="flex items-center gap-2">
-                    <ChevronDown v-if="!openSections.historie" class="w-3 h-3 text-muted-foreground" />
-                    <ChevronUp v-else class="w-3 h-3 text-muted-foreground" />
-                    <Clock class="w-3.5 h-3.5" style="color:#D4743B" />
-                    <span class="text-[13px] font-semibold text-foreground">Historie</span>
+                    <ChevronUp v-if="openSections.historie" class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <ChevronDown v-else class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <Clock class="w-3.5 h-3.5" style="color:hsl(21 90% 48%)" />
+                    <span class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">Historie</span>
                   </div>
-                  <Badge v-if="historyCount" class="text-[10px]" style="background:rgba(212,116,59,0.1);color:#D4743B">{{ historyCount }}</Badge>
+                  <div class="flex items-center gap-1.5" @click.stop>
+                    <span v-if="historyCount" class="text-[9px] font-medium px-1.5 py-0 rounded-full" style="background:hsl(33 100% 96%);color:hsl(21 90% 48%);border:1px solid hsl(33 100% 90%)">{{ historyCount }}</span>
+                    <button class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded hover:bg-gray-100" style="color:hsl(240 3.8% 46.1%)"
+                      @click="openHistory()">
+                      Oeffnen
+                    </button>
+                  </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div class="px-4 pb-3 space-y-2">
-                    <p class="text-xs text-muted-foreground">{{ historyCount ? historyCount + ' Eintraege' : 'Keine Eintraege' }}</p>
-                    <Button size="sm" variant="outline" class="h-8 text-xs" @click="openHistory()">
-                      <Clock class="w-3 h-3 mr-1.5" /> Historie oeffnen
-                    </Button>
+                  <div class="px-3 sm:px-4 pb-3">
+                    <p class="text-[11px]" style="color:hsl(240 3.8% 46.1%)">{{ historyCount ? historyCount + ' Eintraege' : 'Keine Eintraege' }}</p>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
 
               <!-- ══════ COLLAPSIBLE: Unterobjekt anlegen ══════ -->
-              <Collapsible v-if="!property?.parent_id" v-model:open="openSections.unterobjekt" class="border border-border rounded-lg">
-                <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-2.5 hover:bg-muted/50 rounded-lg">
+              <Collapsible v-if="!property?.parent_id" v-model:open="openSections.unterobjekt" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+                <CollapsibleTrigger class="flex items-center justify-between w-full px-3 sm:px-4 py-2.5 hover:bg-gray-50/50 rounded-lg">
                   <div class="flex items-center gap-2">
-                    <ChevronDown v-if="!openSections.unterobjekt" class="w-3 h-3 text-muted-foreground" />
-                    <ChevronUp v-else class="w-3 h-3 text-muted-foreground" />
+                    <ChevronUp v-if="openSections.unterobjekt" class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <ChevronDown v-else class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
                     <Plus class="w-3.5 h-3.5 text-indigo-600" />
-                    <span class="text-[13px] font-semibold text-foreground">Unterobjekt anlegen</span>
+                    <span class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">Unterobjekt anlegen</span>
                   </div>
-                  <Badge v-if="property?.children?.length" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-100 text-[10px]">{{ property.children.length }} vorhanden</Badge>
+                  <span v-if="property?.children?.length" class="text-[9px] font-medium px-1.5 py-0 rounded-full" style="background:hsl(263 70% 96%);color:hsl(263 70% 50%);border:1px solid hsl(263 70% 88%)">{{ property.children.length }} vorhanden</span>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div class="px-4 pb-3">
-                    <Button size="sm" variant="outline" class="h-8 text-xs" @click="openChildCreateModal()">
+                  <div class="px-4 pb-3 space-y-2">
+                    <div v-if="property?.children?.length" class="space-y-1 mb-2">
+                      <div v-for="child in property.children" :key="child.id" class="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-gray-50" style="font-size:12px">
+                        <div class="flex items-center gap-2 min-w-0">
+                          <Home class="w-3.5 h-3.5 flex-shrink-0 text-indigo-500" />
+                          <span class="truncate" style="color:hsl(240 10% 3.9%)">{{ child.project_name || child.address || 'Unterobjekt #' + child.id }}</span>
+                        </div>
+                        <span v-if="child.purchase_price" class="text-[11px] tabular-nums flex-shrink-0" style="color:hsl(240 3.8% 46.1%)">€ {{ Number(child.purchase_price).toLocaleString('de-DE') }}</span>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" class="h-7 text-[11px]" @click="openChildCreateModal()">
                       <Plus class="w-3 h-3 mr-1.5" /> Unterobjekt erstellen
                     </Button>
                   </div>
@@ -982,111 +1050,94 @@ function unitRowClass(status) {
               </Collapsible>
 
               <!-- ══════ COLLAPSIBLE: Hierarchie ══════ -->
-              <Collapsible v-model:open="openSections.hierarchie" class="border border-border rounded-lg">
-                <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-2.5 hover:bg-muted/50 rounded-lg">
+              <Collapsible v-model:open="openSections.hierarchie" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+                <CollapsibleTrigger class="flex items-center justify-between w-full px-3 sm:px-4 py-2.5 hover:bg-gray-50/50 rounded-lg">
                   <div class="flex items-center gap-2">
-                    <ChevronDown v-if="!openSections.hierarchie" class="w-3 h-3 text-muted-foreground" />
-                    <ChevronUp v-else class="w-3 h-3 text-muted-foreground" />
+                    <ChevronUp v-if="openSections.hierarchie" class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
+                    <ChevronDown v-else class="w-3 h-3" style="color:hsl(240 3.8% 46.1%)" />
                     <Link2 class="w-3.5 h-3.5 text-indigo-500" />
-                    <span class="text-[13px] font-semibold text-foreground">Hierarchie</span>
+                    <span class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">Hierarchie</span>
                   </div>
-                  <Badge v-if="property?.parent_id" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-100 text-[10px]">Kind</Badge>
-                  <Badge v-else-if="property?.children?.length" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-100 text-[10px]">{{ property.children.length }}</Badge>
+                  <div class="flex items-center gap-1.5" @click.stop>
+                    <span v-if="property?.parent_id" class="text-[9px] font-medium px-1.5 py-0 rounded-full" style="background:hsl(263 70% 96%);color:hsl(263 70% 50%);border:1px solid hsl(263 70% 88%)">Kind</span>
+                    <span v-else-if="property?.children?.length" class="text-[9px] font-medium px-1.5 py-0 rounded-full" style="background:hsl(263 70% 96%);color:hsl(263 70% 50%);border:1px solid hsl(263 70% 88%)">{{ property.children.length }}</span>
+                    <button class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded hover:bg-gray-100" style="color:hsl(240 3.8% 46.1%)"
+                      @click="() => { $emit('assignParent', property); $emit('close'); }">
+                      Verwalten
+                    </button>
+                    <button v-if="!property?.parent_id" class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded hover:bg-gray-100" style="color:hsl(240 3.8% 46.1%)"
+                      @click="projectGroupPopup = true">
+                      Projektgruppe
+                    </button>
+                  </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div class="px-4 pb-3 space-y-2">
-                    <p class="text-xs text-muted-foreground">
-                      <span v-if="property?.parent_id">Ist Unterobjekt</span>
-                      <span v-else-if="property?.children?.length">{{ property.children.length }} Unterobjekt{{ property.children.length > 1 ? 'e' : '' }}</span>
-                      <span v-else>Zuordnung verwalten</span>
-                    </p>
-                    <div class="flex items-center gap-2">
-                      <Button size="sm" variant="outline" class="h-8 text-xs" @click="() => { $emit('assignParent', property); $emit('close'); }">
-                        <Link2 class="w-3 h-3 mr-1.5" /> Hierarchie verwalten
-                      </Button>
-                      <Button v-if="!property?.parent_id" size="sm" variant="outline" class="h-8 text-xs" @click="projectGroupPopup = true">
-                        <FolderOpen class="w-3 h-3 mr-1.5" /> Projektgruppe
-                      </Button>
+                    <div v-if="property?.parent_id" class="flex items-center gap-2 py-1.5 px-2 rounded-md" style="background:hsl(263 70% 98%);border:1px solid hsl(263 70% 92%);font-size:12px">
+                      <ArrowLeft class="w-3.5 h-3.5 text-indigo-500" />
+                      <span style="color:hsl(240 3.8% 46.1%)">Gehoert zu:</span>
+                      <span class="font-medium" style="color:hsl(240 10% 3.9%)">{{ property.parent_name || 'Hauptobjekt #' + property.parent_id }}</span>
                     </div>
+                    <div v-if="property?.children?.length" class="space-y-1">
+                      <div v-for="child in property.children" :key="child.id" class="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-gray-50" style="font-size:12px">
+                        <ChevronRight class="w-3 h-3 text-indigo-400" />
+                        <span class="truncate" style="color:hsl(240 10% 3.9%)">{{ child.project_name || child.address || 'Unterobjekt #' + child.id }}</span>
+                      </div>
+                    </div>
+                    <p v-if="!property?.parent_id && !property?.children?.length" class="text-[11px]" style="color:hsl(240 3.8% 46.1%)">Kein Hauptobjekt und keine Unterobjekte zugeordnet.</p>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
 
             </div>
-          </ScrollArea>
         </TabsContent>
 
         <!-- ════════════════════════════════════════════════ -->
         <!-- TAB: AKTIVITAETEN                               -->
         <!-- ════════════════════════════════════════════════ -->
-        <TabsContent value="aktivitaeten" class="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
-          <ScrollArea class="h-full">
-            <div class="px-6 py-5 space-y-4">
-
-              <!-- ══════ COLLAPSIBLE: Protokoll & Eintraege ══════ -->
-              <Collapsible v-model:open="openSections.protokoll" class="border border-border rounded-lg">
-                <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-2.5 hover:bg-muted/50 rounded-lg">
-                  <div class="flex items-center gap-2">
-                    <ChevronDown v-if="!openSections.protokoll" class="w-3 h-3 text-muted-foreground" />
-                    <ChevronUp v-else class="w-3 h-3 text-muted-foreground" />
-                    <ClipboardList class="w-3.5 h-3.5 text-cyan-600" />
-                    <span class="text-[13px] font-semibold text-foreground">Protokoll & Eintraege</span>
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div class="px-4 pb-3">
-                    <p class="text-xs text-muted-foreground mb-2">Aktivitaeten, Notizen und Protokoll verwalten.</p>
-                    <Button size="sm" variant="outline" class="h-8 text-xs" @click="$emit('openActivities', property.id, property.address)">
-                      <ClipboardList class="w-3 h-3 mr-1.5" /> Aktivitaeten oeffnen
-                    </Button>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-
-              <!-- ══════ COLLAPSIBLE: Nachrichten ══════ -->
-              <Collapsible v-model:open="openSections.nachrichten" class="border border-border rounded-lg">
-                <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-2.5 hover:bg-muted/50 rounded-lg">
-                  <div class="flex items-center gap-2">
-                    <ChevronDown v-if="!openSections.nachrichten" class="w-3 h-3 text-muted-foreground" />
-                    <ChevronUp v-else class="w-3 h-3 text-muted-foreground" />
-                    <MessageCircle class="w-3.5 h-3.5 text-blue-600" />
-                    <span class="text-[13px] font-semibold text-foreground">Nachrichten</span>
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div class="px-4 pb-3">
-                    <p class="text-xs text-muted-foreground mb-2">Portal-Kommunikation und Nachrichten.</p>
-                    <Button size="sm" variant="outline" class="h-8 text-xs" @click="$emit('openMessages', property.id, property.address)">
-                      <MessageCircle class="w-3 h-3 mr-1.5" /> Nachrichten oeffnen
-                    </Button>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-
+        <TabsContent value="aktivitaeten" class="flex-1 min-h-0 mt-0 overflow-y-auto data-[state=inactive]:hidden">
+          <div class="px-6 py-5 space-y-3">
+            <div class="flex items-center gap-3 p-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors" style="border:1px solid hsl(240 5.9% 90%)" @click="$emit('openActivities', property.id, property.address)">
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style="background:hsl(187 92% 96%)">
+                <ClipboardList class="w-5 h-5 text-cyan-600" />
+              </div>
+              <div class="flex-1">
+                <div class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">Protokoll & Eintraege</div>
+                <div class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">Aktivitaeten, Notizen und Protokoll verwalten</div>
+              </div>
+              <ChevronRight class="w-4 h-4" style="color:hsl(240 3.8% 46.1%)" />
             </div>
-          </ScrollArea>
+            <div class="flex items-center gap-3 p-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors" style="border:1px solid hsl(240 5.9% 90%)" @click="$emit('openMessages', property.id, property.address)">
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style="background:hsl(217 91% 96%)">
+                <MessageCircle class="w-5 h-5 text-blue-600" />
+              </div>
+              <div class="flex-1">
+                <div class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">Nachrichten</div>
+                <div class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">Portal-Kommunikation und Nachrichten</div>
+              </div>
+              <ChevronRight class="w-4 h-4" style="color:hsl(240 3.8% 46.1%)" />
+            </div>
+          </div>
         </TabsContent>
 
         <!-- ════════════════════════════════════════════════ -->
         <!-- TAB: KAUFANBOTE                                 -->
         <!-- ════════════════════════════════════════════════ -->
-        <TabsContent value="kaufanbote" class="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
-          <ScrollArea class="h-full">
+        <TabsContent value="kaufanbote" class="flex-1 min-h-0 mt-0 overflow-y-auto data-[state=inactive]:hidden">
             <div class="px-6 py-5">
               <div class="text-center py-12 space-y-4">
-                <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto bg-pink-50">
-                  <ShoppingCart class="w-7 h-7 text-pink-600" />
+                <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto" style="background:hsl(330 80% 96%)">
+                  <ShoppingCart class="w-7 h-7" style="color:hsl(330 80% 50%)" />
                 </div>
                 <div>
-                  <h3 class="text-sm font-semibold text-foreground">Kaufanbote verwalten</h3>
-                  <p class="text-xs text-muted-foreground mt-1">Angebote einsehen, bearbeiten und verwalten.</p>
+                  <h3 class="text-sm font-semibold" style="color:hsl(240 10% 3.9%)">Kaufanbote verwalten</h3>
+                  <p class="text-xs mt-1" style="color:hsl(240 3.8% 46.1%)">Angebote einsehen, bearbeiten und verwalten.</p>
                 </div>
                 <Button size="sm" class="h-9 text-xs" @click="$emit('openSettings', property.id)">
                   <ShoppingCart class="w-3.5 h-3.5 mr-1.5" /> Kaufanbote oeffnen
                 </Button>
               </div>
             </div>
-          </ScrollArea>
         </TabsContent>
       </Tabs>
 
@@ -1103,14 +1154,14 @@ function unitRowClass(status) {
       leave-active-class="transition duration-200 ease-in"
       leave-from-class="opacity-100" leave-to-class="opacity-0"
     >
-      <div v-if="portalPopupOpen" class="fixed inset-0 z-[310] flex items-center justify-center" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(4px)" @click.self="portalPopupOpen = false">
+      <div v-if="portalPopupOpen" class="fixed inset-0 z-[310] flex items-center justify-center" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);pointer-events:auto" @click.self="portalPopupOpen = false">
         <Transition
           enter-active-class="transition duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]"
           enter-from-class="opacity-0 scale-[0.95] translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0"
           leave-active-class="transition duration-200 ease-in"
           leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95"
         >
-          <div v-if="portalPopupOpen" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg mx-3 sm:mx-4 overflow-hidden" style="border:1px solid rgba(228,228,231,0.6)" @click.stop>
+          <div v-if="portalPopupOpen" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg mx-3 sm:mx-4 overflow-hidden" style="border:1px solid rgba(228,228,231,0.6);pointer-events:auto" @click.stop>
 
             <!-- Header -->
             <div class="px-7 pt-6 pb-4 flex items-center justify-between">
@@ -1452,7 +1503,7 @@ function unitRowClass(status) {
     </div>
 
     <!-- Historie Modal -->
-    <div v-if="historyOpen" class="fixed inset-0 z-[310] flex items-center justify-center" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(4px)" @click.self="historyOpen = false">
+    <div v-if="historyOpen" class="fixed inset-0 z-[310] flex items-center justify-center" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);pointer-events:auto" @click.self="historyOpen = false">
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] overflow-hidden" style="border:1px solid rgba(228,228,231,0.6)" @click.stop>
         <div class="px-6 py-4 flex items-center justify-between" style="border-bottom:1px solid rgba(228,228,231,0.6)">
           <h2 class="text-lg font-bold text-zinc-900">Historie</h2>

@@ -651,7 +651,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-4 p-6">
+  <div class="flex flex-col h-full space-y-4 p-6">
     <!-- Broker Filter (Assistenz only) -->
     <div v-if="isAssistenz && brokerList.length" class="flex items-center gap-2">
       <span class="text-xs font-medium text-muted-foreground">Makler:</span>
@@ -669,7 +669,7 @@ onMounted(() => {
     </div>
 
     <!-- Tabs: Offen / Nachfassen -->
-    <Tabs v-model="activeTab" class="w-full">
+    <Tabs v-model="activeTab" class="w-full flex-1 flex flex-col min-h-0">
       <TabsList class="grid w-full grid-cols-2">
         <TabsTrigger value="offen" class="gap-2">
           <Mail class="w-4 h-4" />
@@ -735,14 +735,14 @@ onMounted(() => {
       </div>
 
       <!-- TAB: Offen -->
-      <TabsContent value="offen" class="mt-3">
+      <TabsContent value="offen" class="mt-3 flex-1 min-h-0">
         <div v-if="unansweredLoading" class="flex items-center justify-center py-12">
           <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
         <div v-else-if="!filteredUnanswered.length" class="py-12 text-center text-sm text-muted-foreground">
           Keine offenen Anfragen.
         </div>
-        <ScrollArea v-else class="h-[calc(100vh-320px)]">
+        <ScrollArea v-else class="flex-1">
           <div class="space-y-1.5 pr-3">
             <div
               v-for="item in filteredUnanswered"
@@ -777,14 +777,14 @@ onMounted(() => {
       </TabsContent>
 
       <!-- TAB: Nachfassen -->
-      <TabsContent value="nachfassen" class="mt-3">
+      <TabsContent value="nachfassen" class="mt-3 flex-1 min-h-0">
         <div v-if="followupLoading && stage1Loading" class="flex items-center justify-center py-12">
           <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
         <div v-else-if="!filteredFollowups.length" class="py-12 text-center text-sm text-muted-foreground">
           Keine Nachfass-Fälle.
         </div>
-        <ScrollArea v-else class="h-[calc(100vh-320px)]">
+        <ScrollArea v-else class="flex-1">
           <div class="space-y-1.5 pr-3">
             <div
               v-for="item in filteredFollowups"

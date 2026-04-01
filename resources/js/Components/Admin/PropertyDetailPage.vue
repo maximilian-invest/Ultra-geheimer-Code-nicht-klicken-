@@ -10,6 +10,7 @@ import EditTab from '@/Components/Admin/property-detail/EditTab.vue';
 import UnitsTab from '@/Components/Admin/property-detail/UnitsTab.vue';
 import OffersTab from '@/Components/Admin/property-detail/OffersTab.vue';
 import MediaTab from '@/Components/Admin/property-detail/MediaTab.vue';
+import PortalsTab from '@/Components/Admin/property-detail/PortalsTab.vue';
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -172,6 +173,7 @@ const showExposeParser = ref(false);
         <UnitsTab v-else-if="activeTab === 'einheiten'" :property="property" />
         <OffersTab v-else-if="activeTab === 'kaufanbote'" :property="property" />
         <MediaTab v-else-if="activeTab === 'medien'" ref="mediaTabRef" :property="property" @dirty="isDirty = true" />
+        <PortalsTab v-else-if="activeTab === 'portale'" ref="portalsTabRef" :property="property" @dirty="isDirty = true" />
         <div v-else class="text-muted-foreground text-sm">Tab: {{ activeTab }}</div>
       </div>
     </Tabs>

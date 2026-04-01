@@ -154,7 +154,7 @@ function handleExposeParsed(result) {
     </div>
 
     <!-- Detail Header -->
-    <div class="px-6 py-4 border-b border-border/50 flex items-center justify-between shrink-0">
+    <div class="px-6 py-4 flex items-center justify-between shrink-0">
       <div class="flex items-center gap-3.5">
         <div class="w-[52px] h-10 rounded-md bg-gradient-to-br from-blue-200 to-indigo-200 shrink-0" />
         <div>

@@ -659,7 +659,8 @@ function unitRowClass(status) {
     <DialogContent class="max-w-[950px] p-0 gap-0 max-h-[100dvh] sm:max-h-[92vh] h-[92vh] sm:h-[85vh] flex flex-col overflow-hidden" @interactOutside.prevent>
 
       <!-- ─── Header ─── -->
-      <div class="px-3 sm:px-6 pt-3 sm:pt-5 pb-3 sm:pb-4 flex-shrink-0 border-b" style="border-color:hsl(240 5.9% 90%)">
+      <div class="relative px-3 sm:px-6 pt-3 sm:pt-5 pb-3 sm:pb-4 flex-shrink-0 border-b" style="border-color:hsl(240 5.9% 90%)">
+        <button class="absolute right-3 sm:right-4 top-3 sm:top-4 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-zinc-100 transition-colors z-10" @click="$emit('close')"><X class="w-4 h-4 text-zinc-400" /></button>
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
           <div class="flex items-center gap-3.5 min-w-0">
             <div class="w-11 h-11 rounded-lg hidden sm:flex items-center justify-center flex-shrink-0" style="background:hsl(33 100% 96%)">
@@ -688,7 +689,6 @@ function unitRowClass(status) {
               <Pencil class="w-3 h-3 mr-1.5" />
               Bearbeiten
             </Button>
-            <button class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-zinc-100 transition-colors" @click="$emit('close')"><X class="w-4 h-4 text-zinc-400" /></button>
           </div>
         </div>
       </div>

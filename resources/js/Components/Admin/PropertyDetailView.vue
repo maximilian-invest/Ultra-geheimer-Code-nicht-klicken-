@@ -228,7 +228,6 @@ const newOwnerForm = ref({ name: "", email: "", phone: "" });
 const newOwnerSaving = ref(false);
 
 // ─── Expose KI ──────────────────────────────────────────
-const exposePopupOpen = ref(false);
 const exposeLoading = ref(false);
 const exposeMode = ref(null);
 const exposeResult = ref(null);
@@ -307,12 +306,9 @@ async function runExpose(mode) {
       return;
     }
     const d = JSON.parse(txt);
-    console.log("[Expose] API response:", d);
     if (d.error) { toast(d.error); }
     else {
       exposeResult.value = d.extracted || d;
-      console.log("[Expose] exposeResult set:", JSON.stringify(exposeResult.value).substring(0, 200));
-      console.log("[Expose] has fields:", !!exposeResult.value?.fields, "field count:", exposeResult.value?.fields ? Object.keys(exposeResult.value.fields).length : 0);
       const savedMsg = d.fields_saved ? d.fields_saved + " Felder gespeichert" : "";
       const unitsMsg = (d.units_created || d.units_updated) ? (d.units_created + " Einheiten importiert, " + d.units_updated + " aktualisiert") : "";
       const msg = [savedMsg, unitsMsg].filter(Boolean).join(", ");
@@ -354,27 +350,23 @@ async function applyExposeToKB() {
 }
 
 async function applyExposeToFields() {
-  console.log("[Expose] applyExposeToFields called, exposeResult:", !!exposeResult.value);
-  if (!exposeResult.value) { console.log("[Expose] ABORT: no exposeResult"); return; }
+  if (!exposeResult.value) { return; }
   const result = exposeResult.value;
-  console.log("[Expose] result.fields:", !!result.fields, result.fields ? Object.keys(result.fields).length + " fields" : "none");
   if (result.fields) {
     try {
       const payload = { property_id: props.property.id, ...result.fields };
-      console.log("[Expose] Saving to save_property_settings, payload keys:", Object.keys(payload).join(","));
       const r = await fetch(API.value + "&action=save_property_settings", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const d = await r.json();
-      console.log("[Expose] save response:", d);
       if (d.success) {
         toast("Objektdaten aktualisiert (" + Object.keys(result.fields).length + " Felder gespeichert)");
         emit("close");
         setTimeout(() => emit("openEditor", props.property.id), 300);
       } else { toast("Fehler beim Speichern: " + (d.error || "Unbekannt")); }
     } catch (e) { console.error("[Expose] save error:", e); toast("Fehler: " + e.message); }
-  } else { console.log("[Expose] SKIP: no fields in result"); }
+  }
   if (result.units && result.units.length) {
     try {
       const r = await fetch(API.value + "&action=bulk_import_units", {
@@ -1257,131 +1249,6 @@ function unitRowClass(status) {
                       </button>
                     </div>
                   </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </Transition>
-      </div>
-    </Transition>
-
-    <!-- ═══ EXPOSE KI POP-UP ═══ -->
-    <Transition
-      enter-active-class="transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-      enter-from-class="opacity-0" enter-to-class="opacity-100"
-      leave-active-class="transition duration-200 ease-in"
-      leave-from-class="opacity-100" leave-to-class="opacity-0"
-    >
-      <div v-if="exposePopupOpen" class="fixed inset-0 z-[310] flex items-center justify-center" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(4px)" @click.self="exposePopupOpen = false">
-        <Transition
-          enter-active-class="transition duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]"
-          enter-from-class="opacity-0 scale-[0.95] translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0"
-          leave-active-class="transition duration-200 ease-in"
-          leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95"
-        >
-          <div v-if="exposePopupOpen" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg mx-3 sm:mx-4 overflow-hidden" style="border:1px solid rgba(228,228,231,0.6)" @click.stop>
-
-            <!-- Header -->
-            <div class="px-7 pt-6 pb-4 flex items-center justify-between">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(139,92,246,0.08)">
-                  <Sparkles class="w-5 h-5" style="color:#8b5cf6" />
-                </div>
-                <div>
-                  <h3 class="text-base font-bold text-zinc-900">Expose KI</h3>
-                  <p class="text-xs text-zinc-500">{{ property?.project_name || property?.address }}</p>
-                </div>
-              </div>
-              <button @click="exposePopupOpen = false"
-                class="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-zinc-100 transition-all duration-200 active:scale-[0.97]">
-                <X class="w-4 h-4 text-zinc-500" />
-              </button>
-            </div>
-
-            <div class="px-7 pb-7 space-y-4">
-
-              <p class="text-xs text-zinc-500 leading-relaxed">Die KI analysiert das hochgeladene Expose (aus Wissen oder Dateien) und kann die Ergebnisse auf zwei Arten verwenden:</p>
-
-              <!-- No result yet -->
-              <div v-if="!exposeResult" class="space-y-3">
-
-                <button @click="runExpose('kb')" :disabled="exposeLoading"
-                  class="w-full p-4 rounded-2xl text-left transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
-                  style="background:rgba(5,150,105,0.04);border:1px solid rgba(5,150,105,0.15)">
-                  <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(5,150,105,0.08)">
-                      <BookOpen class="w-5 h-5" style="color:#059669" />
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <div class="text-sm font-semibold text-zinc-900">Wissens-DB fuellen</div>
-                      <div class="text-xs text-zinc-500 mt-0.5">Extrahierte Daten als Wissenseintraege speichern. Sherlock kann diese Infos dann in Antworten verwenden.</div>
-                    </div>
-                    <ChevronRight class="w-4 h-4 text-zinc-300 flex-shrink-0" />
-                  </div>
-                </button>
-
-                <button @click="runExpose('fields')" :disabled="exposeLoading"
-                  class="w-full p-4 rounded-2xl text-left transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
-                  style="background:rgba(139,92,246,0.04);border:1px solid rgba(139,92,246,0.15)">
-                  <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(139,92,246,0.08)">
-                      <Pencil class="w-5 h-5" style="color:#8b5cf6" />
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <div class="text-sm font-semibold text-zinc-900">Objektdaten ausfuellen</div>
-                      <div class="text-xs text-zinc-500 mt-0.5">Felder wie Flaeche, Zimmer, Preis, Ausstattung etc. automatisch aus dem Expose befuellen. Bei Neubauprojekten auch Einheiten.</div>
-                    </div>
-                    <ChevronRight class="w-4 h-4 text-zinc-300 flex-shrink-0" />
-                  </div>
-                </button>
-
-                <div v-if="exposeLoading" class="flex items-center justify-center gap-3 py-4">
-                  <span class="w-5 h-5 border-2 border-zinc-300 border-t-violet-500 rounded-full animate-spin"></span>
-                  <span class="text-sm text-zinc-500">KI analysiert Expose...</span>
-                </div>
-              </div>
-
-              <!-- Results preview -->
-              <div v-if="exposeResult" class="space-y-4">
-                <div class="text-xs font-semibold flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full" :style="exposeResult.confidence === 'high' ? 'background:#10b981' : exposeResult.confidence === 'medium' ? 'background:#f59e0b' : 'background:#ef4444'"></span>
-                  Erkannte Daten ({{ exposeResult.confidence || 'medium' }})
-                </div>
-
-                <div v-if="exposeResult.fields" class="rounded-2xl overflow-hidden max-h-48 overflow-y-auto" style="border:1px solid rgba(228,228,231,0.6)">
-                  <div v-for="(val, key) in exposeResult.fields" :key="key" class="px-4 py-2 flex items-center justify-between text-xs border-b border-zinc-100 last:border-b-0">
-                    <span class="text-zinc-500">{{ key }}</span>
-                    <span class="font-medium text-zinc-900">{{ val }}</span>
-                  </div>
-                </div>
-
-                <div v-if="exposeResult.units && exposeResult.units.length" class="rounded-2xl overflow-hidden" style="border:1px solid rgba(139,92,246,0.2)">
-                  <div class="px-4 py-2 text-xs font-semibold" style="background:rgba(139,92,246,0.04)">{{ exposeResult.units.length }} Einheiten erkannt</div>
-                  <div v-for="(u, i) in exposeResult.units.slice(0, 5)" :key="i" class="px-4 py-1.5 text-[11px] border-b border-zinc-100 last:border-b-0 flex gap-3">
-                    <span class="font-medium w-8">{{ u.unit_number }}</span>
-                    <span>{{ u.rooms_amount || '?' }} Zi</span>
-                    <span>{{ u.area_m2 || '?' }}m2</span>
-                    <span>{{ u.price ? Number(u.price).toLocaleString('de-DE') + ' EUR' : '?' }}</span>
-                  </div>
-                  <div v-if="exposeResult.units.length > 5" class="px-4 py-1.5 text-[10px] text-zinc-400">... und {{ exposeResult.units.length - 5 }} weitere</div>
-                </div>
-
-                <div v-if="exposeResult.warnings && exposeResult.warnings.length" class="text-[11px] text-amber-600 space-y-0.5">
-                  <div v-for="(w, i) in exposeResult.warnings" :key="i">{{ w }}</div>
-                </div>
-
-                <div class="flex gap-3">
-                  <button @click="exposeMode === 'kb' ? applyExposeToKB() : applyExposeToFields()"
-                    class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium text-white rounded-xl transition-all duration-200 active:scale-[0.97]"
-                    style="background:#18181b">
-                    <Check class="w-3.5 h-3.5" />
-                    {{ exposeMode === 'kb' ? 'In Wissens-DB speichern' : 'Objektdaten uebernehmen' }}
-                  </button>
-                  <button @click="exposeResult = null"
-                    class="px-4 py-2.5 text-xs font-medium rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all duration-200 active:scale-[0.97]">
-                    Verwerfen
-                  </button>
                 </div>
               </div>
 

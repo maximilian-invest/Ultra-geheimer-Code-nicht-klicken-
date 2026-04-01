@@ -634,19 +634,6 @@ async function sendDraft() {
 }
 
 // === REASSIGN ===
-async function reassignItem(item, propertyId) {
-  try {
-    await fetch(API.value + "&action=reassign_email", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email_id: item.source_email_id || item.id, property_id: propertyId }),
-    });
-    item.property_id = propertyId;
-    const p = properties.value?.find(pp => pp.id === propertyId);
-    if (p) item.ref_id = p.ref_id;
-    toast("Objekt zugewiesen");
-  } catch (e) { toast("Fehler: " + e.message); }
-}
-
 // === LIFECYCLE ===
 watch(maklerFilter, () => {
   loadUnanswered(unansweredFilter.value);
@@ -777,7 +764,7 @@ onMounted(() => {
               <!-- Row 2: Subject -->
               <div class="text-sm font-medium line-clamp-1 ml-9 mt-0.5">{{ item.subject || '(Kein Betreff)' }}</div>
               <!-- Row 3: Preview -->
-              <div class="text-xs text-muted-foreground line-clamp-1 ml-9 mt-0.5">{{ stripQuotedReply(item.body_text || item.ai_summary || '') }}</div>
+              <div class="text-xs text-muted-foreground line-clamp-1 ml-9 mt-0.5">{{ stripQuotedReply(item.ai_summary || item.body_text || item.body || '') }}</div>
               <!-- Row 4: Tags -->
               <div class="flex flex-wrap gap-1 ml-9 mt-1.5">
                 <Badge v-if="item.platform" variant="outline" class="text-[10px] px-1.5 py-0">{{ item.platform }}</Badge>
@@ -821,7 +808,7 @@ onMounted(() => {
               <!-- Row 2: Subject/Activity -->
               <div class="text-sm font-medium line-clamp-1 ml-9 mt-0.5">{{ item.subject || item.activity || '(Kein Betreff)' }}</div>
               <!-- Row 3: Preview -->
-              <div class="text-xs text-muted-foreground line-clamp-1 ml-9 mt-0.5">{{ stripQuotedReply(item.body_text || item.ai_summary || item.last_message || '') }}</div>
+              <div class="text-xs text-muted-foreground line-clamp-1 ml-9 mt-0.5">{{ stripQuotedReply(item.ai_summary || item.body_text || item.body || item.last_message || '') }}</div>
               <!-- Row 4: Tags -->
               <div class="flex flex-wrap gap-1 ml-9 mt-1.5">
                 <Badge v-if="item.platform" variant="outline" class="text-[10px] px-1.5 py-0">{{ item.platform }}</Badge>
@@ -1014,7 +1001,7 @@ onMounted(() => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="kurz">Kurz</SelectItem>
+                        <SelectItem value="brief">Knapp</SelectItem>
                         <SelectItem value="standard">Standard</SelectItem>
                         <SelectItem value="ausfuehrlich">Ausfuehrlich</SelectItem>
                       </SelectContent>

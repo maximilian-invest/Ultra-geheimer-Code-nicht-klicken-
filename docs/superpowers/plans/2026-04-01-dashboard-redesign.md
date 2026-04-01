@@ -1,4 +1,79 @@
-<script setup>
+# Dashboard (TodayTab) Redesign Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Replace TodayTab.vue with shadcn-vue components (Card, Table, Badge, Select) and migrate charts from ApexCharts to @unovis/vue.
+
+**Architecture:** Single file rewrite of `TodayTab.vue`. Script logic stays mostly the same — only chart-building functions change from ApexCharts config to unovis data format. Template is completely rewritten using shadcn Card/Table/Badge patterns. Modals stay functionally identical with minor shadcn Card wrapping.
+
+**Tech Stack:** Vue 3, shadcn-vue (Card, Table, Badge, Select, Chart), @unovis/vue, @unovis/ts, Tailwind CSS, lucide-vue-next
+
+---
+
+### Task 1: Install shadcn components and unovis dependencies
+
+**Files:**
+- Modify: `package.json` (npm install)
+- Create: `resources/js/components/ui/card/*`
+- Create: `resources/js/components/ui/table/*`
+- Create: `resources/js/components/ui/badge/*`
+- Create: `resources/js/components/ui/select/*`
+
+- [ ] **Step 1: Install shadcn-vue components**
+
+```bash
+cd /var/www/srhomes
+npx shadcn-vue@latest add card table badge select -y
+```
+
+Expected: Components created in `resources/js/components/ui/`
+
+- [ ] **Step 2: Install unovis chart libraries**
+
+```bash
+cd /var/www/srhomes
+npm install @unovis/vue @unovis/ts
+```
+
+Expected: Packages added to `package.json`
+
+- [ ] **Step 3: Verify installations**
+
+```bash
+ls resources/js/components/ui/card/
+ls resources/js/components/ui/table/
+ls resources/js/components/ui/badge/
+ls resources/js/components/ui/select/
+cat package.json | grep unovis
+```
+
+Expected: All component directories exist, unovis in dependencies
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add resources/js/components/ui/card resources/js/components/ui/table resources/js/components/ui/badge resources/js/components/ui/select package.json package-lock.json
+git commit -m "feat(dashboard): install shadcn card, table, badge, select + unovis charts"
+```
+
+---
+
+### Task 2: Rewrite TodayTab.vue — Script section
+
+**Files:**
+- Modify: `resources/js/Components/Admin/TodayTab.vue`
+
+The script section keeps all existing data loading, task management, modal logic, ranking, and event functions. Changes:
+1. Replace `import VueApexCharts` with unovis imports
+2. Replace `buildDashboardCharts()` to produce unovis-compatible data refs
+3. Remove ApexCharts option/series refs, add unovis data refs
+4. Add shadcn component imports
+
+- [ ] **Step 1: Write the new script block**
+
+Replace the entire `<script setup>` block. Full code:
+
+```javascript
 import { ref, inject, onMounted, computed } from "vue";
 import {
     Sun as SunIcon, MailX, Clock, CalendarIcon, Home, Inbox,
@@ -9,6 +84,13 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+    Select as UiSelect,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 const props = defineProps({
     stats: { type: Object, default: () => ({}) },
@@ -119,15 +201,25 @@ async function loadSalesAndCommissions(period) {
     } catch {}
 }
 
-// Charts — data refs
+// Charts — unovis data
 const perfData = ref(null);
 const chartsReady = ref(false);
 
 // Trend chart data
 const trendData = ref([]);
+const trendX = (d) => d.x;
+const trendY = [(d) => d.inquiries, (d) => d.outbound];
+const trendColors = ["#f97316", "#3b82f6"];
+
+// Platform chart data
 const platformData = ref([]);
+const platformValue = (d) => d.count;
 const platformColors = ["#f97316", "#3b82f6", "#10b981", "#8b5cf6", "#14b8a6"];
+
+// Funnel chart data
 const funnelData = ref([]);
+const funnelX = (d) => d.label;
+const funnelY = (d) => d.value;
 const funnelColors = ["#f97316", "#3b82f6", "#14b8a6", "#8b5cf6"];
 
 // Response time
@@ -135,7 +227,7 @@ const responseHours = ref(0);
 const responsePercent = computed(() => Math.max(0, Math.min(100, Math.round((1 - responseHours.value / 48) * 100))));
 const responseColor = computed(() => responseHours.value > 48 ? "#ef4444" : responseHours.value > 24 ? "#f59e0b" : "#10b981");
 
-// Kaufanbote chart (modal)
+// Kaufanbote chart (modal) — kept as simple data for bar rendering
 const kaufanboteMonthly = ref([]);
 
 function buildChartData() {
@@ -300,8 +392,27 @@ onMounted(async () => {
     loadRanking();
     await Promise.all([loadTasks(), loadKaufanboteStats(), loadPerformance(), loadUpcoming()]);
 });
-</script>
+```
 
+- [ ] **Step 2: Commit**
+
+```bash
+git add resources/js/Components/Admin/TodayTab.vue
+git commit -m "feat(dashboard): rewrite script with shadcn imports and unovis chart data"
+```
+
+---
+
+### Task 3: Rewrite TodayTab.vue — Template (Action Card + KPI Cards)
+
+**Files:**
+- Modify: `resources/js/Components/Admin/TodayTab.vue` (template section)
+
+- [ ] **Step 1: Write the template opening, Action Card, and KPI Cards**
+
+Replace the entire `<template>` block. Start with:
+
+```html
 <template>
     <div class="px-4 py-6 space-y-6">
 
@@ -411,7 +522,29 @@ onMounted(async () => {
                 </CardContent>
             </Card>
         </div>
+```
 
+- [ ] **Step 2: Commit**
+
+```bash
+git add resources/js/Components/Admin/TodayTab.vue
+git commit -m "feat(dashboard): template action card + KPI cards with shadcn"
+```
+
+---
+
+### Task 4: Rewrite TodayTab.vue — Template (Charts with unovis)
+
+**Files:**
+- Modify: `resources/js/Components/Admin/TodayTab.vue` (continue template)
+
+- [ ] **Step 1: Add charts section after KPI cards**
+
+Note: Since @unovis/vue might not be fully compatible with the project's JS setup (no TypeScript), we use a pragmatic approach — keep the chart rendering in shadcn Cards but use simple SVG/CSS-based chart representations that match the mockup. The data is already computed. If unovis works, it can be swapped in later.
+
+For the initial implementation, render charts as visual HTML within shadcn Cards, using the computed data:
+
+```html
         <!-- Section 3: Charts -->
         <div v-if="chartsReady" class="grid grid-cols-1 lg:grid-cols-7 gap-4">
             <!-- Anfragen-Trend -->
@@ -501,7 +634,25 @@ onMounted(async () => {
                 </CardContent>
             </Card>
         </div>
+```
 
+- [ ] **Step 2: Commit**
+
+```bash
+git add resources/js/Components/Admin/TodayTab.vue
+git commit -m "feat(dashboard): charts section with shadcn cards"
+```
+
+---
+
+### Task 5: Rewrite TodayTab.vue — Template (Termine + Ranking Table)
+
+**Files:**
+- Modify: `resources/js/Components/Admin/TodayTab.vue` (continue template)
+
+- [ ] **Step 1: Add Termine and Ranking sections**
+
+```html
         <!-- Section 4: Termine -->
         <Card v-if="upcomingEvents.length">
             <CardHeader class="flex flex-row items-center justify-between">
@@ -602,191 +753,133 @@ onMounted(async () => {
                 </Table>
             </CardContent>
         </Card>
+```
 
-    </div>
+- [ ] **Step 2: Commit**
+
+```bash
+git add resources/js/Components/Admin/TodayTab.vue
+git commit -m "feat(dashboard): termine + ranking with shadcn card/table"
+```
+
+---
+
+### Task 6: Rewrite TodayTab.vue — Template (Modals + closing tags)
+
+**Files:**
+- Modify: `resources/js/Components/Admin/TodayTab.vue` (finish template)
+
+- [ ] **Step 1: Add the modals and close the template**
+
+The modals stay functionally identical. Keep the existing modal HTML from the current file (Kaufanbote, Verkaufsvolumen, Provisionen modals) as-is. They already work and don't need shadcn conversion in this phase. Close all template tags:
+
+```html
+    </div><!-- end main content div -->
 
     <!-- Kaufanbote Detail Modal -->
     <Teleport to="body">
-        <div v-if="showKaufanboteModal" class="fixed inset-0 z-50 flex items-center justify-center" @click.self="showKaufanboteModal = false">
-            <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" @click="showKaufanboteModal = false"></div>
-            <div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl bg-[var(--card)] border border-[var(--border)] mx-4">
-                <!-- Header -->
-                <div class="sticky top-0 z-10 px-6 py-4 flex items-center justify-between border-b border-[var(--border)] bg-[var(--card)] rounded-t-2xl">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(16,185,129,0.1)">
-                            <BadgeCheck class="w-5 h-5" style="color:#10b981" />
-                        </div>
-                        <div>
-                            <h2 class="text-lg font-bold">Kaufanbote Übersicht</h2>
-                            <p class="text-xs text-[var(--muted-foreground)]">{{ kaufanboteStats.total }} Kaufanbot{{ kaufanboteStats.total !== 1 ? 'e' : '' }} gesamt</p>
-                        </div>
-                    </div>
-                    <button @click="showKaufanboteModal = false" class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--accent)] transition-colors">
-                        <X class="w-5 h-5" />
-                    </button>
-                </div>
-
-                <!-- Monthly Chart (replaced ApexCharts with CSS bars) -->
-                <div v-if="kaufanboteMonthly.length" class="px-6 pt-4 pb-2">
-                    <h3 class="text-sm font-semibold mb-2">Monatliche Entwicklung</h3>
-                    <div class="flex items-end gap-1 h-[180px]">
-                        <div v-for="(m, i) in kaufanboteMonthly" :key="i" class="flex-1 flex flex-col items-center gap-1">
-                            <div class="w-full flex items-end justify-center" style="height:150px;">
-                                <div class="w-3/4 rounded-t-sm bg-emerald-500 transition-all"
-                                    :style="{ height: (m.count / Math.max(...kaufanboteMonthly.map(x => x.count), 1) * 100) + '%', minHeight: m.count > 0 ? '4px' : '0' }"></div>
-                            </div>
-                            <span class="text-[8px] text-[var(--muted-foreground)]">{{ m.label }}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Persons List -->
-                <div v-if="kaufanboteStats.persons && kaufanboteStats.persons.length" class="px-6 py-4">
-                    <h3 class="text-sm font-semibold mb-3">Personen mit Kaufanboten</h3>
-                    <div class="space-y-3">
-                        <div v-for="person in kaufanboteStats.persons" :key="person.surname_key" class="rounded-xl border border-[var(--border)] p-4 hover:bg-[var(--accent)] transition-colors">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex items-center gap-2 mb-1">
-                                        <span class="text-sm font-semibold">{{ person.display_name }}</span>
-                                        <span v-if="person.has_absage" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style="background:rgba(239,68,68,0.1);color:#ef4444">Absage</span>
-                                    </div>
-                                    <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted-foreground)]">
-                                        <span v-if="person.email">{{ person.email }}</span>
-                                        <span v-if="person.phone">{{ person.phone }}</span>
-                                    </div>
-                                    <!-- Properties -->
-                                    <div v-for="prop in person.properties" :key="prop.property_id + prop.date" class="mt-2 flex items-center gap-2 text-xs">
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-muted">{{ prop.ref_id }}</span>
-                                        <span class="text-[var(--muted-foreground)]">{{ prop.address }}, {{ prop.city }}</span>
-                                        <span class="text-[var(--muted-foreground)]">{{ new Date(prop.date).toLocaleDateString('de-AT') }}</span>
-                                    </div>
-                                </div>
-                                <div class="text-right flex-shrink-0">
-                                    <div class="text-[10px] text-[var(--muted-foreground)]">{{ new Date(person.last_date).toLocaleDateString('de-AT') }}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Details List (fallback if no persons) -->
-                <div v-else-if="kaufanboteStats.details && kaufanboteStats.details.length" class="px-6 py-4">
-                    <h3 class="text-sm font-semibold mb-3">Kaufanbot Details</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="text-left text-[10px] text-[var(--muted-foreground)] uppercase tracking-wider">
-                                    <th class="pb-2 pr-4">Name</th>
-                                    <th class="pb-2 pr-4">Objekt</th>
-                                    <th class="pb-2 pr-4">Datum</th>
-                                    <th class="pb-2 pr-4">E-Mail</th>
-                                    <th class="pb-2">Telefon</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-[var(--border)]">
-                                <tr v-for="d in kaufanboteStats.details" :key="d.surname_key" class="hover:bg-[var(--accent)] transition-colors">
-                                    <td class="py-2 pr-4 font-medium">{{ d.display_name }}</td>
-                                    <td class="py-2 pr-4"><span class="text-[10px] px-1.5 py-0.5 rounded bg-muted">{{ d.properties?.[0]?.ref_id }}</span></td>
-                                    <td class="py-2 pr-4 text-[var(--muted-foreground)]">{{ new Date(d.last_date).toLocaleDateString('de-AT') }}</td>
-                                    <td class="py-2 pr-4 text-[var(--muted-foreground)]">{{ d.email || '-' }}</td>
-                                    <td class="py-2 text-[var(--muted-foreground)]">{{ d.phone || '-' }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Empty state -->
-                <div v-else class="px-6 py-12 text-center text-[var(--muted-foreground)] text-sm">
-                    Keine Kaufanbote vorhanden.
-                </div>
-            </div>
-        </div>
+        <!-- KEEP EXISTING MODAL CODE EXACTLY AS-IS -->
+        <!-- ... kaufanbote modal ... -->
+        <!-- ... sales modal ... -->
+        <!-- ... commission modal ... -->
     </Teleport>
-
-    <!-- Verkaufsvolumen Modal -->
-    <div v-if="showSalesModal" class="fixed inset-0 z-50 flex items-center justify-center" @click.self="showSalesModal = false">
-        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" @click="showSalesModal = false"></div>
-        <div class="relative bg-[var(--card)] rounded-2xl shadow-2xl w-full max-w-xl mx-4 max-h-[85vh] overflow-hidden border border-[var(--border)]">
-            <div class="px-6 py-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
-                <div>
-                    <h2 class="text-lg font-bold">Verkaufsvolumen</h2>
-                    <p class="text-xs text-[var(--muted-foreground)]" v-if="salesVolumeData">{{ salesVolumeData.total_sold }} von {{ salesVolumeData.total_units }} Einheiten verkauft</p>
-                </div>
-                <button @click="showSalesModal = false" class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--accent)]"><X class="w-4 h-4" /></button>
-            </div>
-            <div class="px-6 py-3 flex items-center gap-2" style="border-bottom:1px solid var(--border)">
-                <button v-for="p in [{k:'week',l:'Woche'},{k:'month',l:'Monat'},{k:'year',l:'Jahr'},{k:'all',l:'Alle'}]" :key="p.k"
-                    @click="loadSalesAndCommissions(p.k)"
-                    class="px-3 py-1.5 text-[11px] font-medium rounded-lg transition-colors"
-                    :style="(salesPeriod === p.k) ? 'background:#ee7606;color:white' : 'background:var(--muted);color:var(--foreground)'">{{ p.l }}</button>
-            </div>
-            <div class="overflow-y-auto px-6 py-4 space-y-3" style="max-height:calc(85vh - 130px)">
-
-                <div class="text-center py-2">
-                    <div class="text-3xl font-bold" style="color:#ee7606">&euro; {{ Number(salesVolumeData?.total_volume || 0).toLocaleString('de-DE') }}</div>
-                </div>
-                <div v-for="prop in filteredSalesProperties" :key="prop.property_id" class="rounded-xl p-3" style="background:var(--muted)">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm font-semibold truncate flex-1">{{ prop.address }}</span>
-                        <span class="text-sm font-bold ml-2 whitespace-nowrap" style="color:#ee7606">&euro; {{ Number(prop.volume || 0).toLocaleString('de-DE') }}</span>
-                    </div>
-                    <div class="flex items-center justify-between mt-1">
-                        <span class="text-[10px] text-[var(--muted-foreground)]">{{ prop.city }} &middot; {{ prop.all_sold }}/{{ prop.total }} verkauft &middot; {{ Math.round((prop.sold_area / (prop.total_area || 1)) * 100) }}% m&sup2;</span>
-                        <span class="text-[10px] font-semibold" style="color:#10b981" v-if="prop.commission_makler_amount">&euro; {{ Number(prop.commission_makler_amount).toLocaleString('de-DE') }} Prov.</span>
-                    </div>
-                    <div v-if="prop.sold_entries && prop.sold_entries.length" class="mt-2 space-y-1">
-                        <div v-for="e in prop.sold_entries" :key="e.unit_number" class="flex items-center justify-between text-[10px] text-[var(--muted-foreground)] pl-2" style="border-left:2px solid var(--border)">
-                            <span>{{ e.unit_number }} <span v-if="e.buyer_name" class="font-medium">&middot; {{ e.buyer_name }}</span></span>
-                            <span class="font-medium">&euro; {{ Number(e.total_price || 0).toLocaleString('de-DE') }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Provisionen Modal -->
-    <div v-if="showCommissionModal" class="fixed inset-0 z-50 flex items-center justify-center" @click.self="showCommissionModal = false">
-        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" @click="showCommissionModal = false"></div>
-        <div class="relative bg-[var(--card)] rounded-2xl shadow-2xl w-full max-w-xl mx-4 max-h-[85vh] overflow-hidden border border-[var(--border)]">
-            <div class="px-6 py-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
-                <div>
-                    <h2 class="text-lg font-bold">Provisionen</h2>
-                    <p class="text-xs text-[var(--muted-foreground)]" v-if="commissionData">{{ commissionData.properties_with_commission || 0 }} Objekte mit Provision</p>
-                </div>
-                <button @click="showCommissionModal = false" class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--accent)]"><X class="w-4 h-4" /></button>
-            </div>
-            <div class="overflow-y-auto px-6 py-4 space-y-3" style="max-height:calc(85vh - 80px)">
-
-                <div class="grid grid-cols-2 gap-3 mb-3">
-                    <div class="text-center p-3 rounded-xl" style="background:var(--muted)">
-                        <div class="text-xl font-bold" style="color:#10b981">&euro; {{ Number(commissionBrokerFilter === 'all' ? (commissionData?.total_makler || 0) : filteredCommissionTotals.makler).toLocaleString('de-DE') }}</div>
-                        <div class="text-[10px] text-[var(--muted-foreground)]">Makler-Anteil</div>
-                    </div>
-                    <div class="text-center p-3 rounded-xl" style="background:var(--muted)">
-                        <div class="text-xl font-bold">&euro; {{ Number(commissionBrokerFilter === 'all' ? (commissionData?.total_gesamt || 0) : filteredCommissionTotals.gesamt).toLocaleString('de-DE') }}</div>
-                        <div class="text-[10px] text-[var(--muted-foreground)]">Gesamt-Provision</div>
-                    </div>
-                </div>
-
-                <div class="text-[11px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-2">Pro Objekt</div>
-                <div v-for="d in filteredCommissionDetails" :key="d.property_id" class="rounded-xl p-3" style="background:var(--muted)">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm font-semibold truncate flex-1">{{ d.address }}</span>
-                        <span class="text-sm font-bold ml-2 whitespace-nowrap" style="color:#10b981">&euro; {{ Number(d.makler_amount || 0).toLocaleString('de-DE') }}</span>
-                    </div>
-                    <div class="flex items-center justify-between mt-1">
-                        <span class="text-[10px] text-[var(--muted-foreground)]">Volumen: &euro; {{ Number(d.volume || 0).toLocaleString('de-DE') }}</span>
-                        <span class="text-[10px] text-[var(--muted-foreground)]">{{ d.commission_total }}% gesamt &middot; {{ d.commission_makler }}% Makler</span>
-                    </div>
-                </div>
-                <div v-if="!filteredCommissionDetails.length" class="text-center py-8 text-sm text-[var(--muted-foreground)]">
-                    Keine Provisionen hinterlegt. Provisionen k&ouml;nnen im Objekt unter &bdquo;Eigent&uuml;mer&rdquo; eingestellt werden.
-                </div>
-            </div>
-        </div>
-    </div>
-
 </template>
+```
+
+Note: Copy the three `<Teleport>` / modal blocks from the current TodayTab.vue lines 914-1092 verbatim. No changes needed.
+
+- [ ] **Step 2: Remove the old `<style>` block if any exists in TodayTab.vue**
+
+TodayTab.vue has no `<style>` block — all styles come from Dashboard.vue's global styles. Nothing to remove.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add resources/js/Components/Admin/TodayTab.vue
+git commit -m "feat(dashboard): complete template with modals"
+```
+
+---
+
+### Task 7: Build, verify, clean up
+
+**Files:**
+- Modify: `package.json` (remove apexcharts)
+- Modify: `resources/js/Components/Admin/TodayTab.vue` (final)
+
+- [ ] **Step 1: Build and check for errors**
+
+```bash
+cd /var/www/srhomes
+npx vite build 2>&1 | tail -20
+```
+
+Expected: Build succeeds. If errors, fix imports or template syntax.
+
+- [ ] **Step 2: Clear caches**
+
+```bash
+php artisan cache:clear && php artisan view:clear
+```
+
+- [ ] **Step 3: Verify in browser**
+
+Open the dashboard in browser. Check:
+- Action Card shows greeting + badges + action items
+- 4 KPI cards display with correct data
+- Charts render (bar, progress bars, radial)
+- Termine section shows upcoming events
+- Ranking table is sortable
+- Modals open correctly (Kaufanbote, Verkaufsvolumen, Provisionen)
+- Dark mode works
+- Mobile responsive (2-col KPIs, single-col charts)
+
+- [ ] **Step 4: Remove ApexCharts dependency**
+
+Only after verifying everything works:
+
+```bash
+cd /var/www/srhomes
+npm uninstall apexcharts vue3-apexcharts
+```
+
+Check that no other file imports ApexCharts:
+
+```bash
+grep -r "apexcharts\|VueApexCharts" resources/js/ --include="*.vue" --include="*.js"
+```
+
+If other files still use it, keep the dependency. Otherwise proceed.
+
+- [ ] **Step 5: Final build**
+
+```bash
+npx vite build 2>&1 | tail -5
+```
+
+- [ ] **Step 6: Commit and push**
+
+```bash
+git add -A
+git commit -m "feat(dashboard): complete TodayTab redesign with shadcn components
+
+- Replace custom CSS with shadcn Card, Table, Badge components
+- Migrate charts from ApexCharts to native SVG/CSS in shadcn Cards
+- 4 main KPI cards with secondary badges in action card
+- Makler ranking with shadcn Table
+- Responsive grid layout"
+git push
+```
+
+---
+
+## Verification Checklist
+
+- [ ] Action Card: Greeting text, badges for secondary KPIs, clickable action items
+- [ ] KPI Cards: 4 cards (3 for Assistenz), correct data, click opens modal/tab
+- [ ] Charts: Trend bars, platform distribution, funnel, response time radial
+- [ ] Termine: Shows this week's events, badge for Besichtigung
+- [ ] Ranking: shadcn Table, sortable columns, medal badges, color-coded response time
+- [ ] Modals: Kaufanbote, Verkaufsvolumen, Provisionen open and display data
+- [ ] Dark Mode: All components render correctly
+- [ ] Mobile: 2-col KPIs, single-col charts, scrollable table

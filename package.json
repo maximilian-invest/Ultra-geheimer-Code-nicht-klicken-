@@ -21,8 +21,16 @@
         "vue": "^3.4.0"
     },
     "dependencies": {
+        "@unovis/ts": "^1.6.4",
+        "@unovis/vue": "^1.6.4",
+        "@vueuse/core": "^14.2.1",
         "apexcharts": "^5.10.4",
+        "class-variance-authority": "^0.7.1",
+        "clsx": "^2.1.1",
         "lucide-vue-next": "^0.577.0",
+        "reka-ui": "^2.9.2",
+        "tailwind-merge": "^3.5.0",
+        "tailwindcss-animate": "^1.0.7",
         "vue3-apexcharts": "^1.11.1"
     }
 }

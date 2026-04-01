@@ -12,6 +12,7 @@ import OffersTab from '@/Components/Admin/property-detail/OffersTab.vue';
 import MediaTab from '@/Components/Admin/property-detail/MediaTab.vue';
 import PortalsTab from "@/Components/Admin/property-detail/PortalsTab.vue";
 import KnowledgeTab from "@/Components/Admin/property-detail/KnowledgeTab.vue";
+import FilesTab from "@/Components/Admin/property-detail/FilesTab.vue";
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -176,6 +177,7 @@ const showExposeParser = ref(false);
         <MediaTab v-else-if="activeTab === 'medien'" ref="mediaTabRef" :property="property" @dirty="isDirty = true" />
         <PortalsTab v-else-if="activeTab === 'portale'" ref="portalsTabRef" :property="property" @dirty="isDirty = true" />
         <KnowledgeTab v-else-if="activeTab === 'wissen'" :property="property" />
+        <FilesTab v-else-if="activeTab === 'dateien'" :property="property" />
         <div v-else class="text-muted-foreground text-sm">Tab: {{ activeTab }}</div>
       </div>
     </Tabs>

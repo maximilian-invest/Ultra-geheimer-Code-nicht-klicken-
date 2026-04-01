@@ -2,8 +2,6 @@
 import { catBadgeStyle, catLabel } from '@/utils/categoryBadge.js';
 import { ref, inject, computed, reactive, watch } from "vue";
 import { Home, Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, Unlink, LayoutList, LayoutGrid } from "lucide-vue-next";
-import PropertyEditor from '@/Components/Admin/PropertyEditor.vue';
-import PropertyDetailView from '@/Components/Admin/PropertyDetailView.vue';
 import PropertyDetailPage from '@/Components/Admin/PropertyDetailPage.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -78,18 +76,13 @@ const createLoading = ref(false);
 const deleteConfirm = ref(null);
 const deleteLoading = ref(false);
 
-const editorVisible = ref(false);
-const editorPropertyId = ref(null);
-function openEditor(propId) { editorPropertyId.value = propId; editorVisible.value = true; propMenuOpen.value = null; }
-function onEditorClose() { editorVisible.value = false; editorPropertyId.value = null; }
-function onEditorSaved() { editorVisible.value = false; window.location.reload(); }
 
 // Property Detail View
-const detailVisible = ref(false);
 const selectedProperty = ref(null);
 const isNewProperty = ref(false);
-function openDetail(prop) { selectedProperty.value = prop; isNewProperty.value = false; detailVisible.value = true; }
-function closeDetail() { selectedProperty.value = null; isNewProperty.value = false; detailVisible.value = false; }
+function openDetail(prop) { selectedProperty.value = prop; isNewProperty.value = false; }
+function closeDetail() { selectedProperty.value = null; isNewProperty.value = false; }
+function openNewProperty() { selectedProperty.value = { on_hold: false, marketing_type: "kauf" }; isNewProperty.value = true; }
 
 function handlePropertyCreated() {
   closeDetail();
@@ -1765,7 +1758,7 @@ async function toggleWebsiteDownload(f) {
           <FileText class="w-3.5 h-3.5 mr-1.5" />
           Allg. Dokumente
         </Button>
-        <Button size="sm" class="h-8 text-xs" style="background:hsl(240 5.9% 10%);color:white" @click="openEditor(null)">
+        <Button size="sm" class="h-8 text-xs" style="background:hsl(240 5.9% 10%);color:white" @click="openNewProperty()">
           <Plus class="w-3.5 h-3.5 mr-1" />
           <span class="hidden sm:inline">Neues Objekt</span>
           <span class="sm:hidden">Neu</span>

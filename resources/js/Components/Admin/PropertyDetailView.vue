@@ -682,7 +682,7 @@ function unitRowClass(status) {
             </div>
           </div>
 
-          <div class="flex items-center gap-2 flex-shrink-0">
+          <div class="flex items-center gap-2 flex-shrink-0 pr-10">
             <Badge v-if="!property?.on_hold" class="text-[10px] px-2.5 py-0.5" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)">Aktiv</Badge>
             <Badge v-else class="text-[10px] px-2.5 py-0.5" style="background:hsl(33 100% 96%);color:hsl(21 90% 48%);border:1px solid hsl(33 100% 90%)">Pausiert</Badge>
             <Button variant="outline" size="sm" class="h-8 text-xs" @click="$emit('openEditor', property?.id)">

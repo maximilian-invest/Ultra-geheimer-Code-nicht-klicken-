@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import OverviewTab from '@/Components/Admin/property-detail/OverviewTab.vue';
 import EditTab from '@/Components/Admin/property-detail/EditTab.vue';
+import UnitsTab from '@/Components/Admin/property-detail/UnitsTab.vue';
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -166,6 +167,7 @@ const showExposeParser = ref(false);
           @owner-changed="(data) => emit('ownerChanged', data)"
           @property-created="(data) => emit('propertyCreated', data)" />
         <EditTab v-else-if="activeTab === 'bearbeiten'" ref="editTabRef" :property="property" :is-new="isNew" @dirty="isDirty = true" @saved="(p) => { isDirty = false; emit('saved', p); }" />
+        <UnitsTab v-else-if="activeTab === 'einheiten'" :property="property" />
         <div v-else class="text-muted-foreground text-sm">Tab: {{ activeTab }}</div>
       </div>
     </Tabs>

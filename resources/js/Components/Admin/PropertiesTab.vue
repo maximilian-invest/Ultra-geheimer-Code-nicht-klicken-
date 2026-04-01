@@ -4,6 +4,7 @@ import { ref, inject, computed, reactive, watch } from "vue";
 import { Home, Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, Unlink, LayoutList, LayoutGrid } from "lucide-vue-next";
 import PropertyEditor from '@/Components/Admin/PropertyEditor.vue';
 import PropertyDetailView from '@/Components/Admin/PropertyDetailView.vue';
+import PropertyDetailPage from '@/Components/Admin/PropertyDetailPage.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
@@ -79,15 +80,43 @@ const deleteLoading = ref(false);
 
 const editorVisible = ref(false);
 const editorPropertyId = ref(null);
-function openEditor(propId) { editorPropertyId.value = propId; editorVisible.value = true; propMenuOpen.value = null; detailVisible.value = false; }
+function openEditor(propId) { editorPropertyId.value = propId; editorVisible.value = true; propMenuOpen.value = null; }
 function onEditorClose() { editorVisible.value = false; editorPropertyId.value = null; }
 function onEditorSaved() { editorVisible.value = false; window.location.reload(); }
 
 // Property Detail View
 const detailVisible = ref(false);
 const selectedProperty = ref(null);
-function openDetail(prop) { selectedProperty.value = prop; detailVisible.value = true; }
-function closeDetail() { detailVisible.value = false; selectedProperty.value = null; }
+const isNewProperty = ref(false);
+function openDetail(prop) { selectedProperty.value = prop; isNewProperty.value = false; detailVisible.value = true; }
+function closeDetail() { selectedProperty.value = null; isNewProperty.value = false; detailVisible.value = false; }
+
+function handlePropertyCreated() {
+  closeDetail();
+}
+
+function handleOwnerChanged(data) {
+  const allProps = (properties?.value ?? properties) || [];
+  const p = allProps.find(x => x.id === data.propertyId);
+  if (p) {
+    p.customer_id = data.customer_id;
+    p.owner_name = data.owner_name;
+    p.owner_email = data.owner_email;
+    p.owner_phone = data.owner_phone;
+  }
+  if (selectedProperty.value) {
+    selectedProperty.value.customer_id = data.customer_id;
+    selectedProperty.value.owner_name = data.owner_name;
+    selectedProperty.value.owner_email = data.owner_email;
+    selectedProperty.value.owner_phone = data.owner_phone;
+  }
+}
+
+function handlePropertySaved(p) {
+  if (p && selectedProperty.value) {
+    Object.assign(selectedProperty.value, p);
+  }
+}
 
 // Parent-Child Hierarchy
 const expandedParents = ref(new Set());
@@ -1714,7 +1743,18 @@ async function toggleWebsiteDownload(f) {
 </script>
 
 <template>
-    <div class="px-3 sm:px-5 py-4 sm:py-5 space-y-0">
+    <PropertyDetailPage
+      v-if="selectedProperty"
+      :property="selectedProperty"
+      :is-new="isNewProperty"
+      @back="closeDetail"
+      @toggle-on-hold="toggleOnHold(selectedProperty)"
+      @delete-property="deleteProperty(selectedProperty)"
+      @property-created="handlePropertyCreated"
+      @owner-changed="handleOwnerChanged"
+      @saved="handlePropertySaved"
+    />
+    <div v-else class="px-3 sm:px-5 py-4 sm:py-5 space-y-0">
     <!-- Toolbar Row 1: Title + Actions -->
     <div class="flex items-center justify-between gap-3 pb-3" style="border-bottom:1px solid hsl(240 5.9% 90%)">
       <h2 class="text-lg font-bold" style="letter-spacing:-0.02em">
@@ -2787,27 +2827,6 @@ async function toggleWebsiteDownload(f) {
                 </div>
             </div>
         </div>
-
-
-    <!-- Property Detail View (Kachel-Uebersicht) -->
-    <PropertyDetailView
-        :property="selectedProperty"
-        :visible="detailVisible"
-        @close="closeDetail"
-        @open-editor="(id) => { propSettingsOpen = false; openEditor(id); }"
-        @open-activities="(id, addr) => { propSettingsOpen = false; closeDetail(); openActivities(id, addr); }"
-        @open-knowledge="(id, addr) => { propSettingsOpen = false; closeDetail(); openKnowledge(id, addr); }"
-        @open-files="(id, addr) => { propSettingsOpen = false; closeDetail(); openPropFiles(id, addr); }"
-        @open-messages="(id, addr) => { closeDetail(); openMsgs(id, addr); }"
-        @open-settings="(id) => { openPropSettings(id); }"
-        @toggle-on-hold="(prop) => { closeDetail(); toggleOnHold(prop); }"
-        @delete-property="(prop) => { closeDetail(); deleteProperty(prop); }"
-        @owner-changed="(data) => { const p = properties.find(x => x.id === data.propertyId); if (p) { p.customer_id = data.customer_id; p.owner_name = data.owner_name; p.owner_email = data.owner_email; p.owner_phone = data.owner_phone; } if (selectedProperty) { selectedProperty.customer_id = data.customer_id; selectedProperty.owner_name = data.owner_name; selectedProperty.owner_email = data.owner_email; selectedProperty.owner_phone = data.owner_phone; } }"
-        @assign-parent="(prop) => { parentAssignModal = prop; parentSearchQuery = ''; }"
-    />
-
-    <!-- Property Editor (Wizard) -->
-        <PropertyEditor :property-id="editorPropertyId" :visible="editorVisible" @close="onEditorClose" @saved="onEditorSaved" />
 
     <!-- Delete Confirmation -->
     <div v-if="deleteConfirm" class="fixed inset-0 z-[300] flex items-center justify-center bg-black/50" @click.self="deleteConfirm = null">

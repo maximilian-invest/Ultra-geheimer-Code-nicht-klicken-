@@ -103,7 +103,7 @@ function handleDiscard() {
 }
 
 const showExposeParser = ref(false);
-<\/script>
+</script>
 
 <template>
   <div class="flex flex-col h-full">

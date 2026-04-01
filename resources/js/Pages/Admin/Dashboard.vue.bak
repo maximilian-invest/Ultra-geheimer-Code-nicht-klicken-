@@ -13,16 +13,11 @@ import SettingsTab from "@/Components/Admin/SettingsTab.vue";
 import WebsiteTab from "@/Components/Admin/WebsiteTab.vue";
 import CalendarTab from "@/Components/Admin/CalendarTab.vue";
 import AssistenzTasksTab from "@/Components/Admin/AssistenzTasksTab.vue";
-import AiChatWidget from "../../Components/Admin/AiChatWidget.vue";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
+import AiChatWidget from "../../Components/Admin/AiChatWidget.vue"
 import {
     LayoutDashboard, AlertCircle, Zap, MessageSquare, Mail, Home,
     FileText, TrendingUp, Settings, Moon, Sun, LogOut,
-    PanelLeft, Calendar, X, CheckCircle, Bell, Users, AlertTriangle, Inbox as InboxIcon, Clock as ClockIcon, Sparkles, Home as HomeIcon, Menu, Globe, ListTodo
+    ChevronsLeft, Calendar, X, CheckCircle, Bell, Users, AlertTriangle, Inbox as InboxIcon, Clock as ClockIcon, Sparkles, Home as HomeIcon, Menu, Globe, ListTodo
 } from "lucide-vue-next";
 
 const props = defineProps({
@@ -42,8 +37,8 @@ provide("properties", props.properties);
 provide("kbCounts", props.kbCounts);
 
 const tab = ref(localStorage.getItem("sr-admin-tab") || "today");
-const sidebarCollapsed = ref(localStorage.getItem("sr-sidebar-collapsed") === "1");
-const mobileOpen = ref(false);
+const sidebarOpen = ref(false);
+const sidebarCollapsed = ref(true);
 const darkMode = ref(localStorage.getItem("sr-dark") === "1");
 
 const unansweredCount = ref(0);
@@ -75,45 +70,30 @@ function toggleDarkMode() {
     document.documentElement.classList.toggle("dark", darkMode.value);
 }
 
-function toggleSidebar() {
-    sidebarCollapsed.value = !sidebarCollapsed.value;
-    localStorage.setItem("sr-sidebar-collapsed", sidebarCollapsed.value ? "1" : "0");
-}
-
 watch(tab, (v) => localStorage.setItem("sr-admin-tab", v));
 
 function switchTab(t) {
     tab.value = t;
-    mobileOpen.value = false;
+    sidebarOpen.value = false;
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 provide("switchTab", switchTab);
-
-const userType = computed(() => page.props.auth?.user?.user_type || 'makler');
-const isAdmin = computed(() => userType.value === 'admin');
-provide("userType", userType);
-provide("isAdmin", isAdmin);
-const userId = computed(() => page.props.auth?.user?.id || null);
-provide("userId", userId);
-const isAssistenz = computed(() => ['assistenz','backoffice'].includes(userType.value));
-provide('isAssistenz', isAssistenz);
-
-const apiBase = API;
 
 async function loadCounts() {
     try {
         const r = await fetch(API.value + "&action=followups&filter=all");
         const d = await r.json();
         unansweredCount.value = d.total_open || 0;
-        followupCount.value = d.total_followup || 0;
-    } catch (e) { /* silent */ }
+    // Load open task count for sidebar badge
     try {
         const isAss = ['assistenz','backoffice'].includes(userType.value);
-        const tUrl = API.value + '&action=getTasks' + (isAss ? '&scope=assistenz' : '');
+        const tUrl = apiBase + '&action=getTasks' + (isAss ? '&scope=assistenz' : '');
         const tRes = await fetch(tUrl);
         const tData = await tRes.json();
         taskCount.value = (tData.tasks || []).filter(t => !t.is_done).length;
     } catch(e) {}
+        followupCount.value = d.total_followup || 0;
+    } catch (e) { /* silent */ }
     try {
         const r = await fetch(API.value + "&action=unmatched_emails");
         const d = await r.json();
@@ -122,6 +102,7 @@ async function loadCounts() {
 }
 provide("refreshCounts", loadCounts);
 
+// Multi-User: userName und calendarEmbedUrl bereitstellen
 provide("userName", userName);
 const userEmail = computed(() => page.props.auth?.user?.email || "");
 const calendarEmbedUrl = computed(() => userEmail.value ? `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(userEmail.value)}&ctz=Europe%2FVienna&mode=WEEK&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&bgcolor=%23ffffff` : "");
@@ -133,6 +114,7 @@ const notifications = ref([]);
 const notifLoading = ref(false);
 const notifLoaded = ref(false);
 
+// Viewing creation form
 const showViewingForm = ref(false);
 const viewingFormData = ref({ activityId: null, stakeholder: '', refId: '', address: '', date: '', time: '10:00', duration: 60, notifId: '' });
 const viewingSubmitting = ref(false);
@@ -143,53 +125,83 @@ async function loadNotifications() {
     notifLoaded.value = true;
     try {
         const items = [];
+
+        // 1. Unbeantwortete
         if (unansweredCount.value > 0) {
             items.push({ id: 'unanswered', icon: 'mail', color: '#ef4444', text: unansweredCount.value + ' unbeantwortete Anfrage' + (unansweredCount.value > 1 ? 'n' : ''), tab: 'priorities' });
         }
+
+        // 2. Nachfassen
         if (followupCount.value > 0) {
             items.push({ id: 'followup', icon: 'clock', color: '#ee7606', text: followupCount.value + ' Kontakte zum Nachfassen', tab: 'priorities' });
         }
+
+        // 3. Unmatched emails
         if (unmatchedCount.value > 0) {
             items.push({ id: 'unmatched', icon: 'inbox', color: '#3b82f6', text: unmatchedCount.value + ' nicht zugeordnete E-Mail' + (unmatchedCount.value > 1 ? 's' : ''), tab: 'comms' });
         }
+
+        // 4. Proactive alerts
         try {
             const r = await fetch(API.value + "&action=proactive_alerts");
             const d = await r.json();
             const alerts = d.alerts || [];
             const urgent = alerts.filter(a => a.severity === 'urgent');
             const warnings = alerts.filter(a => a.severity === 'warning');
-            if (urgent.length > 0) items.push({ id: 'alerts_urgent', icon: 'alert', color: '#ef4444', text: urgent.length + ' dringende' + (urgent.length > 1 ? ' Hinweise' : 'r Hinweis'), tab: 'priorities' });
-            if (warnings.length > 0) items.push({ id: 'alerts_warning', icon: 'alert', color: '#f59e0b', text: warnings.length + ' Warnung' + (warnings.length > 1 ? 'en' : ''), tab: 'priorities' });
+            if (urgent.length > 0) {
+                items.push({ id: 'alerts_urgent', icon: 'alert', color: '#ef4444', text: urgent.length + ' dringende' + (urgent.length > 1 ? ' Hinweise' : 'r Hinweis'), tab: 'priorities' });
+            }
+            if (warnings.length > 0) {
+                items.push({ id: 'alerts_warning', icon: 'alert', color: '#f59e0b', text: warnings.length + ' Warnung' + (warnings.length > 1 ? 'en' : ''), tab: 'priorities' });
+            }
         } catch {}
+
+        // 5. Cross-property matches
         try {
             const r = await fetch(API.value + "&action=cross_property_matches");
             const d = await r.json();
             const matches = d.matches || [];
-            if (matches.length > 0) items.push({ id: 'matches', icon: 'users', color: '#8b5cf6', text: matches.length + ' moegliche Objekt-Matches', tab: 'priorities' });
+            if (matches.length > 0) {
+                items.push({ id: 'matches', icon: 'users', color: '#8b5cf6', text: matches.length + ' mögliche Objekt-Matches', tab: 'priorities' });
+            }
         } catch {}
+
+        // 6. Pending Besichtigungen (need calendar entry)
         try {
             const r = await fetch(API.value + '&action=pending_viewings');
             const d = await r.json();
             const pending = d.pending || [];
             pending.forEach(p => {
-                items.unshift({ id: 'viewing_' + p.id, icon: 'calendar', color: '#ef4444', text: 'TERMIN EINTRAGEN: ' + p.stakeholder + ' (' + p.ref_id + ')', tab: 'priorities', urgent: true, activityId: p.id });
+                items.unshift({ id: 'viewing_' + p.id, icon: 'calendar', color: '#ef4444', text: '⚠ TERMIN EINTRAGEN: ' + p.stakeholder + ' (' + p.ref_id + ')', tab: 'priorities', urgent: true, activityId: p.id });
             });
         } catch {}
+
+        // Filter out dismissed notifications
+        // Counter-based items (unanswered, followup, matches) are never filtered - they reflect live state
+        // Only action items (viewing alerts, specific warnings) can be dismissed
         const dismissed = JSON.parse(localStorage.getItem('sr-dismissed-notifs') || '{}');
+        // Clean expired dismissals (>7 days)
         const now = Date.now();
         let changed = false;
-        for (const key in dismissed) { if (now - dismissed[key] > 604800000) { delete dismissed[key]; changed = true; } }
+        for (const key in dismissed) {
+            if (now - dismissed[key] > 604800000) { delete dismissed[key]; changed = true; }
+        }
         if (changed) localStorage.setItem('sr-dismissed-notifs', JSON.stringify(dismissed));
+
         const nonDismissableIds = ['unanswered', 'followup', 'unmatched', 'matches', 'alerts_urgent', 'alerts_warning'];
         notifications.value = items.filter(n => nonDismissableIds.includes(n.id) || !dismissed[n.id]);
     } catch {}
     notifLoading.value = false;
 }
+
 const notifCount = computed(() => notifications.value.length);
+
 
 function parseDatesFromEmail(text) {
     if (!text) return [];
     const dates = [];
+    const months = { "januar":1,"jänner":1,"februar":2,"märz":3,"april":4,"mai":5,"juni":6,"juli":7,"august":8,"september":9,"oktober":10,"november":11,"dezember":12 };
+    // Pattern: DD.MM.YYYY um HH:MM
     const p1 = /(\d{1,2})\.(\d{1,2})\.(\d{4})\s*(?:um|,)?\s*(\d{1,2})[:.:](\d{2})/gi;
     let m;
     while ((m = p1.exec(text)) !== null) {
@@ -199,16 +211,39 @@ function parseDatesFromEmail(text) {
             dates.push({ date: y + "-" + pad(mo) + "-" + pad(d), time: pad(h) + ":" + pad(mi), label: pad(d) + "." + pad(mo) + "." + y + " um " + pad(h) + ":" + pad(mi) });
         }
     }
+    // Pattern: "Montag, 16. April 2026 um 11:00" or "Donnerstag 16.04.2026 um 11:00"
+    const p2 = /(?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)[,\s]+(\d{1,2})\.?\s*(\w+|\d{1,2})\.?\s*(\d{4})\s*(?:um|,)?\s*(\d{1,2})[:.:](\d{2})/gi;
+    while ((m = p2.exec(text)) !== null) {
+        const d = parseInt(m[1]), moRaw = m[2], y = parseInt(m[3]), h = parseInt(m[4]), mi = parseInt(m[5]);
+        let mo = parseInt(moRaw);
+        if (isNaN(mo)) mo = months[moRaw.toLowerCase()] || 0;
+        if (y >= 2026 && mo >= 1 && mo <= 12) {
+            const pad = n => String(n).padStart(2, "0");
+            const key = y + "-" + pad(mo) + "-" + pad(d);
+            if (!dates.find(x => x.date === key && x.time === pad(h) + ":" + pad(mi))) {
+                dates.push({ date: key, time: pad(h) + ":" + pad(mi), label: pad(d) + "." + pad(mo) + "." + y + " um " + pad(h) + ":" + pad(mi) });
+            }
+        }
+    }
     return dates;
 }
-
 async function notifClick(notif) {
     if (notif.activityId && notif.id.startsWith('viewing_')) {
         const m = notif.text.match(/TERMIN EINTRAGEN:\s*(.+?)\s*\((.+?)\)/);
         const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-        const dateStr2 = tomorrow.toISOString().split('T')[0];
+        const dateStr = tomorrow.toISOString().split('T')[0];
         const parsed = parseDatesFromEmail(notif.emailBody || '');
-        viewingFormData.value = { activityId: notif.activityId, stakeholder: m ? m[1].trim() : '', refId: m ? m[2].trim() : '', address: notif.address || '', date: parsed.length ? parsed[0].date : dateStr2, time: parsed.length ? parsed[0].time : '10:00', duration: 60, notifId: notif.id, parsedDates: parsed };
+        viewingFormData.value = {
+            activityId: notif.activityId,
+            stakeholder: m ? m[1].trim() : '',
+            refId: m ? m[2].trim() : '',
+            address: notif.address || '',
+            date: parsed.length ? parsed[0].date : dateStr,
+            time: parsed.length ? parsed[0].time : '10:00',
+            duration: 60,
+            notifId: notif.id,
+            parsedDates: parsed
+        };
         showViewingForm.value = true;
         bellOpen.value = false;
         return;
@@ -227,69 +262,94 @@ async function submitViewingForm() {
         endDate.setMinutes(endDate.getMinutes() + (f.duration || 60));
         const pad = (n) => String(n).padStart(2, '0');
         const endDt = endDate.getFullYear() + '-' + pad(endDate.getMonth()+1) + '-' + pad(endDate.getDate()) + 'T' + pad(endDate.getHours()) + ':' + pad(endDate.getMinutes()) + ':00';
-        const summary = 'Besichtigung: ' + f.stakeholder + (f.refId ? ' – ' + f.refId : '');
+        const summary = 'Besichtigung: ' + f.stakeholder + (f.refId ? ' \u2013 ' + f.refId : '');
         const description = 'Besichtigungstermin mit ' + f.stakeholder + (f.address ? '\nAdresse: ' + f.address : '');
-        const cr = await fetch(API.value + '&action=calendar_create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ summary, start: startDt, end: endDt, description, location: f.address || '' }) });
+
+        const cr = await fetch(API.value + '&action=calendar_create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ summary, start: startDt, end: endDt, description, location: f.address || '' })
+        });
         const cd = await cr.json();
         if (!cd.success && !cd.ok) { toast('Fehler beim Erstellen: ' + (cd.error || 'Unbekannt')); viewingSubmitting.value = false; return; }
-        await fetch(API.value + '&action=dismiss_viewing_alert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activity_id: f.activityId }) });
+
+        await fetch(API.value + '&action=dismiss_viewing_alert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activity_id: f.activityId })
+        });
+
         notifications.value = notifications.value.filter(n => n.id !== f.notifId);
         showViewingForm.value = false;
         toast('Termin eingetragen + Google Calendar aktualisiert');
-    } catch (e) { toast('Fehler: ' + e.message); }
+    } catch (e) {
+        toast('Fehler: ' + e.message);
+    }
     viewingSubmitting.value = false;
 }
 
+// Close dropdown on outside click
 function dismissNotification(n) {
+    // Counter-based notifications can't be dismissed (they reflect live counts)
     const nonDismissable = ['unanswered', 'followup', 'unmatched', 'matches', 'alerts_urgent', 'alerts_warning'];
-    if (nonDismissable.includes(n.id)) { notifications.value = notifications.value.filter(item => item.id !== n.id); return; }
+    if (nonDismissable.includes(n.id)) {
+        // Just hide temporarily for this session
+        notifications.value = notifications.value.filter(item => item.id !== n.id);
+        return;
+    }
+    // Action items: persist dismissal
     notifications.value = notifications.value.filter(item => item.id !== n.id);
     const dismissed = JSON.parse(localStorage.getItem('sr-dismissed-notifs') || '{}');
     dismissed[n.id] = Date.now();
     localStorage.setItem('sr-dismissed-notifs', JSON.stringify(dismissed));
 }
 function closeBell(e) {
-    if (!e.target.closest('.bell-dropdown') && !e.target.closest('.bell-button')) bellOpen.value = false;
+    if (!e.target.closest('.bell-dropdown') && !e.target.closest('.bell-button')) {
+        bellOpen.value = false;
+    }
 }
 
-// Navigation groups
-const navGroups = [
-    { label: "Hauptnavigation", items: [
-        { key: "today", label: "Dashboard", icon: LayoutDashboard },
-        { key: "priorities", label: "Aktionen", icon: Zap },
-        { key: "tasks", label: "Aufgaben", icon: ListTodo },
-        { key: "comms", label: "Kommunikation", icon: MessageSquare },
-        { key: "properties", label: "Objekte", icon: Home },
-    ]},
-    { label: "Auswertungen", items: [
-        { key: "reports", label: "Berichte", icon: FileText },
-        { key: "analytics", label: "Marktanalyse", icon: TrendingUp },
-    ]},
-    { label: "System", items: [
-        { key: "calendar", label: "Kalender", icon: Calendar },
-        { key: "admin", label: "Kontakte", icon: Users },
-        { key: "website", label: "Website", icon: Globe, adminOnly: true },
-    ]},
-];
-const filteredGroups = computed(() =>
-    navGroups.map(g => ({
-        ...g,
-        items: g.items.filter(i => {
-            if (i.adminOnly && !isAdmin.value) return false;
-            if (i.assistenzOnly && !isAssistenz.value) return false;
-            return true;
-        }),
-    })).filter(g => g.items.length > 0)
-);
+const userType = computed(() => page.props.auth?.user?.user_type || 'makler');
+const isAdmin = computed(() => userType.value === 'admin');
+provide("userType", userType);
+provide("isAdmin", isAdmin);
+const userId = computed(() => page.props.auth?.user?.id || null);
+provide("userId", userId);
 
-const dateStr = computed(() => new Date().toLocaleDateString("de-AT", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }));
-const dateShort = computed(() => new Date().toLocaleDateString("de-AT", { day: "2-digit", month: "short", year: "numeric" }));
+const allNavItems = [
+    { key: "today", label: "Dashboard", icon: LayoutDashboard },
+    { key: "priorities", label: "Aktionen", icon: Zap },
+    { key: "tasks", label: "Aufgaben", icon: ListTodo },
+    { key: "comms", label: "Kommunikation", icon: MessageSquare },
+    { key: "properties", label: "Objekte", icon: Home },
+    { key: "reports", label: "Berichte", icon: FileText },
+    { key: "analytics", label: "Marktanalyse", icon: TrendingUp },
+    { key: "admin", label: "Kontakte", icon: Users },
+    { key: "calendar", label: "Kalender", icon: Calendar },
+    { key: "website", label: "Website", icon: Globe, adminOnly: true },
+];
+const isAssistenz = computed(() => ['assistenz','backoffice'].includes(userType.value));
+provide('isAssistenz', isAssistenz);
+const navItems = computed(() => allNavItems.filter(i => {
+    if (i.adminOnly && !isAdmin.value) return false;
+    if (i.assistenzOnly && !isAssistenz.value) return false;
+    return true;
+}));
+
+const dateStr = computed(() =>
+    new Date().toLocaleDateString("de-AT", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })
+);
+const dateShort = computed(() =>
+    new Date().toLocaleDateString("de-AT", { day: "2-digit", month: "short", year: "numeric" })
+);
 
 function navBadge(key) {
     if (key === "today" && props.stats.new_24h > 0) return props.stats.new_24h;
-    if (key === "priorities") { const total = (unansweredCount.value || 0) + (followupCount.value || 0); return total > 0 ? total : null; }
+    if (key === "priorities") {
+        const total = (unansweredCount.value || 0) + (followupCount.value || 0);
+        return total > 0 ? total : null;
+    }
     if (key === "comms" && unmatchedCount.value > 0) return unmatchedCount.value;
-    if (key === "tasks" && taskCount.value > 0) return taskCount.value;
     if (key === "properties") return props.stats.properties || null;
     return null;
 }
@@ -297,143 +357,66 @@ function navBadge(key) {
 
 <template>
     <div class="flex h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
+        <!-- Mobile overlay -->
+        <div v-if="sidebarOpen" @click="sidebarOpen = false" class="fixed inset-0 bg-black/50 z-[249] md:hidden" />
 
-        <!-- Mobile Sheet Sidebar -->
-        <Sheet v-model:open="mobileOpen">
-            <SheetContent side="left" class="w-64 p-0 md:hidden">
-                <nav class="flex flex-col h-full">
-                    <div class="px-4 py-5 flex items-center gap-2">
-                        <img v-if="!darkMode" src="/assets/logo-full-orange.svg" alt="SR-Homes" style="height:24px" />
-                        <img v-else src="/assets/logo-full-white.svg" alt="SR-Homes" style="height:24px" />
-                        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded text-white bg-[#EE7600]">Cockpit</span>
-                    </div>
-                    <div class="flex-1 overflow-y-auto px-3 pb-3">
-                        <template v-for="(group, gi) in filteredGroups" :key="gi">
-                            <Separator v-if="gi > 0" class="my-2" />
-                            <p class="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{{ group.label }}</p>
-                            <div class="flex flex-col gap-0.5">
-                                <button v-for="item in group.items" :key="item.key" @click="switchTab(item.key)"
-                                    class="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm transition-colors"
-                                    :class="tab === item.key
-                                        ? 'bg-[#fff7ed] text-[#ea580c] font-medium'
-                                        : 'text-muted-foreground hover:bg-orange-50 dark:hover:bg-gray-800 hover:text-foreground'">
-                                    <component :is="item.icon" class="w-4 h-4 shrink-0" />
-                                    <span class="flex-1 text-left">{{ item.label }}</span>
-                                    <span v-if="navBadge(item.key)" class="text-[10px] font-medium px-1.5 py-0.5 rounded-md"
-                                        :class="tab === item.key ? 'bg-orange-100 text-orange-600' : 'bg-muted text-muted-foreground'">{{ navBadge(item.key) }}</span>
-                                </button>
-                            </div>
-                        </template>
-                    </div>
-                    <div class="border-t border-gray-200 p-3 space-y-2">
-                        <div class="flex items-center gap-2.5 px-2">
-                            <Avatar class="h-7 w-7 rounded-md">
-                                <AvatarFallback class="rounded-md bg-[#fff7ed] text-[#ea580c] text-[10px] font-semibold">{{ userInitials }}</AvatarFallback>
-                            </Avatar>
-                            <div class="flex-1 min-w-0">
-                                <div class="text-xs font-medium truncate">{{ userName }}</div>
-                            </div>
-                            <Button v-if="isAdmin" variant="ghost" size="sm" class="h-7 w-7 p-0" @click="switchTab('settings')"><Settings class="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click.prevent="useForm({}).post(route('logout'))"><LogOut class="w-3.5 h-3.5" /></Button>
-                        </div>
-                        <button @click="toggleDarkMode()" class="flex items-center gap-2 px-2 py-1 w-full text-left rounded-md hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors">
-                            <Moon v-if="!darkMode" class="w-3.5 h-3.5 text-muted-foreground" />
-                            <Sun v-else class="w-3.5 h-3.5 text-muted-foreground" />
-                            <span class="text-[10px] font-medium text-muted-foreground">{{ darkMode ? 'Light Mode' : 'Dark Mode' }}</span>
-                        </button>
-                    </div>
-                </nav>
-            </SheetContent>
-        </Sheet>
+        <!-- Sidebar -->
+        <!-- Hover trigger zone -->
+        <div v-if="sidebarCollapsed" @mouseenter="sidebarCollapsed = false"
+            class="fixed inset-y-0 left-0 w-10 z-30 hidden md:block" />
 
-        <!-- Desktop Sidebar -->
-        <TooltipProvider :delay-duration="0">
-        <aside class="hidden md:flex flex-col h-screen sticky top-0 border-r border-gray-200 bg-background transition-all duration-200"
-            :style="{ width: sidebarCollapsed ? '48px' : '240px' }">
-            <div class="px-3 py-4 flex items-center" :class="sidebarCollapsed ? 'justify-center' : 'gap-2'">
-                <img v-if="sidebarCollapsed && !darkMode" src="/assets/logo-icon-orange.svg" alt="SR" class="shrink-0 cursor-pointer" style="width:28px" @click="toggleSidebar()" />
-                <img v-if="sidebarCollapsed && darkMode" src="/assets/logo-icon-white.svg" alt="SR" class="shrink-0 cursor-pointer" style="width:28px" @click="toggleSidebar()" />
-                <img v-if="!sidebarCollapsed && !darkMode" src="/assets/logo-full-orange.svg" alt="SR-Homes" class="shrink-0" style="height:24px" />
-                <img v-if="!sidebarCollapsed && darkMode" src="/assets/logo-full-white.svg" alt="SR-Homes" class="shrink-0" style="height:24px" />
-                <span v-if="!sidebarCollapsed" class="text-[10px] font-semibold px-1.5 py-0.5 rounded text-white bg-[#EE7600]">Cockpit</span>
+        <aside
+            @mouseenter="sidebarCollapsed = false"
+            @mouseleave="sidebarCollapsed = true"
+            class="admin-sidebar fixed inset-y-0 left-0 flex flex-col z-[250] md:sticky md:translate-x-0 transition-all duration-200"
+            :class="[
+                sidebarOpen ? '' : '-translate-x-full md:translate-x-0',
+                sidebarCollapsed ? 'sidebar-collapsed-width' : 'sidebar-expanded-width'
+            ]"
+        >
+            <div class="py-5 flex-shrink-0" :class="sidebarCollapsed ? 'px-1' : 'px-3'">
+                <div class="flex items-center justify-center gap-2" :class="sidebarCollapsed ? 'p-0' : 'p-2'">
+                    <!-- Collapsed: icon only -->
+                    <img v-if="sidebarCollapsed && !darkMode" src="/assets/logo-icon-orange.svg" alt="SR" class="flex-shrink-0" style="width:40px" />
+                    <img v-if="sidebarCollapsed && darkMode" src="/assets/logo-icon-white.svg" alt="SR" class="flex-shrink-0" style="width:40px" />
+                    <!-- Expanded: full logo -->
+                    <img v-if="!sidebarCollapsed && !darkMode" src="/assets/logo-full-orange.svg" alt="SR-Homes" class="flex-shrink-0" style="height:28px" />
+                    <img v-if="!sidebarCollapsed && darkMode" src="/assets/logo-full-white.svg" alt="SR-Homes" class="flex-shrink-0" style="height:28px" />
+                    <span v-if="!sidebarCollapsed" class="text-[10px] font-semibold px-1.5 py-0.5 rounded text-white" style="background:#EE7600">Cockpit</span>
+                </div>
             </div>
-            <nav class="flex-1 overflow-y-auto px-2 pb-2">
-                <template v-for="(group, gi) in filteredGroups" :key="gi">
-                    <Separator v-if="gi > 0" class="my-2" />
-                    <p v-if="!sidebarCollapsed" class="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{{ group.label }}</p>
-                    <div class="flex flex-col gap-0.5" :class="sidebarCollapsed ? 'items-center' : ''">
-                        <template v-for="item in group.items" :key="item.key">
-                            <Tooltip v-if="sidebarCollapsed">
-                                <TooltipTrigger asChild>
-                                    <button @click="switchTab(item.key)"
-                                        class="relative flex items-center justify-center w-9 h-9 rounded-md transition-colors"
-                                        :class="tab === item.key
-                                            ? 'bg-[#fff7ed] text-[#ea580c]'
-                                            : 'text-muted-foreground hover:bg-orange-50 dark:hover:bg-gray-800 hover:text-foreground'">
-                                        <component :is="item.icon" class="w-4 h-4" />
-                                        <span v-if="navBadge(item.key)" class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold bg-orange-500 text-white px-1">{{ navBadge(item.key) }}</span>
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="right" :side-offset="8">
-                                    {{ item.label }}<span v-if="navBadge(item.key)"> ({{ navBadge(item.key) }})</span>
-                                </TooltipContent>
-                            </Tooltip>
-                            <button v-else @click="switchTab(item.key)"
-                                class="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm transition-colors"
-                                :class="tab === item.key
-                                    ? 'bg-[#fff7ed] text-[#ea580c] font-medium'
-                                    : 'text-muted-foreground hover:bg-orange-50 dark:hover:bg-gray-800 hover:text-foreground'">
-                                <component :is="item.icon" class="w-4 h-4 shrink-0" />
-                                <span class="flex-1 text-left">{{ item.label }}</span>
-                                <span v-if="navBadge(item.key)" class="text-[10px] font-medium px-1.5 py-0.5 rounded-md"
-                                    :class="tab === item.key ? 'bg-orange-100 text-orange-600' : 'bg-muted text-muted-foreground'">{{ navBadge(item.key) }}</span>
-                            </button>
-                        </template>
-                    </div>
-                </template>
+            <nav class="px-2 pb-2 pt-1 flex flex-col gap-0.5 flex-1 overflow-y-auto">
+                <div v-for="item in navItems" :key="item.key" @click="switchTab(item.key)" class="nav-item" :class="{ active: tab === item.key }">
+                    <span class="nav-icon-circle"><component :is="item.icon" class="w-3.5 h-3.5 flex-shrink-0" /></span>
+                    <span v-if="!sidebarCollapsed" class="flex-1 text-sm">{{ item.label }}</span>
+                    <span v-if="!sidebarCollapsed && navBadge(item.key)" class="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-[var(--muted)] text-[var(--muted-foreground)]">{{ navBadge(item.key) }}</span>
+                </div>
             </nav>
-            <div class="border-t border-gray-200 p-2 space-y-1">
-                <div v-if="!sidebarCollapsed" class="flex items-center gap-2.5 px-2 py-1">
-                    <Avatar class="h-7 w-7 rounded-md">
-                        <AvatarFallback class="rounded-md bg-[#fff7ed] text-[#ea580c] text-[10px] font-semibold">{{ userInitials }}</AvatarFallback>
-                    </Avatar>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-xs font-medium truncate">{{ userName }}</div>
-                    </div>
-                    <Button v-if="isAdmin" variant="ghost" size="sm" class="h-7 w-7 p-0" @click="switchTab('settings')" title="Einstellungen"><Settings class="w-3.5 h-3.5" /></Button>
-                    <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click.prevent="useForm({}).post(route('logout'))" title="Abmelden"><LogOut class="w-3.5 h-3.5" /></Button>
+            <div class="flex-shrink-0 p-3 border-t border-[var(--border)]">
+                <div class="flex items-center gap-2.5 mb-2">
+                    <div class="w-7 h-7 rounded-full flex items-center justify-center font-medium text-[10px] flex-shrink-0 bg-[var(--muted)] text-[var(--muted-foreground)]">{{ userInitials }}</div>
+                    <div v-if="!sidebarCollapsed" class="flex-1 min-w-0"><div class="text-xs font-semibold truncate">{{ userName }}</div></div>
+                    <button v-if="!sidebarCollapsed && isAdmin" @click="switchTab('settings')" class="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors" title="Einstellungen"><Settings class="w-3.5 h-3.5" /></button>
+                    <a v-if="!sidebarCollapsed" href="#" @click.prevent="useForm({}).post(route('logout'))" class="text-[var(--muted-foreground)]"><LogOut class="w-3.5 h-3.5" /></a>
                 </div>
-                <div v-if="sidebarCollapsed" class="flex flex-col items-center gap-1">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Avatar class="h-7 w-7 rounded-md cursor-default">
-                                <AvatarFallback class="rounded-md bg-[#fff7ed] text-[#ea580c] text-[10px] font-semibold">{{ userInitials }}</AvatarFallback>
-                            </Avatar>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">{{ userName }}</TooltipContent>
-                    </Tooltip>
-                    <Tooltip v-if="isAdmin">
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click="switchTab('settings')"><Settings class="w-3.5 h-3.5" /></Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">Einstellungen</TooltipContent>
-                    </Tooltip>
+                <button v-if="sidebarCollapsed && isAdmin" @click="switchTab('settings')" class="w-7 h-7 rounded-full flex items-center justify-center mb-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors" title="Einstellungen"><Settings class="w-3.5 h-3.5" /></button>
+                <div v-if="!sidebarCollapsed" @click.stop="toggleDarkMode()" class="flex items-center gap-2 px-1 cursor-pointer select-none">
+                    <Moon v-if="!darkMode" class="w-3.5 h-3.5 text-[var(--muted-foreground)]" />
+                    <Sun v-else class="w-3.5 h-3.5 text-[var(--muted-foreground)]" />
+                    <span class="text-[10px] font-medium text-[var(--muted-foreground)]">{{ darkMode ? "Light Mode" : "Dark Mode" }}</span>
                 </div>
-                <button v-if="!sidebarCollapsed" @click="toggleDarkMode()" class="flex items-center gap-2 px-2 py-1 w-full text-left rounded-md hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors">
-                    <Moon v-if="!darkMode" class="w-3.5 h-3.5 text-muted-foreground" />
-                    <Sun v-else class="w-3.5 h-3.5 text-muted-foreground" />
-                    <span class="text-[10px] font-medium text-muted-foreground">{{ darkMode ? 'Light Mode' : 'Dark Mode' }}</span>
-                </button>
             </div>
+            <button @click="sidebarCollapsed = !sidebarCollapsed" class="admin-sidebar-toggle hidden md:flex">
+                <ChevronsLeft class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-180': sidebarCollapsed }" />
+                <span v-if="!sidebarCollapsed" class="text-[var(--muted-foreground)] text-[11px] font-medium">Einklappen</span>
+            </button>
         </aside>
-        </TooltipProvider>
 
         <!-- Main -->
-        <div class="flex-1 flex flex-col overflow-hidden bg-white dark:bg-background">
+        <div class="flex-1 flex flex-col overflow-hidden">
             <div class="px-3 py-2 md:px-6 md:py-3 flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <button @click="mobileOpen = true" class="md:hidden flex items-center justify-center w-7 h-7 rounded-md -ml-1 text-muted-foreground hover:text-foreground hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors" title="Menü"><PanelLeft class="w-4 h-4" /></button>
-                    <button @click="toggleSidebar()" class="hidden md:flex items-center justify-center w-7 h-7 rounded-md -ml-1 text-muted-foreground hover:text-foreground hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors" title="Sidebar"><PanelLeft class="w-4 h-4" /></button>
+                    <button @click="sidebarOpen = true" class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg -ml-1 mr-1 text-[var(--foreground)]" style="background:var(--muted)" title="Menü"><Menu class="w-5 h-5" /></button>
                     <div>
                         <h1 class="text-sm font-semibold">Hallo, {{ userName.split(" ")[0] }}</h1>
                         <p class="text-xs text-[var(--muted-foreground)]">{{ dateStr }}</p>
@@ -576,7 +559,7 @@ function navBadge(key) {
     --muted: #f1f5f9; --muted-foreground: #64748b;
     --accent: #f1f5f9; --accent-foreground: #0f172a;
     --destructive: #dc2626;
-    --border: #e9ecf1; --input: #e2e8f0; --ring: #94a3b8;
+    --border: #e2e8f0; --input: #e2e8f0; --ring: #94a3b8;
     --radius: 0.625rem;
     --brand: #f97316; --brand-light: #fff7ed;
 }
@@ -593,6 +576,20 @@ html.dark {
 }
 body { font-family: "Inter", system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
 .font-display { font-family: "Manrope", "Inter", system-ui, sans-serif; }
+
+.admin-sidebar { background: transparent; border-right: none; }
+.sidebar-collapsed-width { width: 3.5rem; min-width: 3.5rem; }
+@media (max-width: 767px) {
+  .admin-sidebar { width: 14rem !important; min-width: 14rem !important; background: var(--card) !important; border-right: 1px solid var(--border) !important; }
+}
+.sidebar-expanded-width { width: 14rem; min-width: 14rem; }
+.nav-icon-circle { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: #ffffff; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+.nav-item.active .nav-icon-circle { background: #fff7ed; color: var(--brand); }
+.nav-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: calc(var(--radius) - 2px); font-size: 14px; color: var(--muted-foreground); cursor: pointer; transition: all 0.15s; margin: 1px 0; }
+.nav-item:hover { background: var(--accent); color: var(--accent-foreground); }
+.nav-item.active { background: var(--accent); color: var(--foreground); font-weight: 500; }
+.admin-sidebar-toggle { width: 100%; display: flex; align-items: center; justify-content: center; padding: 6px 12px; gap: 8px; color: var(--muted-foreground); cursor: pointer; background: none; border: none; border-top: 1px solid var(--border); font-size: 11px; }
+.admin-sidebar-toggle:hover { color: var(--foreground); background: var(--accent); }
 
 .card { background: var(--card); border-radius: calc(var(--radius) + 4px); border: 1px solid var(--border); box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); }
 html.dark .card { box-shadow: none; }
@@ -660,4 +657,5 @@ html.dark .apexcharts-text { fill: #64748b !important; }
 html.dark .apexcharts-gridline { stroke: #1e293b !important; }
 html.dark .apexcharts-tooltip { background: #1e293b !important; color: #f8fafc !important; }
 html.dark .apexcharts-legend-text { color: #94a3b8 !important; }
+
 </style>

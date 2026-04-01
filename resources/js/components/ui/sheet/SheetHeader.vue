@@ -12,9 +12,7 @@ const props = defineProps({
 
 <template>
   <div
-    :class="
-      cn('rounded-xl border border-gray-200 bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden', props.class)
-    "
+    :class="cn('flex flex-col gap-y-2 text-center sm:text-left', props.class)"
   >
     <slot />
   </div>

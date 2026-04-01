@@ -11,11 +11,5 @@ const props = defineProps({
 </script>
 
 <template>
-  <div
-    :class="
-      cn('rounded-xl border border-gray-200 bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden', props.class)
-    "
-  >
-    <slot />
-  </div>
+  <div :class="cn('animate-pulse rounded-md bg-primary/10', props.class)" />
 </template>

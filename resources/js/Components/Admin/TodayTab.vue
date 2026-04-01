@@ -123,12 +123,32 @@ async function loadSalesAndCommissions(period) {
 const perfData = ref(null);
 const chartsReady = ref(false);
 
-// Trend chart data
+// Chart data
 const trendData = ref([]);
 const platformData = ref([]);
-const platformColors = ["#f97316", "#3b82f6", "#10b981", "#8b5cf6", "#14b8a6"];
 const funnelData = ref([]);
-const funnelColors = ["#f97316", "#3b82f6", "#14b8a6", "#8b5cf6"];
+const hoveredTrend = ref(null);
+const hoveredPlatform = ref(null);
+const hoveredFunnel = ref(null);
+const trendMax = computed(() => Math.max(...trendData.value.map(t => Math.max(t.inquiries, t.outbound)), 1));
+const platformMax = computed(() => Math.max(...platformData.value.map(p => p.count), 1));
+const platformTotal = computed(() => platformData.value.reduce((s, p) => s + p.count, 0));
+// Donut arc path calculator
+function donutArc(index) {
+    const total = platformData.value.reduce((s, p) => s + p.count, 0);
+    if (total === 0) return '';
+    const r = 46, ir = 30;
+    let startAngle = 0;
+    for (let j = 0; j < index; j++) startAngle += (platformData.value[j].count / total) * Math.PI * 2;
+    const angle = (platformData.value[index].count / total) * Math.PI * 2;
+    const endAngle = startAngle + angle - 0.02;
+    const x1 = Math.cos(startAngle) * r, y1 = Math.sin(startAngle) * r;
+    const x2 = Math.cos(endAngle) * r, y2 = Math.sin(endAngle) * r;
+    const ix1 = Math.cos(endAngle) * ir, iy1 = Math.sin(endAngle) * ir;
+    const ix2 = Math.cos(startAngle) * ir, iy2 = Math.sin(startAngle) * ir;
+    const large = angle > Math.PI ? 1 : 0;
+    return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${ir} ${ir} 0 ${large} 0 ${ix2} ${iy2} Z`;
+}
 
 // Response time
 const responseHours = ref(0);
@@ -327,29 +347,29 @@ onMounted(async () => {
                 </div>
             </CardHeader>
             <CardContent class="pt-0">
-                <div class="divide-y divide-border -mx-6 px-6">
+                <div class="divide-y divide-gray-200 -mx-6 px-6">
                     <div v-if="unansweredCount > 0" @click="switchTab('priorities')"
-                        class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent -mx-6 px-6 transition-colors">
+                        class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent/80 -mx-6 px-6 transition-all duration-150">
                         <span class="w-2 h-2 rounded-full bg-destructive shrink-0"></span>
                         <span class="flex-1 text-sm font-medium">{{ unansweredCount }} unbeantwortete Anfrage{{ unansweredCount > 1 ? 'n' : '' }} bearbeiten</span>
                         <Badge variant="destructive" class="text-[10px]">Dringend</Badge>
                         <ChevronRight class="w-4 h-4 text-muted-foreground" />
                     </div>
                     <div v-if="followupCount > 0" @click="switchTab('priorities')"
-                        class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent -mx-6 px-6 transition-colors">
+                        class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent/80 -mx-6 px-6 transition-all duration-150">
                         <span class="w-2 h-2 rounded-full bg-orange-500 shrink-0"></span>
                         <span class="flex-1 text-sm font-medium">{{ followupCount }} Kontakte zum Nachfassen</span>
                         <Badge class="text-[10px] bg-orange-100 text-orange-700 border-0">Fällig</Badge>
                         <ChevronRight class="w-4 h-4 text-muted-foreground" />
                     </div>
                     <div v-if="stats.viewings_today > 0" @click="switchTab('properties')"
-                        class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent -mx-6 px-6 transition-colors">
+                        class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent/80 -mx-6 px-6 transition-all duration-150">
                         <span class="w-2 h-2 rounded-full bg-teal-500 shrink-0"></span>
                         <span class="flex-1 text-sm font-medium">{{ stats.viewings_today }} Besichtigung{{ stats.viewings_today > 1 ? 'en' : '' }} heute</span>
                         <ChevronRight class="w-4 h-4 text-muted-foreground" />
                     </div>
                     <div v-if="openTaskCount > 0" @click="switchTab('priorities')"
-                        class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent -mx-6 px-6 transition-colors">
+                        class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent/80 -mx-6 px-6 transition-all duration-150">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
                         <span class="flex-1 text-sm font-medium">{{ openTaskCount }} offene Aufgabe{{ openTaskCount > 1 ? 'n' : '' }}</span>
                         <ChevronRight class="w-4 h-4 text-muted-foreground" />
@@ -365,7 +385,7 @@ onMounted(async () => {
 
         <!-- Section 2: KPI Cards -->
         <div class="grid gap-4" :class="userType !== 'assistenz' ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3'">
-            <Card class="cursor-pointer hover:border-ring transition-colors" @click="showKaufanboteModal = true">
+            <Card class="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" @click="showKaufanboteModal = true">
                 <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle class="text-sm font-medium text-muted-foreground">Kaufanbote</CardTitle>
                     <BadgeCheck class="h-4 w-4 text-muted-foreground" />
@@ -376,7 +396,7 @@ onMounted(async () => {
                 </CardContent>
             </Card>
 
-            <Card class="cursor-pointer hover:border-ring transition-colors" @click="showSalesModal = true">
+            <Card class="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" @click="showSalesModal = true">
                 <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle class="text-sm font-medium text-muted-foreground">Verkaufsvolumen</CardTitle>
                     <DollarSign class="h-4 w-4 text-muted-foreground" />
@@ -388,7 +408,7 @@ onMounted(async () => {
                 </CardContent>
             </Card>
 
-            <Card v-if="userType !== 'assistenz'" class="cursor-pointer hover:border-ring transition-colors" @click="showCommissionModal = true">
+            <Card v-if="userType !== 'assistenz'" class="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" @click="showCommissionModal = true">
                 <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle class="text-sm font-medium text-muted-foreground">Provisionen</CardTitle>
                     <Wallet class="h-4 w-4 text-muted-foreground" />
@@ -400,7 +420,7 @@ onMounted(async () => {
                 </CardContent>
             </Card>
 
-            <Card class="cursor-pointer hover:border-ring transition-colors" @click="switchTab('properties')">
+            <Card class="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" @click="switchTab('properties')">
                 <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle class="text-sm font-medium text-muted-foreground">Objekte</CardTitle>
                     <Building class="h-4 w-4 text-muted-foreground" />
@@ -421,37 +441,82 @@ onMounted(async () => {
                     <CardDescription>Letzte 8 Wochen</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div class="flex items-end gap-1 h-[160px]" v-if="trendData.length">
-                        <div v-for="(d, i) in trendData" :key="i" class="flex-1 flex flex-col items-center gap-1">
-                            <div class="w-full flex gap-0.5 items-end" style="height:140px;">
-                                <div class="flex-1 rounded-t-sm bg-[#f97316] transition-all" :style="{ height: (d.inquiries / Math.max(...trendData.map(t => t.inquiries), 1) * 100) + '%', minHeight: d.inquiries > 0 ? '4px' : '0' }"></div>
-                                <div class="flex-1 rounded-t-sm bg-[#3b82f6] transition-all" :style="{ height: (d.outbound / Math.max(...trendData.map(t => t.outbound), 1) * 100) + '%', minHeight: d.outbound > 0 ? '4px' : '0' }"></div>
+                    <div v-if="trendData.length" class="relative">
+                        <svg :viewBox="'0 0 ' + (trendData.length * 60) + ' 160'" class="w-full" style="height:180px" preserveAspectRatio="none">
+                            <!-- Grid lines -->
+                            <line v-for="n in 4" :key="'g'+n" :x1="0" :x2="trendData.length * 60" :y1="n * 32" :y2="n * 32" stroke="hsl(var(--border))" stroke-width="0.5" />
+                            <!-- Inquiries area + bars -->
+                            <g v-for="(d, i) in trendData" :key="'t'+i"
+                                @mouseenter="hoveredTrend = i" @mouseleave="hoveredTrend = null" class="cursor-pointer">
+                                <rect :x="i * 60 + 8" :y="140 - (d.inquiries / trendMax * 120)"
+                                    :width="20" :height="Math.max(d.inquiries / trendMax * 120, 0)"
+                                    rx="3" fill="hsl(var(--chart-1))"
+                                    :opacity="hoveredTrend === i ? 1 : 0.85"
+                                    class="transition-opacity duration-150" />
+                                <rect :x="i * 60 + 32" :y="140 - (d.outbound / trendMax * 120)"
+                                    :width="20" :height="Math.max(d.outbound / trendMax * 120, 0)"
+                                    rx="3" fill="hsl(var(--chart-2))"
+                                    :opacity="hoveredTrend === i ? 1 : 0.85"
+                                    class="transition-opacity duration-150" />
+                                <text :x="i * 60 + 30" y="155" text-anchor="middle"
+                                    class="fill-muted-foreground" style="font-size:9px">{{ d.label }}</text>
+                            </g>
+                        </svg>
+                        <!-- Hover tooltip -->
+                        <div v-if="hoveredTrend !== null" class="absolute top-0 right-0 bg-popover border border-border rounded-lg shadow-md px-3 py-2 text-xs pointer-events-none z-10">
+                            <div class="font-medium mb-1">{{ trendData[hoveredTrend]?.label }}</div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full" style="background:hsl(var(--chart-1))"></span>
+                                Anfragen: <span class="font-semibold ml-auto">{{ trendData[hoveredTrend]?.inquiries }}</span>
                             </div>
-                            <span class="text-[9px] text-muted-foreground">{{ d.label }}</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full" style="background:hsl(var(--chart-2))"></span>
+                                Ausgehend: <span class="font-semibold ml-auto">{{ trendData[hoveredTrend]?.outbound }}</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#f97316]"></span> Anfragen</span>
-                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#3b82f6]"></span> Ausgehend</span>
+                    <div class="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:hsl(var(--chart-1))"></span> Anfragen</span>
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:hsl(var(--chart-2))"></span> Ausgehend</span>
                     </div>
                 </CardContent>
             </Card>
 
-            <!-- Plattform-Verteilung -->
+            <!-- Plattform-Verteilung (Donut) -->
             <Card class="lg:col-span-3">
                 <CardHeader>
                     <CardTitle class="text-sm">Plattformen</CardTitle>
                     <CardDescription>Anfragen nach Quelle</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div v-if="platformData.length" class="space-y-2">
-                        <div v-for="(p, i) in platformData" :key="i" class="flex items-center gap-3">
-                            <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ background: platformColors[i % platformColors.length] }"></span>
-                            <span class="text-sm flex-1">{{ p.label }}</span>
-                            <div class="w-24 h-2 rounded-full bg-muted overflow-hidden">
-                                <div class="h-full rounded-full" :style="{ width: (p.count / Math.max(...platformData.map(x => x.count), 1) * 100) + '%', background: platformColors[i % platformColors.length] }"></div>
+                    <div v-if="platformData.length" class="flex flex-col items-center relative">
+                        <svg viewBox="-60 -60 120 120" class="w-44 h-44">
+                            <template v-for="(p, i) in platformData" :key="'d'+i">
+                                <path :d="donutArc(i)" :fill="'hsl(var(--chart-' + (i % 5 + 1) + '))'"
+                                    @mouseenter="hoveredPlatform = i" @mouseleave="hoveredPlatform = null"
+                                    :opacity="hoveredPlatform === null || hoveredPlatform === i ? 1 : 0.4"
+                                    :transform="hoveredPlatform === i ? 'scale(1.05)' : 'scale(1)'"
+                                    class="cursor-pointer transition-all duration-200" style="transform-origin:center" />
+                            </template>
+                            <circle cx="0" cy="0" r="28" class="fill-background" />
+                            <text x="0" y="2" text-anchor="middle" dominant-baseline="middle" class="fill-foreground font-bold" style="font-size:14px">{{ platformTotal }}</text>
+                            <text x="0" y="14" text-anchor="middle" class="fill-muted-foreground" style="font-size:7px">Gesamt</text>
+                        </svg>
+                        <!-- Hover tooltip -->
+                        <div v-if="hoveredPlatform !== null" class="absolute top-0 right-0 bg-popover border border-border rounded-lg shadow-md px-3 py-2 text-xs pointer-events-none z-10">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full" :style="'background:hsl(var(--chart-' + (hoveredPlatform % 5 + 1) + '))'"></span>
+                                <span class="font-medium">{{ platformData[hoveredPlatform]?.label }}</span>
                             </div>
-                            <span class="text-sm font-medium tabular-nums w-8 text-right">{{ p.count }}</span>
+                            <div class="font-semibold mt-0.5">{{ platformData[hoveredPlatform]?.count }} ({{ Math.round(platformData[hoveredPlatform]?.count / platformTotal * 100) }}%)</div>
+                        </div>
+                        <div class="flex flex-wrap gap-x-3 gap-y-1 mt-3 justify-center">
+                            <span v-for="(p, i) in platformData" :key="'pl'+i"
+                                @mouseenter="hoveredPlatform = i" @mouseleave="hoveredPlatform = null"
+                                class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                                <span class="w-2.5 h-2.5 rounded-full" :style="'background:hsl(var(--chart-' + (i % 5 + 1) + '))'"></span>
+                                {{ p.label }}
+                            </span>
                         </div>
                     </div>
                 </CardContent>
@@ -466,13 +531,23 @@ onMounted(async () => {
                     <CardDescription>Conversion Pipeline</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div v-if="funnelData.length" class="space-y-3">
-                        <div v-for="(f, i) in funnelData" :key="i" class="flex items-center gap-3">
+                    <div v-if="funnelData.length" class="space-y-2.5 relative">
+                        <div v-for="(f, i) in funnelData" :key="'f'+i"
+                            @mouseenter="hoveredFunnel = i" @mouseleave="hoveredFunnel = null"
+                            class="flex items-center gap-3 cursor-pointer group">
                             <span class="text-xs text-muted-foreground w-20 text-right shrink-0">{{ f.label }}</span>
-                            <div class="flex-1 h-5 rounded bg-muted overflow-hidden">
-                                <div class="h-full rounded transition-all" :style="{ width: (f.value / Math.max(funnelData[0]?.value, 1) * 100) + '%', background: funnelColors[i] }"></div>
+                            <div class="flex-1 h-7 rounded-md bg-muted overflow-hidden">
+                                <div class="h-full rounded-md transition-all duration-300"
+                                    :style="{ width: (f.value / Math.max(funnelData[0]?.value, 1) * 100) + '%', background: 'hsl(var(--chart-' + (i % 4 + 1) + '))' }"
+                                    :class="hoveredFunnel === i ? 'opacity-100' : 'opacity-85'">
+                                </div>
                             </div>
-                            <span class="text-sm font-bold tabular-nums w-8 text-right">{{ f.value }}</span>
+                            <span class="text-sm font-bold tabular-nums w-10 text-right">{{ f.value }}</span>
+                        </div>
+                        <!-- Hover tooltip -->
+                        <div v-if="hoveredFunnel !== null && funnelData[0]?.value > 0" class="absolute -top-2 right-0 bg-popover border border-border rounded-lg shadow-md px-3 py-2 text-xs pointer-events-none z-10">
+                            <div class="font-medium">{{ funnelData[hoveredFunnel]?.label }}</div>
+                            <div class="text-muted-foreground">{{ Math.round(funnelData[hoveredFunnel]?.value / funnelData[0].value * 100) }}% Conversion</div>
                         </div>
                     </div>
                 </CardContent>
@@ -485,11 +560,12 @@ onMounted(async () => {
                     <CardDescription>Durchschnitt</CardDescription>
                 </CardHeader>
                 <CardContent class="flex flex-col items-center justify-center pt-2">
-                    <div class="relative w-28 h-28">
-                        <svg class="w-28 h-28 -rotate-90" viewBox="0 0 120 120">
-                            <circle cx="60" cy="60" r="50" fill="none" class="stroke-muted" stroke-width="10" />
-                            <circle cx="60" cy="60" r="50" fill="none" :stroke="responseColor" stroke-width="10"
-                                :stroke-dasharray="(responsePercent / 100 * 314) + ' 314'" stroke-linecap="round" />
+                    <div class="relative w-32 h-32">
+                        <svg class="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
+                            <circle cx="60" cy="60" r="50" fill="none" class="stroke-muted" stroke-width="8" />
+                            <circle cx="60" cy="60" r="50" fill="none" :stroke="responseColor" stroke-width="8"
+                                :stroke-dasharray="(responsePercent / 100 * 314) + ' 314'" stroke-linecap="round"
+                                class="transition-all duration-700" />
                         </svg>
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
                             <span class="text-2xl font-bold" :style="{ color: responseColor }">{{ responseHours.toFixed(1) }}h</span>
@@ -513,9 +589,9 @@ onMounted(async () => {
                 </button>
             </CardHeader>
             <CardContent class="pt-0">
-                <div class="divide-y divide-border -mx-6 px-6">
+                <div class="divide-y divide-gray-200 -mx-6 px-6">
                     <div v-for="ev in upcomingEvents.slice(0, 5)" :key="ev.id" @click="switchTab('calendar')"
-                        class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent -mx-6 px-6 transition-colors">
+                        class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent/80 -mx-6 px-6 transition-all duration-150">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                             :class="ev.is_besichtigung ? 'bg-teal-50 dark:bg-teal-950' : 'bg-orange-50 dark:bg-orange-950'">
                             <Home v-if="ev.is_besichtigung" class="w-4 h-4 text-teal-600" />
@@ -555,51 +631,53 @@ onMounted(async () => {
                     </select>
                 </div>
             </CardHeader>
-            <CardContent class="pt-0 -mx-6 px-0">
+            <CardContent class="pt-0 px-0">
+                <div class="overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead class="w-12 pl-6">#</TableHead>
-                            <TableHead>Makler</TableHead>
-                            <TableHead class="text-right cursor-pointer" @click="rankingSort = 'anfragen'"
-                                :class="rankingSort === 'anfragen' ? 'text-orange-600 font-semibold' : ''">Anfragen</TableHead>
-                            <TableHead class="text-right cursor-pointer" @click="rankingSort = 'besichtigungen'"
-                                :class="rankingSort === 'besichtigungen' ? 'text-orange-600 font-semibold' : ''">Besicht.</TableHead>
-                            <TableHead class="text-right cursor-pointer" @click="rankingSort = 'kaufanbote'"
-                                :class="rankingSort === 'kaufanbote' ? 'text-orange-600 font-semibold' : ''">Anbote</TableHead>
-                            <TableHead class="text-right cursor-pointer hidden sm:table-cell" @click="rankingSort = 'verkaufsvolumen'"
-                                :class="rankingSort === 'verkaufsvolumen' ? 'text-orange-600 font-semibold' : ''">Volumen</TableHead>
-                            <TableHead class="text-right cursor-pointer hidden md:table-cell" @click="rankingSort = 'gesendet'"
-                                :class="rankingSort === 'gesendet' ? 'text-orange-600 font-semibold' : ''">Gesendet</TableHead>
-                            <TableHead class="text-right hidden md:table-cell">Antwortzeit</TableHead>
-                            <TableHead class="text-right pr-6 hidden lg:table-cell">Objekte</TableHead>
+                            <TableHead class="w-10 pl-4">#</TableHead>
+                            <TableHead class="text-xs">Makler</TableHead>
+                            <TableHead class="text-right text-xs cursor-pointer" @click="rankingSort = 'anfragen'"
+                                :class="rankingSort === 'anfragen' ? 'text-orange-600 font-semibold' : ''">Anfr.</TableHead>
+                            <TableHead class="text-right text-xs cursor-pointer" @click="rankingSort = 'besichtigungen'"
+                                :class="rankingSort === 'besichtigungen' ? 'text-orange-600 font-semibold' : ''">Bes.</TableHead>
+                            <TableHead class="text-right text-xs cursor-pointer" @click="rankingSort = 'kaufanbote'"
+                                :class="rankingSort === 'kaufanbote' ? 'text-orange-600 font-semibold' : ''">Anb.</TableHead>
+                            <TableHead class="text-right text-xs cursor-pointer hidden sm:table-cell" @click="rankingSort = 'verkaufsvolumen'"
+                                :class="rankingSort === 'verkaufsvolumen' ? 'text-orange-600 font-semibold' : ''">Vol.</TableHead>
+                            <TableHead class="text-right text-xs cursor-pointer hidden md:table-cell" @click="rankingSort = 'gesendet'"
+                                :class="rankingSort === 'gesendet' ? 'text-orange-600 font-semibold' : ''">Ges.</TableHead>
+                            <TableHead class="text-right text-xs hidden md:table-cell">Antw.</TableHead>
+                            <TableHead class="text-right text-xs pr-4 hidden lg:table-cell">Obj.</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         <TableRow v-for="(b, i) in sortedRanking" :key="b.id">
-                            <TableCell class="pl-6">
-                                <span class="w-6 h-6 rounded-full inline-flex items-center justify-center text-[10px] font-bold"
+                            <TableCell class="pl-4 py-2">
+                                <span class="w-5 h-5 rounded-full inline-flex items-center justify-center text-[9px] font-bold"
                                     :class="i === 0 ? 'bg-amber-400 text-amber-900' : i === 1 ? 'bg-gray-300 text-gray-700' : i === 2 ? 'bg-amber-600 text-white' : 'bg-muted text-muted-foreground'">
                                     {{ i + 1 }}
                                 </span>
                             </TableCell>
-                            <TableCell class="font-semibold">{{ b.name }}</TableCell>
-                            <TableCell class="text-right tabular-nums" :class="rankingSort === 'anfragen' ? 'text-orange-600 font-bold' : ''">{{ b.anfragen || 0 }}</TableCell>
-                            <TableCell class="text-right tabular-nums" :class="rankingSort === 'besichtigungen' ? 'text-orange-600 font-bold' : ''">{{ b.besichtigungen || 0 }}</TableCell>
-                            <TableCell class="text-right tabular-nums" :class="rankingSort === 'kaufanbote' ? 'text-orange-600 font-bold' : ''">{{ b.kaufanbote || 0 }}</TableCell>
-                            <TableCell class="text-right tabular-nums hidden sm:table-cell" :class="rankingSort === 'verkaufsvolumen' ? 'text-orange-600 font-bold' : ''">&euro; {{ Number(b.verkaufsvolumen || 0).toLocaleString('de-DE') }}</TableCell>
-                            <TableCell class="text-right tabular-nums hidden md:table-cell" :class="rankingSort === 'gesendet' ? 'text-orange-600 font-bold' : ''">{{ b.gesendet || 0 }}</TableCell>
-                            <TableCell class="text-right tabular-nums hidden md:table-cell">
+                            <TableCell class="font-medium text-xs py-2">{{ b.name }}</TableCell>
+                            <TableCell class="text-right text-xs tabular-nums py-2" :class="rankingSort === 'anfragen' ? 'text-orange-600 font-bold' : ''">{{ b.anfragen || 0 }}</TableCell>
+                            <TableCell class="text-right text-xs tabular-nums py-2" :class="rankingSort === 'besichtigungen' ? 'text-orange-600 font-bold' : ''">{{ b.besichtigungen || 0 }}</TableCell>
+                            <TableCell class="text-right text-xs tabular-nums py-2" :class="rankingSort === 'kaufanbote' ? 'text-orange-600 font-bold' : ''">{{ b.kaufanbote || 0 }}</TableCell>
+                            <TableCell class="text-right text-xs tabular-nums py-2 hidden sm:table-cell" :class="rankingSort === 'verkaufsvolumen' ? 'text-orange-600 font-bold' : ''">&euro; {{ Number(b.verkaufsvolumen || 0).toLocaleString('de-DE') }}</TableCell>
+                            <TableCell class="text-right text-xs tabular-nums py-2 hidden md:table-cell" :class="rankingSort === 'gesendet' ? 'text-orange-600 font-bold' : ''">{{ b.gesendet || 0 }}</TableCell>
+                            <TableCell class="text-right text-xs tabular-nums py-2 hidden md:table-cell">
                                 <span v-if="b.avg_antwortzeit_h != null"
                                     :class="Number(b.avg_antwortzeit_h) <= 4 ? 'text-emerald-600' : Number(b.avg_antwortzeit_h) <= 24 ? 'text-amber-600' : 'text-red-600'">
                                     {{ b.avg_antwortzeit_h }}h
                                 </span>
                                 <span v-else class="text-muted-foreground">–</span>
                             </TableCell>
-                            <TableCell class="text-right pr-6 tabular-nums hidden lg:table-cell">{{ b.objekte || 0 }}</TableCell>
+                            <TableCell class="text-right text-xs pr-4 tabular-nums py-2 hidden lg:table-cell">{{ b.objekte || 0 }}</TableCell>
                         </TableRow>
                     </TableBody>
                 </Table>
+                </div>
             </CardContent>
         </Card>
 

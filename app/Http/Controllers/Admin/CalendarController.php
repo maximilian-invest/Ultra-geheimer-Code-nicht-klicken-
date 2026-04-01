@@ -247,6 +247,23 @@ class CalendarController extends Controller
         return response()->json(['viewings' => $viewings]);
     }
 
+
+    /**
+     * Sync stub – calendar is now local-only.
+     * Returns current event counts so legacy callers stay happy.
+     */
+    public function syncCalendar(Request $request): JsonResponse
+    {
+ $total = DB::table('calendar_events')->count();
+ $besichtigungen = DB::table('calendar_events')->where('is_besichtigung', 1)->count();
+        return response()->json([
+            'synced'        => $total,
+            'new_events'    => 0,
+            'besichtigungen'=> $besichtigungen,
+            'source'        => 'local',
+        ]);
+    }
+
     /**
      * Calendar status - always connected (local DB).
      */

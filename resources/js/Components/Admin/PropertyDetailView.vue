@@ -34,9 +34,9 @@ const kbCounts = inject("kbCounts");
 // ─── New state for tabs + collapsibles ─────────────────
 const activeTab = ref('objekt');
 const openSections = ref({
-  objektdaten: false,
-  eigentuemerPortal: false,
-  einheiten: false,
+  objektdaten: true,
+  eigentuemerPortal: true,
+  einheiten: true,
   stellplaetze: false,
   wissensdb: false,
   dateien: false,
@@ -655,16 +655,14 @@ function unitRowClass(status) {
               <DialogTitle class="text-base font-bold text-foreground tracking-tight truncate">
                 {{ property?.project_name || property?.address }}
               </DialogTitle>
-              <DialogDescription class="flex items-center gap-2 mt-1 flex-wrap">
-                <span class="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                  <MapPin class="w-3.5 h-3.5" />
-                  {{ property?.city }}{{ property?.zip ? ", " + property.zip : "" }}
-                </span>
-                <Badge variant="secondary" class="text-[11px]">{{ property?.ref_id }}</Badge>
-                <Badge :class="property?.realty_status === 'verkauft' ? 'bg-red-100 text-red-700 hover:bg-red-100' : property?.realty_status === 'aktiv' || property?.realty_status === 'auftrag' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : 'bg-amber-100 text-amber-700 hover:bg-amber-100'" class="text-[11px]">
-                  {{ property?.realty_status }}
-                </Badge>
-                <Badge v-if="property?.on_hold" variant="outline" class="text-[11px] text-muted-foreground">Pausiert</Badge>
+              <DialogDescription class="text-sm text-muted-foreground mt-0.5">
+                {{ property?.city }}{{ property?.zip ? ', ' + property.zip : '' }}
+                <template v-if="property?.property_category">
+                  &bull; {{ property.property_category === 'newbuild' ? 'Neubauprojekt' : 'Bestandsobjekt' }}
+                </template>
+                <template v-if="property?.children?.length">
+                  &bull; {{ property.children.length }} Einheiten
+                </template>
               </DialogDescription>
               <div class="flex items-center gap-3 mt-1.5 flex-wrap">
                 <span v-if="property?.purchase_price" class="text-base font-bold text-foreground tabular-nums">
@@ -677,6 +675,10 @@ function unitRowClass(status) {
           </div>
 
           <div class="flex items-center gap-1.5 flex-shrink-0">
+            <Button variant="outline" size="sm" @click="$emit('openEditor', property?.id)">
+              <Pencil class="w-3.5 h-3.5 mr-1.5" />
+              Bearbeiten
+            </Button>
             <Button v-if="!property?.on_hold" variant="outline" size="icon" class="h-8 w-8" @click.stop="$emit('toggleOnHold', property)" title="Pausieren">
               <Pause class="w-3.5 h-3.5 text-amber-600" />
             </Button>
@@ -685,6 +687,9 @@ function unitRowClass(status) {
             </Button>
             <Button variant="outline" size="icon" class="h-8 w-8" @click.stop="$emit('deleteProperty', property)" title="Loeschen">
               <Trash2 class="w-3.5 h-3.5 text-red-500" />
+            </Button>
+            <Button variant="ghost" size="icon" class="h-8 w-8" @click="$emit('close')">
+              <X class="w-4 h-4 text-muted-foreground" />
             </Button>
           </div>
         </div>
@@ -711,38 +716,36 @@ function unitRowClass(status) {
           <ScrollArea class="h-full">
             <div class="px-6 py-5 space-y-4">
 
-              <!-- KPIs (5 columns) - only for newbuild non-child -->
-              <div v-if="property?.property_category === 'newbuild' && unitStats && !property?.parent_id" class="space-y-3">
-                <div class="flex items-center justify-between">
-                  <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Verkaufsfortschritt</span>
-                  <span class="text-[11px] font-bold" style="color:#D4622B">
-                    {{ unitStats.useArea ? Math.round((unitStats.verkauftArea / unitStats.totalArea) * 100) : (unitStats.total > 0 ? Math.round((unitStats.verkauft / unitStats.total) * 100) : 0) }}% verkauft
-                  </span>
+              <!-- KPIs (5 columns) -->
+              <div class="grid grid-cols-5 gap-2.5 mb-4">
+                <div class="p-3 bg-muted rounded-lg">
+                  <div class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Kaufpreis</div>
+                  <div class="text-base font-bold text-foreground tabular-nums">
+                    {{ property?.purchase_price ? Number(property.purchase_price).toLocaleString('de-DE') + ' €' : '–' }}
+                  </div>
                 </div>
-                <div class="w-full h-2 rounded-full overflow-hidden bg-muted">
-                  <div class="h-full rounded-full transition-all duration-700"
-                    :style="'width:' + (unitStats.useArea ? (unitStats.verkauftArea / unitStats.totalArea * 100) : (unitStats.total > 0 ? (unitStats.verkauft / unitStats.total * 100) : 0)) + '%;background:linear-gradient(90deg,#10b981,#D4622B)'"></div>
+                <div class="p-3 bg-muted rounded-lg">
+                  <div class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Rendite</div>
+                  <div class="text-base font-bold text-foreground tabular-nums">
+                    {{ property?.yield_percent ? property.yield_percent + ' %' : '–' }}
+                  </div>
                 </div>
-                <div class="grid grid-cols-5 gap-2">
-                  <div class="text-center p-2.5 rounded-lg bg-muted/50 border border-border">
-                    <div class="text-lg font-bold text-foreground tabular-nums">{{ unitStats.useArea ? unitStats.totalArea.toFixed(0) : unitStats.total }}</div>
-                    <div class="text-[10px] text-muted-foreground">{{ unitStats.useArea ? 'Gesamt m2' : 'Gesamt' }}</div>
+                <div class="p-3 bg-muted rounded-lg">
+                  <div class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Fläche</div>
+                  <div class="text-base font-bold text-foreground tabular-nums">
+                    {{ property?.total_area ? property.total_area + ' m²' : '–' }}
                   </div>
-                  <div class="text-center p-2.5 rounded-lg bg-emerald-50 border border-emerald-200">
-                    <div class="text-lg font-bold text-emerald-600 tabular-nums">{{ unitStats.useArea ? unitStats.freiArea.toFixed(0) : unitStats.frei }}</div>
-                    <div class="text-[10px] text-muted-foreground">{{ unitStats.useArea ? 'Frei m2' : 'Frei' }}</div>
+                </div>
+                <div class="p-3 bg-muted rounded-lg">
+                  <div class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Einheiten</div>
+                  <div class="text-base font-bold text-foreground tabular-nums">
+                    {{ property?.children?.length || unitStats?.total || '–' }}
                   </div>
-                  <div class="text-center p-2.5 rounded-lg bg-amber-50 border border-amber-200">
-                    <div class="text-lg font-bold text-amber-600 tabular-nums">{{ unitStats.useArea ? unitStats.reserviertArea.toFixed(0) : unitStats.reserviert }}</div>
-                    <div class="text-[10px] text-muted-foreground">{{ unitStats.useArea ? 'Res. m2' : 'Reserviert' }}</div>
-                  </div>
-                  <div class="text-center p-2.5 rounded-lg bg-red-50 border border-red-200">
-                    <div class="text-lg font-bold text-red-600 tabular-nums">{{ unitStats.useArea ? unitStats.verkauftArea.toFixed(0) : unitStats.verkauft }}</div>
-                    <div class="text-[10px] text-muted-foreground">{{ unitStats.useArea ? 'Verk. m2' : 'Verkauft' }}</div>
-                  </div>
-                  <div class="text-center p-2.5 rounded-lg bg-muted/50 border border-border">
-                    <div class="text-lg font-bold text-foreground tabular-nums">{{ property?.children?.length || 0 }}</div>
-                    <div class="text-[10px] text-muted-foreground">Unterobjekte</div>
+                </div>
+                <div class="p-3 bg-muted rounded-lg">
+                  <div class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Provision</div>
+                  <div class="text-base font-bold text-foreground tabular-nums">
+                    {{ property?.commission_percent ? property.commission_percent + ' %' : '–' }}
                   </div>
                 </div>
               </div>

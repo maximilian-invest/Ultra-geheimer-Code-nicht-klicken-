@@ -372,7 +372,7 @@ function ownerInitials(name) {
     <!-- ── KPI Cards ── -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
       <!-- Kaufpreis -->
-      <div class="rounded-lg px-4 py-3" style="border:1px solid hsl(240 5.9% 94%);background:hsl(240 4.8% 95.9%)">
+      <div class="rounded-lg px-4 py-3" style="border:1px solid hsl(240 5.9% 90%)">
         <div class="text-[10px] font-medium uppercase tracking-wider mb-1" style="color:hsl(240 3.8% 46.1%)">Kaufpreis ab</div>
         <div class="text-[15px] sm:text-[17px] font-bold tabular-nums leading-tight" style="color:hsl(240 10% 3.9%)">
           {{ property.purchase_price ? formatPrice(property.purchase_price) : '–' }}
@@ -383,7 +383,7 @@ function ownerInitials(name) {
       </div>
 
       <!-- Fläche / Einheiten -->
-      <div class="rounded-lg px-4 py-3" style="border:1px solid hsl(240 5.9% 94%);background:hsl(240 4.8% 95.9%)">
+      <div class="rounded-lg px-4 py-3" style="border:1px solid hsl(240 5.9% 90%)">
         <div class="text-[10px] font-medium uppercase tracking-wider mb-1" style="color:hsl(240 3.8% 46.1%)">
           {{ isNewbuild ? 'Einheiten' : 'Fläche' }}
         </div>
@@ -401,7 +401,7 @@ function ownerInitials(name) {
       </div>
 
       <!-- Provision -->
-      <div class="rounded-lg px-4 py-3" style="border:1px solid hsl(240 5.9% 94%);background:hsl(240 4.8% 95.9%)">
+      <div class="rounded-lg px-4 py-3" style="border:1px solid hsl(240 5.9% 90%)">
         <div class="text-[10px] font-medium uppercase tracking-wider mb-1" style="color:hsl(240 3.8% 46.1%)">Provision</div>
         <div class="text-[15px] sm:text-[17px] font-bold tabular-nums leading-tight" style="color:hsl(240 10% 3.9%)">
           {{ property.commission_percent ? property.commission_percent + '%' : '–' }}
@@ -412,7 +412,7 @@ function ownerInitials(name) {
       </div>
 
       <!-- Portale / Status -->
-      <div class="rounded-lg px-4 py-3" style="border:1px solid hsl(240 5.9% 94%);background:hsl(240 4.8% 95.9%)">
+      <div class="rounded-lg px-4 py-3" style="border:1px solid hsl(240 5.9% 90%)">
         <div class="text-[10px] font-medium uppercase tracking-wider mb-1" style="color:hsl(240 3.8% 46.1%)">Status</div>
         <div class="text-[15px] sm:text-[17px] font-bold leading-tight" style="color:hsl(240 10% 3.9%)">
           {{ property.on_hold ? 'Pausiert' : 'Aktiv' }}
@@ -426,64 +426,64 @@ function ownerInitials(name) {
     <!-- ── Projektdaten Grid ── -->
     <div>
       <div class="text-[13px] font-semibold mb-2.5" style="color:hsl(240 10% 3.9%)">Projektdaten</div>
-      <div class="rounded-lg overflow-hidden" style="border:1px solid hsl(240 5.9% 94%)">
+      <div class="rounded-lg overflow-hidden" style="border:1px solid hsl(240 5.9% 90%)">
         <div class="grid grid-cols-[110px_1fr] sm:grid-cols-[130px_1fr_130px_1fr]">
 
           <!-- Row: Straße / PLZ+Ort -->
-          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-bottom:1px solid hsl(240 5.9% 94%)">Straße</div>
-          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 94%);border-right:1px solid hsl(240 5.9% 94%)">{{ property.address || '–' }}</div>
-          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-bottom:1px solid hsl(240 5.9% 94%)">PLZ / Ort</div>
-          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 94%)">{{ [property.zip, property.city].filter(Boolean).join(' ') || '–' }}</div>
+          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-bottom:1px solid hsl(240 5.9% 90%)">Straße</div>
+          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 90%)">{{ property.address || '–' }}</div>
+          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-bottom:1px solid hsl(240 5.9% 90%)">PLZ / Ort</div>
+          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 90%)">{{ [property.zip, property.city].filter(Boolean).join(' ') || '–' }}</div>
 
           <!-- Row: Fläche / Typ -->
-          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-bottom:1px solid hsl(240 5.9% 94%)">Fläche</div>
-          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 94%);border-right:1px solid hsl(240 5.9% 94%)">
+          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-bottom:1px solid hsl(240 5.9% 90%)">Fläche</div>
+          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 90%)">
             <template v-if="isNewbuild && property.total_area">{{ property.total_area }} m²</template>
             <template v-else-if="property.total_area">{{ property.total_area }} m²</template>
             <template v-else>–</template>
           </div>
-          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-bottom:1px solid hsl(240 5.9% 94%)">Objekttyp</div>
-          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 94%)">{{ property.object_type || '–' }}</div>
+          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-bottom:1px solid hsl(240 5.9% 90%)">Objekttyp</div>
+          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 90%)">{{ property.object_type || '–' }}</div>
 
           <!-- Row: Heizung / Aufzug -->
-          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-bottom:1px solid hsl(240 5.9% 94%)">Heizung</div>
-          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 94%);border-right:1px solid hsl(240 5.9% 94%)">{{ property.heating || property.heating_type || '–' }}</div>
-          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-bottom:1px solid hsl(240 5.9% 94%)">Aufzug</div>
-          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 94%)">{{ property.has_elevator || property.elevator ? 'Ja' : 'Nein' }}</div>
+          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-bottom:1px solid hsl(240 5.9% 90%)">Heizung</div>
+          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 90%)">{{ property.heating || property.heating_type || '–' }}</div>
+          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-bottom:1px solid hsl(240 5.9% 90%)">Aufzug</div>
+          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 90%)">{{ property.has_elevator || property.elevator ? 'Ja' : 'Nein' }}</div>
 
           <!-- Row: HWB / Stockwerke -->
-          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-bottom:1px solid hsl(240 5.9% 94%)">HWB</div>
-          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 94%);border-right:1px solid hsl(240 5.9% 94%)">
+          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-bottom:1px solid hsl(240 5.9% 90%)">HWB</div>
+          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 90%)">
             {{ property.heating_demand_value ? property.heating_demand_value + ' kWh/m²a' : (property.hwb || '–') }}
             <span v-if="property.heating_demand_class" class="ml-1 text-[10px] font-semibold px-1.5 rounded" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%)">{{ property.heating_demand_class }}</span>
           </div>
-          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-bottom:1px solid hsl(240 5.9% 94%)">Stockwerke</div>
-          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 94%)">{{ property.floor_count || property.floors || '–' }}</div>
+          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-bottom:1px solid hsl(240 5.9% 90%)">Stockwerke</div>
+          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 90%)">{{ property.floor_count || property.floors || '–' }}</div>
 
           <!-- Row: Stellplätze / Garage -->
-          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);" :class="!isNewbuild ? 'border-bottom:1px solid hsl(240 5.9% 94%)' : ''">Stellplätze</div>
-          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-right:1px solid hsl(240 5.9% 94%)" :style="!isNewbuild ? 'border-bottom:1px solid hsl(240 5.9% 94%)' : ''">{{ property.parking_spaces || '–' }}</div>
-          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%)">Garage</div>
+          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);" :class="!isNewbuild ? 'border-bottom:1px solid hsl(240 5.9% 90%)' : ''">Stellplätze</div>
+          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%)" :style="!isNewbuild ? 'border-bottom:1px solid hsl(240 5.9% 90%)' : ''">{{ property.parking_spaces || '–' }}</div>
+          <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5)">Garage</div>
           <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%)">{{ property.garage_spaces || property.garage || '–' }}</div>
 
           <!-- Newbuild only: Bauträger / Fertigstellung -->
           <template v-if="isNewbuild">
-            <div class="px-3 py-2 text-[11px] font-medium border-t" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-color:hsl(240 5.9% 94%);border-bottom:1px solid hsl(240 5.9% 94%)">Bauträger</div>
-            <div class="px-3 py-2 text-[12px] border-t border-b" style="color:hsl(240 10% 3.9%);border-color:hsl(240 5.9% 94%);border-right:1px solid hsl(240 5.9% 94%)">{{ property.builder_company || '–' }}</div>
-            <div class="px-3 py-2 text-[11px] font-medium border-t" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-color:hsl(240 5.9% 94%);border-bottom:1px solid hsl(240 5.9% 94%)">Fertigstellung</div>
-            <div class="px-3 py-2 text-[12px] border-t border-b" style="color:hsl(240 10% 3.9%);border-color:hsl(240 5.9% 94%)">{{ property.construction_end || '–' }}</div>
+            <div class="px-3 py-2 text-[11px] font-medium border-t" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-color:hsl(240 5.9% 90%);border-bottom:1px solid hsl(240 5.9% 90%)">Bauträger</div>
+            <div class="px-3 py-2 text-[12px] border-t border-b" style="color:hsl(240 10% 3.9%);border-color:hsl(240 5.9% 90%)">{{ property.builder_company || '–' }}</div>
+            <div class="px-3 py-2 text-[11px] font-medium border-t" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-color:hsl(240 5.9% 90%);border-bottom:1px solid hsl(240 5.9% 90%)">Fertigstellung</div>
+            <div class="px-3 py-2 text-[12px] border-t border-b" style="color:hsl(240 10% 3.9%);border-color:hsl(240 5.9% 90%)">{{ property.construction_end || '–' }}</div>
           </template>
 
           <!-- Standard only: Baujahr / Zimmer / Zustand / Grundstück -->
           <template v-if="!isNewbuild">
-            <div class="px-3 py-2 text-[11px] font-medium border-t" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-color:hsl(240 5.9% 94%);border-bottom:1px solid hsl(240 5.9% 94%)">Baujahr</div>
-            <div class="px-3 py-2 text-[12px] border-t border-b" style="color:hsl(240 10% 3.9%);border-color:hsl(240 5.9% 94%);border-right:1px solid hsl(240 5.9% 94%)">{{ property.construction_year || '–' }}</div>
-            <div class="px-3 py-2 text-[11px] font-medium border-t" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-color:hsl(240 5.9% 94%);border-bottom:1px solid hsl(240 5.9% 94%)">Zimmer</div>
-            <div class="px-3 py-2 text-[12px] border-t border-b" style="color:hsl(240 10% 3.9%);border-color:hsl(240 5.9% 94%)">{{ property.rooms_amount || '–' }}</div>
-            <div class="px-3 py-2 text-[11px] font-medium border-t" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-color:hsl(240 5.9% 94%);border-bottom:1px solid hsl(240 5.9% 94%)">Zustand</div>
-            <div class="px-3 py-2 text-[12px] border-t border-b" style="color:hsl(240 10% 3.9%);border-color:hsl(240 5.9% 94%);border-right:1px solid hsl(240 5.9% 94%)">{{ property.realty_condition || property.condition || '–' }}</div>
-            <div class="px-3 py-2 text-[11px] font-medium border-t" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9%);border-color:hsl(240 5.9% 94%)">Grundstück</div>
-            <div class="px-3 py-2 text-[12px] border-t" style="color:hsl(240 10% 3.9%);border-color:hsl(240 5.9% 94%)">{{ property.free_area || property.plot_area ? (property.free_area || property.plot_area) + ' m²' : '–' }}</div>
+            <div class="px-3 py-2 text-[11px] font-medium border-t" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-color:hsl(240 5.9% 90%);border-bottom:1px solid hsl(240 5.9% 90%)">Baujahr</div>
+            <div class="px-3 py-2 text-[12px] border-t border-b" style="color:hsl(240 10% 3.9%);border-color:hsl(240 5.9% 90%)">{{ property.construction_year || '–' }}</div>
+            <div class="px-3 py-2 text-[11px] font-medium border-t" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-color:hsl(240 5.9% 90%);border-bottom:1px solid hsl(240 5.9% 90%)">Zimmer</div>
+            <div class="px-3 py-2 text-[12px] border-t border-b" style="color:hsl(240 10% 3.9%);border-color:hsl(240 5.9% 90%)">{{ property.rooms_amount || '–' }}</div>
+            <div class="px-3 py-2 text-[11px] font-medium border-t" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-color:hsl(240 5.9% 90%);border-bottom:1px solid hsl(240 5.9% 90%)">Zustand</div>
+            <div class="px-3 py-2 text-[12px] border-t border-b" style="color:hsl(240 10% 3.9%);border-color:hsl(240 5.9% 90%)">{{ property.realty_condition || property.condition || '–' }}</div>
+            <div class="px-3 py-2 text-[11px] font-medium border-t" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-color:hsl(240 5.9% 90%)">Grundstück</div>
+            <div class="px-3 py-2 text-[12px] border-t" style="color:hsl(240 10% 3.9%);border-color:hsl(240 5.9% 90%)">{{ property.free_area || property.plot_area ? (property.free_area || property.plot_area) + ' m²' : '–' }}</div>
           </template>
 
         </div>
@@ -493,7 +493,7 @@ function ownerInitials(name) {
     <!-- ── Eigentümer & Kontakt ── -->
     <div>
       <div class="text-[13px] font-semibold mb-2.5" style="color:hsl(240 10% 3.9%)">Eigentümer & Kontakt</div>
-      <div class="rounded-lg p-4" style="border:1px solid hsl(240 5.9% 94%)">
+      <div class="rounded-lg p-4" style="border:1px solid hsl(240 5.9% 90%)">
 
         <!-- Owner exists -->
         <div v-if="hasOwner" class="flex items-center gap-3">
@@ -509,11 +509,11 @@ function ownerInitials(name) {
           </div>
           <div class="flex items-center gap-1.5 flex-shrink-0">
             <a v-if="ownerData.owner_email" :href="'mailto:' + ownerData.owner_email"
-              class="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md transition-colors hover:bg-zinc-100" style="color:hsl(240 3.8% 46.1%);border:1px solid hsl(240 5.9% 94%)">
+              class="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md transition-colors hover:bg-zinc-100" style="color:hsl(240 3.8% 46.1%);border:1px solid hsl(240 5.9% 90%)">
               Mail
             </a>
             <a v-if="ownerData.owner_phone" :href="'tel:' + ownerData.owner_phone"
-              class="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md transition-colors hover:bg-zinc-100" style="color:hsl(240 3.8% 46.1%);border:1px solid hsl(240 5.9% 94%)">
+              class="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md transition-colors hover:bg-zinc-100" style="color:hsl(240 3.8% 46.1%);border:1px solid hsl(240 5.9% 90%)">
               Anrufen
             </a>
             <button @click="unlinkCustomer" title="Verknüpfung lösen"
@@ -529,7 +529,7 @@ function ownerInitials(name) {
           <div class="flex flex-col sm:flex-row gap-2">
             <select v-model="selectedCustomerId" @change="selectExistingOwner"
               class="flex-1 px-3 py-2 rounded-md text-[12px] focus:outline-none focus:ring-1 focus:ring-zinc-400"
-              style="border:1px solid hsl(240 5.9% 94%);background:white;color:hsl(240 10% 3.9%)">
+              style="border:1px solid hsl(240 5.9% 90%);background:white;color:hsl(240 10% 3.9%)">
               <option value="">– Kontakt wählen –</option>
               <option v-for="c in customersList" :key="c.id" :value="c.id">{{ c.name }} · {{ c.email || 'keine Email' }}</option>
             </select>
@@ -539,7 +539,7 @@ function ownerInitials(name) {
           </div>
 
           <!-- New owner form -->
-          <div v-if="showCreateOwnerForm" class="p-3.5 rounded-lg space-y-2.5" style="background:hsl(240 4.8% 95.9%);border:1px solid hsl(240 5.9% 94%)">
+          <div v-if="showCreateOwnerForm" class="p-3.5 rounded-lg space-y-2.5" style="background:hsl(240 4.8% 95.9% / 0.5);border:1px solid hsl(240 5.9% 90%)">
             <div class="text-[11px] font-semibold uppercase tracking-wider" style="color:hsl(21 90% 48%)">Neuen Eigentümer anlegen</div>
             <Input v-model="newOwnerForm.name" placeholder="Vor- und Nachname *" class="h-8 text-[12px]" />
             <div class="grid grid-cols-2 gap-2">
@@ -565,7 +565,7 @@ function ownerInitials(name) {
         <Badge v-if="portalUser" class="text-[10px] px-2 py-0" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)">Aktiv</Badge>
         <Badge v-else-if="hasOwner" variant="outline" class="text-[10px] px-2 py-0">Kein Zugang</Badge>
       </div>
-      <div class="rounded-lg p-4" style="border:1px solid hsl(240 5.9% 94%)">
+      <div class="rounded-lg p-4" style="border:1px solid hsl(240 5.9% 90%)">
 
         <!-- Active portal -->
         <div v-if="portalUser" class="flex items-center gap-3">
@@ -598,7 +598,7 @@ function ownerInitials(name) {
           </div>
 
           <!-- Create portal form -->
-          <div v-else class="p-3.5 rounded-lg space-y-2.5" style="background:hsl(240 4.8% 95.9%);border:1px solid hsl(240 5.9% 94%)">
+          <div v-else class="p-3.5 rounded-lg space-y-2.5" style="background:hsl(240 4.8% 95.9% / 0.5);border:1px solid hsl(240 5.9% 90%)">
             <div class="text-[12px]" style="color:hsl(240 3.8% 46.1%)">
               Login: <span class="font-medium" style="color:hsl(240 10% 3.9%)">{{ ownerData.owner_email }}</span>
             </div>
@@ -623,7 +623,7 @@ function ownerInitials(name) {
         Hierarchie & Projekt
         <Badge class="text-[10px] px-2 py-0" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)">Master-Objekt</Badge>
       </div>
-      <div class="rounded-lg p-4 space-y-4" style="border:1px solid hsl(240 5.9% 94%)">
+      <div class="rounded-lg p-4 space-y-4" style="border:1px solid hsl(240 5.9% 90%)">
 
         <!-- Children list -->
         <div v-if="property.children?.length">
@@ -663,7 +663,7 @@ function ownerInitials(name) {
         Hierarchie
         <Badge variant="outline" class="text-[10px] px-2 py-0">Kind-Objekt</Badge>
       </div>
-      <div class="rounded-lg p-4 flex items-center gap-3" style="border:1px solid hsl(240 5.9% 94%);background:hsl(263 70% 99%)">
+      <div class="rounded-lg p-4 flex items-center gap-3" style="border:1px solid hsl(240 5.9% 90%);background:hsl(263 70% 99%)">
         <ArrowLeft class="w-4 h-4 flex-shrink-0 text-indigo-500" />
         <div>
           <div class="text-[12px]" style="color:hsl(240 3.8% 46.1%)">Gehört zu</div>
@@ -677,8 +677,8 @@ function ownerInitials(name) {
   <!-- ── Projektgruppe Popup ── -->
   <Teleport to="body">
     <div v-if="projectGroupPopup" class="fixed inset-0 z-[320] flex items-center justify-center bg-black/40" @click.self="projectGroupPopup = false">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden" style="border:1px solid hsl(240 5.9% 94%)">
-        <div class="px-6 py-4 flex items-center justify-between" style="border-bottom:1px solid hsl(240 5.9% 94%)">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden" style="border:1px solid hsl(240 5.9% 90%)">
+        <div class="px-6 py-4 flex items-center justify-between" style="border-bottom:1px solid hsl(240 5.9% 90%)">
           <h3 class="text-[14px] font-semibold" style="color:hsl(240 10% 3.9%)">Projektgruppe</h3>
           <button @click="projectGroupPopup = false" class="w-7 h-7 rounded-lg hover:bg-zinc-100 flex items-center justify-center">
             <X class="w-4 h-4 text-zinc-400" />
@@ -690,7 +690,7 @@ function ownerInitials(name) {
             <label class="block text-[11px] font-medium mb-1.5" style="color:hsl(240 3.8% 46.1%)">Projektgruppe zuweisen</label>
             <select :value="property.project_group_id || ''"
               @change="assignProjectGroup($event.target.value ? Number($event.target.value) : null)"
-              class="w-full px-3 py-2.5 rounded-xl text-[13px] focus:outline-none focus:ring-2" style="background:hsl(240 4.8% 95.9%);border:1px solid hsl(240 5.9% 94%);color:hsl(240 10% 3.9%)">
+              class="w-full px-3 py-2.5 rounded-xl text-[13px] focus:outline-none focus:ring-2" style="background:hsl(240 4.8% 95.9% / 0.5);border:1px solid hsl(240 5.9% 90%);color:hsl(240 10% 3.9%)">
               <option value="">– Keine Gruppe –</option>
               <option v-for="g in projectGroups.filter(x => !property.customer_id || !x.customer_id || x.customer_id == property.customer_id)" :key="g.id" :value="g.id">{{ g.name }}</option>
             </select>
@@ -716,8 +716,8 @@ function ownerInitials(name) {
 
     <!-- ── Child Create Modal ── -->
     <div v-if="childCreateModal" class="fixed inset-0 z-[320] flex items-center justify-center" style="background:rgba(0,0,0,0.4);backdrop-filter:blur(4px)">
-      <div class="relative w-[480px] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl overflow-hidden bg-white" style="border:1px solid hsl(240 5.9% 94%)">
-        <div class="flex items-center justify-between px-5 py-4" style="border-bottom:1px solid hsl(240 5.9% 94%)">
+      <div class="relative w-[480px] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl overflow-hidden bg-white" style="border:1px solid hsl(240 5.9% 90%)">
+        <div class="flex items-center justify-between px-5 py-4" style="border-bottom:1px solid hsl(240 5.9% 90%)">
           <div>
             <div class="text-[14px] font-semibold" style="color:hsl(240 10% 3.9%)">Unterobjekte anlegen</div>
             <div class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">Kategorien aus Einheiten oder manuell</div>
@@ -728,7 +728,7 @@ function ownerInitials(name) {
         </div>
 
         <!-- Mode toggle -->
-        <div class="flex gap-1 mx-5 mt-3 p-0.5 rounded-lg" style="background:hsl(240 4.8% 95.9%)">
+        <div class="flex gap-1 mx-5 mt-3 p-0.5 rounded-lg" style="background:hsl(240 4.8% 95.9% / 0.5)">
           <button @click="childMode = 'categories'" class="flex-1 px-3 py-1.5 text-[11px] font-medium rounded-md transition-all"
             :style="childMode === 'categories' ? 'background:white;color:hsl(240 10% 3.9%);box-shadow:0 1px 2px rgba(0,0,0,0.06)' : 'color:hsl(240 3.8% 46.1%)'">
             Aus Einheiten
@@ -752,9 +752,9 @@ function ownerInitials(name) {
             <div v-for="cat in childCategories" :key="cat.rooms"
               @click="toggleCategory(cat.rooms)"
               class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all"
-              :style="childSelected.has(cat.rooms) ? 'background:rgba(99,102,241,0.06);border:1.5px solid #6366f1' : 'background:hsl(240 4.8% 95.9%);border:1.5px solid hsl(240 5.9% 94%)'">
+              :style="childSelected.has(cat.rooms) ? 'background:rgba(99,102,241,0.06);border:1.5px solid #6366f1' : 'background:hsl(240 4.8% 95.9% / 0.5);border:1.5px solid hsl(240 5.9% 90%)'">
               <div class="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all"
-                :style="childSelected.has(cat.rooms) ? 'background:#6366f1' : 'background:white;border:1.5px solid hsl(240 5.9% 94%)'">
+                :style="childSelected.has(cat.rooms) ? 'background:#6366f1' : 'background:white;border:1.5px solid hsl(240 5.9% 90%)'">
                 <Check v-if="childSelected.has(cat.rooms)" class="w-3 h-3 text-white" />
               </div>
               <div class="flex-1 min-w-0">
@@ -785,7 +785,7 @@ function ownerInitials(name) {
         </div>
 
         <!-- Footer -->
-        <div class="flex justify-end gap-2 px-5 py-3" style="border-top:1px solid hsl(240 5.9% 94%);background:hsl(240 4.8% 95.9%)">
+        <div class="flex justify-end gap-2 px-5 py-3" style="border-top:1px solid hsl(240 5.9% 90%);background:hsl(240 4.8% 95.9% / 0.5)">
           <Button variant="outline" size="sm" @click="childCreateModal = false">Abbrechen</Button>
           <Button v-if="childMode === 'categories'"
             size="sm"

@@ -1,9 +1,16 @@
 <script setup>
 import { catBadgeStyle, catLabel } from '@/utils/categoryBadge.js';
 import { ref, inject, computed, reactive, watch } from "vue";
-import { Home, Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, Unlink } from "lucide-vue-next";
+import { Home, Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, Unlink, LayoutList, LayoutGrid } from "lucide-vue-next";
 import PropertyEditor from '@/Components/Admin/PropertyEditor.vue';
 import PropertyDetailView from '@/Components/Admin/PropertyDetailView.vue';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 const API = inject("API");
 const toast = inject("toast");
@@ -52,8 +59,8 @@ function getPortalIcons(prop) {
     }
     return icons;
 }
-const showInaktiv = ref(false);
-const categoryFilter = ref('');
+const statusFilter = ref('aktiv');
+const typeFilter = ref('');
 const propMenuOpen = ref(null);
 const propMenuDir = ref('down');
 function togglePropMenu(propId, event) {
@@ -267,6 +274,33 @@ function formatFileSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB';
     return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function getCategoryLabel(cat) {
+    const labels = { apartment: 'Wohnung', house: 'Haus', newbuild: 'Neubauprojekt', land: 'Grundst\u00fcck' };
+    return labels[cat] || cat || '\u2013';
+}
+
+function formatPrice(price, isNewbuild) {
+    if (!price) return '\u2013';
+    const formatted = Number(price).toLocaleString('de-DE');
+    return (isNewbuild ? 'ab \u20ac ' : '\u20ac ') + formatted;
+}
+
+function formatPriceMobile(price, isNewbuild) {
+    if (!price) return '\u2013';
+    const n = Number(price);
+    let short;
+    if (n >= 1000000) short = (n / 1000000).toFixed(1).replace('.0', '') + 'M';
+    else if (n >= 1000) short = Math.round(n / 1000) + 'K';
+    else short = n.toString();
+    return (isNewbuild ? 'ab \u20ac ' : '\u20ac ') + short;
+}
+
+function getChildStatusCounts(children) {
+    const counts = { frei: 0, reserviert: 0, verkauft: 0 };
+    for (const c of (children || [])) { if (counts[c.status] !== undefined) counts[c.status]++; }
+    return counts;
 }
 const customersList = ref([]);
 const customersLoaded = ref(false);
@@ -533,7 +567,7 @@ const kbBulkLoading = ref(false);
 const kbBulkSaving = ref(false);
 const onHoldNote = ref("");
 const showOnHoldForm = ref(null);
-const propViewMode = ref('grid');
+const propViewMode = ref('table');
 // Status removed from property level
 // healthScores removed — Health-Check entfernt
 
@@ -545,10 +579,7 @@ const kbCategoryLabels = {
     dokument_extrakt: "Aus Dokumenten", sonstiges: "Sonstiges",
 };
 
-const inaktivProperties = computed(() => {
-    let list = (properties?.value ?? properties) || [];
-    return list.filter(p => p.realty_status === 'inaktiv');
-});
+
 
 const selectedBrokers = ref(new Set()); // empty = show own, broker_ids = show those
 
@@ -599,30 +630,32 @@ function clearBrokerFilter() {
     brokerFilterOpen.value = false;
 }
 
+const statusCounts = computed(() => {
+    let list = (properties?.value ?? properties) || [];
+    if (typeFilter.value) list = list.filter(p => p.property_category === typeFilter.value);
+    if (searchQuery.value.trim()) {
+        const q = searchQuery.value.toLowerCase();
+        list = list.filter(p => (p.address||'').toLowerCase().includes(q) || (p.ref_id||'').toLowerCase().includes(q) || (p.city||'').toLowerCase().includes(q) || (p.project_name||'').toLowerCase().includes(q) || (p.broker_name||'').toLowerCase().includes(q));
+    }
+    return {
+        aktiv: list.filter(p => p.realty_status !== 'inaktiv' && p.realty_status !== 'verkauft').length,
+        inaktiv: list.filter(p => p.realty_status === 'inaktiv').length,
+        verkauft: list.filter(p => p.realty_status === 'verkauft').length,
+    };
+});
+
 const allFilteredProperties = computed(() => {
     let list = (properties?.value ?? properties) || [];
-    if (showInaktiv.value) {
-      list = list.filter(p => p.realty_status === 'inaktiv');
-    } else {
-      list = list.filter(p => p.realty_status !== 'inaktiv');
-    }
+    if (statusFilter.value === 'inaktiv') list = list.filter(p => p.realty_status === 'inaktiv');
+    else if (statusFilter.value === 'verkauft') list = list.filter(p => p.realty_status === 'verkauft');
+    else list = list.filter(p => p.realty_status !== 'inaktiv' && p.realty_status !== 'verkauft');
     if (searchQuery.value.trim()) {
-      const q = searchQuery.value.toLowerCase();
-      list = list.filter((p) => 
-        (p.address || "").toLowerCase().includes(q) || 
-        (p.ref_id || "").toLowerCase().includes(q) || 
-        (p.city || "").toLowerCase().includes(q) ||
-        (p.broker_name || "").toLowerCase().includes(q)
-      );
+        const q = searchQuery.value.toLowerCase();
+        list = list.filter(p => (p.address||'').toLowerCase().includes(q) || (p.ref_id||'').toLowerCase().includes(q) || (p.city||'').toLowerCase().includes(q) || (p.project_name||'').toLowerCase().includes(q) || (p.broker_name||'').toLowerCase().includes(q));
     }
-    if (categoryFilter.value) {
-      list = list.filter(p => p.property_category === categoryFilter.value);
-    }
-    list.sort((a, b) => {
-      const da = a.created_at ? new Date(a.created_at) : new Date(0);
-      const db = b.created_at ? new Date(b.created_at) : new Date(0);
-      return db - da;
-    });
+    if (typeFilter.value) list = list.filter(p => p.property_category === typeFilter.value);
+    if (selectedBrokers.value.size > 0) list = list.filter(p => selectedBrokers.value.has(p.broker_id));
+    list.sort((a, b) => (b.created_at ? new Date(b.created_at) : new Date(0)) - (a.created_at ? new Date(a.created_at) : new Date(0)));
     return list;
 });
 

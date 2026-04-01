@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import OverviewTab from '@/Components/Admin/property-detail/OverviewTab.vue';
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -160,7 +161,10 @@ const showExposeParser = ref(false);
       </TabsList>
 
       <div class="flex-1 overflow-y-auto p-6">
-        <div class="text-muted-foreground text-sm">Tab: {{ activeTab }}</div>
+        <OverviewTab v-if="activeTab === 'uebersicht'" :property="property"
+          @owner-changed="(data) => emit('ownerChanged', data)"
+          @property-created="(data) => emit('propertyCreated', data)" />
+        <div v-else class="text-muted-foreground text-sm">Tab: {{ activeTab }}</div>
       </div>
     </Tabs>
 

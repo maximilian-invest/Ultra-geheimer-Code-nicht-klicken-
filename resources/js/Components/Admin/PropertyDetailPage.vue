@@ -34,6 +34,7 @@ const emit = defineEmits([
 
 const API = inject("API");
 const toast = inject("toast");
+const switchTabFn = inject("switchTab", null);
 
 const activeTab = ref("uebersicht");
 
@@ -201,7 +202,7 @@ function handleExposeParsed(result) {
         <PortalsTab v-else-if="activeTab === 'portale'" ref="portalsTabRef" :property="property" @dirty="isDirty = true" />
         <KnowledgeTab v-else-if="activeTab === 'wissen'" :property="property" />
         <FilesTab v-else-if="activeTab === 'dateien'" :property="property" />
-        <ActivityTab v-else-if="activeTab === 'aktivitaeten'" :property="property" @open-activities="(id, addr) => emit('switchTab', { tab: 'activities', propertyId: id, address: addr })" @open-messages="(id, addr) => emit('switchTab', { tab: 'comms', propertyId: id, address: addr })" />
+        <ActivityTab v-else-if="activeTab === 'aktivitaeten'" :property="property" @open-activities="(id, addr) => { if (switchTabFn) switchTabFn('activities'); }" @open-messages="(id, addr) => { if (switchTabFn) switchTabFn('comms'); }" />
         <div v-else class="text-muted-foreground text-sm">Tab: {{ activeTab }}</div>
       </div>
     </Tabs>

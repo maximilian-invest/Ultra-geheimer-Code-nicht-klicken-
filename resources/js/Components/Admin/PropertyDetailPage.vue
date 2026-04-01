@@ -139,7 +139,7 @@ function handleExposeParsed(result) {
 <template>
   <div class="flex flex-col h-full">
     <!-- Breadcrumb topbar -->
-    <div class="h-12 border-b border-border flex items-center px-6 shrink-0">
+    <div class="h-12 border-b border-border/50 flex items-center px-6 shrink-0">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -154,7 +154,7 @@ function handleExposeParsed(result) {
     </div>
 
     <!-- Detail Header -->
-    <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
+    <div class="px-6 py-4 border-b border-border/50 flex items-center justify-between shrink-0">
       <div class="flex items-center gap-3.5">
         <div class="w-[52px] h-10 rounded-md bg-gradient-to-br from-blue-200 to-indigo-200 shrink-0" />
         <div>
@@ -181,7 +181,7 @@ function handleExposeParsed(result) {
 
     <!-- Tab Bar -->
     <Tabs v-model="activeTab" class="flex-1 flex flex-col min-h-0">
-      <TabsList class="w-full justify-start rounded-none border-b border-border bg-transparent h-auto p-0 px-6 shrink-0 overflow-x-auto">
+      <TabsList class="w-full justify-start rounded-none border-b border-border/50 bg-transparent h-auto p-0 px-6 shrink-0 overflow-x-auto">
         <TabsTrigger
           v-for="tab in tabs" :key="tab.value" :value="tab.value"
           class="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-[13px]"
@@ -208,7 +208,7 @@ function handleExposeParsed(result) {
     </Tabs>
 
     <!-- Sticky Footer (only for editable tabs) -->
-    <div v-if="showFooter" class="border-t border-border px-6 py-3 flex items-center justify-between shrink-0 bg-background">
+    <div v-if="showFooter" class="border-t border-border/50 px-6 py-3 flex items-center justify-between shrink-0 bg-background">
       <Button variant="outline" size="sm" @click="showExposeParser = !showExposeParser">
         Exposé auslesen
       </Button>

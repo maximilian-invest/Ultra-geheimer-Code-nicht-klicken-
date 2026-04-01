@@ -1,5 +1,5 @@
 <script setup>
-import { ref, inject, onMounted, computed, watch, nextTick } from "vue";
+import { ref, inject, onMounted, computed, watch, nextTick, provide } from "vue";
 import { catBadgeStyle, catLabel } from '@/utils/categoryBadge.js';
 import {
   Mail, Clock, Send, CheckCircle, X, ChevronDown, CalendarDays,
@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+// Sheet replaced with manual slide-over panel
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -651,9 +651,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full space-y-4 p-6">
+  <div class="flex h-full" style="min-height:0">
+
+    <!-- LEFT: List Panel (hidden on mobile when detail open) -->
+    <div class="flex flex-col h-full p-4 overflow-hidden" :class="[sheetOpen ? 'w-[380px] flex-shrink-0 border-r border-gray-200 hidden lg:flex' : 'flex-1']">
+
     <!-- Broker Filter (Assistenz only) -->
-    <div v-if="isAssistenz && brokerList.length" class="flex items-center gap-2">
+    <div v-if="isAssistenz && brokerList.length" class="flex items-center gap-2 mb-3">
       <span class="text-xs font-medium text-muted-foreground">Makler:</span>
       <Select v-model="maklerFilter">
         <SelectTrigger class="w-[200px] h-8 text-xs">
@@ -670,16 +674,14 @@ onMounted(() => {
 
     <!-- Tabs: Offen / Nachfassen -->
     <Tabs v-model="activeTab" class="w-full flex-1 flex flex-col min-h-0">
-      <TabsList class="grid w-full grid-cols-2">
-        <TabsTrigger value="offen" class="gap-2">
-          <Mail class="w-4 h-4" />
+      <TabsList class="inline-flex h-auto w-auto self-start">
+        <TabsTrigger value="offen" class="gap-1.5 text-[12px] px-4">
           Offen
-          <Badge v-if="unansweredCount" variant="secondary" class="ml-1 h-5 px-1.5 text-[10px]">{{ unansweredCount }}</Badge>
+          <span v-if="unansweredCount" class="ml-1 text-[10px] font-bold px-1.5 py-0 rounded-full bg-red-50 text-red-600">{{ unansweredCount }}</span>
         </TabsTrigger>
-        <TabsTrigger value="nachfassen" class="gap-2">
-          <Clock class="w-4 h-4" />
+        <TabsTrigger value="nachfassen" class="gap-1.5 text-[12px] px-4">
           Nachfassen
-          <Badge v-if="(followupCount || 0) + (stage1Count || 0)" variant="secondary" class="ml-1 h-5 px-1.5 text-[10px]">{{ (followupCount || 0) + (stage1Count || 0) }}</Badge>
+          <span v-if="(followupCount || 0) + (stage1Count || 0)" class="ml-1 text-[10px] font-bold px-1.5 py-0 rounded-full bg-zinc-100 text-zinc-500">{{ (followupCount || 0) + (stage1Count || 0) }}</span>
         </TabsTrigger>
       </TabsList>
 
@@ -706,13 +708,13 @@ onMounted(() => {
 
       <!-- Toolbar: Search + Filters -->
       <div class="flex flex-wrap items-center gap-2 mt-3">
-        <div class="relative flex-1 min-w-[180px]">
+        <div class="relative flex-1 min-w-[140px]">
           <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input v-model="searchQuery" placeholder="Suchen..." class="pl-8 h-8 text-sm" />
         </div>
         <Select v-model="objectFilter">
-          <SelectTrigger class="w-[160px] h-8 text-xs">
-            <SelectValue placeholder="Alle Objekte" />
+          <SelectTrigger class="w-auto h-8 text-xs">
+            <SelectValue placeholder="Objekt" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Alle Objekte</SelectItem>
@@ -721,9 +723,9 @@ onMounted(() => {
             </SelectItem>
           </SelectContent>
         </Select>
-        <Select v-model="categoryFilter">
-          <SelectTrigger class="w-[150px] h-8 text-xs">
-            <SelectValue placeholder="Alle Kategorien" />
+        <Select v-if="!sheetOpen" v-model="categoryFilter">
+          <SelectTrigger class="w-auto h-8 text-xs">
+            <SelectValue placeholder="Kategorie" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Alle Kategorien</SelectItem>
@@ -735,21 +737,21 @@ onMounted(() => {
       </div>
 
       <!-- TAB: Offen -->
-      <TabsContent value="offen" class="mt-3 flex-1 min-h-0">
+      <TabsContent value="offen" class="mt-3 flex-1 min-h-0 flex flex-col data-[state=inactive]:hidden">
         <div v-if="unansweredLoading" class="flex items-center justify-center py-12">
           <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
         <div v-else-if="!filteredUnanswered.length" class="py-12 text-center text-sm text-muted-foreground">
           Keine offenen Anfragen.
         </div>
-        <ScrollArea v-else class="flex-1">
-          <div class="space-y-1.5 pr-3">
+        <div v-else class="flex-1 overflow-y-auto min-h-0">
+          <div class="divide-y divide-gray-100">
             <div
               v-for="item in filteredUnanswered"
               :key="item.id"
               @click="openDetail(item, 'offen')"
-              class="rounded-lg border border-transparent p-3 cursor-pointer transition-colors hover:bg-muted/50"
-              :class="selectedItem?.id === item.id && sheetMode === 'offen' ? 'bg-orange-50 border-orange-200' : ''"
+              class="cursor-pointer transition-colors hover:bg-muted/50"
+              :class="[selectedItem?.id === item.id && sheetMode === 'offen' ? 'bg-orange-50' : '', sheetOpen ? 'px-2 py-2' : 'px-3 py-3']"
             >
               <!-- Row 1: Avatar + Name + Badges + Time -->
               <div class="flex items-center gap-2">
@@ -757,41 +759,41 @@ onMounted(() => {
                   <AvatarFallback class="text-[10px] font-medium bg-orange-100 text-orange-700">{{ getInitials(item.from_name) }}</AvatarFallback>
                 </Avatar>
                 <span class="font-semibold text-sm truncate">{{ item.from_name || item.from_email }}</span>
-                <Badge v-if="item.category === 'bounce'" variant="destructive" class="text-[10px] px-1.5 py-0">Bounce</Badge>
-                <Badge v-else-if="item.days_waiting >= 3" variant="destructive" class="text-[10px] px-1.5 py-0">Dringend</Badge>
+                <Badge v-if="item.category === 'bounce'" class="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 border-red-200">Bounce</Badge>
+                <Badge v-else-if="item.days_waiting >= 3" class="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 border-red-200">Dringend</Badge>
                 <span class="ml-auto text-[10px] text-muted-foreground whitespace-nowrap">{{ timeAgo(item.email_date || item.created_at) }}</span>
               </div>
               <!-- Row 2: Subject -->
               <div class="text-sm font-medium line-clamp-1 ml-9 mt-0.5">{{ item.subject || '(Kein Betreff)' }}</div>
-              <!-- Row 3: Preview -->
-              <div class="text-xs text-muted-foreground line-clamp-1 ml-9 mt-0.5">{{ stripQuotedReply(item.ai_summary || item.body_text || item.body || '') }}</div>
-              <!-- Row 4: Tags -->
-              <div class="flex flex-wrap gap-1 ml-9 mt-1.5">
+              <!-- Row 3: Preview (hidden when panel open) -->
+              <div v-if="!sheetOpen" class="text-xs text-muted-foreground line-clamp-1 ml-9 mt-0.5">{{ stripQuotedReply(item.ai_summary || item.body_text || item.body || '') }}</div>
+              <!-- Row 4: Tags (hidden when panel open) -->
+              <div v-if="!sheetOpen" class="flex flex-wrap gap-1 ml-9 mt-1.5">
                 <Badge v-if="item.platform" variant="outline" class="text-[10px] px-1.5 py-0">{{ item.platform }}</Badge>
                 <Badge v-if="item.ref_id" variant="outline" class="text-[10px] px-1.5 py-0">{{ item.ref_id }}</Badge>
                 <Badge v-if="item.category" variant="outline" class="text-[10px] px-1.5 py-0" :style="catBadgeStyle(item.category)">{{ catLabel(item.category) }}</Badge>
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </TabsContent>
 
       <!-- TAB: Nachfassen -->
-      <TabsContent value="nachfassen" class="mt-3 flex-1 min-h-0">
+      <TabsContent value="nachfassen" class="mt-3 flex-1 min-h-0 flex flex-col data-[state=inactive]:hidden">
         <div v-if="followupLoading && stage1Loading" class="flex items-center justify-center py-12">
           <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
         <div v-else-if="!filteredFollowups.length" class="py-12 text-center text-sm text-muted-foreground">
           Keine Nachfass-Fälle.
         </div>
-        <ScrollArea v-else class="flex-1">
-          <div class="space-y-1.5 pr-3">
+        <div v-else class="flex-1 overflow-y-auto min-h-0">
+          <div class="divide-y divide-gray-100">
             <div
               v-for="item in filteredFollowups"
               :key="'f-' + item.id + '-' + item._stage"
               @click="openDetail(item, 'nachfassen')"
-              class="rounded-lg border border-transparent p-3 cursor-pointer transition-colors hover:bg-muted/50"
-              :class="selectedItem?.id === item.id && sheetMode === 'nachfassen' ? 'bg-orange-50 border-orange-200' : ''"
+              class="cursor-pointer transition-colors hover:bg-muted/50"
+              :class="[selectedItem?.id === item.id && sheetMode === 'nachfassen' ? 'bg-orange-50' : '', sheetOpen ? 'px-2 py-2' : 'px-3 py-3']"
             >
               <!-- Row 1: Avatar + Name + Badge + Time -->
               <div class="flex items-center gap-2">
@@ -800,255 +802,224 @@ onMounted(() => {
                 </Avatar>
                 <span class="font-semibold text-sm truncate">{{ item.from_name || item.stakeholder }}</span>
                 <Badge v-if="item._stage === 1" class="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-800 border-amber-200">24h</Badge>
-                <Badge v-else-if="item.days_waiting >= 14" variant="destructive" class="text-[10px] px-1.5 py-0">{{ item.days_waiting }}d</Badge>
+                <Badge v-else-if="item.days_waiting >= 14" class="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 border-red-200">{{ item.days_waiting }}d</Badge>
                 <Badge v-else-if="item.days_waiting >= 7" class="text-[10px] px-1.5 py-0 bg-orange-100 text-orange-700 border-orange-200">{{ item.days_waiting }}d</Badge>
                 <Badge v-else class="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-600 border-blue-100">{{ item.days_waiting || '?' }}d</Badge>
                 <span class="ml-auto text-[10px] text-muted-foreground whitespace-nowrap">{{ timeAgo(item.last_contact || item.email_date || item.created_at) }}</span>
               </div>
               <!-- Row 2: Subject/Activity -->
               <div class="text-sm font-medium line-clamp-1 ml-9 mt-0.5">{{ item.subject || item.activity || '(Kein Betreff)' }}</div>
-              <!-- Row 3: Preview -->
-              <div class="text-xs text-muted-foreground line-clamp-1 ml-9 mt-0.5">{{ stripQuotedReply(item.ai_summary || item.body_text || item.body || item.last_message || '') }}</div>
-              <!-- Row 4: Tags -->
-              <div class="flex flex-wrap gap-1 ml-9 mt-1.5">
+              <!-- Row 3: Preview (hidden when panel open) -->
+              <div v-if="!sheetOpen" class="text-xs text-muted-foreground line-clamp-1 ml-9 mt-0.5">{{ stripQuotedReply(item.ai_summary || item.body_text || item.body || item.last_message || '') }}</div>
+              <!-- Row 4: Tags (hidden when panel open) -->
+              <div v-if="!sheetOpen" class="flex flex-wrap gap-1 ml-9 mt-1.5">
                 <Badge v-if="item.platform" variant="outline" class="text-[10px] px-1.5 py-0">{{ item.platform }}</Badge>
                 <Badge v-if="item.ref_id" variant="outline" class="text-[10px] px-1.5 py-0">{{ item.ref_id }}</Badge>
                 <Badge v-if="item.category" variant="outline" class="text-[10px] px-1.5 py-0" :style="catBadgeStyle(item.category)">{{ catLabel(item.category) }}</Badge>
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </TabsContent>
     </Tabs>
+    </div><!-- end LEFT list panel -->
 
-    <!-- Sheet Detail Panel -->
-    <Sheet v-model:open="sheetOpen">
-      <SheetContent class="w-full sm:max-w-[600px] p-0 flex flex-col" side="right">
-        <SheetHeader class="sr-only">
-          <SheetTitle>Detail</SheetTitle>
-          <SheetDescription>Nachricht Detail-Ansicht</SheetDescription>
-        </SheetHeader>
+    <!-- RIGHT: Detail Panel (inline, side-by-side) -->
+    <Transition enter-active-class="transition-all duration-200 ease-out" leave-active-class="transition-all duration-150 ease-in" enter-from-class="opacity-0 translate-x-4" leave-to-class="opacity-0 translate-x-4">
+      <div v-if="sheetOpen && selectedItem" class="flex-1 min-w-0 bg-white dark:bg-zinc-950 flex flex-col h-full overflow-hidden">
 
-        <template v-if="selectedItem">
-          <!-- Sheet Header -->
-          <div class="flex items-start gap-3 px-4 pt-4 pb-3 border-b border-gray-200">
-            <Avatar class="h-8 w-8 flex-shrink-0">
-              <AvatarFallback class="text-xs font-medium" :class="sheetMode === 'offen' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'">{{ getInitials(selectedItem.from_name || selectedItem.stakeholder) }}</AvatarFallback>
-            </Avatar>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="font-semibold text-sm">{{ selectedItem.from_name || selectedItem.stakeholder }}</span>
-                <span class="text-[10px] text-muted-foreground">{{ timeAgo(selectedItem.email_date || selectedItem.created_at) }}</span>
-              </div>
-              <div class="text-xs text-muted-foreground truncate">{{ selectedItem.from_email || selectedItem.contact_email || '' }}</div>
-              <div class="flex flex-wrap gap-1 mt-1">
-                <Badge v-if="selectedItem.platform" variant="outline" class="text-[10px] px-1.5 py-0">{{ selectedItem.platform }}</Badge>
-                <Badge v-if="selectedItem.ref_id" variant="outline" class="text-[10px] px-1.5 py-0">{{ selectedItem.ref_id }}</Badge>
-                <Badge v-if="selectedItem.category" variant="outline" class="text-[10px] px-1.5 py-0" :style="catBadgeStyle(selectedItem.category)">{{ catLabel(selectedItem.category) }}</Badge>
-              </div>
-            </div>
+          <!-- Compact Header: Back (mobile) + Subject + Close -->
+          <div class="flex items-center gap-2 px-4 py-2.5 border-b border-gray-200 flex-shrink-0">
+            <button @click="sheetOpen = false; selectedItem = null" class="lg:hidden w-7 h-7 rounded-md flex items-center justify-center hover:bg-muted transition-colors flex-shrink-0">
+              <ArrowDown class="w-4 h-4 text-muted-foreground -rotate-90" />
+            </button>
+            <div class="font-medium text-[13px] truncate flex-1">{{ selectedItem.subject || selectedItem.activity || '(Kein Betreff)' }}</div>
+            <button @click="sheetOpen = false; selectedItem = null" class="hidden lg:flex w-6 h-6 rounded-md border border-gray-200 items-center justify-center hover:bg-muted transition-colors flex-shrink-0">
+              <X class="w-3 h-3 text-muted-foreground" />
+            </button>
           </div>
 
-          <!-- Sheet Body -->
-          <ScrollArea class="flex-1 min-h-0">
-            <div class="px-4 py-3 space-y-3">
+          <!-- Scrollable middle: Nachricht + Verlauf + KI-Entwurf -->
+          <div class="flex-1 min-h-0 overflow-y-auto flex flex-col">
 
               <!-- Bounce Warning -->
-              <div v-if="selectedItem.category === 'bounce'" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div v-if="selectedItem.category === 'bounce'" class="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                 <strong>Unzustellbar:</strong> Diese E-Mail konnte nicht zugestellt werden. Bitte E-Mail-Adresse pruefen.
               </div>
 
-              <!-- Collapsible: Eingehende Nachricht -->
-              <Collapsible v-model:open="expandedBodyFull">
-                <CollapsibleTrigger class="flex items-center gap-2 w-full text-sm font-medium py-1 cursor-pointer hover:text-foreground text-muted-foreground">
-                  <Mail class="w-3.5 h-3.5" />
-                  <span>Eingehende Nachricht</span>
-                  <ChevronDown class="w-3.5 h-3.5 ml-auto transition-transform" :class="expandedBodyFull ? 'rotate-180' : ''" />
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div v-if="expandedLoading" class="flex items-center justify-center py-4">
-                    <Loader2 class="w-4 h-4 animate-spin text-muted-foreground" />
-                  </div>
-                  <div v-else class="mt-1">
-                    <div class="text-xs font-medium mb-1">{{ selectedItem.subject || '(Kein Betreff)' }}</div>
-                    <div class="bg-muted rounded-lg p-3 text-sm whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">{{ expandedDetail?.email?.body_text || selectedItem.body_text || selectedItem.ai_summary || 'Kein Inhalt verfuegbar.' }}</div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+              <!-- Nachricht + Verlauf -->
+              <div class="px-4 pt-2 pb-1">
+                <div v-if="expandedLoading" class="flex items-center justify-center py-4">
+                  <Loader2 class="w-4 h-4 animate-spin text-muted-foreground" />
+                </div>
+                <template v-else>
+                  <!-- Current message -->
+                  <div class="bg-slate-50 dark:bg-zinc-900 rounded-lg p-3 text-[12px] text-foreground whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto border border-gray-100 dark:border-zinc-800">{{ expandedDetail?.email?.body_text || selectedItem.body_text || selectedItem.ai_summary || 'Kein Inhalt verfuegbar.' }}</div>
 
-              <Separator />
-
-              <!-- Collapsible: Verlauf -->
-              <Collapsible v-model:open="showThreadAccordion">
-                <CollapsibleTrigger class="flex items-center gap-2 w-full text-sm font-medium py-1 cursor-pointer hover:text-foreground text-muted-foreground">
-                  <Clock class="w-3.5 h-3.5" />
-                  <span>Verlauf</span>
-                  <Badge v-if="expandedDetail?.thread?.length" variant="secondary" class="text-[10px] px-1.5 py-0 ml-1">{{ expandedDetail.thread.length }}</Badge>
-                  <ChevronDown class="w-3.5 h-3.5 ml-auto transition-transform" :class="showThreadAccordion ? 'rotate-180' : ''" />
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div v-if="expandedLoading" class="flex items-center justify-center py-4">
-                    <Loader2 class="w-4 h-4 animate-spin text-muted-foreground" />
-                  </div>
-                  <div v-else-if="!expandedDetail?.thread?.length" class="text-xs text-muted-foreground py-2">Keine bisherigen Nachrichten.</div>
-                  <div v-else class="space-y-2 mt-1">
-                    <div v-for="(msg, idx) in expandedDetail.thread" :key="idx" class="rounded-lg border border-gray-200 p-2.5 text-xs">
-                      <div class="flex items-center gap-1.5 mb-1">
-                        <ArrowDown v-if="msg.direction === 'inbound' || msg.direction === 'in'" class="w-3 h-3 text-blue-500" />
-                        <ArrowUp v-else class="w-3 h-3 text-green-500" />
-                        <span class="font-medium">{{ msg.from_name || msg.from_email || (msg.direction === 'outbound' || msg.direction === 'out' ? 'SR-Homes' : selectedItem.from_name) }}</span>
-                        <span class="ml-auto text-[10px] text-muted-foreground">{{ formatDetailDate(msg.date || msg.email_date) }}</span>
+                  <!-- Thread (inline, collapsed by default) -->
+                  <div v-if="expandedDetail?.thread?.length" class="mt-2">
+                    <button @click="showThreadAccordion = !showThreadAccordion" class="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer">
+                      <Clock class="w-3 h-3" />
+                      <span>{{ expandedDetail.thread.length }} frühere {{ expandedDetail.thread.length === 1 ? 'Nachricht' : 'Nachrichten' }}</span>
+                      <ChevronDown class="w-2.5 h-2.5 transition-transform" :class="showThreadAccordion ? 'rotate-180' : ''" />
+                    </button>
+                    <div v-if="showThreadAccordion" class="space-y-1.5 mt-2">
+                      <div v-for="(msg, idx) in expandedDetail.thread" :key="idx" class="rounded border border-gray-200 p-2 text-[11px]">
+                        <div class="flex items-center gap-1.5 mb-0.5">
+                          <ArrowDown v-if="msg.direction === 'inbound' || msg.direction === 'in'" class="w-2.5 h-2.5 text-blue-500" />
+                          <ArrowUp v-else class="w-2.5 h-2.5 text-green-500" />
+                          <span class="font-medium">{{ msg.from_name || msg.from_email || (msg.direction === 'outbound' || msg.direction === 'out' ? 'SR-Homes' : selectedItem.from_name) }}</span>
+                          <span class="ml-auto text-[10px] text-muted-foreground">{{ formatDetailDate(msg.date || msg.email_date) }}</span>
+                        </div>
+                        <div class="text-muted-foreground whitespace-pre-wrap line-clamp-3">{{ stripQuotedReply(msg.body || msg.body_text || msg.ai_summary || '') }}</div>
                       </div>
-                      <div v-if="msg.subject" class="text-[11px] font-medium mb-0.5">{{ msg.subject }}</div>
-                      <div class="text-muted-foreground whitespace-pre-wrap line-clamp-4">{{ stripQuotedReply(msg.body || msg.body_text || msg.ai_summary || '') }}</div>
                     </div>
                   </div>
-                </CollapsibleContent>
-              </Collapsible>
+                </template>
+              </div>
 
-              <Separator />
-
-              <!-- KI-Entwurf -->
-              <div class="space-y-2">
-                <div class="flex items-center gap-2">
-                  <Sparkles class="w-3.5 h-3.5 text-orange-500" />
-                  <span class="text-sm font-medium">KI-Entwurf</span>
+              <!-- KI-Entwurf (in scroll area, directly after Verlauf) -->
+              <div class="px-4 pt-2 pb-0 border-t border-gray-100 flex-1 flex flex-col">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <Sparkles class="w-3.5 h-3.5 text-orange-500" />
+                    <span class="text-[12px] font-semibold">KI-Entwurf</span>
+                  </div>
+                  <button v-if="expandedAiDraft" @click="showEmailFields = !showEmailFields" class="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
+                    <span>Von/An/Betr.</span>
+                    <ChevronDown class="w-2.5 h-2.5 transition-transform" :class="showEmailFields ? 'rotate-180' : ''" />
+                  </button>
                 </div>
 
-                <div v-if="expandedAiLoading" class="flex items-center justify-center py-6">
+                <div v-if="expandedAiLoading" class="flex items-center justify-center py-4">
                   <Loader2 class="w-5 h-5 animate-spin text-orange-500" />
                   <span class="ml-2 text-sm text-muted-foreground">KI generiert Entwurf...</span>
                 </div>
 
                 <template v-else-if="expandedAiDraft">
-                  <!-- Von/An/Betr. toggle -->
-                  <div class="space-y-1">
-                    <button @click="showEmailFields = !showEmailFields" class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
-                      {{ showEmailFields ? 'Felder ausblenden' : 'Von/An/Betr. anzeigen' }}
-                    </button>
-                    <div v-if="showEmailFields" class="space-y-1.5">
-                      <!-- Von -->
-                      <div v-if="sendAccounts.length > 1" class="flex items-center gap-2">
-                        <span class="text-xs text-muted-foreground w-8">Von:</span>
-                        <Select v-model="sendAccountId">
-                          <SelectTrigger class="flex-1 h-7 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem v-for="acc in sendAccounts" :key="acc.id" :value="acc.id">{{ acc.email }}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div v-else class="flex items-center gap-2 text-xs">
-                        <span class="text-muted-foreground w-8">Von:</span>
-                        <span>{{ sendAccounts[0]?.email || 'Standard' }}</span>
-                      </div>
-                      <!-- An -->
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs text-muted-foreground w-8">An:</span>
-                        <Input v-model="expandedAiDraft.to" class="flex-1 h-7 text-xs" />
-                        <Button
-                          v-if="expandedAiDraft.to"
-                          variant="ghost" size="icon-sm"
-                          @click="saveRecipientEmail(selectedItem.from_name || selectedItem.stakeholder, selectedItem.property_id, expandedAiDraft.to)"
-                          :disabled="recipientEmailSaving"
-                          class="h-7 w-7"
-                        >
-                          <Loader2 v-if="recipientEmailSaving" class="w-3 h-3 animate-spin" />
-                          <CheckCircle v-else-if="recipientEmailSaved" class="w-3 h-3 text-green-500" />
-                          <CheckCircle v-else class="w-3 h-3" />
-                        </Button>
-                      </div>
-                      <!-- Betr. -->
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs text-muted-foreground w-8">Betr.:</span>
-                        <Input v-model="expandedAiDraft.subject" class="flex-1 h-7 text-xs" />
-                      </div>
+                  <!-- Email fields (Von/An/Betr.) -->
+                  <div v-if="showEmailFields" class="space-y-1.5 mb-2">
+                    <div v-if="sendAccounts.length > 1" class="flex items-center gap-2">
+                      <span class="text-xs text-muted-foreground w-8">Von:</span>
+                      <Select v-model="sendAccountId">
+                        <SelectTrigger class="flex-1 h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem v-for="acc in sendAccounts" :key="acc.id" :value="acc.id">{{ acc.email }}</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </div>
-
-                  <!-- Textarea -->
-                  <Textarea v-model="expandedAiDraft.body" class="min-h-[180px] text-sm leading-relaxed resize-y" />
-
-                  <!-- Toolbar -->
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <!-- Attachments button -->
-                    <div class="relative">
-                      <Button variant="outline" size="sm" @click="showAttachPopup = !showAttachPopup" class="h-8 text-xs gap-1.5">
-                        <Paperclip class="w-3.5 h-3.5" />
-                        <span v-if="expandedSelectedFiles.length">{{ expandedSelectedFiles.length }}</span>
-                        <span v-else>Anhang</span>
+                    <div v-else class="flex items-center gap-2 text-xs">
+                      <span class="text-muted-foreground w-8">Von:</span>
+                      <span>{{ sendAccounts[0]?.email || 'Standard' }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-muted-foreground w-8">An:</span>
+                      <Input v-model="expandedAiDraft.to" class="flex-1 h-7 text-xs" />
+                      <Button
+                        v-if="expandedAiDraft.to"
+                        variant="ghost" size="icon-sm"
+                        @click="saveRecipientEmail(selectedItem.from_name || selectedItem.stakeholder, selectedItem.property_id, expandedAiDraft.to)"
+                        :disabled="recipientEmailSaving"
+                        class="h-7 w-7"
+                      >
+                        <Loader2 v-if="recipientEmailSaving" class="w-3 h-3 animate-spin" />
+                        <CheckCircle v-else-if="recipientEmailSaved" class="w-3 h-3 text-green-500" />
+                        <CheckCircle v-else class="w-3 h-3" />
                       </Button>
-                      <!-- Attach popup -->
-                      <div v-if="showAttachPopup" class="absolute bottom-full left-0 mb-1 w-64 bg-background border border-gray-200 rounded-lg shadow-lg p-2 z-50">
-                        <div class="text-xs font-medium mb-1.5">Dateien anhaengen</div>
-                        <div v-if="expandedFilesLoading" class="py-3 text-center">
-                          <Loader2 class="w-4 h-4 animate-spin mx-auto text-muted-foreground" />
-                        </div>
-                        <div v-else-if="!expandedFiles.length" class="text-xs text-muted-foreground py-2 text-center">Keine Dateien verfuegbar.</div>
-                        <div v-else class="space-y-0.5 max-h-40 overflow-y-auto">
-                          <label v-for="f in expandedFiles" :key="f.id" class="flex items-center gap-2 text-xs p-1 rounded hover:bg-muted cursor-pointer">
-                            <input type="checkbox" :checked="expandedSelectedFiles.includes(f.id)" @change="toggleFileSelection(f.id)" class="rounded" />
-                            <span class="truncate">{{ f.filename || f.label }}</span>
-                          </label>
-                        </div>
-                      </div>
                     </div>
-
-                    <!-- Detail level -->
-                    <Select :model-value="aiDetailLevel" @update:model-value="setAiDetailLevel">
-                      <SelectTrigger class="w-[110px] h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="brief">Knapp</SelectItem>
-                        <SelectItem value="standard">Standard</SelectItem>
-                        <SelectItem value="ausfuehrlich">Ausfuehrlich</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <!-- Calendar button -->
-                    <Button v-if="calendarEmbedUrl" variant="outline" size="sm" @click="showCalendar = !showCalendar" class="h-8 text-xs gap-1.5">
-                      <CalendarDays class="w-3.5 h-3.5" />
-                      Kalender
-                    </Button>
-
-                    <div class="flex-1" />
-
-                    <!-- Erledigt -->
-                    <Button variant="outline" size="sm" @click="markHandled(selectedItem.from_name || selectedItem.stakeholder, selectedItem.property_id)" class="h-8 text-xs gap-1.5">
-                      <CheckCircle class="w-3.5 h-3.5" />
-                      Erledigt
-                    </Button>
-
-                    <!-- Senden -->
-                    <Button
-                      size="sm"
-                      @click="sendDraft"
-                      :disabled="!expandedAiDraft.to || !expandedAiDraft.body"
-                      class="h-8 text-xs gap-1.5 text-white border-0"
-                      style="background:linear-gradient(135deg,#D4622B,#c25a25)"
-                    >
-                      <Send class="w-3.5 h-3.5" />
-                      Senden
-                    </Button>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-muted-foreground w-8">Betr.:</span>
+                      <Input v-model="expandedAiDraft.subject" class="flex-1 h-7 text-xs" />
+                    </div>
                   </div>
 
-                  <!-- Calendar embed -->
-                  <div v-if="showCalendar && calendarEmbedUrl" class="mt-2 rounded-lg border border-gray-200 overflow-hidden">
-                    <iframe :src="calendarEmbedUrl" class="w-full h-[400px] border-0" />
+                  <!-- Draft Textarea -->
+                  <div class="border border-gray-200 rounded-lg overflow-hidden flex-1 flex flex-col">
+                    <Textarea v-model="expandedAiDraft.body" class="flex-1 min-h-[200px] text-[12px] leading-relaxed resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0" />
                   </div>
                 </template>
 
-                <div v-else class="text-sm text-muted-foreground py-4 text-center">
+                <div v-else class="text-sm text-muted-foreground py-3 text-center">
                   KI-Vorschlag konnte nicht generiert werden.
                   <Button variant="link" size="sm" @click="regenerateAiDraft" class="ml-1">Erneut versuchen</Button>
                 </div>
               </div>
+
+              <!-- Calendar embed -->
+              <div v-if="showCalendar && calendarEmbedUrl" class="mx-4 my-2 rounded-lg border border-gray-200 overflow-hidden">
+                <iframe :src="calendarEmbedUrl" class="w-full h-[400px] border-0" />
+              </div>
+
+          </div>
+
+          <!-- FIXED BOTTOM: Toolbar only (always visible) -->
+          <div v-if="expandedAiDraft" class="border-t border-gray-200 bg-white dark:bg-zinc-950 flex-shrink-0 px-4 py-2">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <!-- Attachments -->
+              <div class="relative">
+                <Button variant="outline" size="sm" @click="showAttachPopup = !showAttachPopup" class="h-7 text-[11px] gap-1.5 px-2.5">
+                  <Paperclip class="w-3 h-3" />
+                  <span v-if="expandedSelectedFiles.length">{{ expandedSelectedFiles.length }} {{ expandedSelectedFiles.length === 1 ? 'Datei' : 'Dateien' }}</span>
+                  <span v-else>Anhang</span>
+                </Button>
+                <div v-if="showAttachPopup" class="absolute bottom-full left-0 mb-1 w-64 bg-white dark:bg-zinc-950 border border-gray-200 rounded-lg shadow-lg p-2 z-50">
+                  <div class="text-xs font-medium mb-1.5">Dateien anhaengen</div>
+                  <div v-if="expandedFilesLoading" class="py-3 text-center">
+                    <Loader2 class="w-4 h-4 animate-spin mx-auto text-muted-foreground" />
+                  </div>
+                  <div v-else-if="!expandedFiles.length" class="text-xs text-muted-foreground py-2 text-center">Keine Dateien verfuegbar.</div>
+                  <div v-else class="space-y-0.5 max-h-40 overflow-y-auto">
+                    <label v-for="f in expandedFiles" :key="f.id" class="flex items-center gap-2 text-xs p-1 rounded hover:bg-muted cursor-pointer">
+                      <input type="checkbox" :checked="expandedSelectedFiles.includes(f.id)" @change="toggleFileSelection(f.id)" class="rounded" />
+                      <span class="truncate">{{ f.filename || f.label }}</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Detail level -->
+              <Select :model-value="aiDetailLevel" @update:model-value="setAiDetailLevel">
+                <SelectTrigger class="w-[100px] h-7 text-[11px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="brief">Knapp</SelectItem>
+                  <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="ausfuehrlich">Ausfuehrlich</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <!-- Calendar button -->
+              <Button v-if="calendarEmbedUrl" variant="outline" size="sm" @click="showCalendar = !showCalendar" class="h-7 w-7 p-0">
+                <CalendarDays class="w-3 h-3" />
+              </Button>
+
+              <div class="flex-1" />
+
+              <!-- Erledigt -->
+              <Button variant="outline" size="sm" @click="markHandled(selectedItem.from_name || selectedItem.stakeholder, selectedItem.property_id)" class="h-7 text-[11px] gap-1.5 px-2.5">
+                <CheckCircle class="w-3 h-3" />
+                Erledigt
+              </Button>
+
+              <!-- Senden -->
+              <Button
+                size="sm"
+                @click="sendDraft"
+                :disabled="!expandedAiDraft.to || !expandedAiDraft.body"
+                class="h-7 text-[11px] gap-1.5 px-4 text-white border-0 shadow-sm"
+                style="background:linear-gradient(135deg,#f97316,#ea580c)"
+              >
+                <Send class="w-3 h-3" />
+                Senden
+              </Button>
             </div>
-          </ScrollArea>
-        </template>
-      </SheetContent>
-    </Sheet>
+          </div>
+
+      </div>
+    </Transition>
+
   </div>
 </template>

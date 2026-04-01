@@ -81,6 +81,7 @@ function toggleSidebar() {
 }
 
 watch(tab, (v) => localStorage.setItem("sr-admin-tab", v));
+watch(mobileOpen, (open) => { if (!open) { document.body.style.pointerEvents = ""; document.body.style.overflow = ""; } });
 
 function switchTab(t) {
     tab.value = t;
@@ -300,7 +301,7 @@ function navBadge(key) {
 
         <!-- Mobile Sheet Sidebar -->
         <Sheet v-model:open="mobileOpen">
-            <SheetContent side="left" class="w-64 p-0 md:hidden">
+            <SheetContent side="left" class="w-64 p-0 bg-white dark:bg-zinc-950">
                 <nav class="flex flex-col h-full">
                     <div class="px-4 py-5 flex items-center gap-2">
                         <img v-if="!darkMode" src="/assets/logo-full-orange.svg" alt="SR-Homes" style="height:24px" />
@@ -371,7 +372,7 @@ function navBadge(key) {
                                             ? 'bg-[#fff7ed] text-[#ea580c]'
                                             : 'text-muted-foreground hover:bg-orange-50 dark:hover:bg-gray-800 hover:text-foreground'">
                                         <component :is="item.icon" class="w-4 h-4" />
-                                        <span v-if="navBadge(item.key)" class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold bg-orange-500 text-white px-1">{{ navBadge(item.key) }}</span>
+
                                     </button>
                                 </TooltipTrigger>
                                 <TooltipContent side="right" :side-offset="8">
@@ -429,7 +430,7 @@ function navBadge(key) {
         </TooltipProvider>
 
         <!-- Main -->
-        <div class="flex-1 flex flex-col overflow-hidden bg-white dark:bg-background">
+        <div class="flex-1 flex flex-col overflow-hidden" :class="'bg-white dark:bg-background'">
             <div class="px-3 py-2 md:px-6 md:py-3 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <button @click="mobileOpen = true" class="md:hidden flex items-center justify-center w-7 h-7 rounded-md -ml-1 text-muted-foreground hover:text-foreground hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors" title="Menü"><PanelLeft class="w-4 h-4" /></button>
@@ -478,7 +479,7 @@ function navBadge(key) {
                     </div>
                 </div>
             </div>
-            <div class="flex-1 overflow-y-auto overflow-x-hidden">
+            <div class="flex-1 overflow-x-hidden" :class="tab === 'priorities' ? 'overflow-hidden h-full' : 'overflow-y-auto'">
                 <TodayTab v-if="tab === 'today'" :stats="stats" :dark-mode="darkMode" />
                 <PrioritiesTab v-if="tab === 'priorities'" />
                 <CommsTab v-if="tab === 'comms'" />
@@ -563,7 +564,7 @@ function navBadge(key) {
             </TransitionGroup>
         </div>
     </div>
-    <AiChatWidget />
+    <AiChatWidget v-if="tab !== 'priorities'" />
 </template>
 
 <style>

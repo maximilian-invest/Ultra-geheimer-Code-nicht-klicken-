@@ -14,6 +14,8 @@ import PortalsTab from "@/Components/Admin/property-detail/PortalsTab.vue";
 import KnowledgeTab from "@/Components/Admin/property-detail/KnowledgeTab.vue";
 import FilesTab from "@/Components/Admin/property-detail/FilesTab.vue";
 import ActivityTab from "@/Components/Admin/property-detail/ActivityTab.vue";
+import ExposeParser from '@/Components/Admin/property-detail/ExposeParser.vue';
+import TypeSelector from '@/Components/Admin/property-detail/TypeSelector.vue';
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -112,6 +114,25 @@ function handleDiscard() {
 }
 
 const showExposeParser = ref(false);
+
+const showTypeSelector = computed(() => props.isNew && !props.property.object_type && !props.property.type);
+
+function handleTypeSelected(typeInfo) {
+  props.property.type = typeInfo.type;
+  props.property.property_category = typeInfo.category;
+}
+
+function handleExposeParsed(result) {
+  if (result.fields) {
+    for (const [k, v] of Object.entries(result.fields)) {
+      if (v !== null && v !== undefined && v !== '') {
+        props.property[k] = v;
+      }
+    }
+  }
+  showExposeParser.value = false;
+  toast('Felder aktualisiert!');
+}
 </script>
 
 <template>
@@ -169,6 +190,7 @@ const showExposeParser = ref(false);
       </TabsList>
 
       <div class="flex-1 overflow-y-auto p-6">
+        <TypeSelector v-if="showTypeSelector" @selected="handleTypeSelected" />
         <OverviewTab v-if="activeTab === 'uebersicht'" :property="property"
           @owner-changed="(data) => emit('ownerChanged', data)"
           @property-created="(data) => emit('propertyCreated', data)" />
@@ -194,5 +216,9 @@ const showExposeParser = ref(false);
         <Button size="sm" @click="handleSave">Speichern</Button>
       </div>
     </div>
+
+    <!-- Expose Parser Panel -->
+    <ExposeParser v-if="showExposeParser && !showTypeSelector" :property="property" :visible="showExposeParser"
+      @parsed="handleExposeParsed" @close="showExposeParser = false" />
   </div>
 </template>

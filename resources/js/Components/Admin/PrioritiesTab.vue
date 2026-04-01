@@ -651,7 +651,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="space-y-4 p-6">
     <!-- Broker Filter (Assistenz only) -->
     <div v-if="isAssistenz && brokerList.length" class="flex items-center gap-2">
       <span class="text-xs font-medium text-muted-foreground">Makler:</span>
@@ -692,7 +692,7 @@ onMounted(() => {
             <ChevronDown class="w-3.5 h-3.5 ml-auto transition-transform" :class="autoReplyBannerOpen ? 'rotate-180' : ''" />
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div class="mt-1 rounded-lg border p-3 space-y-2 max-h-48 overflow-y-auto" style="background:rgba(16,185,129,0.03)">
+            <div class="mt-1 rounded-lg border border-gray-200 p-3 space-y-2 max-h-48 overflow-y-auto" style="background:rgba(16,185,129,0.03)">
               <div v-for="log in autoReplyLogs" :key="log.id" class="flex items-center gap-2 text-xs text-muted-foreground">
                 <Send class="w-3 h-3 text-emerald-500 flex-shrink-0" />
                 <span class="font-medium text-foreground">{{ log.to_name || log.to_email }}</span>
@@ -748,7 +748,7 @@ onMounted(() => {
               v-for="item in filteredUnanswered"
               :key="item.id"
               @click="openDetail(item, 'offen')"
-              class="rounded-lg border p-3 cursor-pointer transition-colors hover:bg-muted/50"
+              class="rounded-lg border border-transparent p-3 cursor-pointer transition-colors hover:bg-muted/50"
               :class="selectedItem?.id === item.id && sheetMode === 'offen' ? 'bg-orange-50 border-orange-200' : ''"
             >
               <!-- Row 1: Avatar + Name + Badges + Time -->
@@ -790,7 +790,7 @@ onMounted(() => {
               v-for="item in filteredFollowups"
               :key="'f-' + item.id + '-' + item._stage"
               @click="openDetail(item, 'nachfassen')"
-              class="rounded-lg border p-3 cursor-pointer transition-colors hover:bg-muted/50"
+              class="rounded-lg border border-transparent p-3 cursor-pointer transition-colors hover:bg-muted/50"
               :class="selectedItem?.id === item.id && sheetMode === 'nachfassen' ? 'bg-orange-50 border-orange-200' : ''"
             >
               <!-- Row 1: Avatar + Name + Badge + Time -->
@@ -831,7 +831,7 @@ onMounted(() => {
 
         <template v-if="selectedItem">
           <!-- Sheet Header -->
-          <div class="flex items-start gap-3 px-4 pt-4 pb-3 border-b">
+          <div class="flex items-start gap-3 px-4 pt-4 pb-3 border-b border-gray-200">
             <Avatar class="h-8 w-8 flex-shrink-0">
               <AvatarFallback class="text-xs font-medium" :class="sheetMode === 'offen' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'">{{ getInitials(selectedItem.from_name || selectedItem.stakeholder) }}</AvatarFallback>
             </Avatar>
@@ -892,7 +892,7 @@ onMounted(() => {
                   </div>
                   <div v-else-if="!expandedDetail?.thread?.length" class="text-xs text-muted-foreground py-2">Keine bisherigen Nachrichten.</div>
                   <div v-else class="space-y-2 mt-1">
-                    <div v-for="(msg, idx) in expandedDetail.thread" :key="idx" class="rounded-lg border p-2.5 text-xs">
+                    <div v-for="(msg, idx) in expandedDetail.thread" :key="idx" class="rounded-lg border border-gray-200 p-2.5 text-xs">
                       <div class="flex items-center gap-1.5 mb-1">
                         <ArrowDown v-if="msg.direction === 'inbound' || msg.direction === 'in'" class="w-3 h-3 text-blue-500" />
                         <ArrowUp v-else class="w-3 h-3 text-green-500" />
@@ -980,7 +980,7 @@ onMounted(() => {
                         <span v-else>Anhang</span>
                       </Button>
                       <!-- Attach popup -->
-                      <div v-if="showAttachPopup" class="absolute bottom-full left-0 mb-1 w-64 bg-background border rounded-lg shadow-lg p-2 z-50">
+                      <div v-if="showAttachPopup" class="absolute bottom-full left-0 mb-1 w-64 bg-background border border-gray-200 rounded-lg shadow-lg p-2 z-50">
                         <div class="text-xs font-medium mb-1.5">Dateien anhaengen</div>
                         <div v-if="expandedFilesLoading" class="py-3 text-center">
                           <Loader2 class="w-4 h-4 animate-spin mx-auto text-muted-foreground" />
@@ -1035,7 +1035,7 @@ onMounted(() => {
                   </div>
 
                   <!-- Calendar embed -->
-                  <div v-if="showCalendar && calendarEmbedUrl" class="mt-2 rounded-lg border overflow-hidden">
+                  <div v-if="showCalendar && calendarEmbedUrl" class="mt-2 rounded-lg border border-gray-200 overflow-hidden">
                     <iframe :src="calendarEmbedUrl" class="w-full h-[400px] border-0" />
                   </div>
                 </template>

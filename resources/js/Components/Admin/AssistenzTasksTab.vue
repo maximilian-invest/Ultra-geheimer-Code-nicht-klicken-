@@ -2,7 +2,7 @@
 import { ref, computed, inject, onMounted } from "vue";
 import {
   CheckCircle2, Circle, Plus, Sparkles, Trash2, Edit3, Calendar,
-  User, Home, ArrowUpRight, Clock, AlertTriangle, Filter
+  User, Home, ArrowUpRight, Clock, AlertTriangle, Filter, Send
 } from "lucide-vue-next";
 
 const API = inject("API");
@@ -21,17 +21,14 @@ const showCompleted = ref(false);
 const showAddForm = ref(false);
 const aiLoading = ref(false);
 
-// New task form
 const newTask = ref({ text: "", priority: "medium", due_date: "", property_id: null, assigned_to: null });
 
-// Edit state
 const editingId = ref(null);
 const editAssignedTo = ref(null);
 const editTitle = ref("");
 const editPriority = ref("medium");
 const editDueDate = ref("");
 
-// Stats
 const stats = computed(() => {
   const all = tasks.value;
   const open = all.filter(t => !t.is_done);
@@ -44,9 +41,13 @@ const stats = computed(() => {
   };
 });
 
-// Filtered + grouped tasks
-const filteredTasks = computed(() => {
-  return tasks.value.filter(t => !t.is_done);
+// Split tasks into "mine" and "delegated"
+const myTasks = computed(() => {
+  return tasks.value.filter(t => !t.is_done && (t.assigned_to == userId.value || (!t.assigned_to && t.created_by == userId.value)));
+});
+
+const delegatedTasks = computed(() => {
+  return tasks.value.filter(t => !t.is_done && t.assigned_to && t.assigned_to != userId.value && (t.created_by == userId.value || t.assigned_by == userId.value));
 });
 
 const completedTasks = computed(() => {
@@ -57,15 +58,15 @@ const completedTasks = computed(() => {
   });
 });
 
-const groupedTasks = computed(() => {
+function groupByPriority(list) {
   const groups = { critical: [], high: [], medium: [], low: [] };
-  for (const t of filteredTasks.value) {
+  for (const t of list) {
     const p = t.priority || "medium";
     if (groups[p]) groups[p].push(t);
     else groups.medium.push(t);
   }
   return groups;
-});
+}
 
 const priorityLabels = { critical: "Kritisch", high: "Hoch", medium: "Mittel", low: "Niedrig" };
 const priorityColors = {
@@ -76,12 +77,10 @@ const priorityColors = {
 };
 const priorityDots = { critical: "bg-red-500", high: "bg-orange-500", medium: "bg-blue-500", low: "bg-zinc-400" };
 
-// API
 async function loadTasks() {
   loading.value = true;
   try {
     let url = API.value + "&action=getTasks&done=1" + (isAssistenz.value ? "&scope=assistenz" : "");
-    if (showDone.value) url += "&done=1";
     if (brokerFilter.value !== "all") url += "&broker_filter=" + brokerFilter.value;
     const r = await fetch(url);
     const d = await r.json();
@@ -95,7 +94,6 @@ async function loadBrokers() {
     const r = await fetch(API.value + "&action=list_brokers");
     const d = await r.json();
     brokerList.value = (d.brokers || []).filter(b => ["admin", "makler"].includes(b.user_type));
-    // Team members = all users except self (for assignment dropdown)
     teamMembers.value = (d.brokers || []).filter(b => b.id !== userId?.value);
   } catch (e) {}
 }
@@ -123,7 +121,7 @@ async function completeTask(task) {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ task_id: task.id }),
     });
-    tasks.value = tasks.value.filter(t => t.id !== task.id);
+    loadTasks();
     toast("Erledigt");
   } catch (e) { toast("Fehler: " + e.message); }
 }
@@ -193,15 +191,11 @@ function isToday(d) {
   return d.slice(0, 10) === new Date().toISOString().slice(0, 10);
 }
 
-function brokerName(task) {
-  return task.assigned_by_name || "";
-}
-
 onMounted(() => { loadBrokers(); loadTasks(); });
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto space-y-6">
+  <div class="max-w-6xl mx-auto space-y-6">
 
     <!-- Stats -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -233,8 +227,6 @@ onMounted(() => { loadBrokers(); loadTasks(); });
         </select>
       </div>
 
-
-
       <div class="flex-1"></div>
 
       <button @click="generateAiTodos()" :disabled="aiLoading"
@@ -264,7 +256,7 @@ onMounted(() => { loadBrokers(); loadTasks(); });
         </select>
         <input v-model="newTask.due_date" type="date" class="text-sm bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 focus:outline-none" />
         <select v-model="newTask.assigned_to" class="text-sm bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 focus:outline-none">
-          <option :value="null">Assistenz (Standard)</option>
+          <option :value="null">Mir selbst</option>
           <option v-for="m in teamMembers" :key="m.id" :value="m.id">{{ m.name }}</option>
         </select>
         <div class="flex-1"></div>
@@ -273,39 +265,42 @@ onMounted(() => { loadBrokers(); loadTasks(); });
       </div>
     </div>
 
-    <!-- Task groups -->
+    <!-- Loading -->
     <div v-if="loading" class="text-center py-12 text-zinc-400 text-sm">Lade Aufgaben...</div>
 
-    <div v-if="filteredTasks.length === 0 && !loading" class="bg-white border border-zinc-200/80 rounded-2xl p-12 text-center">
-      <CheckCircle2 class="w-10 h-10 text-emerald-400 mx-auto mb-3" />
-      <p class="text-sm text-zinc-500">Keine offenen Aufgaben</p>
-    </div>
+    <!-- Two-column layout -->
+    <div v-if="!loading" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-    <template v-else>
-      <template v-for="(items, prio) in groupedTasks" :key="prio">
-        <div v-if="items.length" class="space-y-2">
-          <div class="flex items-center gap-2 px-1">
-            <span class="w-2 h-2 rounded-full" :class="priorityDots[prio]"></span>
-            <span class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{{ priorityLabels[prio] }}</span>
-            <span class="text-xs text-zinc-400">({{ items.length }})</span>
-          </div>
+      <!-- Column 1: Meine Aufgaben -->
+      <div class="space-y-3">
+        <div class="flex items-center gap-2 px-1 mb-2">
+          <User class="w-4 h-4 text-zinc-500" />
+          <span class="text-sm font-semibold text-zinc-700">Meine Aufgaben</span>
+          <span class="text-xs text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded-full">{{ myTasks.length }}</span>
+        </div>
 
-          <div class="space-y-1.5">
+        <div v-if="myTasks.length === 0" class="bg-white border border-zinc-200/80 rounded-2xl p-8 text-center">
+          <CheckCircle2 class="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+          <p class="text-sm text-zinc-500">Keine offenen Aufgaben</p>
+        </div>
+
+        <template v-for="(items, prio) in groupByPriority(myTasks)" :key="'my-' + prio">
+          <div v-if="items.length" class="space-y-1.5">
+            <div class="flex items-center gap-2 px-1">
+              <span class="w-2 h-2 rounded-full" :class="priorityDots[prio]"></span>
+              <span class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{{ priorityLabels[prio] }}</span>
+              <span class="text-xs text-zinc-400">({{ items.length }})</span>
+            </div>
             <div v-for="task in items" :key="task.id"
-              class="group bg-white border border-zinc-200/60 rounded-xl px-4 py-3 flex items-start gap-3 hover:border-zinc-300 hover:shadow-sm transition-all duration-200"
-              :class="{ 'opacity-50': task.is_done }">
-
-              <!-- Checkbox -->
+              class="group bg-white border border-zinc-200/60 rounded-xl px-4 py-3 flex items-start gap-3 hover:border-zinc-300 hover:shadow-sm transition-all duration-200">
               <button @click="completeTask(task)" class="mt-0.5 flex-shrink-0 text-zinc-300 hover:text-emerald-500 transition-colors">
-                <component :is="task.is_done ? CheckCircle2 : Circle" class="w-5 h-5" />
+                <Circle class="w-5 h-5" />
               </button>
-
-              <!-- Content -->
               <div v-if="editingId !== task.id" class="flex-1 min-w-0">
-                <div class="text-sm text-zinc-900" :class="{ 'line-through': task.is_done }">{{ task.title }}</div>
+                <div class="text-sm text-zinc-900">{{ task.title }}</div>
                 <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-                  <span v-if="brokerName(task)" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 bg-violet-50 text-violet-600 rounded-md border border-violet-100">
-                    <User class="w-2.5 h-2.5" />{{ brokerName(task) }}
+                  <span v-if="task.created_by_name && task.created_by != userId" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 bg-violet-50 text-violet-600 rounded-md border border-violet-100">
+                    <User class="w-2.5 h-2.5" />von {{ task.created_by_name }}
                   </span>
                   <span v-if="task.ref_id" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-md border border-amber-100">
                     <Home class="w-2.5 h-2.5" />{{ task.ref_id }}
@@ -315,47 +310,97 @@ onMounted(() => { loadBrokers(); loadTasks(); });
                     <Calendar class="w-2.5 h-2.5" />{{ formatDate(task.due_date) }}
                   </span>
                   <span v-if="task.source === 'ai'" class="text-[10px] font-medium px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-md border border-purple-100">KI</span>
-                  <span v-if="task.assigned_to_name" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded-md border border-emerald-100">
-                    <User class="w-2.5 h-2.5" />{{ task.assigned_to_name }}
-                  </span>
-                  <span v-if="task.stakeholder" class="text-[10px] text-zinc-400">{{ task.stakeholder }}</span>
                 </div>
               </div>
-
-              <!-- Edit mode -->
               <div v-else class="flex-1 space-y-2">
                 <input v-model="editTitle" class="w-full px-3 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-900/10" />
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                   <select v-model="editPriority" class="text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5">
-                    <option value="low">Niedrig</option>
-                    <option value="medium">Mittel</option>
-                    <option value="high">Hoch</option>
-                    <option value="critical">Kritisch</option>
+                    <option value="low">Niedrig</option><option value="medium">Mittel</option><option value="high">Hoch</option><option value="critical">Kritisch</option>
                   </select>
                   <input v-model="editDueDate" type="date" class="text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5" />
                   <select v-model="editAssignedTo" class="text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5">
-                    <option :value="null">Assistenz</option>
+                    <option :value="null">Mir selbst</option>
                     <option v-for="m in teamMembers" :key="m.id" :value="m.id">{{ m.name }}</option>
                   </select>
                   <button @click="saveEdit()" class="text-xs px-2.5 py-1.5 bg-zinc-900 text-white rounded-lg">Speichern</button>
                   <button @click="editingId = null" class="text-xs px-2 py-1.5 text-zinc-400">Abbrechen</button>
                 </div>
               </div>
-
-              <!-- Actions -->
               <div v-if="editingId !== task.id" class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                <button @click="startEdit(task)" class="p-1.5 text-zinc-400 hover:text-zinc-600 rounded-lg hover:bg-zinc-100 transition-colors">
-                  <Edit3 class="w-3.5 h-3.5" />
-                </button>
-                <button @click="deleteTask(task)" class="p-1.5 text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
-                  <Trash2 class="w-3.5 h-3.5" />
-                </button>
+                <button @click="startEdit(task)" class="p-1.5 text-zinc-400 hover:text-zinc-600 rounded-lg hover:bg-zinc-100 transition-colors"><Edit3 class="w-3.5 h-3.5" /></button>
+                <button @click="deleteTask(task)" class="p-1.5 text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"><Trash2 class="w-3.5 h-3.5" /></button>
               </div>
             </div>
           </div>
+        </template>
+      </div>
+
+      <!-- Column 2: Delegierte Aufgaben -->
+      <div class="space-y-3">
+        <div class="flex items-center gap-2 px-1 mb-2">
+          <Send class="w-4 h-4 text-zinc-500" />
+          <span class="text-sm font-semibold text-zinc-700">Delegierte Aufgaben</span>
+          <span class="text-xs text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded-full">{{ delegatedTasks.length }}</span>
         </div>
-      </template>
-    </template>
+
+        <div v-if="delegatedTasks.length === 0" class="bg-white border border-zinc-200/80 rounded-2xl p-8 text-center">
+          <Send class="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+          <p class="text-sm text-zinc-500">Keine delegierten Aufgaben</p>
+        </div>
+
+        <template v-for="(items, prio) in groupByPriority(delegatedTasks)" :key="'del-' + prio">
+          <div v-if="items.length" class="space-y-1.5">
+            <div class="flex items-center gap-2 px-1">
+              <span class="w-2 h-2 rounded-full" :class="priorityDots[prio]"></span>
+              <span class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{{ priorityLabels[prio] }}</span>
+              <span class="text-xs text-zinc-400">({{ items.length }})</span>
+            </div>
+            <div v-for="task in items" :key="task.id"
+              class="group bg-white border border-zinc-200/60 rounded-xl px-4 py-3 flex items-start gap-3 hover:border-zinc-300 hover:shadow-sm transition-all duration-200">
+              <div class="mt-0.5 flex-shrink-0 text-zinc-300">
+                <component :is="task.is_done ? CheckCircle2 : Clock" class="w-5 h-5" />
+              </div>
+              <div v-if="editingId !== task.id" class="flex-1 min-w-0">
+                <div class="text-sm text-zinc-900">{{ task.title }}</div>
+                <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <span v-if="task.assigned_to_name" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded-md border border-emerald-100">
+                    <User class="w-2.5 h-2.5" />{{ task.assigned_to_name }}
+                  </span>
+                  <span v-if="task.ref_id" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-md border border-amber-100">
+                    <Home class="w-2.5 h-2.5" />{{ task.ref_id }}
+                  </span>
+                  <span v-if="task.due_date" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md border"
+                    :class="isOverdue(task.due_date) ? 'bg-red-50 text-red-600 border-red-100' : isToday(task.due_date) ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-zinc-50 text-zinc-500 border-zinc-100'">
+                    <Calendar class="w-2.5 h-2.5" />{{ formatDate(task.due_date) }}
+                  </span>
+                  <span v-if="task.source === 'ai'" class="text-[10px] font-medium px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-md border border-purple-100">KI</span>
+                </div>
+              </div>
+              <div v-else class="flex-1 space-y-2">
+                <input v-model="editTitle" class="w-full px-3 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-900/10" />
+                <div class="flex items-center gap-2 flex-wrap">
+                  <select v-model="editPriority" class="text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5">
+                    <option value="low">Niedrig</option><option value="medium">Mittel</option><option value="high">Hoch</option><option value="critical">Kritisch</option>
+                  </select>
+                  <input v-model="editDueDate" type="date" class="text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5" />
+                  <select v-model="editAssignedTo" class="text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5">
+                    <option :value="null">Mir selbst</option>
+                    <option v-for="m in teamMembers" :key="m.id" :value="m.id">{{ m.name }}</option>
+                  </select>
+                  <button @click="saveEdit()" class="text-xs px-2.5 py-1.5 bg-zinc-900 text-white rounded-lg">Speichern</button>
+                  <button @click="editingId = null" class="text-xs px-2 py-1.5 text-zinc-400">Abbrechen</button>
+                </div>
+              </div>
+              <div v-if="editingId !== task.id" class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                <button @click="startEdit(task)" class="p-1.5 text-zinc-400 hover:text-zinc-600 rounded-lg hover:bg-zinc-100 transition-colors"><Edit3 class="w-3.5 h-3.5" /></button>
+                <button @click="deleteTask(task)" class="p-1.5 text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"><Trash2 class="w-3.5 h-3.5" /></button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
 
     <!-- Completed section -->
     <div v-if="completedTasks.length" class="mt-8">
@@ -378,7 +423,6 @@ onMounted(() => { loadBrokers(); loadTasks(); });
               <span v-if="task.completed_at" class="text-[10px] text-zinc-400">{{ formatDate(task.completed_at) }}</span>
               <span v-if="task.assigned_to_name" class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-500 rounded-md border border-emerald-100"><User class="w-2.5 h-2.5" />{{ task.assigned_to_name }}</span>
               <span v-if="task.ref_id" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-md border border-amber-100"><Home class="w-2.5 h-2.5" />{{ task.ref_id }}</span>
-              <span v-if="task.created_by_name" class="text-[10px] text-zinc-400">von {{ task.created_by_name }}</span>
             </div>
           </div>
           <button @click="deleteTask(task)" class="p-1.5 text-zinc-300 hover:text-red-400 rounded-lg transition-colors flex-shrink-0">

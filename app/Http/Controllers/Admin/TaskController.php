@@ -34,7 +34,8 @@ class TaskController extends Controller
             }
         } else if ($brokerId) {
             // Makler/Admin: see tasks assigned to self OR created by self
-            $conditions[] = "(t.assigned_to = ? OR (t.assigned_to IS NULL AND t.created_by = ?))";
+            $conditions[] = "(t.assigned_to = ? OR t.created_by = ? OR t.assigned_by = ?)";
+            $params[] = $brokerId;
             $params[] = $brokerId;
             $params[] = $brokerId;
         }

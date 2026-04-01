@@ -656,7 +656,7 @@ function unitRowClass(status) {
 <template>
   <!-- ═══ MAIN DIALOG ═══ -->
   <Dialog :open="visible && !!property" @update:open="val => { if (!val) $emit('close') }">
-    <DialogContent class="max-w-[950px] p-0 gap-0 max-h-[100dvh] sm:max-h-[92vh] h-[92vh] sm:h-[85vh] flex flex-col overflow-hidden" @interactOutside.prevent>
+    <DialogContent class="max-w-[950px] sm:max-h-[92vh] sm:h-[85vh] max-sm:!fixed max-sm:!inset-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!top-0 max-sm:!left-0 max-sm:!max-w-none max-sm:!w-full max-sm:!h-full max-sm:!max-h-full max-sm:!rounded-none p-0 gap-0 flex flex-col overflow-hidden" @interactOutside.prevent>
 
       <!-- ─── Header ─── -->
       <div class="relative px-3 sm:px-6 pt-3 sm:pt-5 pb-3 sm:pb-4 flex-shrink-0 border-b" style="border-color:hsl(240 5.9% 90%)">

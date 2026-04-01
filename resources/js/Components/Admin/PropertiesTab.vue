@@ -1714,278 +1714,278 @@ async function toggleWebsiteDownload(f) {
 </script>
 
 <template>
-    <div class="px-3 sm:px-5 py-4 sm:py-5 space-y-3">
-        <!-- Header -->
-        <div class="flex items-center justify-between gap-3">
-            <h2 class="text-base font-semibold" style="color:#111;letter-spacing:-0.02em">{{ showInaktiv ? 'Inaktive Objekte' : (selectedBrokers.size ? 'Objekte' : 'Meine Objekte') }} <span class="text-[13px] font-normal" style="color:#a1a1aa">({{ filteredProperties.length }})</span></h2>
-            <div class="flex items-center gap-2">
-                <div v-if="availableBrokers.length > 1" class="relative">
-                    <button @click="brokerFilterOpen = !brokerFilterOpen"
-                        class="inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium rounded-lg transition-all duration-200"
-                        :style="selectedBrokers.size ? 'background:#6366f1;color:white' : 'background:#f4f4f5;color:#71717a'">
-                        <Users class="w-3.5 h-3.5" />
-                        {{ selectedBrokers.size ? selectedBrokers.size + ' Makler' : 'Makler' }}
-                        <ChevronDown class="w-3 h-3" />
-                    </button>
-                    <div v-if="brokerFilterOpen" class="fixed inset-0 z-40" @click="brokerFilterOpen = false"></div>
-                    <div v-if="brokerFilterOpen" class="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-xl min-w-[220px] py-1" @click.stop>
-                        <div class="px-3 py-2 border-b border-[var(--border)] flex items-center justify-between">
-                            <span class="text-[10px] font-semibold uppercase tracking-wider" style="color:#a1a1aa">Makler filtern</span>
-                            <div class="flex gap-1">
-                                <button @click="selectAllBrokers()" class="text-[10px] px-1.5 py-0.5 rounded hover:bg-[var(--muted)]" style="color:#6366f1">Alle</button>
-                                <button @click="clearBrokerFilter()" class="text-[10px] px-1.5 py-0.5 rounded hover:bg-[var(--muted)]" style="color:#71717a">Reset</button>
-                            </div>
-                        </div>
-                        <label v-for="b in availableBrokers" :key="b.id"
-                            class="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-[var(--muted)] transition-colors text-[12px]"
-                            @click="toggleBroker(b.id)">
-                            <span class="w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all"
-                                :style="selectedBrokers.has(b.id) ? 'background:#6366f1;border-color:#6366f1' : 'border-color:#d4d4d8'">
-                                <Check v-if="selectedBrokers.has(b.id)" class="w-2.5 h-2.5 text-white" />
-                            </span>
-                            <span class="flex-1 truncate" style="color:#111">{{ b.name }}</span>
-                            <span class="text-[10px] tabular-nums" style="color:#a1a1aa">{{ allFilteredProperties.filter(p => p.broker_id === b.id).length }}</span>
-                        </label>
-                    </div>
-                </div>
-                <button @click="openEditor(null)" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-[11px] font-medium text-white rounded-lg transition-all duration-200 active:scale-[0.98]" style="background:#111">
-                    <Plus class="w-3.5 h-3.5" /> Neues Objekt
-                </button>
-            </div>
-        </div>
+    <div class="px-3 sm:px-5 py-4 sm:py-5 space-y-0">
+    <!-- Toolbar Row 1: Title + Actions -->
+    <div class="flex items-center justify-between gap-3 pb-3" style="border-bottom:1px solid hsl(240 5.9% 90%)">
+      <h2 class="text-lg font-bold" style="letter-spacing:-0.02em">
+        Objekte <span class="text-sm font-normal" style="color:hsl(240 3.8% 46.1%)">({{ allFilteredProperties.length }})</span>
+      </h2>
+      <div class="flex items-center gap-2">
+        <Button variant="outline" size="sm" class="h-8 text-xs hidden sm:inline-flex" @click="showGlobalFiles = true; loadGlobalFiles()">
+          <FileText class="w-3.5 h-3.5 mr-1.5" />
+          Allg. Dokumente
+        </Button>
+        <Button size="sm" class="h-8 text-xs" style="background:hsl(240 5.9% 10%);color:white" @click="openEditor(null)">
+          <Plus class="w-3.5 h-3.5 mr-1" />
+          <span class="hidden sm:inline">Neues Objekt</span>
+          <span class="sm:hidden">Neu</span>
+        </Button>
+      </div>
+    </div>
 
-        <!-- Search + View Toggle -->
-        <div class="flex items-center gap-2">
-            <div class="relative flex-1">
-                <Search class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style="color:#a1a1aa" />
-                <input v-model="searchQuery" type="text" placeholder="Objekte suchen..."
-                    class="w-full pl-9 pr-8 py-2 text-[13px] rounded-lg border outline-none transition-all duration-200 focus:ring-2 focus:ring-[#111]/5"
-                    style="border-color:#eaeaea;background:#f9f9f8;color:#111" />
-                <button v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2" style="color:#a1a1aa">
-                    <X class="w-3.5 h-3.5" />
-                </button>
+    <!-- Toolbar Row 2: Filters (Desktop) -->
+    <div class="hidden sm:flex items-center gap-2 py-2" style="border-bottom:1px solid hsl(240 5.9% 90%)">
+      <!-- Search -->
+      <div class="relative">
+        <Search class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style="color:hsl(240 3.8% 46.1%)" />
+        <Input v-model="searchQuery" placeholder="Suchen..." class="h-8 w-[200px] pl-8 text-[13px]" />
+      </div>
+
+      <!-- Status Tabs -->
+      <div class="inline-flex h-auto p-0.5 gap-0.5 rounded-md" style="background:hsl(240 4.8% 95.9%)">
+        <button v-for="s in [{v:'aktiv',l:'Aktiv'},{v:'inaktiv',l:'Inaktiv'},{v:'verkauft',l:'Verkauft'}]" :key="s.v"
+          :class="statusFilter === s.v ? 'bg-white shadow-sm font-semibold' : ''" class="rounded px-3 py-1 text-xs transition-all" @click="statusFilter = s.v">
+          {{ s.l }} <span class="ml-1 text-[10px]" style="color:hsl(240 3.8% 46.1%)">{{ statusCounts[s.v] }}</span>
+        </button>
+      </div>
+
+      <Separator orientation="vertical" class="h-5" />
+
+      <!-- Type Tabs -->
+      <div class="inline-flex h-auto p-0.5 gap-0.5 rounded-md" style="background:hsl(240 4.8% 95.9%)">
+        <button v-for="t in [{v:'',l:'Alle'},{v:'apartment',l:'Wohnung'},{v:'house',l:'Haus'},{v:'newbuild',l:'Neubau'},{v:'land',l:'Grundstück'}]" :key="t.v"
+          :class="typeFilter === t.v ? 'bg-white shadow-sm font-semibold' : ''" class="rounded px-3 py-1 text-xs transition-all" @click="typeFilter = t.v">
+          {{ t.l }}
+        </button>
+      </div>
+
+      <div class="flex-1"></div>
+
+      <!-- Broker filter -->
+      <div v-if="availableBrokers.length > 1" class="relative">
+        <button @click="brokerFilterOpen = !brokerFilterOpen"
+          class="inline-flex items-center gap-1.5 h-8 px-3 text-xs rounded-md transition-all"
+          :style="selectedBrokers.size ? 'background:hsl(240 5.9% 10%);color:white' : 'border:1px solid hsl(240 5.9% 90%);color:hsl(240 3.8% 46.1%)'">
+          <Users class="w-3.5 h-3.5" />
+          {{ selectedBrokers.size ? selectedBrokers.size + ' Makler' : 'Makler' }}
+          <ChevronDown class="w-3 h-3" />
+        </button>
+        <div v-if="brokerFilterOpen" class="fixed inset-0 z-40" @click="brokerFilterOpen = false"></div>
+        <div v-if="brokerFilterOpen" class="absolute right-0 top-full mt-1 z-50 bg-white border rounded-lg shadow-lg min-w-[220px] py-1" style="border-color:hsl(240 5.9% 90%)">
+          <div class="px-3 py-2 flex items-center justify-between" style="border-bottom:1px solid hsl(240 5.9% 90%)">
+            <span class="text-[10px] font-semibold uppercase tracking-wider" style="color:hsl(240 3.8% 46.1%)">Makler filtern</span>
+            <div class="flex gap-1">
+              <button @click="selectAllBrokers()" class="text-[10px] px-1.5 py-0.5 rounded hover:bg-gray-100" style="color:hsl(240 5.9% 10%)">Alle</button>
+              <button @click="clearBrokerFilter()" class="text-[10px] px-1.5 py-0.5 rounded hover:bg-gray-100" style="color:hsl(240 3.8% 46.1%)">Reset</button>
             </div>
+          </div>
+          <label v-for="b in availableBrokers" :key="b.id"
+            class="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors text-[12px]"
+            @click="toggleBroker(b.id)">
+            <span class="w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all"
+              :style="selectedBrokers.has(b.id) ? 'background:hsl(240 5.9% 10%);border-color:hsl(240 5.9% 10%)' : 'border-color:hsl(240 5.9% 90%)'">
+              <Check v-if="selectedBrokers.has(b.id)" class="w-2.5 h-2.5 text-white" />
+            </span>
+            <span class="flex-1 truncate">{{ b.name }}</span>
+            <span class="text-[10px] tabular-nums" style="color:hsl(240 3.8% 46.1%)">{{ allFilteredProperties.filter(p => p.broker_id === b.id).length }}</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- View Toggle -->
+      <div class="inline-flex rounded-md overflow-hidden" style="border:1px solid hsl(240 5.9% 90%)">
+        <button @click="propViewMode = 'table'" class="w-8 h-[30px] flex items-center justify-center transition-all" :style="propViewMode === 'table' ? 'background:hsl(240 4.8% 95.9%)' : ''">
+          <LayoutList class="w-3.5 h-3.5" />
+        </button>
+        <button @click="propViewMode = 'cards'" class="w-8 h-[30px] flex items-center justify-center transition-all" style="border-left:1px solid hsl(240 5.9% 90%)" :style="propViewMode === 'cards' ? 'background:hsl(240 4.8% 95.9%)' : ''">
+          <LayoutGrid class="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Toolbar -->
+    <div class="sm:hidden space-y-2 py-2" style="border-bottom:1px solid hsl(240 5.9% 90%)">
+      <div class="relative">
+        <Search class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style="color:hsl(240 3.8% 46.1%)" />
+        <Input v-model="searchQuery" placeholder="Suchen..." class="h-8 pl-8 text-[13px]" />
+      </div>
+      <div class="flex gap-1.5 overflow-x-auto" style="-webkit-overflow-scrolling:touch;scrollbar-width:none">
+        <div class="inline-flex h-auto p-0.5 gap-0.5 rounded-md flex-shrink-0" style="background:hsl(240 4.8% 95.9%)">
+          <button v-for="s in [{v:'aktiv',l:'Aktiv'},{v:'inaktiv',l:'Inaktiv'},{v:'verkauft',l:'Verkauft'}]" :key="s.v"
+            :class="statusFilter === s.v ? 'bg-white shadow-sm' : ''" class="rounded px-2 py-1 text-[11px] transition-all" @click="statusFilter = s.v">
+            {{ s.l }} <span class="ml-0.5 text-[9px]" style="color:hsl(240 3.8% 46.1%)">{{ statusCounts[s.v] }}</span>
+          </button>
+        </div>
+      </div>
+      <div class="flex gap-1.5 overflow-x-auto" style="-webkit-overflow-scrolling:touch;scrollbar-width:none">
+        <div class="inline-flex h-auto p-0.5 gap-0.5 rounded-md flex-shrink-0" style="background:hsl(240 4.8% 95.9%)">
+          <button v-for="t in [{v:'',l:'Alle'},{v:'apartment',l:'Wohnung'},{v:'house',l:'Haus'},{v:'newbuild',l:'Neubau'},{v:'land',l:'Grundstück'}]" :key="t.v"
+            :class="typeFilter === t.v ? 'bg-white shadow-sm' : ''" class="rounded px-2 py-1 text-[11px] transition-all" @click="typeFilter = t.v">
+            {{ t.l }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE VIEW (Default, Desktop) -->
+    <div v-if="propViewMode === 'table'" class="hidden sm:block mt-3 rounded-lg overflow-hidden" style="border:1px solid hsl(240 5.9% 90%)">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead class="w-[44px]"></TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Objekt</TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Ort</TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Typ</TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium text-right" style="color:hsl(240 3.8% 46.1%)">Kaufpreis</TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Fläche</TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Portale</TableHead>
+            <TableHead class="w-[20px]"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <template v-for="prop in filteredProperties" :key="prop.id">
+            <TableRow class="cursor-pointer hover:bg-[hsl(240_4.8%_95.9%)] transition-colors" :style="prop.realty_status === 'inaktiv' ? 'opacity:0.45' : ''" @click="openDetail(prop)">
+              <TableCell class="py-1.5 px-2 pl-4">
+                <div class="w-12 h-9 rounded overflow-hidden flex-shrink-0 flex items-center justify-center" style="background:hsl(240 4.8% 95.9%)">
+                  <img v-if="prop.thumbnail_url" :src="prop.thumbnail_url" class="w-full h-full object-cover" loading="lazy" />
+                  <span v-else style="font-size:14px;color:hsl(240 3.8% 46.1%)">⌂</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <span class="font-semibold text-[13px]">{{ prop.project_name || prop.address }}</span>
+                <span v-if="prop.property_category === 'newbuild' && prop.children?.length" class="text-[10px] ml-1" style="color:hsl(240 3.8% 46.1%)">· {{ prop.children.length }} Einh.</span>
+              </TableCell>
+              <TableCell class="text-[13px]" style="color:hsl(240 3.8% 46.1%)">{{ prop.city }}</TableCell>
+              <TableCell class="text-[13px]" style="color:hsl(240 3.8% 46.1%)">{{ getCategoryLabel(prop.property_category) }}</TableCell>
+              <TableCell class="text-right text-[13px] font-semibold tabular-nums">{{ formatPrice(prop.purchase_price || prop.price, prop.property_category === 'newbuild') }}</TableCell>
+              <TableCell class="text-[13px] tabular-nums" style="color:hsl(240 3.8% 46.1%)">{{ prop.size_m2 ? prop.size_m2 + ' m²' : '–' }}</TableCell>
+              <TableCell>
+                <div class="flex gap-0.5 items-center">
+                  <template v-for="(icon, i) in getPortalIcons(prop).slice(0, 3)" :key="i">
+                    <div class="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold text-white" :style="'background:' + icon.color" :title="icon.label">{{ icon.key }}</div>
+                  </template>
+                  <span v-if="getPortalIcons(prop).length > 3" class="text-[10px] ml-0.5" style="color:hsl(240 3.8% 46.1%)">+{{ getPortalIcons(prop).length - 3 }}</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <button v-if="prop.children?.length" class="text-sm" style="color:hsl(240 3.8% 46.1%)" @click.stop="toggleParentExpand(prop.id)">
+                  {{ expandedParents.has(prop.id) ? '▾' : '›' }}
+                </button>
+              </TableCell>
+            </TableRow>
+            <!-- Expanded children -->
+            <TableRow v-if="expandedParents.has(prop.id) && prop.children?.length" class="hover:bg-transparent">
+              <TableCell :colspan="8" class="p-0">
+                <div class="py-1.5 pl-20 pr-4" style="background:hsl(240 4.8% 97.5%)">
+                  <div v-for="(child, ci) in prop.children.slice(0, 4)" :key="child.id"
+                    class="flex items-center gap-4 py-1.5 px-3 rounded text-xs cursor-pointer hover:bg-white/60 transition-colors"
+                    @click="openDetail(child)">
+                    <span class="font-medium min-w-[150px]">{{ child.project_name || child.address }}</span>
+                    <span style="color:hsl(240 3.8% 46.1%);min-width:50px">{{ child.size_m2 ? child.size_m2 + ' m²' : '–' }}</span>
+                    <span style="color:hsl(240 3.8% 46.1%);min-width:40px">{{ child.floor || '' }}</span>
+                    <Badge v-if="child.status === 'frei'" class="text-[9px] px-1.5 py-0" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%)">frei</Badge>
+                    <Badge v-else-if="child.status === 'reserviert'" class="text-[9px] px-1.5 py-0" style="background:hsl(45 93% 94%);color:hsl(32 95% 30%)">reserviert</Badge>
+                    <Badge v-else-if="child.status === 'verkauft'" class="text-[9px] px-1.5 py-0" style="background:hsl(0 84% 96%);color:hsl(0 72% 51%)">verkauft</Badge>
+                    <span class="font-semibold tabular-nums ml-auto">{{ formatPrice(child.purchase_price || child.price, false) }}</span>
+                  </div>
+                  <div v-if="prop.children.length > 4" class="py-1 px-3 text-[11px]" style="color:hsl(240 3.8% 46.1%)">+ {{ prop.children.length - 4 }} weitere Einheiten</div>
+                </div>
+              </TableCell>
+            </TableRow>
+          </template>
+        </TableBody>
+      </Table>
+      <div class="px-4 py-2 text-[11px]" style="color:hsl(240 3.8% 46.1%);border-top:1px solid hsl(240 5.9% 90%)">{{ allFilteredProperties.length }} Objekte</div>
+    </div>
+
+    <!-- CARD VIEW (Desktop) -->
+    <div v-else-if="propViewMode === 'cards'" class="hidden sm:block mt-3">
+      <div class="grid grid-cols-3 gap-3">
+        <div v-for="prop in filteredProperties" :key="prop.id"
+          class="rounded-lg overflow-hidden cursor-pointer transition-shadow hover:shadow-md"
+          style="border:1px solid hsl(240 5.9% 90%)"
+          :style="prop.realty_status === 'inaktiv' ? 'opacity:0.45' : ''"
+          @click="openDetail(prop)">
+          <div class="w-full h-[120px] relative flex items-center justify-center overflow-hidden" style="background:hsl(240 4.8% 95.9%)">
+            <img v-if="prop.thumbnail_url" :src="prop.thumbnail_url" class="w-full h-full object-cover" loading="lazy" />
+            <span v-else style="font-size:22px;color:hsl(240 3.8% 46.1%)">⌂</span>
+            <span class="absolute top-2 left-2 text-[10px] font-medium px-1.5 py-0.5 rounded" style="background:rgba(255,255,255,0.92);backdrop-filter:blur(4px)">{{ getCategoryLabel(prop.property_category) }}</span>
+            <div class="absolute bottom-2 right-2 flex gap-0.5">
+              <template v-for="(icon, i) in getPortalIcons(prop).slice(0, 3)" :key="i">
+                <div class="w-[18px] h-[18px] rounded flex items-center justify-center text-[7px] font-bold text-white" :style="'background:' + icon.color">{{ icon.key }}</div>
+              </template>
+            </div>
+          </div>
+          <div class="p-3">
+            <div class="text-[13px] font-semibold">{{ prop.project_name || prop.address }}</div>
+            <div class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">
+              {{ prop.city }}
+              <template v-if="prop.property_category === 'newbuild' && prop.children?.length"> · {{ prop.children.length }} Einheiten</template>
+              <template v-else-if="prop.size_m2"> · {{ prop.size_m2 }} m²</template>
+            </div>
+            <div class="mt-2.5 text-sm font-bold tabular-nums">{{ formatPrice(prop.purchase_price || prop.price, prop.property_category === 'newbuild') }}</div>
+          </div>
+          <div v-if="prop.property_category === 'newbuild' && prop.children?.length" class="px-3 py-2" style="border-top:1px solid hsl(240 5.9% 90%);background:hsl(240 4.8% 97.5%)">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-[10px] font-semibold uppercase tracking-wider" style="color:hsl(240 3.8% 46.1%)">Einheiten</span>
+              <div class="flex gap-1">
+                <span v-if="getChildStatusCounts(prop.children).frei" class="text-[9px] px-1.5 py-0 rounded-full" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%)">{{ getChildStatusCounts(prop.children).frei }} frei</span>
+                <span v-if="getChildStatusCounts(prop.children).verkauft" class="text-[9px] px-1.5 py-0 rounded-full" style="background:hsl(0 84% 96%);color:hsl(0 72% 51%)">{{ getChildStatusCounts(prop.children).verkauft }} verk.</span>
+              </div>
+            </div>
+            <div v-for="child in prop.children.slice(0, 2)" :key="child.id" class="flex justify-between items-center py-1 text-[11px]" style="border-top:1px solid hsl(240 5.9% 92%)">
+              <span>{{ child.project_name || child.address }} · {{ child.size_m2 ? child.size_m2 + ' m²' : '' }}</span>
+              <div class="flex items-center gap-1.5">
+                <Badge v-if="child.status === 'frei'" class="text-[9px] px-1.5 py-0" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%)">frei</Badge>
+                <Badge v-else-if="child.status === 'reserviert'" class="text-[9px] px-1.5 py-0" style="background:hsl(45 93% 94%);color:hsl(32 95% 30%)">reserviert</Badge>
+                <Badge v-else-if="child.status === 'verkauft'" class="text-[9px] px-1.5 py-0" style="background:hsl(0 84% 96%);color:hsl(0 72% 51%)">verkauft</Badge>
+                <span class="font-semibold tabular-nums">{{ formatPrice(child.purchase_price || child.price, false) }}</span>
+              </div>
+            </div>
+            <div v-if="prop.children.length > 2" class="text-[10px] pt-1" style="color:hsl(240 3.8% 46.1%)">+ {{ prop.children.length - 2 }} weitere</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOBILE LIST -->
+    <div class="sm:hidden mt-3 rounded-lg overflow-hidden" style="border:1px solid hsl(240 5.9% 90%)">
+      <template v-for="prop in filteredProperties" :key="prop.id">
+        <div class="flex gap-3 items-center px-4 py-3 cursor-pointer" style="border-bottom:1px solid hsl(240 5.9% 90%)"
+          :style="prop.realty_status === 'inaktiv' ? 'opacity:0.45' : ''"
+          @click="openDetail(prop)">
+          <div class="w-14 h-[42px] rounded-md overflow-hidden flex-shrink-0 flex items-center justify-center" style="background:hsl(240 4.8% 95.9%)">
+            <img v-if="prop.thumbnail_url" :src="prop.thumbnail_url" class="w-full h-full object-cover" loading="lazy" />
+            <span v-else style="font-size:14px;color:hsl(240 3.8% 46.1%)">⌂</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-[13px] font-semibold truncate">{{ prop.project_name || prop.address }}</div>
+            <div class="text-[11px] truncate" style="color:hsl(240 3.8% 46.1%)">{{ prop.city }} · {{ getCategoryLabel(prop.property_category) }}<template v-if="prop.size_m2"> · {{ prop.size_m2 }} m²</template></div>
+            <div class="flex gap-0.5 mt-1">
+              <template v-for="(icon, i) in getPortalIcons(prop).slice(0, 3)" :key="i">
+                <div class="w-4 h-4 rounded flex items-center justify-center text-[6px] font-bold text-white" :style="'background:' + icon.color">{{ icon.key }}</div>
+              </template>
+            </div>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <div class="text-[13px] font-bold tabular-nums">{{ formatPriceMobile(prop.purchase_price || prop.price, prop.property_category === 'newbuild') }}</div>
+            <button v-if="prop.children?.length" class="text-[9px] mt-1" style="color:hsl(240 3.8% 46.1%)" @click.stop="toggleParentExpand(prop.id)">▾ Einheiten</button>
+          </div>
+        </div>
+        <div v-if="expandedParents.has(prop.id) && prop.children?.length" class="pl-[76px] pr-4 py-1" style="background:hsl(240 4.8% 97.5%);border-bottom:1px solid hsl(240 5.9% 90%)">
+          <div v-for="child in prop.children.slice(0, 4)" :key="child.id" class="flex justify-between items-center py-1.5 text-[11px]" style="border-top:1px solid hsl(240 5.9% 92%)">
+            <span>{{ child.project_name || child.address }}</span>
             <div class="flex items-center gap-1">
-                <button @click="propViewMode = 'grid'"
-                    class="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
-                    :style="propViewMode === 'grid' ? 'background:#111;color:white' : 'background:#f4f4f5;color:#a1a1aa'">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-                </button>
-                <button @click="propViewMode = 'list'"
-                    class="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
-                    :style="propViewMode === 'list' ? 'background:#111;color:white' : 'background:#f4f4f5;color:#a1a1aa'">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-                </button>
+              <Badge v-if="child.status" class="text-[8px] px-1 py-0"
+                :style="child.status === 'frei' ? 'background:hsl(142 76% 96%);color:hsl(142 72% 29%)' : child.status === 'reserviert' ? 'background:hsl(45 93% 94%);color:hsl(32 95% 30%)' : 'background:hsl(0 84% 96%);color:hsl(0 72% 51%)'">{{ child.status }}</Badge>
+              <span class="font-semibold tabular-nums text-[10px]">{{ formatPriceMobile(child.purchase_price || child.price, false) }}</span>
             </div>
+          </div>
+          <div v-if="prop.children.length > 4" class="text-[10px] py-1" style="color:hsl(240 3.8% 46.1%)">+ {{ prop.children.length - 4 }} weitere</div>
         </div>
-
-        <!-- GRID VIEW (Tiles with thumbnail) -->
-
-        <!-- Category Filter -->
-        <div class="flex items-center gap-1.5 flex-wrap">
-          <button @click="categoryFilter = ''"
-            class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-all duration-200"
-            :style="!categoryFilter ? 'background:#18181b;color:white' : 'background:#f4f4f5;color:#71717a'">
-            Alle
-          </button>
-          <button @click="categoryFilter = 'apartment'"
-            class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-all duration-200"
-            :style="categoryFilter === 'apartment' ? 'background:#18181b;color:white' : 'background:#f4f4f5;color:#71717a'">
-            Wohnung
-          </button>
-          <button @click="categoryFilter = 'house'"
-            class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-all duration-200"
-            :style="categoryFilter === 'house' ? 'background:#18181b;color:white' : 'background:#f4f4f5;color:#71717a'">
-            Haus
-          </button>
-          <button @click="categoryFilter = 'newbuild'"
-            class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-all duration-200"
-            :style="categoryFilter === 'newbuild' ? 'background:#18181b;color:white' : 'background:#f4f4f5;color:#71717a'">
-            Neubauprojekt
-          </button>
-          <button @click="categoryFilter = 'land'"
-            class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-all duration-200"
-            :style="categoryFilter === 'land' ? 'background:#18181b;color:white' : 'background:#f4f4f5;color:#71717a'">
-            Grundstück
-          </button>
-          <div class="w-px h-4 bg-zinc-200 mx-1"></div>
-          <button @click="showInaktiv = !showInaktiv; categoryFilter = ''"
-            class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-all duration-200 inline-flex items-center gap-1"
-            :style="showInaktiv ? 'background:#71717a;color:white' : 'background:#f4f4f5;color:#a1a1aa'">
-            <Lock class="w-3 h-3" /> Inaktiv
-            <span v-if="inaktivProperties.length" class="ml-0.5 px-1.5 py-0.5 text-[10px] rounded-full" :style="showInaktiv ? 'background:rgba(255,255,255,0.2)' : 'background:#e4e4e7'">{{ inaktivProperties.length }}</span>
-          </button>
-        </div>
-
-        <div v-if="propViewMode === 'grid'" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <template v-for="item in groupedDisplay" :key="item._isGroup ? 'g'+item.groupId : item.id">
-              <!-- Project Group Card -->
-              <div v-if="item._isGroup" class="sm:col-span-2 border-2 rounded-xl overflow-hidden" style="border-color:#0d9488;background:rgba(13,148,136,0.03)">
-                <div class="px-4 py-2.5 flex items-center gap-2" style="background:rgba(13,148,136,0.08)">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-                  <span class="text-xs font-semibold" style="color:#0d9488">{{ item.groupName }}</span>
-                  <span class="text-[10px] px-1.5 py-0.5 rounded-full" style="background:rgba(13,148,136,0.15);color:#0d9488">{{ item.members.length }} Objekte</span>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2">
-                  <div v-for="prop in item.members" :key="prop.id"
-                    @click="openDetail(prop)"
-                    class="group bg-white border cursor-pointer transition-all duration-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] active:scale-[0.98] overflow-hidden"
-                    style="border-color:#e0e0e0;border-radius:8px">
-                    <div v-if="prop.thumbnail_url" class="w-full overflow-hidden" style="height:100px">
-                      <img :src="prop.thumbnail_url" :alt="prop.title || prop.address" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" />
-                    </div>
-                    <div v-else class="w-full flex items-center justify-center" style="height:50px;background:#f8f8f6"><Home class="w-4 h-4" style="color:#ccc" /></div>
-                    <div class="px-3 py-2">
-                      <div class="text-[12px] font-semibold truncate" style="color:#111">{{ prop.title || prop.project_name || prop.address }}</div>
-                      <div class="text-[11px] truncate" style="color:#888">{{ prop.address }}, {{ prop.city }}</div>
-                      <div v-if="selectedBrokers.size && prop.broker_name" class="text-[9px] font-medium mt-0.5 px-1.5 py-0.5 rounded inline-block" style="background:#f0f0ff;color:#6366f1">{{ prop.broker_name }}</div>
-                      <div class="flex items-center justify-between mt-1">
-                        <span class="text-[10px]" style="color:#aaa">{{ prop.ref_id }}</span>
-                        <span v-if="prop.purchase_price" class="text-[11px] font-medium" style="color:#111">&euro; {{ Number(prop.purchase_price).toLocaleString('de-AT') }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <!-- Regular Property Card (with optional children) -->
-              <div v-else
-                :style="item.children && item.children.length > 0 ? 'border:2px solid #6366f1;border-radius:10px;background:rgba(99,102,241,0.02)' : ''">
-                <div
-                  @click="openDetail(item)"
-                  class="group bg-white border cursor-pointer transition-all duration-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] active:scale-[0.98] overflow-hidden"
-                  :style="item.children && item.children.length > 0 ? 'border:none;border-radius:8px 8px 0 0' : (item.realty_status === 'inaktiv' ? 'border-color:#d4d4d8;border-radius:10px;opacity:0.6' : 'border-color:#eaeaea;border-radius:10px')">
-                  <div v-if="item.realty_status === 'inaktiv' && !(item.children && item.children.length)" class="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] font-medium" style="background:#71717a;color:white"><Lock class="w-3 h-3 inline -mt-0.5" /> Inaktiv</div>
-                  <!-- Thumbnail -->
-                  <div v-if="item.thumbnail_url" class="w-full overflow-hidden" style="height:120px">
-                      <img :src="item.thumbnail_url" :alt="item.title || item.address" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" />
-                  </div>
-                  <div v-else class="w-full flex items-center justify-center" style="height:64px;background:#f9f9f8">
-                      <Home class="w-5 h-5" style="color:#d4d4d8" />
-                  </div>
-                  <div class="p-3.5">
-                      <div class="flex items-start justify-between gap-2 mb-2">
-                          <div class="min-w-0 flex-1">
-                              <div class="text-[13px] font-semibold truncate" style="color:#111;letter-spacing:-0.01em">{{ item.title || item.ref_id || item.address }}</div>
-                              <div class="text-[11px] mt-0.5 truncate" style="color:#787774">{{ item.address }}{{ item.city ? ', ' + item.city : '' }}</div>
-                          </div>
-                      </div>
-                      <div class="flex items-center gap-1.5 flex-wrap">
-                          <span v-if="item.ref_id && item.title" class="text-[10px]" style="color:#a1a1aa;font-family:ui-monospace,monospace">{{ item.ref_id }}</span>
-                          <span v-if="item.on_hold" class="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style="background:#f7f6f3;color:#787774">Pausiert</span>
-                          <span v-if="item.children && item.children.length" class="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style="background:rgba(99,102,241,0.12);color:#6366f1">{{ item.children.length }} Unterobjekt{{ item.children.length > 1 ? 'e' : '' }}</span>
-                          <span class="flex-1"></span>
-                          <span v-if="item.purchase_price" class="text-[12px] font-semibold" style="color:#2f3437;font-variant-numeric:tabular-nums">&euro; {{ Number(item.purchase_price).toLocaleString('de-DE') }}</span>
-                      </div>
-                      <div v-if="getPortalIcons(item).length" class="flex items-center gap-1 mt-1.5 px-0.5">
-                          <span v-for="pi in getPortalIcons(item)" :key="pi.key"
-                              :title="pi.label"
-                              class="text-[9px] font-bold px-1.5 py-0.5 rounded-md leading-none uppercase tracking-wide"
-                              :style="{background: pi.color + '14', color: pi.color, border: '1px solid ' + pi.color + '25'}">
-                              {{ pi.key }}
-                          </span>
-                      </div>
-                  </div>
-                  <div v-if="showOnHoldForm === item.id" @click.stop class="px-3.5 pb-3 flex flex-col gap-2" style="border-top:1px solid #eaeaea">
-                      <input v-model="onHoldNote" @keyup.enter="confirmOnHold(item)" class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none transition-all mt-2" style="background:#f9f9f8;border-color:#eaeaea" placeholder="Notiz (optional)" />
-                      <div class="flex gap-2">
-                          <button @click="confirmOnHold(item)" class="px-3 py-1.5 text-[11px] font-medium text-white rounded-md active:scale-[0.98]" style="background:#111">OK</button>
-                          <button @click="showOnHoldForm = null" class="px-3 py-1.5 text-[11px] rounded-md" style="color:#787774">Abbrechen</button>
-                      </div>
-                  </div>
-                </div>
-                <!-- Children of this parent (grid) -->
-                <div v-if="item.children && item.children.length" class="px-2 pb-2">
-                  <button @click.stop="toggleParentExpand(item.id)" class="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium rounded-lg transition-all duration-200 hover:bg-white/60" style="color:#6366f1">
-                    <component :is="expandedParents.has(item.id) ? ChevronDown : ChevronRight" class="w-3.5 h-3.5" />
-                    {{ expandedParents.has(item.id) ? 'Unterobjekte ausblenden' : item.children.length + ' Unterobjekt' + (item.children.length > 1 ? 'e' : '') + ' anzeigen' }}
-                  </button>
-                  <div v-if="expandedParents.has(item.id)" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
-                    <div v-for="child in item.children" :key="child.id"
-                      @click="openDetail(child)"
-                      class="group bg-white border cursor-pointer transition-all duration-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] active:scale-[0.98] overflow-hidden relative"
-                      style="border-color:#c7d2fe;border-radius:8px;border-left:3px solid #6366f1">
-                      <div v-if="child.thumbnail_url" class="w-full overflow-hidden" style="height:80px">
-                        <img :src="child.thumbnail_url" :alt="child.title || child.address" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" />
-                      </div>
-                      <div v-else class="w-full flex items-center justify-center" style="height:40px;background:#f5f3ff"><Home class="w-4 h-4" style="color:#c7d2fe" /></div>
-                      <div class="px-3 py-2">
-                        <div class="text-[12px] font-semibold truncate" style="color:#111">{{ child.title || child.ref_id || child.address }}</div>
-                        <div class="text-[11px] truncate" style="color:#888">{{ child.address }}{{ child.city ? ', ' + child.city : '' }}</div>
-                        <div class="flex items-center justify-between mt-1">
-                          <span class="text-[10px]" style="color:#aaa">{{ child.ref_id }}</span>
-                          <span v-if="child.purchase_price" class="text-[11px] font-medium" style="color:#111">&euro; {{ Number(child.purchase_price).toLocaleString('de-AT') }}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </template>
-        </div>
-
-        <!-- LIST VIEW -->
-        <div v-else class="border overflow-hidden" style="border-color:#eaeaea;border-radius:10px">
-            <template v-for="(prop, idx) in filteredProperties" :key="prop.id">
-            <div
-                @click="openDetail(prop)"
-                class="group flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors duration-150 hover:bg-[#f9f9f8]"
-                :style="(idx < filteredProperties.length - 1 || (prop.children && prop.children.length && expandedParents.has(prop.id))) ? 'border-bottom:1px solid #eaeaea' : ''">
-                <!-- Expand toggle for parents -->
-                <button v-if="prop.children && prop.children.length" @click.stop="toggleParentExpand(prop.id)" class="w-5 h-5 flex items-center justify-center flex-shrink-0 rounded hover:bg-zinc-100 transition-all" style="color:#6366f1">
-                    <component :is="expandedParents.has(prop.id) ? ChevronDown : ChevronRight" class="w-3.5 h-3.5" />
-                </button>
-                <div v-if="prop.thumbnail_url" class="w-9 h-9 rounded-md overflow-hidden flex-shrink-0" style="border:1px solid #eaeaea">
-                    <img :src="prop.thumbnail_url" class="w-full h-full object-cover" loading="lazy" />
-                </div>
-                <div v-else class="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0" style="background:#f9f9f8;border:1px solid #eaeaea">
-                    <Home class="w-3.5 h-3.5" style="color:#d4d4d8" />
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                        <span class="text-[13px] font-semibold truncate" style="color:#111;letter-spacing:-0.01em">{{ prop.title || prop.ref_id || prop.address }}</span>
-                        <span v-if="prop.ref_id && prop.title" class="text-[10px] hidden sm:inline" style="color:#a1a1aa;font-family:ui-monospace,monospace">{{ prop.ref_id }}</span>
-                        <span v-if="prop.on_hold" class="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style="background:#f7f6f3;color:#787774">Pausiert</span>
-                        <span v-if="prop.children && prop.children.length" class="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style="background:rgba(99,102,241,0.12);color:#6366f1">{{ prop.children.length }} Unterobjekt{{ prop.children.length > 1 ? 'e' : '' }}</span>
-                    </div>
-                    <div class="text-[11px]" style="color:#787774">{{ prop.address }}{{ prop.city ? ' · ' + prop.city : '' }}</div>
-                </div>
-
-                <span v-if="prop.purchase_price" class="text-[12px] font-semibold flex-shrink-0 hidden sm:block" style="color:#2f3437;font-variant-numeric:tabular-nums">&euro; {{ Number(prop.purchase_price).toLocaleString('de-DE') }}</span>
-                <span v-if="prop.created_at" class="text-[10px] flex-shrink-0 hidden sm:block" style="color:#a1a1aa;font-variant-numeric:tabular-nums">{{ new Date(prop.created_at).toLocaleDateString('de-AT') }}</span>
-                <div v-if="getPortalIcons(prop).length" class="flex items-center gap-0.5 flex-shrink-0 hidden md:flex">
-                    <span v-for="pi in getPortalIcons(prop)" :key="pi.key"
-                        :title="pi.label"
-                        class="text-[8px] font-bold px-1 py-0.5 rounded leading-none uppercase"
-                        :style="{background: pi.color + '14', color: pi.color}">
-                        {{ pi.key }}
-                    </span>
-                </div>
-                <ChevronRight class="w-3.5 h-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200" style="color:#a1a1aa" />
-            </div>
-            <!-- Children in list view -->
-            <template v-if="prop.children && prop.children.length && expandedParents.has(prop.id)">
-              <div v-for="(child, cidx) in prop.children" :key="'child-'+child.id"
-                @click="openDetail(child)"
-                class="group flex items-center gap-3 pl-10 pr-4 py-2 cursor-pointer transition-colors duration-150 hover:bg-[#f5f3ff]"
-                :style="(cidx < prop.children.length - 1 || idx < filteredProperties.length - 1) ? 'border-bottom:1px solid #e8e5f8;background:rgba(99,102,241,0.02)' : 'background:rgba(99,102,241,0.02)'">
-                <div class="w-0.5 h-6 rounded-full flex-shrink-0" style="background:#6366f1"></div>
-                <div v-if="child.thumbnail_url" class="w-7 h-7 rounded-md overflow-hidden flex-shrink-0" style="border:1px solid #c7d2fe">
-                    <img :src="child.thumbnail_url" class="w-full h-full object-cover" loading="lazy" />
-                </div>
-                <div v-else class="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0" style="background:#f5f3ff;border:1px solid #c7d2fe">
-                    <Home class="w-3 h-3" style="color:#a5b4fc" />
-                </div>
-                <div class="flex-1 min-w-0">
-                    <span class="text-[12px] font-medium truncate block" style="color:#333">{{ child.title || child.ref_id || child.address }}</span>
-                    <span class="text-[10px]" style="color:#787774">{{ child.address }}{{ child.city ? ' · ' + child.city : '' }}</span>
-                </div>
-                <span v-if="child.purchase_price" class="text-[11px] font-semibold flex-shrink-0 hidden sm:block" style="color:#2f3437">&euro; {{ Number(child.purchase_price).toLocaleString('de-DE') }}</span>
-                <ChevronRight class="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200" style="color:#a5b4fc" />
-              </div>
-            </template>
-            </template>
-        </div>
-
+      </template>
+    </div>
+    
         <!-- Knowledge Base Sidebar -->
         <div v-if="kbOpen" class="fixed inset-0 z-[300] flex items-start justify-center pt-8 overflow-y-auto" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(4px)">
             <div @click="kbOpen = false" class="absolute inset-0"></div>
@@ -2262,39 +2262,35 @@ async function toggleWebsiteDownload(f) {
             </div>
         </div>
     </div>
-        <!-- Global Files Section -->
-        <div class="mt-4">
-            <button @click="showGlobalFiles = !showGlobalFiles; if(showGlobalFiles) loadGlobalFiles()"
-                class="flex items-center gap-2 text-sm font-semibold px-4 py-3 rounded-xl w-full transition-colors"
-                style="background:#18181b;color:#fff">
-                <svg :class="showGlobalFiles ? 'rotate-90' : ''" class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                <FileText class="w-4 h-4" />
-                Allgemeine Dokumente
-                <span v-if="globalFiles.length" class="text-[10px] px-1.5 py-0.5 rounded-full bg-[#e4e4e7]">{{ globalFiles.length }}</span>
-            </button>
-            <div v-if="showGlobalFiles" class="mt-2 card p-4">
-                <p class="text-xs text-[#71717a] mb-3">Objektunabhängige Dateien (z.B. Nebenkostenübersicht, AGB, Vorlagen), die immer verfügbar sind.</p>
-                <!-- Upload -->
-                <label class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-[#e4e4e7] hover:border-[#18181b] cursor-pointer transition-colors mb-3"
-                    :class="globalFileUploading ? 'opacity-50 pointer-events-none' : ''">
-                    <Upload class="w-4 h-4 text-[#71717a]" />
-                    <span class="text-sm text-[#71717a]">{{ globalFileUploading ? 'Wird hochgeladen...' : 'Datei hochladen' }}</span>
-                    <input type="file" class="hidden" @change="uploadGlobalFile" />
-                </label>
-                <!-- File list -->
-                <div v-if="globalFiles.length" class="space-y-1.5">
-                    <div v-for="f in globalFiles" :key="f.id" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#f4f4f5] group">
-                        <FileText class="w-4 h-4 flex-shrink-0 text-[#71717a]" />
-                        <div class="flex-1 min-w-0">
-                            <a :href="'/storage/' + f.path" target="_blank" class="text-sm font-medium hover:underline truncate block">{{ f.label || f.original_name }}</a>
-                            <div class="text-[10px] text-[#71717a]">{{ f.original_name }} · {{ formatFileSize(f.file_size) }}</div>
-                        </div>
-                        <button @click="deleteGlobalFile(f)" class="opacity-0 group-hover:opacity-100 p-1 text-[#71717a] hover:text-red-500 transition-all"><Trash2 class="w-3.5 h-3.5" /></button>
-                    </div>
-                </div>
-                <div v-else-if="globalFilesLoaded" class="text-center py-4 text-xs text-[#71717a]">Noch keine Dateien hochgeladen.</div>
-            </div>
+    <!-- Global Documents Dialog -->
+    <Dialog :open="showGlobalFiles" @update:open="v => showGlobalFiles = v">
+      <DialogContent class="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Allgemeine Dokumente</DialogTitle>
+        </DialogHeader>
+        <p class="text-xs" style="color:hsl(240 3.8% 46.1%)">Dokumente die bei jedem Objekt als Anhang verwendbar sind.</p>
+        <div class="mt-3">
+          <label class="flex items-center justify-center gap-2 py-6 rounded-lg cursor-pointer text-xs border-2 border-dashed transition-colors hover:bg-gray-50" style="border-color:hsl(240 5.9% 90%);color:hsl(240 3.8% 46.1%)">
+            <Upload class="w-4 h-4" />
+            {{ globalFileUploading ? 'Wird hochgeladen...' : 'Datei hochladen' }}
+            <input type="file" class="hidden" @change="uploadGlobalFile" :disabled="globalFileUploading" />
+          </label>
         </div>
+        <div v-if="globalFiles.length" class="mt-3 space-y-1">
+          <div v-for="f in globalFiles" :key="f.id" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50">
+            <FileText class="w-4 h-4 flex-shrink-0" style="color:hsl(240 3.8% 46.1%)" />
+            <div class="flex-1 min-w-0">
+              <a :href="'/storage/' + f.path" target="_blank" class="text-xs font-medium hover:underline truncate block">{{ f.label || f.original_name }}</a>
+              <div class="text-[10px]" style="color:hsl(240 3.8% 46.1%)">{{ formatFileSize(f.file_size) }}</div>
+            </div>
+            <button @click="deleteGlobalFile(f)" class="text-xs p-1 rounded hover:bg-red-50" style="color:hsl(0 72% 51%)">
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+        <div v-else class="mt-3 py-6 text-center text-xs" style="color:hsl(240 3.8% 46.1%)">Noch keine Dokumente hochgeladen.</div>
+      </DialogContent>
+    </Dialog>
 
 
         <!-- Property Files Sidebar -->

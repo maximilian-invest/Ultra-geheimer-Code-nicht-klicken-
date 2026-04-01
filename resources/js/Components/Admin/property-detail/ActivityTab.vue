@@ -11,7 +11,7 @@ const emit = defineEmits(["openActivities", "openMessages"]);
 <template>
   <div class="space-y-3">
     <div
-      class="flex items-center gap-3 p-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors border border-border"
+      class="flex items-center gap-3 p-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors border border-border/50"
       @click="emit('openActivities', property.id, property.address)"
     >
       <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-cyan-50">
@@ -25,7 +25,7 @@ const emit = defineEmits(["openActivities", "openMessages"]);
     </div>
 
     <div
-      class="flex items-center gap-3 p-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors border border-border"
+      class="flex items-center gap-3 p-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors border border-border/50"
       @click="emit('openMessages', property.id, property.address)"
     >
       <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-blue-50">

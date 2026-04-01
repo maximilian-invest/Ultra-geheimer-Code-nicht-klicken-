@@ -166,7 +166,7 @@ watch(() => props.property?.id, () => {
     </div>
 
     <!-- Expose Parser Inline -->
-    <div v-if="showExposeParser" class="border border-border rounded-lg p-4 bg-muted/30 space-y-3">
+    <div v-if="showExposeParser" class="border border-border/50 rounded-lg p-4 bg-muted/30 space-y-3">
       <div class="text-sm font-medium">Dateien für KI-Analyse auswählen</div>
       <div v-if="exposeFiles.length === 0" class="text-sm text-muted-foreground">
         Keine Dateien vorhanden.
@@ -202,7 +202,7 @@ watch(() => props.property?.id, () => {
     <div v-else-if="kbEntries.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div
         v-for="entry in kbEntries" :key="entry.id || entry.title"
-        class="border border-border rounded-lg p-3 space-y-1.5"
+        class="border border-border/50 rounded-lg p-3 space-y-1.5"
       >
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2 min-w-0">

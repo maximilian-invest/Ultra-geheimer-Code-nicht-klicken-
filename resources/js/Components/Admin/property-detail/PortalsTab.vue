@@ -263,7 +263,7 @@ onMounted(() => {
   <div class="max-w-2xl space-y-4">
 
     <!-- SR-Homes Website Toggle (master or standalone only) -->
-    <div v-if="!isChild" class="flex items-center justify-between py-3 border-b border-border">
+    <div v-if="!isChild" class="flex items-center justify-between py-3 border-b border-border/50">
       <div>
         <div class="text-sm font-medium">SR-Homes Website</div>
         <div class="text-xs text-muted-foreground">Auf sr-homes.at veröffentlichen</div>
@@ -272,12 +272,12 @@ onMounted(() => {
     </div>
 
     <!-- Master info banner -->
-    <div v-if="isMaster" class="bg-muted/50 border border-border rounded-lg p-3 text-xs text-muted-foreground">
+    <div v-if="isMaster" class="bg-muted/50 border border-border/50 rounded-lg p-3 text-xs text-muted-foreground">
       Plattform-Export läuft über die Unterobjekte
     </div>
 
     <!-- Child info banner -->
-    <div v-if="isChild" class="bg-muted/50 border border-border rounded-lg p-3 text-xs text-muted-foreground">
+    <div v-if="isChild" class="bg-muted/50 border border-border/50 rounded-lg p-3 text-xs text-muted-foreground">
       Website-Anzeige wird über das Master-Projekt gesteuert
     </div>
 
@@ -320,11 +320,11 @@ onMounted(() => {
         </div>
 
         <!-- Portal toggles -->
-        <div v-if="immojiPortals !== null" class="border border-border rounded-lg overflow-hidden">
+        <div v-if="immojiPortals !== null" class="border border-border/50 rounded-lg overflow-hidden">
           <div
             v-for="portal in IMMOJI_PORTALS"
             :key="portal.key"
-            class="flex items-center justify-between py-2.5 px-3 border-b border-border last:border-0"
+            class="flex items-center justify-between py-2.5 px-3 border-b border-border/50 last:border-0"
           >
             <div class="flex items-center gap-2.5">
               <div class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ background: portal.color }" />

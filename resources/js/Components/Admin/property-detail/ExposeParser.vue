@@ -100,7 +100,7 @@ async function uploadFiles(event) {
 </script>
 
 <template>
-  <div v-if="visible" class="border-t border-border bg-muted/30 px-6 py-4">
+  <div v-if="visible" class="border-t border-border/50 bg-muted/30 px-6 py-4">
     <div class="flex items-center justify-between mb-3">
       <h3 class="text-sm font-semibold">Expose auslesen</h3>
       <Button variant="ghost" size="sm" @click="emit('close')">
@@ -113,7 +113,7 @@ async function uploadFiles(event) {
       <p class="text-xs text-muted-foreground mb-3">Dateien auswaehlen oder neue hochladen.</p>
 
       <!-- Upload zone -->
-      <label class="flex items-center gap-2 p-3 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 mb-3">
+      <label class="flex items-center gap-2 p-3 border border-dashed border-border/50 rounded-lg cursor-pointer hover:bg-muted/50 mb-3">
         <Upload class="w-4 h-4 text-muted-foreground" />
         <span class="text-xs text-muted-foreground">{{ uploading ? 'Wird hochgeladen...' : 'Dateien hochladen' }}</span>
         <input type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls" class="sr-only" @change="uploadFiles" :disabled="uploading" />
@@ -140,7 +140,7 @@ async function uploadFiles(event) {
     <!-- For new properties: direct upload + analyze -->
     <div v-else>
       <p class="text-xs text-muted-foreground mb-3">Expose hochladen -- Felder werden automatisch befuellt.</p>
-      <label class="flex items-center gap-2 p-4 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50">
+      <label class="flex items-center gap-2 p-4 border border-dashed border-border/50 rounded-lg cursor-pointer hover:bg-muted/50">
         <Upload class="w-4 h-4 text-muted-foreground" />
         <span class="text-xs text-muted-foreground">{{ parseLoading ? 'Wird analysiert...' : 'PDF, DOC oder Bild hochladen' }}</span>
         <input type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls" class="sr-only" @change="analyzeNewFile" :disabled="parseLoading" />

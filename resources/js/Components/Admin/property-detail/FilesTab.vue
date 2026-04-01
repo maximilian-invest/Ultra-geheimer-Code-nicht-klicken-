@@ -153,7 +153,7 @@ watch(() => props.property?.id, () => loadFiles());
     </div>
 
     <!-- File list -->
-    <div v-if="files.length" class="divide-y divide-border rounded-lg border border-border overflow-hidden">
+    <div v-if="files.length" class="divide-y divide-border/50 rounded-lg border border-border/50 overflow-hidden">
       <div
         v-for="f in files"
         :key="f.id"

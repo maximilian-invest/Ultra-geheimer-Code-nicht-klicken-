@@ -347,7 +347,7 @@ defineExpose({ save, discard });
   <div class="space-y-3 max-w-5xl">
 
     <!-- ═══ 1. Objekt & Adresse ═══ -->
-    <div class="border border-border rounded-lg mb-3">
+    <div class="border border-border/50 rounded-lg mb-3">
       <Collapsible v-model:open="sections.objektAdresse">
         <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
           <div class="flex items-center gap-2">
@@ -462,7 +462,7 @@ defineExpose({ save, discard });
     </div>
 
     <!-- ═══ 2. Preise & Kosten ═══ -->
-    <div class="border border-border rounded-lg mb-3">
+    <div class="border border-border/50 rounded-lg mb-3">
       <Collapsible v-model:open="sections.preiseKosten">
         <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
           <div class="flex items-center gap-2">
@@ -555,7 +555,7 @@ defineExpose({ save, discard });
     </div>
 
     <!-- ═══ 3. Flaechen & Raeume ═══ -->
-    <div class="border border-border rounded-lg mb-3">
+    <div class="border border-border/50 rounded-lg mb-3">
       <Collapsible v-model:open="sections.flaechenRaeume">
         <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
           <div class="flex items-center gap-2">
@@ -637,7 +637,7 @@ defineExpose({ save, discard });
     </div>
 
     <!-- ═══ 4. Ausstattung ═══ -->
-    <div v-if="!isChild" class="border border-border rounded-lg mb-3">
+    <div v-if="!isChild" class="border border-border/50 rounded-lg mb-3">
       <Collapsible v-model:open="sections.ausstattung">
         <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
           <div class="flex items-center gap-2">
@@ -721,7 +721,7 @@ defineExpose({ save, discard });
     </div>
 
     <!-- ═══ 5. Energie ═══ -->
-    <div class="border border-border rounded-lg mb-3">
+    <div class="border border-border/50 rounded-lg mb-3">
       <Collapsible v-model:open="sections.energie">
         <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
           <div class="flex items-center gap-2">
@@ -778,7 +778,7 @@ defineExpose({ save, discard });
     </div>
 
     <!-- ═══ 6. Verfuegbarkeit & Bau ═══ -->
-    <div class="border border-border rounded-lg mb-3">
+    <div class="border border-border/50 rounded-lg mb-3">
       <Collapsible v-model:open="sections.verfuegbarkeit">
         <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
           <div class="flex items-center gap-2">
@@ -826,7 +826,7 @@ defineExpose({ save, discard });
     </div>
 
     <!-- ═══ 7. Objekthistorie ═══ -->
-    <div v-if="!isNewbuild && !isChild" class="border border-border rounded-lg mb-3">
+    <div v-if="!isNewbuild && !isChild" class="border border-border/50 rounded-lg mb-3">
       <Collapsible v-model:open="sections.historie">
         <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
           <div class="flex items-center gap-2">

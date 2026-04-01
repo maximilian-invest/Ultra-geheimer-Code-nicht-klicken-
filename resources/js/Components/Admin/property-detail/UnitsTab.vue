@@ -380,7 +380,7 @@ onMounted(() => {
       </div>
 
       <!-- Units Table -->
-      <div class="rounded-md border border-border overflow-hidden">
+      <div class="rounded-md border border-border/50 overflow-hidden">
         <div v-if="unitsLoading" class="py-8 text-center text-sm text-muted-foreground">
           Einheiten werden geladen...
         </div>
@@ -566,7 +566,7 @@ onMounted(() => {
     </div>
 
     <!-- ═══════ STELLPLÄTZE SECTION ═══════ -->
-    <div class="border-t border-border mt-6 pt-4">
+    <div class="border-t border-border/50 mt-6 pt-4">
       <!-- Header row -->
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-3">
@@ -606,7 +606,7 @@ onMounted(() => {
       </div>
 
       <!-- Parking Table -->
-      <div class="rounded-md border border-border overflow-hidden">
+      <div class="rounded-md border border-border/50 overflow-hidden">
         <div class="overflow-x-auto">
           <Table>
             <TableHeader>

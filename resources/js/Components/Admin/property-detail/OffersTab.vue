@@ -170,7 +170,7 @@ onMounted(loadOffers);
     </div>
 
     <!-- Create dialog (inline panel) -->
-    <div v-if="showCreateDialog" class="border border-border rounded-lg p-5 bg-muted/30 space-y-4">
+    <div v-if="showCreateDialog" class="border border-border/50 rounded-lg p-5 bg-muted/30 space-y-4">
       <div class="flex items-center justify-between mb-1">
         <h3 class="text-sm font-semibold">Neues Kaufanbot erfassen</h3>
         <button class="text-muted-foreground hover:text-foreground text-lg leading-none" @click="showCreateDialog = false; resetForm()">×</button>
@@ -219,7 +219,7 @@ onMounted(loadOffers);
     </div>
 
     <!-- Table -->
-    <div v-else-if="offerCount > 0" class="border border-border rounded-lg overflow-hidden">
+    <div v-else-if="offerCount > 0" class="border border-border/50 rounded-lg overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow class="bg-muted/40">

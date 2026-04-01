@@ -293,7 +293,7 @@ onMounted(() => {
     </div>
 
     <!-- ── Beschreibungen ── -->
-    <div class="border-t border-border pt-6">
+    <div class="border-t border-border/50 pt-6">
       <h2 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider mb-4">Beschreibungen</h2>
 
       <div class="space-y-5">

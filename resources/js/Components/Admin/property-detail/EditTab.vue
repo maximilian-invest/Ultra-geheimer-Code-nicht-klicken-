@@ -64,7 +64,7 @@ const fieldVis = {
   construction_end: { icons: [], tip: 'Wird nirgends angezeigt' },
   builder_company: { icons: [], tip: 'Wird nirgends angezeigt' },
   purchase_price: { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  price_to:       { icons: [], tip: 'Wird nirgends angezeigt' },
+  object_subtype: { icons: [], tip: 'Wird nirgends angezeigt' },
   price_per_m2:   { icons: [], tip: 'Wird nirgends angezeigt' },
   parking_price:  { icons: [], tip: 'Wird nirgends angezeigt' },
   operating_costs: { icons: [], tip: 'Wird nirgends angezeigt' },
@@ -172,13 +172,13 @@ const features = [
 const form = reactive({
   id: null, ref_id: "", openimmo_id: "", title: "", project_name: "",
   address: "", latitude: null, longitude: null, city: "", zip: "",
-  object_type: "Eigentumswohnung", type: "Eigentumswohnung",
-  property_category: "", sub_type: "", marketing_type: "kauf",
-  status: "auftrag",
+  object_type: "Eigentumswohnung",
+  property_category: "", object_subtype: "", marketing_type: "kauf",
+  status: "auftrag", // mapped to realty_status server-side
   purchase_price: null, price_per_m2: null, parking_price: null,
   rental_price: null, rent_warm: null, rent_deposit: null,
   operating_costs: null, maintenance_reserves: null,
-  living_area: null, realty_area: null, free_area: null,
+  living_area: null, realty_area: null, free_area: null, total_area: null,
   area_balcony: null, area_terrace: null, area_garden: null, area_basement: null,
   area_loggia: null, area_garage: null, office_space: null,
   rooms_amount: null, bedrooms: null, bathrooms: null, toilets: null,
@@ -196,9 +196,8 @@ const form = reactive({
   has_pool: false, has_sauna: false, has_fireplace: false,
   has_alarm: false, has_barrier_free: false, has_guest_wc: false,
   has_storage_room: false, has_washing_connection: false, has_cellar: false,
-  garage_spaces: null, parking_spaces: null, parking_type: "", 
-  description: "", description_location: "", description_equipment: "",
-  description_other: "", highlights: "",
+  garage_spaces: null, parking_spaces: null, parking_type: "",
+  highlights: "",
   realty_description: "", location_description: "", equipment_description: "", other_description: "",
   broker_id: null,
   commission_percent: null, commission_note: "", commission_total: null,
@@ -213,15 +212,6 @@ const form = reactive({
   on_hold: false,
   property_history: null,
   parent_id: null,
-  price_to: null,
-  rent_cold: null,
-  area_land: null, area_usable: null, area_office: null,
-  price: null,
-  size_m2: null,
-  year_built: null,
-  object_condition: "",
-  energy_hwb: null, energy_fgee: null, energy_class: "",
-  rooms: null,
   construction_type: "", ownership_type: "", subtitle: "", ad_tag: "",
   closing_date: null, internal_rating: null,
   house_number: "", staircase: "", door: "", entrance: "", address_floor: "",
@@ -258,8 +248,9 @@ function copyPropertyToForm(prop) {
       form[key] = prop[key];
     }
   }
-  // Ensure object_type is populated from type if not set
-  if (!form.object_type && form.type) form.object_type = form.type;
+  // Legacy field mapping: copy old API names into correct form keys
+  if (prop.sub_type && !prop.object_subtype) form.object_subtype = prop.sub_type;
+  if (prop.type && !form.object_type) form.object_type = prop.type;
   // Set broker_id default + ensure String for Select compatibility
   if (!form.broker_id && userId?.value) form.broker_id = String(userId.value);
   else if (form.broker_id) form.broker_id = String(form.broker_id);
@@ -411,27 +402,12 @@ watch(() => props.property, (p) => {
   }
 }, { deep: true });
 
-// ─── Energy alias mapping (from AI parsing) ───
-function mapEnergyAliases(obj) {
-  if (!obj) return;
-  const aliases = {
-    energy_hwb: "heating_demand_value",
-    energy_fgee: "energy_efficiency_value",
-    energy_class: "heating_demand_class",
-  };
-  for (const [from, to] of Object.entries(aliases)) {
-    if (obj[from] && !obj[to]) obj[to] = obj[from];
-  }
-}
-
 // ─── Save ───
 const saving = ref(false);
 
 async function save() {
   saving.value = true;
   const wasNew = !form.id;
-  // Map energy aliases before save
-  mapEnergyAliases(form);
   try {
     const payload = { ...form };
     const r = await fetch(API.value + "&action=save_full_property", {
@@ -765,10 +741,6 @@ defineExpose({ save, discard });
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 block">{{ isNewbuild ? 'Gesamtvolumen' : 'Kaufpreis / Miete' }} <span class="inline-flex gap-0.5"><component :is="iconMap['globe']" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" title="Sichtbar auf der Website" /></span></label>
             <Input v-model="form.purchase_price" type="number" step="0.01" :disabled="isNewbuild" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
-          </div>
-          <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Preis bis <span v-if="vis('price_to').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('price_to').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('price_to').tip" /></span></label>
-            <Input v-model="form.price_to" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Preis/m2 <span v-if="vis('price_per_m2').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('price_per_m2').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('price_per_m2').tip" /></span></label>

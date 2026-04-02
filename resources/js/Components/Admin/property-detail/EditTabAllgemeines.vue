@@ -198,7 +198,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Unterobjektart</label>
-          <Select v-model="form.sub_type">
+          <Select v-model="form.object_subtype">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="etagenwohnung">Etagenwohnung</SelectItem>

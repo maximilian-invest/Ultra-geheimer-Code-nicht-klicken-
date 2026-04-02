@@ -29,10 +29,6 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           <Input v-model="form.purchase_price" type="number" :disabled="isNewbuild" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Preis bis</label>
-          <Input v-model="form.price_to" type="number" :class="inputCls" />
-        </div>
-        <div>
           <label :class="labelCls">Preis/m²</label>
           <Input v-model="form.price_per_m2" type="number" :class="inputCls" />
         </div>

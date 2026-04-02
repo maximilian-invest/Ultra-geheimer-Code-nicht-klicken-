@@ -1,7 +1,7 @@
 <script setup>
 import { catBadgeStyle, catLabel } from '@/utils/categoryBadge.js';
 import { ref, inject, computed, reactive, watch } from "vue";
-import { Home, Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, Unlink, LayoutList, LayoutGrid } from "lucide-vue-next";
+import { Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, LayoutList, LayoutGrid } from "lucide-vue-next";
 import PropertyDetailPage from '@/Components/Admin/PropertyDetailPage.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -118,49 +118,6 @@ function toggleParentExpand(propId) {
     if (s.has(propId)) s.delete(propId); else s.add(propId);
     expandedParents.value = s;
 }
-const parentAssignModal = ref(null); // property being assigned
-const parentSearchQuery = ref('');
-const parentAssignLoading = ref(false);
-
-const parentCandidates = computed(() => {
-    if (!parentAssignModal.value) return [];
-    const allProps = (properties?.value ?? properties) || [];
-    const targetId = parentAssignModal.value.id;
-    const childIds = (parentAssignModal.value.children || []).map(c => c.id);
-    let list = allProps.filter(p => p.id !== targetId && !childIds.includes(p.id) && !p.parent_id);
-    if (parentSearchQuery.value.trim()) {
-        const q = parentSearchQuery.value.toLowerCase();
-        list = list.filter(p => (p.address||'').toLowerCase().includes(q) || (p.ref_id||'').toLowerCase().includes(q) || (p.title||'').toLowerCase().includes(q) || (p.city||'').toLowerCase().includes(q));
-    }
-    return list.slice(0, 20);
-});
-
-async function setParentProperty(childId, parentId) {
-    parentAssignLoading.value = true;
-    try {
-        const r = await fetch(API.value + '&action=set_parent_property', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ property_id: childId, parent_id: parentId })
-        });
-        const d = await r.json();
-        if (d.success) { toast('Unterobjekt zugeordnet'); parentAssignModal.value = null; window.location.reload(); }
-        else toast('Fehler: ' + (d.error || 'Unbekannt'));
-    } catch (e) { toast('Fehler: ' + e.message); }
-    parentAssignLoading.value = false;
-}
-
-async function removeParentProperty(childId) {
-    try {
-        const r = await fetch(API.value + '&action=remove_parent_property', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ property_id: childId })
-        });
-        const d = await r.json();
-        if (d.success) { toast('Zuordnung entfernt'); window.location.reload(); }
-        else toast('Fehler: ' + (d.error || 'Unbekannt'));
-    } catch (e) { toast('Fehler: ' + e.message); }
-}
-
 async function createProperty() {
     createLoading.value = true;
     try {
@@ -1751,12 +1708,8 @@ async function toggleWebsiteDownload(f) {
       @saved="handlePropertySaved"
     />
     <div v-else class="px-3 sm:px-5 py-4 sm:py-5 space-y-0">
-    <!-- Toolbar Row 1: Title + Actions -->
-    <div class="flex items-center justify-between gap-3 pb-3" style="border-bottom:1px solid hsl(240 5.9% 90%)">
-      <h2 class="text-lg font-bold" style="letter-spacing:-0.02em">
-        Objekte <span class="text-sm font-normal" style="color:hsl(240 3.8% 46.1%)">({{ allFilteredProperties.length }})</span>
-      </h2>
-      <div class="flex items-center gap-2">
+    <!-- Toolbar Row 1: Actions (title is in Dashboard header bar) -->
+    <div class="flex items-center justify-end gap-2 pb-3">
         <Button variant="outline" size="sm" class="h-8 text-xs hidden sm:inline-flex" @click="showGlobalFiles = true; loadGlobalFiles()">
           <FileText class="w-3.5 h-3.5 mr-1.5" />
           Allg. Dokumente
@@ -1766,7 +1719,6 @@ async function toggleWebsiteDownload(f) {
           <span class="hidden sm:inline">Neues Objekt</span>
           <span class="sm:hidden">Neu</span>
         </Button>
-      </div>
     </div>
 
     <!-- Toolbar Row 2: Filters (Desktop) -->
@@ -2839,51 +2791,5 @@ async function toggleWebsiteDownload(f) {
         </div>
     </div>
 
-    <!-- Parent Assignment Modal -->
-    <div v-if="parentAssignModal" class="fixed inset-0 z-[400] flex items-center justify-center" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(4px)">
-        <div @click="parentAssignModal = null" class="absolute inset-0"></div>
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" style="border:1px solid rgba(228,228,231,0.6)">
-            <div class="px-5 py-4 border-b border-zinc-200 flex items-center justify-between">
-                <div>
-                    <h3 class="text-sm font-semibold" style="color:#111">Unterobjekt zuordnen</h3>
-                    <p class="text-[11px] mt-0.5" style="color:#71717a">{{ parentAssignModal.title || parentAssignModal.address }} einem Master-Objekt zuordnen</p>
-                </div>
-                <button @click="parentAssignModal = null" class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-zinc-100 transition-all"><X class="w-4 h-4 text-zinc-500" /></button>
-            </div>
-            <div class="px-5 py-3">
-                <div class="relative">
-                    <Search class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style="color:#a1a1aa" />
-                    <input v-model="parentSearchQuery" type="text" placeholder="Master-Objekt suchen..."
-                        class="w-full pl-9 pr-3 py-2 text-[13px] rounded-lg border outline-none transition-all duration-200 focus:ring-2 focus:ring-[#6366f1]/20"
-                        style="border-color:#eaeaea;background:#f9f9f8;color:#111" />
-                </div>
-            </div>
-            <div class="px-3 pb-3 max-h-[300px] overflow-y-auto space-y-1">
-                <div v-if="parentAssignModal.parent_id" @click="removeParentProperty(parentAssignModal.id)"
-                    class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-red-50 transition-all" style="border:1px solid #fecaca">
-                    <Unlink class="w-4 h-4 flex-shrink-0" style="color:#ef4444" />
-                    <span class="text-[12px] font-medium" style="color:#ef4444">Zuordnung entfernen</span>
-                </div>
-                <div v-for="cand in parentCandidates" :key="cand.id"
-                    @click="setParentProperty(parentAssignModal.id, cand.id)"
-                    class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#f5f3ff] transition-all" style="border:1px solid #eaeaea">
-                    <div v-if="cand.thumbnail_url" class="w-8 h-8 rounded-md overflow-hidden flex-shrink-0" style="border:1px solid #eaeaea">
-                        <img :src="cand.thumbnail_url" class="w-full h-full object-cover" loading="lazy" />
-                    </div>
-                    <div v-else class="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0" style="background:#f9f9f8;border:1px solid #eaeaea">
-                        <Home class="w-3.5 h-3.5" style="color:#d4d4d8" />
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-[12px] font-medium truncate" style="color:#111">{{ cand.title || cand.address }}</div>
-                        <div class="text-[10px]" style="color:#787774">{{ cand.ref_id }} · {{ cand.city }}</div>
-                    </div>
-                </div>
-                <div v-if="!parentCandidates.length" class="text-center py-4 text-[11px]" style="color:#a1a1aa">Keine passenden Objekte gefunden</div>
-            </div>
-            <div v-if="parentAssignLoading" class="absolute inset-0 flex items-center justify-center bg-white/80 rounded-2xl">
-                <div class="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-        </div>
-    </div>
 
 </template>

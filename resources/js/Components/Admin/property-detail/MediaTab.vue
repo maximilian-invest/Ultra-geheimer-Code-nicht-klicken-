@@ -186,7 +186,7 @@ onMounted(() => {
 
     <!-- ── Bilder ── -->
     <div>
-      <h2 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider mb-4">Bilder</h2>
+      <!-- Bilder -->
 
       <!-- No property ID warning -->
       <div v-if="!property?.id" class="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
@@ -292,23 +292,7 @@ onMounted(() => {
       </template>
     </div>
 
-    <!-- ── Beschreibungen ── -->
-    <div class="border-t border-border/50 pt-6">
-      <h2 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider mb-4">Beschreibungen</h2>
-
-      <div class="space-y-5">
-        <div v-for="f in textFields" :key="f.key" class="space-y-1.5">
-          <label class="block text-xs font-medium text-zinc-500">{{ f.label }}</label>
-          <Textarea
-            v-model="texts[f.key]"
-            :placeholder="f.placeholder"
-            rows="5"
-            class="w-full resize-y text-sm bg-zinc-50 border-zinc-200 focus:bg-white transition-colors"
-            @input="onTextInput"
-          />
-        </div>
-      </div>
-    </div>
+    <!-- Beschreibungen sind jetzt im EditTab Subtab "Beschreibung" -->
 
   </div>
 </template>

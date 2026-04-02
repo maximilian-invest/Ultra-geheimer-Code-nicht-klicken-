@@ -39,27 +39,22 @@ const switchTabFn = inject("switchTab", null);
 const activeTab = ref("uebersicht");
 
 const isNewbuild = computed(() => props.property?.property_category === 'newbuild');
-const isChild = computed(() => !!props.property?.parent_id);
-const isMaster = computed(() => isNewbuild.value && !isChild.value);
 
 const tabs = computed(() => {
   const t = [
     { value: 'uebersicht', label: 'Übersicht' },
     { value: 'bearbeiten', label: 'Bearbeiten' },
   ];
-  if (isMaster.value) t.push({ value: 'einheiten', label: 'Einheiten' });
+  if (isNewbuild.value) t.push({ value: 'einheiten', label: 'Einheiten' });
   t.push({ value: 'kaufanbote', label: 'Kaufanbote' });
-  t.push({ value: 'medien', label: 'Medien & Texte' });
   t.push({ value: 'portale', label: 'Portale' });
-  if (!isChild.value) {
-    t.push({ value: 'wissen', label: 'Wissen' });
-    t.push({ value: 'dateien', label: 'Dateien' });
-  }
+  t.push({ value: 'wissen', label: 'Wissen' });
+  t.push({ value: 'dateien', label: 'Dateien' });
   t.push({ value: 'aktivitaeten', label: 'Aktivitäten' });
   return t;
 });
 
-const editableTabs = ['bearbeiten', 'medien', 'portale'];
+const editableTabs = ['bearbeiten', 'portale'];
 const showFooter = computed(() => editableTabs.includes(activeTab.value));
 
 const title = computed(() => {
@@ -190,35 +185,22 @@ function handleExposeParsed(result) {
 
 <template>
   <div class="flex flex-col h-full">
-    <!-- Breadcrumb topbar -->
-    <div class="h-12 flex items-center px-6 shrink-0" style="border-bottom:1px solid hsl(240 5.9% 90%)">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink class="cursor-pointer" @click="handleBack">Objekte</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{{ title }}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-    </div>
-
     <!-- Detail Header -->
-    <div class="px-6 py-4 flex items-center justify-between shrink-0" style="border-bottom:1px solid hsl(240 5.9% 90%)">
+    <div class="px-6 py-3 flex items-center justify-between shrink-0" style="border-bottom:1px solid hsl(240 5.9% 90%)">
       <div class="flex items-center gap-3.5">
         <img v-if="property.thumbnail_url" :src="property.thumbnail_url" class="w-[52px] h-10 rounded-md object-cover shrink-0" />
         <div v-else class="w-[52px] h-10 rounded-md bg-gradient-to-br from-blue-200 to-indigo-200 shrink-0" />
         <div>
-          <div class="text-[17px] font-semibold">{{ title }}</div>
+          <div class="flex items-center gap-2">
+            <span class="text-[17px] font-semibold">{{ title }}</span>
+            <Badge v-if="!isNew" :variant="statusInfo.variant"
+              :class="statusInfo.class"
+              class="text-[11px]">
+              {{ statusInfo.label }}
+            </Badge>
+          </div>
           <div class="text-xs text-muted-foreground mt-0.5">{{ subtitle }}</div>
         </div>
-        <Badge v-if="!isNew" :variant="statusInfo.variant"
-          :class="statusInfo.class"
-          class="ml-2 text-[11px]">
-          {{ statusInfo.label }}
-        </Badge>
       </div>
       <div class="flex items-center gap-2">
         <div v-if="!isNew" class="relative">
@@ -268,7 +250,7 @@ function handleExposeParsed(result) {
         <EditTab v-else-if="activeTab === 'bearbeiten'" ref="editTabRef" :property="property" :is-new="isNew" @dirty="isDirty = true" @saved="(p) => { isDirty = false; emit('saved', p); }" />
         <UnitsTab v-else-if="activeTab === 'einheiten'" :property="property" />
         <OffersTab v-else-if="activeTab === 'kaufanbote'" :property="property" />
-        <MediaTab v-else-if="activeTab === 'medien'" ref="mediaTabRef" :property="property" @dirty="isDirty = true" />
+        <!-- Medien & Beschreibung sind jetzt Subtabs im Bearbeiten-Tab -->
         <PortalsTab v-else-if="activeTab === 'portale'" ref="portalsTabRef" :property="property" @dirty="isDirty = true" />
         <KnowledgeTab v-else-if="activeTab === 'wissen'" :property="property" />
         <FilesTab v-else-if="activeTab === 'dateien'" :property="property" />

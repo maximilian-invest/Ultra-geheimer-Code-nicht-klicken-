@@ -1,8 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, inject } from "vue";
 import {
-  Users, Key, Link2, Plus, Check, UserPlus, Unlink, ChevronRight,
-  ArrowLeft, Home, X
+  Users, Key, Link2, Plus, Check, UserPlus, Unlink, X
 } from "lucide-vue-next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,14 +47,6 @@ const newGroupName = ref("");
 const newGroupDesc = ref("");
 const showNewGroupForm = ref(false);
 
-// ─── Child create state ──────────────────────────────────
-const childCreateModal = ref(false);
-const childCreateLoading = ref(false);
-const childCategories = ref([]);
-const childCategoriesLoading = ref(false);
-const childSelected = ref(new Set());
-const childManualTitle = ref("");
-const childMode = ref("categories");
 
 // ─── Computed ────────────────────────────────────────────
 const isNewbuild = computed(() => props.property?.property_category === "newbuild");
@@ -275,91 +266,6 @@ async function createAndAssignGroup() {
   } catch (e) {}
 }
 
-// ─── API: Child create ───────────────────────────────────
-async function openChildCreateModal() {
-  childCreateModal.value = true;
-  childMode.value = "categories";
-  childManualTitle.value = "";
-  childSelected.value = new Set();
-  childCategories.value = [];
-  const p = props.property;
-  if (!p) return;
-  childCategoriesLoading.value = true;
-  try {
-    const res = await fetch(API.value + "&action=get_unit_categories&property_id=" + p.id);
-    const d = await res.json();
-    if (d.success && d.categories?.length) {
-      childCategories.value = d.categories.map(c => ({
-        ...c,
-        rooms: parseFloat(c.rooms),
-        selected: false,
-        title: Math.floor(parseFloat(c.rooms)) + "-Zimmer Wohnungen",
-      }));
-    }
-  } catch (e) {}
-  childCategoriesLoading.value = false;
-}
-
-function toggleCategory(rooms) {
-  const s = new Set(childSelected.value);
-  if (s.has(rooms)) s.delete(rooms);
-  else s.add(rooms);
-  childSelected.value = s;
-}
-
-async function createChildrenFromCategories() {
-  const p = props.property;
-  if (!p) return;
-  childCreateLoading.value = true;
-  try {
-    const cats = childCategories.value
-      .filter(c => childSelected.value.has(c.rooms))
-      .map(c => ({ rooms: c.rooms, title: c.title, min_price: c.min_price, min_area: c.min_area, max_area: c.max_area }));
-    const res = await fetch(API.value + "&action=create_children_from_categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ parent_id: p.id, categories: cats }),
-    });
-    const d = await res.json();
-    if (d.success) {
-      toast(d.message);
-      childCreateModal.value = false;
-      emit("property-created");
-      window.location.reload();
-    } else {
-      toast("Fehler: " + (d.error || "Unbekannt"));
-    }
-  } catch (e) {
-    toast("Fehler: " + e.message);
-  }
-  childCreateLoading.value = false;
-}
-
-async function createChildManual() {
-  const p = props.property;
-  if (!p || !childManualTitle.value.trim()) return;
-  childCreateLoading.value = true;
-  try {
-    const res = await fetch(API.value + "&action=create_child_property", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ parent_id: p.id, title: childManualTitle.value.trim() }),
-    });
-    const d = await res.json();
-    if (d.success) {
-      toast("Unterobjekt erstellt");
-      childCreateModal.value = false;
-      emit("property-created");
-      window.location.reload();
-    } else {
-      toast("Fehler: " + (d.error || "Unbekannt"));
-    }
-  } catch (e) {
-    toast("Fehler: " + e.message);
-  }
-  childCreateLoading.value = false;
-}
-
 function ownerInitials(name) {
   if (!name) return "?";
   return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
@@ -558,8 +464,8 @@ function ownerInitials(name) {
       </div>
     </div>
 
-    <!-- ── Portalzugang (only master/standalone) ── -->
-    <div v-if="!property.parent_id">
+    <!-- ── Portalzugang ── -->
+    <div>
       <div class="text-[13px] font-semibold mb-2.5 flex items-center gap-2" style="color:hsl(240 10% 3.9%)">
         Portalzugang
         <Badge v-if="portalUser" class="text-[10px] px-2 py-0" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)">Aktiv</Badge>
@@ -617,58 +523,26 @@ function ownerInitials(name) {
       </div>
     </div>
 
-    <!-- ── Hierarchie & Projekt ── -->
-    <div v-if="!property.parent_id">
+    <!-- ── Projektgruppe ── -->
+    <div>
       <div class="text-[13px] font-semibold mb-2.5 flex items-center gap-2" style="color:hsl(240 10% 3.9%)">
-        Hierarchie & Projekt
-        <Badge class="text-[10px] px-2 py-0" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)">Master-Objekt</Badge>
+        Projektgruppe
       </div>
       <div class="rounded-lg p-4 space-y-4" style="border:1px solid hsl(240 5.9% 90%)">
-
-        <!-- Children list -->
-        <div v-if="property.children?.length">
-          <div class="text-[11px] font-medium mb-1.5" style="color:hsl(240 3.8% 46.1%)">{{ property.children.length }} Unterobjekt(e)</div>
-          <div class="space-y-1">
-            <div v-for="child in property.children" :key="child.id"
-              class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-zinc-50 transition-colors" style="font-size:12px">
-              <ChevronRight class="w-3 h-3 text-indigo-400 flex-shrink-0" />
-              <span class="flex-1 truncate" style="color:hsl(240 10% 3.9%)">{{ child.project_name || child.address || 'Unterobjekt #' + child.id }}</span>
-              <span v-if="child.purchase_price" class="text-[11px] tabular-nums flex-shrink-0" style="color:hsl(240 3.8% 46.1%)">{{ formatPrice(child.purchase_price) }}</span>
-            </div>
-          </div>
-        </div>
-        <p v-else class="text-[12px]" style="color:hsl(240 3.8% 46.1%)">Keine Unterobjekte zugeordnet.</p>
 
         <!-- Project group -->
         <div v-if="property.project_group_id" class="text-[12px]" style="color:hsl(240 3.8% 46.1%)">
           Projektgruppe: <span class="font-medium" style="color:hsl(240 10% 3.9%)">{{ projectGroups.find(g => g.id == property.project_group_id)?.name || '#' + property.project_group_id }}</span>
         </div>
+        <p v-else class="text-[12px]" style="color:hsl(240 3.8% 46.1%)">Keine Projektgruppe zugeordnet.</p>
 
         <!-- Actions -->
         <div class="flex flex-wrap gap-2 pt-1">
-          <Button variant="outline" size="sm" @click="openChildCreateModal">
-            <Plus class="w-3.5 h-3.5 mr-1.5" /> Unterobjekt anlegen
-          </Button>
           <Button variant="outline" size="sm" @click="projectGroupPopup = true">
             <Link2 class="w-3.5 h-3.5 mr-1.5" /> Projektgruppe verwalten
           </Button>
         </div>
 
-      </div>
-    </div>
-
-    <!-- If child: show parent info -->
-    <div v-if="property.parent_id">
-      <div class="text-[13px] font-semibold mb-2.5 flex items-center gap-2" style="color:hsl(240 10% 3.9%)">
-        Hierarchie
-        <Badge variant="outline" class="text-[10px] px-2 py-0">Kind-Objekt</Badge>
-      </div>
-      <div class="rounded-lg p-4 flex items-center gap-3" style="border:1px solid hsl(240 5.9% 90%);background:hsl(263 70% 99%)">
-        <ArrowLeft class="w-4 h-4 flex-shrink-0 text-indigo-500" />
-        <div>
-          <div class="text-[12px]" style="color:hsl(240 3.8% 46.1%)">Gehört zu</div>
-          <div class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">{{ property.parent_name || 'Hauptobjekt #' + property.parent_id }}</div>
-        </div>
       </div>
     </div>
 
@@ -714,101 +588,5 @@ function ownerInitials(name) {
       </div>
     </div>
 
-    <!-- ── Child Create Modal ── -->
-    <div v-if="childCreateModal" class="fixed inset-0 z-[320] flex items-center justify-center" style="background:rgba(0,0,0,0.4);backdrop-filter:blur(4px)">
-      <div class="relative w-[480px] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl overflow-hidden bg-white" style="border:1px solid hsl(240 5.9% 90%)">
-        <div class="flex items-center justify-between px-5 py-4" style="border-bottom:1px solid hsl(240 5.9% 90%)">
-          <div>
-            <div class="text-[14px] font-semibold" style="color:hsl(240 10% 3.9%)">Unterobjekte anlegen</div>
-            <div class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">Kategorien aus Einheiten oder manuell</div>
-          </div>
-          <button @click="childCreateModal = false" class="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-zinc-100">
-            <X class="w-4 h-4 text-zinc-400" />
-          </button>
-        </div>
-
-        <!-- Mode toggle -->
-        <div class="flex gap-1 mx-5 mt-3 p-0.5 rounded-lg" style="background:hsl(240 4.8% 95.9% / 0.5)">
-          <button @click="childMode = 'categories'" class="flex-1 px-3 py-1.5 text-[11px] font-medium rounded-md transition-all"
-            :style="childMode === 'categories' ? 'background:white;color:hsl(240 10% 3.9%);box-shadow:0 1px 2px rgba(0,0,0,0.06)' : 'color:hsl(240 3.8% 46.1%)'">
-            Aus Einheiten
-          </button>
-          <button @click="childMode = 'manual'" class="flex-1 px-3 py-1.5 text-[11px] font-medium rounded-md transition-all"
-            :style="childMode === 'manual' ? 'background:white;color:hsl(240 10% 3.9%);box-shadow:0 1px 2px rgba(0,0,0,0.06)' : 'color:hsl(240 3.8% 46.1%)'">
-            Manuell
-          </button>
-        </div>
-
-        <!-- Categories mode -->
-        <div v-if="childMode === 'categories'" class="px-5 py-4">
-          <div v-if="childCategoriesLoading" class="flex items-center justify-center py-8">
-            <div class="w-5 h-5 border-2 border-zinc-300 border-t-indigo-500 rounded-full animate-spin"></div>
-          </div>
-          <div v-else-if="!childCategories.length" class="text-center py-6">
-            <div class="text-[12px]" style="color:hsl(240 3.8% 46.1%)">Keine Einheiten mit Zimmerzahl gefunden</div>
-            <div class="text-[11px] mt-1" style="color:hsl(240 3.8% 46.1%)">Erstelle zuerst Einheiten im Master-Objekt</div>
-          </div>
-          <div v-else class="space-y-2">
-            <div v-for="cat in childCategories" :key="cat.rooms"
-              @click="toggleCategory(cat.rooms)"
-              class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all"
-              :style="childSelected.has(cat.rooms) ? 'background:rgba(99,102,241,0.06);border:1.5px solid #6366f1' : 'background:hsl(240 4.8% 95.9% / 0.5);border:1.5px solid hsl(240 5.9% 90%)'">
-              <div class="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all"
-                :style="childSelected.has(cat.rooms) ? 'background:#6366f1' : 'background:white;border:1.5px solid hsl(240 5.9% 90%)'">
-                <Check v-if="childSelected.has(cat.rooms)" class="w-3 h-3 text-white" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="text-[13px] font-medium" style="color:hsl(240 10% 3.9%)">{{ Math.floor(cat.rooms) }}-Zimmer</span>
-                  <span class="text-[10px] px-1.5 py-0.5 rounded-full" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%)">{{ cat.unit_count }} Einheiten</span>
-                  <span v-if="cat.frei > 0" class="text-[10px] px-1.5 py-0.5 rounded-full" style="background:hsl(217 91% 96%);color:hsl(217 91% 40%)">{{ cat.frei }} frei</span>
-                </div>
-                <div class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">
-                  ab {{ formatPrice(cat.min_price) }}
-                  <template v-if="cat.min_price != cat.max_price"> bis {{ formatPrice(cat.max_price) }}</template>
-                  &middot; {{ cat.min_area }}{{ cat.min_area != cat.max_area ? ' – ' + cat.max_area : '' }} m²
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Manual mode -->
-        <div v-if="childMode === 'manual'" class="px-5 py-4 space-y-3">
-          <div>
-            <label class="block text-[11px] font-medium mb-1" style="color:hsl(240 3.8% 46.1%)">Titel *</label>
-            <Input v-model="childManualTitle" placeholder="z.B. Penthouse-Wohnungen" class="h-8 text-[12px]" @keydown.enter="createChildManual" />
-          </div>
-          <div class="text-[11px] rounded-lg px-3 py-2" style="background:hsl(263 70% 96%);color:hsl(263 70% 50%);border:1px solid hsl(263 70% 88%)">
-            Basisdaten werden vom Master übernommen.
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="flex justify-end gap-2 px-5 py-3" style="border-top:1px solid hsl(240 5.9% 90%);background:hsl(240 4.8% 95.9% / 0.5)">
-          <Button variant="outline" size="sm" @click="childCreateModal = false">Abbrechen</Button>
-          <Button v-if="childMode === 'categories'"
-            size="sm"
-            :disabled="!childSelected.size || childCreateLoading"
-            @click="createChildrenFromCategories">
-            <span v-if="childCreateLoading" class="flex items-center gap-1.5">
-              <span class="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
-              Erstelle...
-            </span>
-            <span v-else>{{ childSelected.size }} Kategorie{{ childSelected.size !== 1 ? 'n' : '' }} erstellen</span>
-          </Button>
-          <Button v-else
-            size="sm"
-            :disabled="!childManualTitle.trim() || childCreateLoading"
-            @click="createChildManual">
-            <span v-if="childCreateLoading" class="flex items-center gap-1.5">
-              <span class="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
-              Erstelle...
-            </span>
-            <span v-else>Erstellen</span>
-          </Button>
-        </div>
-      </div>
-    </div>
   </Teleport>
 </template>

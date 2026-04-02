@@ -286,6 +286,14 @@ const filteredGroups = computed(() =>
 const dateStr = computed(() => new Date().toLocaleDateString("de-AT", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }));
 const dateShort = computed(() => new Date().toLocaleDateString("de-AT", { day: "2-digit", month: "short", year: "numeric" }));
 
+// Page title for slim header
+const pageTitle = computed(() => {
+    const allItems = navGroups.flatMap(g => g.items);
+    const item = allItems.find(i => i.key === tab.value);
+    return item ? item.label : '';
+});
+const pageBadge = computed(() => navBadge(tab.value));
+
 function navBadge(key) {
     if (key === "today" && props.stats.new_24h > 0) return props.stats.new_24h;
     if (key === "priorities") { const total = (unansweredCount.value || 0) + (followupCount.value || 0); return total > 0 ? total : null; }
@@ -431,17 +439,14 @@ function navBadge(key) {
 
         <!-- Main -->
         <div class="flex-1 flex flex-col overflow-hidden" :class="'bg-white dark:bg-background'">
-            <div class="px-3 py-2 md:px-6 md:py-3 flex items-center justify-between">
-                <div class="flex items-center gap-3">
+            <div class="px-3 py-1.5 md:px-6 md:py-2 flex items-center justify-between border-b border-[var(--border)]">
+                <div class="flex items-center gap-2">
                     <button @click="mobileOpen = true" class="md:hidden flex items-center justify-center w-7 h-7 rounded-md -ml-1 text-muted-foreground hover:text-foreground hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors" title="Menü"><PanelLeft class="w-4 h-4" /></button>
                     <button @click="toggleSidebar()" class="hidden md:flex items-center justify-center w-7 h-7 rounded-md -ml-1 text-muted-foreground hover:text-foreground hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors" title="Sidebar"><PanelLeft class="w-4 h-4" /></button>
-                    <div>
-                        <h1 class="text-sm font-semibold">Hallo, {{ userName.split(" ")[0] }}</h1>
-                        <p class="text-xs text-[var(--muted-foreground)]">{{ dateStr }}</p>
-                    </div>
+                    <h1 class="text-sm font-semibold">{{ pageTitle }}</h1>
+                    <span v-if="pageBadge" class="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-600">{{ pageBadge }}</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs text-[var(--muted-foreground)] hidden sm:inline">{{ dateShort }}</span>
                     <!-- Notification Bell -->
                     <div class="relative">
                         <button @click.stop="bellOpen = !bellOpen; if (bellOpen && !notifLoaded) loadNotifications()" class="bell-button btn btn-ghost btn-icon btn-sm relative">

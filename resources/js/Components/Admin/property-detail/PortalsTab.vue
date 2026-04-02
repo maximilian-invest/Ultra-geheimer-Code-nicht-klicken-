@@ -29,8 +29,6 @@ const immojiPortalSaving = ref({});
 const immojiCapacity = ref(null);
 
 // ─── Computed ───
-const isMaster = computed(() => props.property?.property_category === "newbuild" && !props.property?.parent_id);
-const isChild = computed(() => !!props.property?.parent_id);
 
 // ─── Pflichtfelder für Veröffentlichung ───
 const REQUIRED_FIELDS = [
@@ -307,8 +305,8 @@ onMounted(() => {
       <div class="text-[11px]" style="color:hsl(0 40% 50%)">Bitte im Bearbeiten-Tab ausfüllen, bevor du auf Portalen veröffentlichst.</div>
     </div>
 
-    <!-- SR-Homes Website Toggle (master or standalone only) -->
-    <div v-if="!isChild" class="flex items-center justify-between py-3 border-b border-border/50">
+    <!-- SR-Homes Website Toggle -->
+    <div class="flex items-center justify-between py-3 border-b border-border/50">
       <div>
         <div class="text-sm font-medium">SR-Homes Website</div>
         <div class="text-xs text-muted-foreground">Auf sr-homes.at veröffentlichen</div>
@@ -316,18 +314,8 @@ onMounted(() => {
       <Switch :checked="srHomesEnabled" @update:checked="toggleSrHomes" />
     </div>
 
-    <!-- Master info banner -->
-    <div v-if="isMaster" class="bg-muted/50 border border-border/50 rounded-lg p-3 text-xs text-muted-foreground">
-      Plattform-Export läuft über die Unterobjekte
-    </div>
-
-    <!-- Child info banner -->
-    <div v-if="isChild" class="bg-muted/50 border border-border/50 rounded-lg p-3 text-xs text-muted-foreground">
-      Website-Anzeige wird über das Master-Projekt gesteuert
-    </div>
-
-    <!-- Immoji Section (children and standalone, not master) -->
-    <div v-if="!isMaster" class="space-y-4 pt-1">
+    <!-- Immoji Section -->
+    <div class="space-y-4 pt-1">
       <div class="flex items-center gap-2.5">
         <div class="w-2.5 h-2.5 rounded-full bg-violet-500 shrink-0" />
         <span class="text-sm font-semibold">Immoji</span>

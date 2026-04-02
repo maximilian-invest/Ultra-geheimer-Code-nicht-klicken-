@@ -310,11 +310,11 @@ function navBadge(key) {
                     </div>
                     <div class="flex-1 overflow-y-auto px-3 pb-3">
                         <template v-for="(group, gi) in filteredGroups" :key="gi">
-                            <Separator v-if="gi > 0" class="my-2" />
-                            <p class="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{{ group.label }}</p>
+                            <Separator v-if="gi > 0" class="my-1.5 mx-2" />
+                            <p class="px-2.5 pt-3 pb-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">{{ group.label }}</p>
                             <div class="flex flex-col gap-0.5">
                                 <button v-for="item in group.items" :key="item.key" @click="switchTab(item.key)"
-                                    class="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm transition-colors"
+                                    class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors"
                                     :class="tab === item.key
                                         ? 'bg-[#fff7ed] text-[#ea580c] font-medium'
                                         : 'text-muted-foreground hover:bg-orange-50 dark:hover:bg-gray-800 hover:text-foreground'">
@@ -350,18 +350,18 @@ function navBadge(key) {
         <!-- Desktop Sidebar -->
         <TooltipProvider :delay-duration="0">
         <aside class="hidden md:flex flex-col h-screen sticky top-0 border-r border-gray-200 bg-background transition-all duration-200"
-            :style="{ width: sidebarCollapsed ? '48px' : '240px' }">
-            <div class="px-3 py-4 flex items-center" :class="sidebarCollapsed ? 'justify-center' : 'gap-2'">
+            :style="{ width: sidebarCollapsed ? '48px' : '200px' }">
+            <div class="px-3 pt-4 pb-6 flex items-center" :class="sidebarCollapsed ? 'justify-center' : 'gap-2'">
                 <img v-if="sidebarCollapsed && !darkMode" src="/assets/logo-icon-orange.svg" alt="SR" class="shrink-0 cursor-pointer" style="width:28px" @click="toggleSidebar()" />
                 <img v-if="sidebarCollapsed && darkMode" src="/assets/logo-icon-white.svg" alt="SR" class="shrink-0 cursor-pointer" style="width:28px" @click="toggleSidebar()" />
                 <img v-if="!sidebarCollapsed && !darkMode" src="/assets/logo-full-orange.svg" alt="SR-Homes" class="shrink-0" style="height:24px" />
                 <img v-if="!sidebarCollapsed && darkMode" src="/assets/logo-full-white.svg" alt="SR-Homes" class="shrink-0" style="height:24px" />
                 <span v-if="!sidebarCollapsed" class="text-[10px] font-semibold px-1.5 py-0.5 rounded text-white bg-[#EE7600]">Cockpit</span>
             </div>
-            <nav class="flex-1 overflow-y-auto px-2 pb-2">
+            <nav class="flex-1 overflow-y-auto px-1.5 pb-2">
                 <template v-for="(group, gi) in filteredGroups" :key="gi">
-                    <Separator v-if="gi > 0" class="my-2" />
-                    <p v-if="!sidebarCollapsed" class="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{{ group.label }}</p>
+                    <Separator v-if="gi > 0" class="my-1.5 mx-2" />
+                    <p v-if="!sidebarCollapsed" class="px-2.5 pt-3 pb-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">{{ group.label }}</p>
                     <div class="flex flex-col gap-0.5" :class="sidebarCollapsed ? 'items-center' : ''">
                         <template v-for="item in group.items" :key="item.key">
                             <Tooltip v-if="sidebarCollapsed">
@@ -380,7 +380,7 @@ function navBadge(key) {
                                 </TooltipContent>
                             </Tooltip>
                             <button v-else @click="switchTab(item.key)"
-                                class="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm transition-colors"
+                                class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors"
                                 :class="tab === item.key
                                     ? 'bg-[#fff7ed] text-[#ea580c] font-medium'
                                     : 'text-muted-foreground hover:bg-orange-50 dark:hover:bg-gray-800 hover:text-foreground'">

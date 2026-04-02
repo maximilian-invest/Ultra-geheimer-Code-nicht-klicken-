@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import MediaTab from "@/Components/Admin/property-detail/MediaTab.vue";
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -88,6 +89,76 @@ const energyTypeOptions = [
 ];
 
 const energyClasses = ["A++", "A+", "A", "B", "C", "D", "E", "F", "G", "H"];
+
+const subtypeOptions = [
+  { value: "", label: "-- Bitte waehlen --" },
+  { value: "etagenwohnung", label: "Etagenwohnung" },
+  { value: "penthouse", label: "Penthouse" },
+  { value: "maisonette", label: "Maisonette" },
+  { value: "dachgeschosswohnung", label: "Dachgeschosswohnung" },
+  { value: "gartenwohnung", label: "Gartenwohnung" },
+  { value: "erdgeschosswohnung", label: "Erdgeschosswohnung" },
+  { value: "doppelhaushaelfte", label: "Doppelhaushaelfte" },
+  { value: "einfamilienhaus", label: "Einfamilienhaus" },
+  { value: "reihenhaus", label: "Reihenhaus" },
+  { value: "bungalow", label: "Bungalow" },
+  { value: "villa", label: "Villa" },
+  { value: "mehrfamilienhaus", label: "Mehrfamilienhaus" },
+  { value: "bauernhaus", label: "Bauernhaus" },
+];
+
+const constructionTypeOptions = [
+  { value: "", label: "-- Bitte waehlen --" },
+  { value: "massiv", label: "Massiv" },
+  { value: "fertighaus", label: "Fertighaus" },
+  { value: "holz", label: "Holz" },
+  { value: "leichtbau", label: "Leichtbau" },
+  { value: "sonstige", label: "Sonstige" },
+];
+
+const ownershipOptions = [
+  { value: "", label: "-- Bitte waehlen --" },
+  { value: "wohnungseigentum", label: "Wohnungseigentum" },
+  { value: "miteigentum", label: "Miteigentum" },
+  { value: "alleineigentum", label: "Alleineigentum" },
+  { value: "baurecht", label: "Baurecht" },
+  { value: "genossenschaft", label: "Genossenschaft" },
+  { value: "sonstige", label: "Sonstige" },
+];
+
+const buildingOptions = {
+  constructionMethod: ["", "Massivbau", "Holzbau", "Stahlbau", "Fertigteilbau", "Mischbauweise"],
+  constructionCondition: ["", "Neubau", "Bestand", "Abbruchreif", "Rohbau", "Ausbauhaus"],
+  expansionStage: ["", "Schluesselfertig", "Belagsfertig", "Rohbau", "Ausbauhaus"],
+  facadeType: ["", "Putz", "Klinker", "Holz", "Glas", "Metall", "Naturstein", "WDVS"],
+  conditionGrade: ["", "Sehr gut", "Gut", "Befriedigend", "Mangelhaft", "Unzureichend"],
+  heatingType: ["", "Zentralheizung", "Etagenheizung", "Ofenheizung", "Fussbodenheizung", "Fernwaerme", "Waermepumpe"],
+  fuelType: ["", "Gas", "Oel", "Holz", "Pellets", "Strom", "Solar", "Erdwaerme", "Fernwaerme"],
+  hotWaterType: ["", "Zentral", "Boiler", "Durchlauferhitzer", "Solar"],
+  electricalType: ["", "Standard", "Aufputz", "Unterputz"],
+  ventilationType: ["", "Natuerlich", "Mechanisch", "Kontrolliert"],
+  tvConnection: ["", "Kabel", "SAT", "DVB-T", "IPTV"],
+  phoneConnection: ["", "Analog", "ISDN", "VoIP"],
+  internetConnection: ["", "DSL", "Glasfaser", "Kabel", "LTE/5G"],
+  securityType: ["", "Alarmanlage", "Videoueberwachung", "Gegensprechanlage", "Sicherheitstuer"],
+  roofShape: ["", "Satteldach", "Flachdach", "Walmdach", "Pultdach", "Mansarddach", "Zeltdach"],
+  roofCovering: ["", "Ziegel", "Betondachstein", "Schiefer", "Blech", "Bitumen", "Gruen"],
+  windowMaterial: ["", "Kunststoff", "Holz", "Aluminium", "Holz-Alu"],
+  glazingType: ["", "Einfach", "Doppelt", "Dreifach", "Schallschutz"],
+  sunProtection: ["", "Rollladen", "Jalousien", "Markise", "Aussenliegend", "Innenliegend"],
+  stairsType: ["", "Innen", "Aussen", "Aufzug"],
+  elevatorType: ["", "Vorhanden", "Nicht vorhanden"],
+  commonAreaCondition: ["", "Sehr gut", "Gut", "Befriedigend", "Mangelhaft"],
+};
+
+function bd(section, key) {
+  return form.building_details?.[section]?.[key] || "";
+}
+function setBd(section, key, value) {
+  if (!form.building_details) form.building_details = {};
+  if (!form.building_details[section]) form.building_details[section] = {};
+  form.building_details[section][key] = value;
+}
 
 // ─── Field visibility map ───
 // W = Website, P = Portal, I = Intern (admin only)
@@ -274,6 +345,15 @@ const form = reactive({
   object_condition: "",
   energy_hwb: null, energy_fgee: null, energy_class: "",
   rooms: null,
+  construction_type: "", ownership_type: "", subtitle: "", ad_tag: "",
+  closing_date: null, internal_rating: null,
+  house_number: "", staircase: "", door: "", entrance: "", address_floor: "",
+  heating_costs: null, warm_water_costs: null, cooling_costs: null,
+  admin_costs: null, elevator_costs: null, parking_costs_monthly: null,
+  other_costs: null, monthly_costs: null,
+  land_register_fee_pct: null, land_transfer_tax_pct: null, contract_fee_pct: null,
+  buyer_commission_free: false,
+  building_details: {},
 });
 
 // ─── Snapshot for discard ───
@@ -360,7 +440,7 @@ watch(form, () => {
 }, { deep: true });
 
 // ─── Live Preview ───
-const previewOpen = ref(true);
+const previewOpen = ref(false);
 const previewFrame = ref(null);
 
 const previewUrl = computed(() => {
@@ -560,19 +640,29 @@ defineExpose({ save, discard });
 </script>
 
 <template>
-  <div class="flex gap-3">
-    <!-- Left: Form content -->
-    <div class="flex-1 min-w-0 space-y-2">
-
-    <!-- Felder auslesen -->
-    <div class="flex items-center gap-2 px-1">
-      <Button size="sm" variant="outline" class="h-7 text-[11px] gap-1" @click="parseOpen = !parseOpen; if (parseOpen && !parseFiles.length) loadParseFiles()">
-        <Sparkles class="w-3 h-3" />
-        Felder auslesen
-      </Button>
+  <Tabs v-model="activeSubTab" default-value="objekt">
+    <!-- Subtab bar — flush under main tabs -->
+    <div class="-mx-6 -mt-6 mb-4">
+      <TabsList class="flex w-full justify-start bg-zinc-100/70 border-b border-zinc-200 rounded-none h-auto p-0 px-6 gap-0">
+        <TabsTrigger value="objekt" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Objekt</TabsTrigger>
+        <TabsTrigger value="preise" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Preise</TabsTrigger>
+        <TabsTrigger value="flaechen" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Flächen</TabsTrigger>
+        <TabsTrigger v-if="!isChild" value="ausstattung" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Ausstattung</TabsTrigger>
+        <TabsTrigger value="energie" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Energie</TabsTrigger>
+        <TabsTrigger value="bau" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Bau</TabsTrigger>
+        <TabsTrigger value="gebaeude" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Gebaeude</TabsTrigger>
+        <TabsTrigger value="beschreibung" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Beschreibung</TabsTrigger>
+        <TabsTrigger value="medien" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Medien</TabsTrigger>
+        <TabsTrigger v-if="!isNewbuild && !isChild" value="historie" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Historie</TabsTrigger>
+        <div class="flex-1"></div>
+        <button class="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground px-2 py-1.5 transition-colors" @click="parseOpen = !parseOpen; if (parseOpen && !parseFiles.length) loadParseFiles()">
+          <Sparkles class="w-3 h-3" />
+          Felder auslesen
+        </button>
+      </TabsList>
     </div>
 
-    <div v-if="parseOpen" class="rounded-lg p-4 space-y-3" style="border:1px solid hsl(240 5.9% 90%); background:hsl(240 4.8% 95.9% / 0.3)">
+    <div v-if="parseOpen" class="rounded-lg p-4 space-y-3 mb-3" style="border:1px solid hsl(240 5.9% 90%); background:hsl(240 4.8% 95.9% / 0.3)">
       <div class="flex items-center justify-between">
         <h3 class="text-[13px] font-semibold">Felder aus Dokumenten auslesen</h3>
         <button @click="parseOpen = false" class="text-muted-foreground hover:text-foreground">
@@ -603,28 +693,17 @@ defineExpose({ save, discard });
       </Button>
     </div>
 
-    <Tabs v-model="activeSubTab" default-value="objekt">
-      <TabsList class="flex-wrap max-sm:overflow-x-auto max-sm:flex-nowrap max-sm:w-full h-auto gap-0.5 p-1 bg-zinc-100">
-        <TabsTrigger value="objekt" class="flex-shrink-0 text-[12px] px-3 py-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:text-white data-[state=active]:shadow-none">Objekt</TabsTrigger>
-        <TabsTrigger value="preise" class="flex-shrink-0 text-[12px] px-3 py-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:text-white data-[state=active]:shadow-none">Preise</TabsTrigger>
-        <TabsTrigger value="flaechen" class="flex-shrink-0 text-[12px] px-3 py-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:text-white data-[state=active]:shadow-none">Flächen</TabsTrigger>
-        <TabsTrigger v-if="!isChild" value="ausstattung" class="flex-shrink-0 text-[12px] px-3 py-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:text-white data-[state=active]:shadow-none">Ausstattung</TabsTrigger>
-        <TabsTrigger value="energie" class="flex-shrink-0 text-[12px] px-3 py-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:text-white data-[state=active]:shadow-none">Energie</TabsTrigger>
-        <TabsTrigger value="bau" class="flex-shrink-0 text-[12px] px-3 py-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:text-white data-[state=active]:shadow-none">Bau</TabsTrigger>
-        <TabsTrigger v-if="!isNewbuild && !isChild" value="historie" class="flex-shrink-0 text-[12px] px-3 py-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:text-white data-[state=active]:shadow-none">Historie</TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="objekt" class="mt-3">
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Objekt</div>
-        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+      <TabsContent value="objekt" class="mt-0">
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Objekt</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ref-ID <span v-if="vis('ref_id').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('ref_id').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('ref_id').tip" /></span></label>
-            <Input v-model="form.ref_id" class="h-7 text-[12px]" />
+            <Input v-model="form.ref_id" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Objekttyp <span v-if="vis('object_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('object_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('object_type').tip" /></span></label>
             <Select v-model="form.object_type">
-              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="t in objectTypes" :key="t" :value="t">{{ t }}</SelectItem>
               </SelectContent>
@@ -633,7 +712,7 @@ defineExpose({ save, discard });
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Transaktionsart <span v-if="vis('marketing_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('marketing_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('marketing_type').tip" /></span></label>
             <Select v-model="form.marketing_type">
-              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="t in marketingTypes" :key="t.value" :value="t.value">{{ t.label }}</SelectItem>
               </SelectContent>
@@ -642,7 +721,7 @@ defineExpose({ save, discard });
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kategorie <span v-if="vis('property_category').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('property_category').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('property_category').tip" /></span></label>
             <Select v-model="form.property_category">
-              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="c in categoryOptions" :key="c.value" :value="c.value">{{ c.label }}</SelectItem>
               </SelectContent>
@@ -650,46 +729,101 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Projektname <span v-if="vis('project_name').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('project_name').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('project_name').tip" /></span></label>
-            <Input v-model="form.project_name" class="h-7 text-[12px]" />
+            <Input v-model="form.project_name" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Inserat-Titel <span v-if="vis('title').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('title').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('title').tip" /></span></label>
-            <Input v-model="form.title" class="h-7 text-[12px]" />
+            <Input v-model="form.title" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Unterobjektart</label>
+            <Select v-model="form.construction_type">
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in subtypeOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Bauart</label>
+            <Select v-model="form.ownership_type">
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in constructionTypeOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Eigentumsform</label>
+            <Select v-model="form.subtitle">
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in ownershipOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Wohneinheiten</label>
+            <Input v-model="form.unit_count" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div class="col-span-2">
+            <label class="text-[10px] text-muted-foreground mb-0.5">Untertitel</label>
+            <Input v-model="form.ad_tag" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Werbetag</label>
+            <Input v-model="form.closing_date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
 
         <Separator class="my-2" />
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Adresse</div>
-        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Adresse</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div class="col-span-2">
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Strasse & Hausnummer <span v-if="vis('address').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('address').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('address').tip" /></span></label>
-            <Input v-model="form.address" class="h-7 text-[12px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Strasse <span v-if="vis('address').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('address').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('address').tip" /></span></label>
+            <Input v-model="form.address" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Hausnummer</label>
+            <Input v-model="form.house_number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">PLZ <span v-if="vis('zip').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('zip').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('zip').tip" /></span></label>
-            <Input v-model="form.zip" class="h-7 text-[12px]" />
+            <Input v-model="form.zip" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stadt <span v-if="vis('city').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('city').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('city').tip" /></span></label>
-            <Input v-model="form.city" class="h-7 text-[12px]" />
+            <Input v-model="form.city" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Stiege</label>
+            <Input v-model="form.staircase" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Tuer</label>
+            <Input v-model="form.door" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Etage</label>
+            <Input v-model="form.address_floor" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Breitengrad <span v-if="vis('latitude').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('latitude').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('latitude').tip" /></span></label>
-            <Input v-model="form.latitude" type="number" step="0.0000001" class="h-7 text-[12px]" />
+            <Input v-model="form.latitude" type="number" step="0.0000001" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Laengengrad <span v-if="vis('longitude').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('longitude').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('longitude').tip" /></span></label>
-            <Input v-model="form.longitude" type="number" step="0.0000001" class="h-7 text-[12px]" />
+            <Input v-model="form.longitude" type="number" step="0.0000001" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
 
         <Separator class="my-2" />
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Zuordnung</div>
-        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Zuordnung</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler <span v-if="vis('broker_id').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('broker_id').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('broker_id').tip" /></span></label>
             <Select v-model="form.broker_id">
-              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="b in brokerList" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
               </SelectContent>
@@ -698,7 +832,7 @@ defineExpose({ save, discard });
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Status <span v-if="vis('status').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('status').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('status').tip" /></span></label>
             <Select v-model="form.status">
-              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="auftrag">Auftrag</SelectItem>
                 <SelectItem value="aktiv">Aktiv</SelectItem>
@@ -710,100 +844,164 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Fertigstellung</label>
-            <Input v-model="form.construction_end" type="date" class="h-7 text-[12px]" />
+            <Input v-model="form.construction_end" type="date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Bautraeger <span v-if="vis('builder_company').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('builder_company').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('builder_company').tip" /></span></label>
-            <Input v-model="form.builder_company" class="h-7 text-[12px]" />
+            <Input v-model="form.builder_company" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
       </TabsContent>
 
-      <TabsContent value="preise" class="mt-3">
-        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+      <TabsContent value="preise" class="mt-0">
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 block">{{ isNewbuild ? 'Gesamtvolumen' : 'Kaufpreis / Miete' }} <span class="inline-flex gap-0.5"><component :is="iconMap['globe']" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" title="Sichtbar auf der Website" /></span></label>
-            <Input v-model="form.purchase_price" type="number" step="0.01" :disabled="isNewbuild" class="h-7 text-[12px]" />
+            <Input v-model="form.purchase_price" type="number" step="0.01" :disabled="isNewbuild" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Preis bis <span v-if="vis('price_to').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('price_to').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('price_to').tip" /></span></label>
-            <Input v-model="form.price_to" type="number" step="0.01" class="h-7 text-[12px]" />
+            <Input v-model="form.price_to" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Preis/m2 <span v-if="vis('price_per_m2').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('price_per_m2').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('price_per_m2').tip" /></span></label>
-            <Input v-model="form.price_per_m2" type="number" step="0.01" class="h-7 text-[12px]" />
+            <Input v-model="form.price_per_m2" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplatz-Preis <span v-if="vis('parking_price').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_price').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_price').tip" /></span></label>
-            <Input v-model="form.parking_price" type="number" step="0.01" class="h-7 text-[12px]" />
+            <Input v-model="form.parking_price" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Betriebskosten <span v-if="vis('operating_costs').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('operating_costs').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('operating_costs').tip" /></span></label>
-            <Input v-model="form.operating_costs" type="number" step="0.01" class="h-7 text-[12px]" />
+            <Input v-model="form.operating_costs" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ruecklage <span v-if="vis('maintenance_reserves').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('maintenance_reserves').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('maintenance_reserves').tip" /></span></label>
-            <Input v-model="form.maintenance_reserves" type="number" step="0.01" class="h-7 text-[12px]" />
+            <Input v-model="form.maintenance_reserves" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
 
         <template v-if="form.marketing_type === 'miete'">
           <Separator class="my-2" />
-          <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Miete</div>
-          <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+          <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Miete</div>
+          <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
             <div>
               <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kaltmiete <span v-if="vis('rental_price').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rental_price').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rental_price').tip" /></span></label>
-              <Input v-model="form.rental_price" type="number" step="0.01" class="h-7 text-[12px]" />
+              <Input v-model="form.rental_price" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
             </div>
             <div>
               <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Warmmiete <span v-if="vis('rent_warm').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rent_warm').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rent_warm').tip" /></span></label>
-              <Input v-model="form.rent_warm" type="number" step="0.01" class="h-7 text-[12px]" />
+              <Input v-model="form.rent_warm" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
             </div>
             <div>
               <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kaution <span v-if="vis('rent_deposit').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rent_deposit').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rent_deposit').tip" /></span></label>
-              <Input v-model="form.rent_deposit" type="number" step="0.01" class="h-7 text-[12px]" />
+              <Input v-model="form.rent_deposit" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
             </div>
           </div>
         </template>
 
         <Separator class="my-2" />
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Provision Intern</div>
-        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Provision Intern</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provision % <span v-if="vis('commission_percent').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_percent').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_percent').tip" /></span></label>
-            <Input v-model="form.commission_percent" type="number" step="0.01" class="h-7 text-[12px]" />
+            <Input v-model="form.commission_percent" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provision EUR <span v-if="vis('commission_total').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_total').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_total').tip" /></span></label>
-            <Input v-model="form.commission_total" type="number" step="0.01" class="h-7 text-[12px]" />
+            <Input v-model="form.commission_total" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div class="col-span-2">
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provisionsnotiz <span v-if="vis('commission_note').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_note').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_note').tip" /></span></label>
-            <Input v-model="form.commission_note" class="h-7 text-[12px]" />
+            <Input v-model="form.commission_note" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
 
         <Separator class="my-2" />
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Provision Oeffentlich</div>
-        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Provision Oeffentlich</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler-Provision % <span v-if="vis('buyer_commission_percent').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('buyer_commission_percent').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('buyer_commission_percent').tip" /></span></label>
-            <Input v-model="form.buyer_commission_percent" type="number" step="0.01" class="h-7 text-[12px]" />
+            <Input v-model="form.buyer_commission_percent" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler-Provision EUR <span v-if="vis('commission_makler').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_makler').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_makler').tip" /></span></label>
-            <Input v-model="form.commission_makler" type="number" step="0.01" class="h-7 text-[12px]" />
+            <Input v-model="form.commission_makler" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div class="col-span-2">
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provisionstext (Inserate) <span v-if="vis('buyer_commission_text').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('buyer_commission_text').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('buyer_commission_text').tip" /></span></label>
-            <Input v-model="form.buyer_commission_text" class="h-7 text-[12px]" />
+            <Input v-model="form.buyer_commission_text" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
+        </div>
+
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Erweiterte Kosten</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Heizkosten</label>
+            <Input v-model="form.heating_costs" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Warmwasser</label>
+            <Input v-model="form.warm_water_costs" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Kuehlung</label>
+            <Input v-model="form.cooling_costs" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Verwaltung</label>
+            <Input v-model="form.admin_costs" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Aufzug</label>
+            <Input v-model="form.elevator_costs" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Parkplatz</label>
+            <Input v-model="form.parking_costs_monthly" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Sonstige</label>
+            <Input v-model="form.other_costs" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Monatliche Kosten</label>
+            <Input v-model="form.monthly_costs" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+        </div>
+
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Nebenkosten</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Grundbucheintragung %</label>
+            <Input v-model="form.land_register_fee_pct" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Grunderwerbssteuer %</label>
+            <Input v-model="form.land_transfer_tax_pct" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div>
+            <label class="text-[10px] text-muted-foreground mb-0.5">Vertragserstellung %</label>
+            <Input v-model="form.contract_fee_pct" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+        </div>
+
+        <Separator class="my-2" />
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button"
+            @click="form.buyer_commission_free = !form.buyer_commission_free"
+            :style="form.buyer_commission_free ? 'background:hsl(240 5.9% 10%);color:white' : 'border:1px solid hsl(240 5.9% 90%)'"
+            class="px-2.5 py-1 rounded-md text-[11px] transition-colors">
+            Provisionsfrei
+          </button>
         </div>
       </TabsContent>
 
-      <TabsContent value="flaechen" class="mt-3">
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Flaechen (m2)</div>
-        <div class="grid grid-cols-6 max-sm:grid-cols-3 gap-x-2 gap-y-1.5">
+      <TabsContent value="flaechen" class="mt-0">
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Flaechen (m2)</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div v-for="f in [
             { key: 'living_area', label: 'Wohnflaeche' },
             { key: 'realty_area', label: 'Nutzflaeche' },
@@ -821,59 +1019,59 @@ defineExpose({ save, discard });
               <Input :model-value="form[f.key]" type="number" step="0.01" class="h-8 text-[13px] bg-muted/50 cursor-not-allowed" disabled title="Wird automatisch aus Einheiten berechnet" />
               <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">auto</span>
             </div>
-            <Input v-else v-model="form[f.key]" type="number" step="0.01" class="h-7 text-[12px]" />
+            <Input v-else v-model="form[f.key]" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div></div>
         </div>
 
         <Separator class="my-2" />
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Raeume & Stockwerk</div>
-        <div class="grid grid-cols-6 max-sm:grid-cols-3 gap-x-2 gap-y-1.5">
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Raeume & Stockwerk</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Zimmer <span v-if="vis('rooms_amount').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rooms_amount').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rooms_amount').tip" /></span></label>
-            <Input v-model="form.rooms_amount" type="number" step="0.5" class="h-7 text-[12px]" />
+            <Input v-model="form.rooms_amount" type="number" step="0.5" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Schlafzimmer <span v-if="vis('bedrooms').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('bedrooms').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('bedrooms').tip" /></span></label>
-            <Input v-model="form.bedrooms" type="number" step="1" class="h-7 text-[12px]" />
+            <Input v-model="form.bedrooms" type="number" step="1" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Badezimmer <span v-if="vis('bathrooms').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('bathrooms').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('bathrooms').tip" /></span></label>
-            <Input v-model="form.bathrooms" type="number" step="1" class="h-7 text-[12px]" />
+            <Input v-model="form.bathrooms" type="number" step="1" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">WCs <span v-if="vis('toilets').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('toilets').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('toilets').tip" /></span></label>
-            <Input v-model="form.toilets" type="number" step="1" class="h-7 text-[12px]" />
+            <Input v-model="form.toilets" type="number" step="1" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerk <span v-if="vis('floor_number').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('floor_number').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('floor_number').tip" /></span></label>
-            <Input v-model="form.floor_number" type="number" class="h-7 text-[12px]" />
+            <Input v-model="form.floor_number" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerke ges. <span v-if="vis('floor_count').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('floor_count').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('floor_count').tip" /></span></label>
-            <Input v-model="form.floor_count" type="number" class="h-7 text-[12px]" />
+            <Input v-model="form.floor_count" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Garagen <span v-if="vis('garage_spaces').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('garage_spaces').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('garage_spaces').tip" /></span></label>
-            <Input v-model="form.garage_spaces" type="number" class="h-7 text-[12px]" />
+            <Input v-model="form.garage_spaces" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplaetze <span v-if="vis('parking_spaces').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_spaces').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_spaces').tip" /></span></label>
-            <Input v-model="form.parking_spaces" type="number" class="h-7 text-[12px]" />
+            <Input v-model="form.parking_spaces" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Parkplatz-Typ <span v-if="vis('parking_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_type').tip" /></span></label>
-            <Input v-model="form.parking_type" class="h-7 text-[12px]" />
+            <Input v-model="form.parking_type" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
       </TabsContent>
 
-      <TabsContent v-if="!isChild" value="ausstattung" class="mt-3">
-        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+      <TabsContent v-if="!isChild" value="ausstattung" class="mt-0">
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Zustand <span v-if="vis('realty_condition').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('realty_condition').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('realty_condition').tip" /></span></label>
             <Select v-model="form.realty_condition">
-              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in conditionOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
               </SelectContent>
@@ -882,7 +1080,7 @@ defineExpose({ save, discard });
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Qualitaet <span v-if="vis('quality').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('quality').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('quality').tip" /></span></label>
             <Select v-model="form.quality">
-              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in qualityOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
               </SelectContent>
@@ -890,16 +1088,16 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Baujahr <span v-if="vis('construction_year').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('construction_year').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('construction_year').tip" /></span></label>
-            <Input v-model="form.construction_year" type="number" class="h-7 text-[12px]" />
+            <Input v-model="form.construction_year" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Sanierungsjahr <span v-if="vis('year_renovated').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('year_renovated').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('year_renovated').tip" /></span></label>
-            <Input v-model="form.year_renovated" type="number" class="h-7 text-[12px]" />
+            <Input v-model="form.year_renovated" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kueche <span v-if="vis('kitchen_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('kitchen_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('kitchen_type').tip" /></span></label>
             <Select v-model="form.kitchen_type">
-              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in kitchenOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
               </SelectContent>
@@ -907,28 +1105,28 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Heizung <span v-if="vis('heating').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating').tip" /></span></label>
-            <Input v-model="form.heating" class="h-7 text-[12px]" />
+            <Input v-model="form.heating" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Bodenbelag <span v-if="vis('flooring').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('flooring').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('flooring').tip" /></span></label>
-            <Input v-model="form.flooring" class="h-7 text-[12px]" />
+            <Input v-model="form.flooring" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Badausstattung <span v-if="vis('bathroom_equipment').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('bathroom_equipment').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('bathroom_equipment').tip" /></span></label>
-            <Input v-model="form.bathroom_equipment" class="h-7 text-[12px]" />
+            <Input v-model="form.bathroom_equipment" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausrichtung <span v-if="vis('orientation').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('orientation').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('orientation').tip" /></span></label>
-            <Input v-model="form.orientation" class="h-7 text-[12px]" />
+            <Input v-model="form.orientation" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Moeblierung <span v-if="vis('furnishing').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('furnishing').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('furnishing').tip" /></span></label>
-            <Input v-model="form.furnishing" class="h-7 text-[12px]" />
+            <Input v-model="form.furnishing" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
 
         <Separator class="my-2" />
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Merkmale</div>
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Merkmale</div>
         <div class="flex flex-wrap gap-1.5">
           <button v-for="feat in features" :key="feat.key" type="button"
             @click="form[feat.key] = !form[feat.key]"
@@ -939,12 +1137,12 @@ defineExpose({ save, discard });
         </div>
       </TabsContent>
 
-      <TabsContent value="energie" class="mt-3">
-        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+      <TabsContent value="energie" class="mt-0">
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausweistyp <span v-if="vis('energy_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_type').tip" /></span></label>
             <Select v-model="form.energy_type">
-              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in energyTypeOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
               </SelectContent>
@@ -953,7 +1151,7 @@ defineExpose({ save, discard });
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieklasse <span v-if="vis('heating_demand_class').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating_demand_class').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating_demand_class').tip" /></span></label>
             <Select v-model="form.heating_demand_class">
-              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="">--</SelectItem>
                 <SelectItem v-for="c in energyClasses" :key="c" :value="c">{{ c }}</SelectItem>
@@ -962,65 +1160,241 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">HWB (kWh/m2a) <span v-if="vis('heating_demand_value').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating_demand_value').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating_demand_value').tip" /></span></label>
-            <Input v-model="form.heating_demand_value" type="number" step="0.01" class="h-7 text-[12px]" />
+            <Input v-model="form.heating_demand_value" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">fGEE <span v-if="vis('energy_efficiency_value').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_efficiency_value').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_efficiency_value').tip" /></span></label>
-            <Input v-model="form.energy_efficiency_value" type="number" step="0.01" class="h-7 text-[12px]" />
+            <Input v-model="form.energy_efficiency_value" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energietraeger <span v-if="vis('energy_primary_source').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_primary_source').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_primary_source').tip" /></span></label>
-            <Input v-model="form.energy_primary_source" class="h-7 text-[12px]" />
+            <Input v-model="form.energy_primary_source" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Gueltig bis <span v-if="vis('energy_valid_until').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_valid_until').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_valid_until').tip" /></span></label>
-            <Input v-model="form.energy_valid_until" type="date" class="h-7 text-[12px]" />
+            <Input v-model="form.energy_valid_until" type="date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
-          <div class="col-span-6 max-sm:col-span-2">
+          <div class="col-span-3 max-sm:col-span-2">
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieausweis (Freitext) <span v-if="vis('energy_certificate').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_certificate').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_certificate').tip" /></span></label>
             <Textarea v-model="form.energy_certificate" rows="2" class="text-[13px]" />
           </div>
         </div>
       </TabsContent>
 
-      <TabsContent value="bau" class="mt-3">
-        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+      <TabsContent value="bau" class="mt-0">
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Verfuegbar ab <span v-if="vis('available_from').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('available_from').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('available_from').tip" /></span></label>
-            <Input v-model="form.available_from" type="date" class="h-7 text-[12px]" />
+            <Input v-model="form.available_from" type="date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Verfuegbarkeit <span v-if="vis('available_text').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('available_text').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('available_text').tip" /></span></label>
-            <Input v-model="form.available_text" class="h-7 text-[12px]" placeholder="sofort, nach Vereinbarung" />
+            <Input v-model="form.available_text" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" placeholder="sofort, nach Vereinbarung" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Baubeginn <span v-if="vis('construction_start').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('construction_start').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('construction_start').tip" /></span></label>
-            <Input v-model="form.construction_start" type="date" class="h-7 text-[12px]" />
+            <Input v-model="form.construction_start" type="date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 block">Fertigstellung</label>
-            <Input v-model="form.construction_end" type="date" class="h-7 text-[12px]" />
+            <Input v-model="form.construction_end" type="date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Bautraeger</label>
-            <Input v-model="form.builder_company" class="h-7 text-[12px]" />
+            <Input v-model="form.builder_company" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Hausverwaltung <span v-if="vis('property_manager').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('property_manager').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('property_manager').tip" /></span></label>
-            <Input v-model="form.property_manager" class="h-7 text-[12px]" />
+            <Input v-model="form.property_manager" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Inseriert seit <span v-if="vis('inserat_since').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('inserat_since').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('inserat_since').tip" /></span></label>
-            <Input v-model="form.inserat_since" type="date" class="h-7 text-[12px]" />
+            <Input v-model="form.inserat_since" type="date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Plattformen <span v-if="vis('platforms').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('platforms').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('platforms').tip" /></span></label>
-            <Input v-model="form.platforms" class="h-7 text-[12px]" placeholder="willhaben, immoscout24" />
+            <Input v-model="form.platforms" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" placeholder="willhaben, immoscout24" />
           </div>
         </div>
       </TabsContent>
 
-      <TabsContent v-if="!isNewbuild && !isChild" value="historie" class="mt-3">
+      <TabsContent value="gebaeude" class="mt-0">
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Bau</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+          <div v-for="f in [
+            { section: 'construction', key: 'method', label: 'Bauweise', opts: buildingOptions.constructionMethod },
+            { section: 'construction', key: 'condition', label: 'Bauzustand', opts: buildingOptions.constructionCondition },
+            { section: 'construction', key: 'expansion', label: 'Ausbaustufe', opts: buildingOptions.expansionStage },
+          ]" :key="f.section+f.key">
+            <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
+            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Fassade</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+          <div v-for="f in [
+            { section: 'facade', key: 'type', label: 'Fassadentyp', opts: buildingOptions.facadeType },
+            { section: 'facade', key: 'exterior_condition', label: 'Aussenputz Zustand', opts: buildingOptions.conditionGrade },
+            { section: 'facade', key: 'masonry_condition', label: 'Mauerwerk Zustand', opts: buildingOptions.conditionGrade },
+            { section: 'facade', key: 'basement_masonry', label: 'Kellermauerwerk', opts: buildingOptions.conditionGrade },
+            { section: 'facade', key: 'insulation', label: 'Daemmung', opts: buildingOptions.conditionGrade },
+          ]" :key="f.section+f.key">
+            <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
+            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Heizung &amp; Warmwasser</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+          <div v-for="f in [
+            { section: 'heating', key: 'type', label: 'Heizungsart', opts: buildingOptions.heatingType },
+            { section: 'heating', key: 'fuel', label: 'Brennstoff', opts: buildingOptions.fuelType },
+            { section: 'heating', key: 'hot_water', label: 'Warmwasser', opts: buildingOptions.hotWaterType },
+          ]" :key="f.section+f.key">
+            <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
+            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Elektrik &amp; Belueftung</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+          <div v-for="f in [
+            { section: 'electrical', key: 'type', label: 'Elektrik', opts: buildingOptions.electricalType },
+            { section: 'electrical', key: 'condition', label: 'Elektrik Zustand', opts: buildingOptions.conditionGrade },
+            { section: 'electrical', key: 'ventilation_type', label: 'Belueftung', opts: buildingOptions.ventilationType },
+            { section: 'electrical', key: 'ventilation_condition', label: 'Belueftung Zustand', opts: buildingOptions.conditionGrade },
+          ]" :key="f.section+f.key">
+            <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
+            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Telekommunikation</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+          <div v-for="f in [
+            { section: 'telecom', key: 'tv', label: 'TV-Anschluss', opts: buildingOptions.tvConnection },
+            { section: 'telecom', key: 'phone', label: 'Telefonanschluss', opts: buildingOptions.phoneConnection },
+            { section: 'telecom', key: 'internet', label: 'Internet', opts: buildingOptions.internetConnection },
+          ]" :key="f.section+f.key">
+            <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
+            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Dach</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+          <div v-for="f in [
+            { section: 'roof', key: 'shape', label: 'Dachform', opts: buildingOptions.roofShape },
+            { section: 'roof', key: 'covering', label: 'Dachbedeckung', opts: buildingOptions.roofCovering },
+            { section: 'roof', key: 'insulation', label: 'Dachdaemmung', opts: buildingOptions.conditionGrade },
+            { section: 'roof', key: 'dormers', label: 'Dachgauben', opts: buildingOptions.conditionGrade },
+            { section: 'roof', key: 'skylights', label: 'Dachfenster', opts: buildingOptions.conditionGrade },
+            { section: 'roof', key: 'gutters', label: 'Dachrinnen', opts: buildingOptions.conditionGrade },
+          ]" :key="f.section+f.key">
+            <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
+            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Fenster</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+          <div v-for="f in [
+            { section: 'windows', key: 'material', label: 'Fenstermaterial', opts: buildingOptions.windowMaterial },
+            { section: 'windows', key: 'glazing', label: 'Verglasung', opts: buildingOptions.glazingType },
+            { section: 'windows', key: 'sun_protection', label: 'Sonnenschutz', opts: buildingOptions.sunProtection },
+            { section: 'windows', key: 'condition', label: 'Zustand', opts: buildingOptions.conditionGrade },
+          ]" :key="f.section+f.key">
+            <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
+            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Etagen</div>
+        <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
+          <div v-for="f in [
+            { section: 'floors', key: 'stairs', label: 'Treppe', opts: buildingOptions.stairsType },
+            { section: 'floors', key: 'elevator', label: 'Aufzug', opts: buildingOptions.elevatorType },
+            { section: 'floors', key: 'common_area', label: 'Allgemeinflaechen', opts: buildingOptions.commonAreaCondition },
+          ]" :key="f.section+f.key">
+            <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
+            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+              <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="beschreibung" class="mt-0">
+        <div class="space-y-4">
+          <div v-for="f in [
+            { key: 'realty_description', label: 'Objektbeschreibung', placeholder: 'Allgemeine Beschreibung des Objekts...' },
+            { key: 'location_description', label: 'Lagebeschreibung', placeholder: 'Beschreibung der Lage und Umgebung...' },
+            { key: 'equipment_description', label: 'Ausstattungsbeschreibung', placeholder: 'Detaillierte Ausstattung...' },
+            { key: 'other_description', label: 'Sonstige Angaben', placeholder: 'Weitere relevante Informationen...' },
+            { key: 'highlights', label: 'Highlights', placeholder: 'Besondere Highlights (zeilenweise)...' },
+          ]" :key="f.key" class="space-y-1">
+            <label class="block text-[11px] font-medium text-muted-foreground">{{ f.label }}</label>
+            <Textarea
+              v-model="form[f.key]"
+              :placeholder="f.placeholder"
+              rows="4"
+              class="w-full resize-y text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border transition-colors"
+            />
+          </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="medien" class="mt-0">
+        <MediaTab :property="property" @dirty="emit('dirty')" />
+      </TabsContent>
+
+      <TabsContent v-if="!isNewbuild && !isChild" value="historie" class="mt-0">
         <div class="space-y-3">
           <Button variant="outline" size="sm" @click="historyAdding = !historyAdding" class="text-xs h-7">
             <Plus class="w-3 h-3 mr-1" />
@@ -1032,7 +1406,7 @@ defineExpose({ save, discard });
               <Input v-model="historyNew.year" placeholder="Jahr" class="h-8 text-[13px] w-20" />
               <Input v-model="historyNew.title" placeholder="Titel" class="h-8 text-[13px] flex-1" />
             </div>
-            <Input v-model="historyNew.description" placeholder="Beschreibung (optional)" class="h-7 text-[12px]" />
+            <Input v-model="historyNew.description" placeholder="Beschreibung (optional)" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
             <Button size="sm" @click="historyAddEntry()" :disabled="!historyNew.year || !historyNew.title" class="text-xs h-7">
               Hinzufuegen
             </Button>
@@ -1059,30 +1433,46 @@ defineExpose({ save, discard });
           <p v-else class="text-xs text-muted-foreground">Keine Historie-Eintraege vorhanden.</p>
         </div>
       </TabsContent>
-    </Tabs>
 
-    </div>
+    <!-- Preview Overlay Sidebar -->
+    <template v-if="form.id && !isNew">
+      <!-- Collapsed tab -->
+      <button
+        v-if="!previewOpen"
+        @click="previewOpen = true"
+        class="fixed right-0 top-1/2 -translate-y-1/2 z-30 bg-zinc-100 hover:bg-zinc-200 border border-r-0 border-zinc-200 rounded-l-lg px-1.5 py-6 transition-colors hidden xl:flex flex-col items-center gap-1"
+        title="Vorschau oeffnen"
+      >
+        <Eye class="w-3.5 h-3.5 text-zinc-500" />
+        <span class="text-[9px] text-zinc-500 font-medium" style="writing-mode:vertical-rl">Vorschau</span>
+      </button>
 
-    <!-- Live Preview Panel -->
-    <div v-if="form.id && !isNew" class="hidden xl:block flex-shrink-0" style="width:480px">
-      <div class="sticky top-2">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Vorschau</span>
-          <Button variant="outline" size="sm" class="h-6 text-[10px] gap-1" @click="previewOpen = !previewOpen">
-            <component :is="previewOpen ? X : Eye" class="w-3 h-3" />
-            {{ previewOpen ? 'Schliessen' : 'Vorschau' }}
-          </Button>
+      <!-- Overlay panel -->
+      <Transition
+        enter-active-class="transition-transform duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition-transform duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+      >
+        <div v-if="previewOpen" class="fixed right-0 top-0 bottom-0 z-40 bg-background shadow-2xl border-l border-border hidden xl:flex flex-col" style="width:620px">
+          <div class="flex items-center justify-between px-3 py-2 border-b border-border bg-zinc-50">
+            <span class="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Website-Vorschau</span>
+            <button @click="previewOpen = false" class="w-6 h-6 rounded-md flex items-center justify-center hover:bg-zinc-200 text-muted-foreground hover:text-foreground transition-colors">
+              <X class="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div class="flex-1 overflow-hidden">
+            <iframe
+              ref="previewFrame"
+              :src="previewUrl"
+              class="w-full h-full border-0"
+              style="transform-origin:top left;transform:scale(0.5);width:200%;height:200%"
+            />
+          </div>
         </div>
-        <div v-if="previewOpen" class="rounded-lg overflow-hidden" style="border:1px solid hsl(240 5.9% 90%);height:calc(100vh - 90px)">
-          <iframe
-            ref="previewFrame"
-            :src="previewUrl"
-            class="w-full h-full border-0"
-            style="transform-origin:top left;transform:scale(0.5);width:200%;height:200%"
-          />
-        </div>
-      </div>
-    </div>
-
-  </div>
+      </Transition>
+    </template>
+  </Tabs>
 </template>

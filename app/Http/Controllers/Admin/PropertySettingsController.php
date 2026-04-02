@@ -137,6 +137,11 @@ class PropertySettingsController extends Controller
     /**
      * Field labels for the frontend (German).
      */
+    public static function getFieldTypes(): array
+    {
+        return self::FIELD_TYPES;
+    }
+
     public static function getFieldLabels(): array
     {
         return self::FIELD_LABELS;
@@ -259,6 +264,16 @@ class PropertySettingsController extends Controller
         // Lage
         'orientation' => 'Ausrichtung (Nord/Süd/Ost/West)',
         'noise_level' => 'Lärmbelastung',
+        // Provision erweitert
+        'commission_total' => 'Provision Gesamt (EUR)',
+        'commission_makler' => 'Makler-Provision (EUR)',
+        'commission_incl_vat' => 'Provision inkl. MwSt.',
+        // Energie erweitert
+        'energy_primary_source' => 'Primaerenergietraeger',
+        'energy_valid_until' => 'Energieausweis gueltig bis',
+        // Verfuegbarkeit
+        'available_text' => 'Verfuegbarkeit (Text)',
+        'platforms' => 'Plattformen',
     ];
 
     /**
@@ -658,6 +673,11 @@ class PropertySettingsController extends Controller
         if (array_key_exists('broker_id', $data)) {
             $update['broker_id'] = intval($data['broker_id']) ?: null;
         }
+        // Map 'status' form field to 'realty_status' DB column
+        if (array_key_exists('status', $data) && !array_key_exists('realty_status', $data)) {
+            $update['realty_status'] = $data['status'];
+        }
+
         if (array_key_exists('property_history', $data)) {
             $update['property_history'] = is_array($data['property_history']) ? json_encode($data['property_history'], JSON_UNESCAPED_UNICODE) : $data['property_history'];
         }

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class DocumentParserService
@@ -11,6 +12,220 @@ class DocumentParserService
     public function __construct(AnthropicService $anthropic)
     {
         $this->anthropic = $anthropic;
+    }
+
+    /**
+     * Parse property fields from uploaded files using AI.
+     * Only fills empty fields — never overwrites existing values.
+     *
+     * @return array{success: bool, fields_filled: int, fields_skipped: int, filled_list: array, skipped_list: array, confidence: string}
+     */
+    public function parsePropertyFields(int $propertyId, array $fileIds = []): array
+    {
+        $property = DB::table('properties')->where('id', $propertyId)->first();
+        if (!$property) {
+            return ['success' => false, 'error' => 'Property not found'];
+        }
+        $property = (array) $property;
+
+        // Resolve file paths
+        $filePaths = $this->resolveFilePaths($propertyId, $fileIds);
+        if (empty($filePaths)) {
+            return ['success' => false, 'error' => 'Keine Dateien gefunden'];
+        }
+
+        Log::info("parsePropertyFields: property={$propertyId}, files=" . count($filePaths));
+
+        // Extract content from all files
+        $allImages = [];
+        $allText = '';
+        foreach ($filePaths as $fp) {
+            $content = $this->extractContent($fp);
+            if (!empty($content['images'])) {
+                $allImages = array_merge($allImages, $content['images']);
+            }
+            if (!empty($content['text'])) {
+                $allText .= $content['text'] . "\n\n";
+            }
+        }
+
+        // Limit to 20 images (API limit)
+        $allImages = array_slice($allImages, 0, 20);
+
+        Log::info("parsePropertyFields: images=" . count($allImages) . ", text_len=" . strlen($allText));
+
+        if (empty($allImages) && empty(trim($allText))) {
+            return ['success' => false, 'error' => 'Keine Inhalte extrahiert'];
+        }
+
+        // Build prompt with field labels
+        $fieldLabels = \App\Http\Controllers\Admin\PropertySettingsController::getFieldLabels();
+        $fieldTypes = \App\Http\Controllers\Admin\PropertySettingsController::getFieldTypes();
+        $fieldsJson = json_encode($fieldLabels, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+
+        $prompt = "Analysiere dieses Immobilien-Dokument und extrahiere NUR Objektdaten (KEINE Einheiten/Wohnungen).\n\n";
+        $prompt .= "ERLAUBTE FELD-KEYS (verwende EXAKT diese keys):\n{$fieldsJson}\n\n";
+        $prompt .= "STRIKTE REGELN:\n";
+        $prompt .= "- Extrahiere NUR Felder des Objekts selbst, KEINE einzelnen Wohneinheiten/Units!\n";
+        $prompt .= "- BESCHREIBUNGEN (realty_description, location_description, equipment_description, other_description, highlights): Den VOLLSTÄNDIGEN Originaltext übernehmen - JEDES WORT, JEDEN ABSATZ! NIEMALS zusammenfassen oder kürzen!\n";
+        $prompt .= "- Numerische Felder (m², €, Anzahl): NUR Zahlen, KEINE Einheiten/Texte (z.B. 85.5 statt '85,5 m²')\n";
+        $prompt .= "- Boolean-Felder (has_*): true oder false\n";
+        $prompt .= "- property_category: 'newbuild' | 'house' | 'apartment' | 'land' | etc.\n";
+        $prompt .= "- Felder die nicht im Dokument vorkommen: WEGLASSEN (nicht null setzen)\n";
+        $prompt .= "- ENERGIEWERTE (KRITISCH - NIEMALS leer lassen wenn im Dokument vorhanden!):\n";
+        $prompt .= "  energy_certificate, heating_demand_value (HWB als Zahl), energy_type, heating_demand_class, energy_efficiency_value (fGEE als Zahl), heating\n";
+        $prompt .= "- property_history: JSON-Array [{\"year\": \"1995\", \"title\": \"Dachsanierung\", \"description\": \"Details\"}]\n";
+        $prompt .= "- Suche SEHR GRÜNDLICH im gesamten Dokument nach allen Werten!\n\n";
+        $prompt .= "Antworte NUR mit gültigem JSON:\n";
+        $prompt .= "{ \"fields\": { ... }, \"confidence\": \"high|medium|low\" }";
+
+        // Call AI
+        $result = null;
+        $systemPrompt = "Du bist ein präziser Immobilien-Datenextraktions-Agent für den österreichischen Markt.";
+
+        try {
+            if (count($allImages) > 0) {
+                // Has images — use vision API, optionally append text
+                $textForVision = $prompt;
+                if (!empty(trim($allText))) {
+                    $textForVision = "ZUSÄTZLICHER TEXT AUS DATEIEN:\n" . mb_substr($allText, 0, 15000) . "\n\n" . $prompt;
+                }
+                $result = $this->anthropic->chatWithImagesJson(
+                    $systemPrompt,
+                    $textForVision,
+                    $allImages,
+                    16000
+                );
+            } else {
+                // Text only (Excel/Word)
+                $textPrompt = "DOKUMENTINHALT:\n" . mb_substr($allText, 0, 15000) . "\n\n" . $prompt;
+                $result = $this->anthropic->chatJson(
+                    $systemPrompt,
+                    $textPrompt,
+                    16000
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::error("parsePropertyFields: AI call failed: " . $e->getMessage());
+            return ['success' => false, 'error' => 'AI-Analyse fehlgeschlagen: ' . $e->getMessage()];
+        }
+
+        if (!$result || !isset($result['fields'])) {
+            Log::warning("parsePropertyFields: No fields in AI result for property {$propertyId}");
+            return ['success' => false, 'error' => 'KI konnte keine Felder extrahieren'];
+        }
+
+        $extracted = $result['fields'];
+        $confidence = $result['confidence'] ?? 'medium';
+
+        Log::info("parsePropertyFields: AI extracted " . count($extracted) . " fields, confidence={$confidence}");
+
+        // Process results — only fill empty fields
+        $filledList = [];
+        $skippedList = [];
+        $update = ['updated_at' => now(), 'last_expose_parsed_at' => now()];
+        $validKeys = array_keys($fieldLabels);
+
+        foreach ($extracted as $key => $value) {
+            // Skip keys not in our valid field list
+            if (!in_array($key, $validKeys)) {
+                continue;
+            }
+
+            // Check current value
+            $currentValue = $property[$key] ?? null;
+            $isEmpty = ($currentValue === null || $currentValue === '' || $currentValue === 0);
+
+            // For booleans, 0 could be a valid "false" value — only consider null/empty as empty
+            if (isset($fieldTypes[$key]) && $fieldTypes[$key] === 'boolean') {
+                $isEmpty = ($currentValue === null || $currentValue === '');
+            }
+
+            if (!$isEmpty) {
+                $skippedList[] = $key;
+                continue;
+            }
+
+            // Convert value based on type
+            $processedValue = $value;
+            if (isset($fieldTypes[$key]) && $fieldTypes[$key] === 'boolean') {
+                $processedValue = ($value === true || $value === 'true' || $value === 1 || $value === '1') ? 1 : 0;
+            } elseif ($value === '' || $value === null) {
+                continue; // Skip empty AI values
+            } elseif (is_array($value)) {
+                $processedValue = json_encode($value, JSON_UNESCAPED_UNICODE);
+            }
+
+            $update[$key] = $processedValue;
+            $filledList[] = $key;
+        }
+
+        // Write to DB
+        if (count($filledList) > 0 || true) {
+            // Always update timestamp even if no fields filled
+            DB::table('properties')->where('id', $propertyId)->update($update);
+        }
+
+        Log::info("parsePropertyFields: property={$propertyId}, filled=" . count($filledList) . ", skipped=" . count($skippedList));
+
+        return [
+            'success' => true,
+            'fields_filled' => count($filledList),
+            'fields_skipped' => count($skippedList),
+            'filled_list' => $filledList,
+            'skipped_list' => $skippedList,
+            'confidence' => $confidence,
+        ];
+    }
+
+    /**
+     * Resolve file paths for a property.
+     *
+     * @return array<string> Filesystem paths that exist
+     */
+    private function resolveFilePaths(int $propertyId, array $fileIds): array
+    {
+        $query = DB::table('property_files')->where('property_id', $propertyId);
+        if (!empty($fileIds)) {
+            $query->whereIn('id', $fileIds);
+        }
+        $files = $query->get();
+
+        $paths = [];
+        foreach ($files as $file) {
+            $file = (array) $file;
+            // Use stored path, or construct from convention
+            $storagePath = $file['path'] ?? '';
+            if ($storagePath) {
+                $fullPath = '/var/www/srhomes/storage/app/public/' . ltrim($storagePath, '/');
+            } else {
+                $fullPath = '/var/www/srhomes/storage/app/public/property_files/' . $file['property_id'] . '/' . $file['filename'];
+            }
+
+            if (file_exists($fullPath)) {
+                $paths[] = $fullPath;
+            } else {
+                Log::warning("resolveFilePaths: file not found: {$fullPath}");
+            }
+        }
+
+        // Fallback: check expose_path if no files found and no specific IDs requested
+        if (empty($paths) && empty($fileIds)) {
+            $property = DB::table('properties')->where('id', $propertyId)->first();
+            if ($property && !empty($property->expose_path)) {
+                $exposePath = $property->expose_path;
+                // Handle both absolute and relative paths
+                if (!str_starts_with($exposePath, '/')) {
+                    $exposePath = '/var/www/srhomes/storage/app/public/' . ltrim($exposePath, '/');
+                }
+                if (file_exists($exposePath)) {
+                    $paths[] = $exposePath;
+                    Log::info("resolveFilePaths: using expose_path fallback: {$exposePath}");
+                }
+            }
+        }
+
+        return $paths;
     }
 
     /**

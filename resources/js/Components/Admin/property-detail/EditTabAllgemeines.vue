@@ -281,7 +281,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           <Select v-model="form.broker_id">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem v-for="b in brokerList" :key="b.id" :value="b.id">{{ b.name }}</SelectItem>
+              <SelectItem v-for="b in brokerList" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
             </SelectContent>
           </Select>
         </div>

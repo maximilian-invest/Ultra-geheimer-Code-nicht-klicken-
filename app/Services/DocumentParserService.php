@@ -110,9 +110,22 @@ class DocumentParserService
             return ['success' => false, 'error' => 'AI-Analyse fehlgeschlagen: ' . $e->getMessage()];
         }
 
-        if (!$result || !isset($result['fields'])) {
-            Log::warning("parsePropertyFields: No fields in AI result for property {$propertyId}");
-            return ['success' => false, 'error' => 'KI konnte keine Felder extrahieren'];
+        if (!$result) {
+            Log::warning("parsePropertyFields: AI returned null for property {$propertyId}");
+            return ['success' => false, 'error' => 'KI konnte keine Daten extrahieren. Versuche es erneut.'];
+        }
+
+        Log::info("parsePropertyFields: AI result keys=" . implode(',', array_keys($result)) . " for property {$propertyId}");
+
+        if (!isset($result['fields']) || empty($result['fields'])) {
+            // Maybe result IS the fields directly (no wrapper)
+            if (isset($result['address']) || isset($result['title']) || isset($result['city'])) {
+                $result = ['fields' => $result, 'confidence' => 'medium'];
+                Log::info("parsePropertyFields: Unwrapped flat result into fields for property {$propertyId}");
+            } else {
+                Log::warning("parsePropertyFields: No fields key in AI result for property {$propertyId}: " . mb_substr(json_encode($result), 0, 500));
+                return ['success' => false, 'error' => 'KI konnte keine Felder extrahieren'];
+            }
         }
 
         $extracted = $result['fields'];

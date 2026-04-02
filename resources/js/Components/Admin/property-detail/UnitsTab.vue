@@ -187,7 +187,7 @@ async function saveUnit(unit) {
   try {
     const payload = {
       property_id: props.property.id,
-      id: unit.id || null,
+      unit_id: unit.id || null,
       unit_number: unit.unit_number,
       unit_type: unit.unit_type,
       floor: unit.floor,

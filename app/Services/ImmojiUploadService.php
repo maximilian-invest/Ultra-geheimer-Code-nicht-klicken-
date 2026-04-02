@@ -83,6 +83,8 @@ class ImmojiUploadService
     {
         // Merge: start with master, override with unit fields
         $merged = $masterProperty;
+        // Remove master id so uploadAndMapImages won't try to find images for this unit
+        unset($merged['id']);
         $merged['title'] = ($masterProperty['project_name'] ?? $masterProperty['title'] ?? '') . ' - ' . ($unit['unit_number'] ?? '');
         $merged['living_area'] = $unit['area_m2'] ?? null;
         $merged['purchase_price'] = $unit['price'] ?? $unit['purchase_price'] ?? null;
@@ -206,7 +208,18 @@ class ImmojiUploadService
         $result = $this->query($query, $variables);
 
         if (isset($result['errors'])) {
-            throw new \RuntimeException('Immoji updateRealty failed: ' . json_encode($result['errors']));
+            $errorMsg = json_encode($result['errors']);
+            // If error is about media/files, retry without filesInput
+            if (str_contains($errorMsg, 'media') || str_contains($errorMsg, 'file') || str_contains($errorMsg, 'image')) {
+                Log::warning("Immoji updateRealty: media error, retrying without files. Error: {$errorMsg}");
+                unset($variables['input']['filesInput']);
+                $result = $this->query($query, $variables);
+                if (isset($result['errors'])) {
+                    throw new \RuntimeException('Immoji updateRealty failed (retry without files): ' . json_encode($result['errors']));
+                }
+                return;
+            }
+            throw new \RuntimeException('Immoji updateRealty failed: ' . $errorMsg);
         }
     }
 

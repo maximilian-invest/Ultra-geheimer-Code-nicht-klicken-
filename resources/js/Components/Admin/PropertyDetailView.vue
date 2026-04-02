@@ -753,12 +753,7 @@ function unitRowClass(status) {
                     <span class="text-[13px] font-semibold" style="color:hsl(240 10% 3.9%)">Objektdaten</span>
                   </div>
                   <div class="hidden sm:flex items-center gap-1.5" @click.stop>
-                    <button class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded hover:bg-gray-100" style="color:hsl(263 70% 50%)"
-                      :disabled="exposeLoading && exposeMode === 'fields'"
-                      @click="async () => { if (!exposeLoading) { await loadExposeFiles(); exposeFileSelect = true; exposeMode = 'fields'; } }">
-                      <Sparkles class="w-2.5 h-2.5" />
-                      {{ exposeLoading && exposeMode === 'fields' ? 'analysiert...' : 'KI auslesen' }}
-                    </button>
+
                     <button class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded hover:bg-gray-100" style="color:hsl(240 3.8% 46.1%)"
                       @click="$emit('openEditor', property.id)">
                       Bearbeiten

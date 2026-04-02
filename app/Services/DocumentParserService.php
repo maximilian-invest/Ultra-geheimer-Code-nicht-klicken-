@@ -50,7 +50,7 @@ class DocumentParserService
         }
 
         // Limit to 20 images (API limit)
-        $allImages = array_slice($allImages, 0, 20);
+        $allImages = array_slice($allImages, 0, 10);
 
         Log::info("parsePropertyFields: images=" . count($allImages) . ", text_len=" . strlen($allText));
 
@@ -226,7 +226,7 @@ class DocumentParserService
         }
 
         // Limit to 20 images (API limit)
-        $allImages = array_slice($allImages, 0, 20);
+        $allImages = array_slice($allImages, 0, 10);
 
         Log::info("parseUnits: images=" . count($allImages) . ", text_len=" . strlen($allText));
 
@@ -520,7 +520,7 @@ class DocumentParserService
      *
      * @return array<array{data: string, media_type: string}>
      */
-    public function buildImages(string $pdfPath, int $maxPages = 30): array
+    public function buildImages(string $pdfPath, int $maxPages = 20): array
     {
         $tmpDir = '/tmp/doc_parse_' . md5($pdfPath) . '_' . time();
         @mkdir($tmpDir, 0755, true);
@@ -534,7 +534,7 @@ class DocumentParserService
         $renderPages = min($pageCount, $maxPages);
 
         exec(
-            'pdftoppm -png -r 120 -l ' . $renderPages . ' '
+            'pdftoppm -png -r 72 -l ' . $renderPages . ' '
             . escapeshellarg($pdfPath) . ' '
             . escapeshellarg($tmpDir . '/page') . ' 2>/dev/null'
         );

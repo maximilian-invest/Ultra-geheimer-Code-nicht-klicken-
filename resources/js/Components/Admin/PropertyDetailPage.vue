@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, inject, watch } from "vue";
-import { Pause, Play, ArrowLeft } from "lucide-vue-next";
+import { Pause, Play, ArrowLeft, CircleOff, Power, Trash2 } from "lucide-vue-next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -85,8 +85,60 @@ function handleBack() {
   emit('back');
 }
 
-function handleToggleOnHold() {
-  emit('toggleOnHold');
+const statusMenuOpen = ref(false);
+
+function getStatusInfo() {
+  const p = props.property;
+  if (p.realty_status === 'inaktiv') return { label: 'Inaktiv', class: 'border-red-400 text-red-500', variant: 'outline' };
+  if (p.realty_status === 'verkauft') return { label: 'Verkauft', class: 'bg-blue-100 text-blue-700 border-blue-200', variant: 'default' };
+  if (p.on_hold) return { label: 'Pausiert', class: 'border-amber-500 text-amber-600', variant: 'outline' };
+  return { label: 'Aktiv', class: 'bg-emerald-100 text-emerald-700 border-emerald-200', variant: 'default' };
+}
+
+const statusInfo = computed(() => getStatusInfo());
+
+async function setPropertyStatus(action) {
+  statusMenuOpen.value = false;
+  if (!props.property?.id) return;
+  try {
+    let apiAction, body;
+    if (action === 'inaktiv') {
+      apiAction = 'set_inactive';
+      body = { property_id: props.property.id };
+    } else if (action === 'pausieren') {
+      apiAction = 'set_on_hold';
+      body = { property_id: props.property.id, on_hold: 1, reason: '' };
+    } else if (action === 'aktivieren') {
+      // Reactivate from inactive or unpause
+      if (props.property.realty_status === 'inaktiv') {
+        apiAction = 'reactivate_property';
+        body = { property_id: props.property.id, realty_status: 'auftrag' };
+      } else {
+        apiAction = 'set_on_hold';
+        body = { property_id: props.property.id, on_hold: 0 };
+      }
+    }
+    const r = await fetch(API.value + '&action=' + apiAction, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.success) {
+      if (action === 'inaktiv') {
+        props.property.realty_status = 'inaktiv';
+        props.property.on_hold = false;
+      } else if (action === 'pausieren') {
+        props.property.on_hold = true;
+      } else if (action === 'aktivieren') {
+        props.property.realty_status = 'auftrag';
+        props.property.on_hold = false;
+      }
+      toast(d.message || 'Status aktualisiert');
+    } else {
+      toast(d.message || 'Fehler');
+    }
+  } catch (e) { toast('Fehler: ' + e.message); }
 }
 
 function markDirty() { isDirty.value = true; }
@@ -156,22 +208,40 @@ function handleExposeParsed(result) {
     <!-- Detail Header -->
     <div class="px-6 py-4 flex items-center justify-between shrink-0" style="border-bottom:1px solid hsl(240 5.9% 90%)">
       <div class="flex items-center gap-3.5">
-        <div class="w-[52px] h-10 rounded-md bg-gradient-to-br from-blue-200 to-indigo-200 shrink-0" />
+        <img v-if="property.thumbnail_url" :src="property.thumbnail_url" class="w-[52px] h-10 rounded-md object-cover shrink-0" />
+        <div v-else class="w-[52px] h-10 rounded-md bg-gradient-to-br from-blue-200 to-indigo-200 shrink-0" />
         <div>
           <div class="text-[17px] font-semibold">{{ title }}</div>
           <div class="text-xs text-muted-foreground mt-0.5">{{ subtitle }}</div>
         </div>
-        <Badge v-if="!isNew" :variant="property.on_hold ? 'outline' : 'default'"
-          :class="property.on_hold ? 'border-amber-500 text-amber-600' : 'bg-emerald-100 text-emerald-700 border-emerald-200'"
+        <Badge v-if="!isNew" :variant="statusInfo.variant"
+          :class="statusInfo.class"
           class="ml-2 text-[11px]">
-          {{ property.on_hold ? 'Pausiert' : 'Aktiv' }}
+          {{ statusInfo.label }}
         </Badge>
       </div>
       <div class="flex items-center gap-2">
-        <Button v-if="!isNew" variant="outline" size="sm" @click="handleToggleOnHold">
-          <component :is="property.on_hold ? Play : Pause" class="w-3.5 h-3.5 mr-1.5" />
-          {{ property.on_hold ? 'Aktivieren' : 'Pausieren' }}
-        </Button>
+        <div v-if="!isNew" class="relative">
+          <Button variant="outline" size="sm" @click="statusMenuOpen = !statusMenuOpen">
+            <component :is="property.on_hold || property.realty_status === 'inaktiv' ? Play : Pause" class="w-3.5 h-3.5 mr-1.5" />
+            Status ändern
+          </Button>
+          <div v-if="statusMenuOpen" class="absolute right-0 top-full mt-1 bg-background rounded-lg shadow-lg py-1 z-50 min-w-[160px]" style="border:1px solid hsl(240 5.9% 90%)">
+            <button v-if="property.on_hold || property.realty_status === 'inaktiv'" class="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 flex items-center gap-2" @click="setPropertyStatus('aktivieren')">
+              <Power class="w-3.5 h-3.5 text-emerald-600" /> Aktivieren
+            </button>
+            <button v-if="!property.on_hold && property.realty_status !== 'inaktiv'" class="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 flex items-center gap-2" @click="setPropertyStatus('pausieren')">
+              <Pause class="w-3.5 h-3.5 text-amber-500" /> Pausieren
+            </button>
+            <button v-if="property.realty_status !== 'inaktiv'" class="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 flex items-center gap-2" @click="setPropertyStatus('inaktiv')">
+              <CircleOff class="w-3.5 h-3.5 text-red-500" /> Inaktiv setzen
+            </button>
+            <div class="my-1 mx-2" style="border-top:1px solid hsl(240 5.9% 90%)"></div>
+            <button class="w-full text-left px-3 py-1.5 text-xs hover:bg-red-50 flex items-center gap-2 text-red-600" @click="statusMenuOpen = false; emit('deleteProperty')">
+              <Trash2 class="w-3.5 h-3.5" /> Objekt loeschen
+            </button>
+          </div>
+        </div>
         <Button variant="outline" size="sm" @click="handleBack">
           <ArrowLeft class="w-3.5 h-3.5 mr-1.5" />
           Zurück
@@ -209,9 +279,7 @@ function handleExposeParsed(result) {
 
     <!-- Sticky Footer (only for editable tabs) -->
     <div v-if="showFooter" class="px-6 py-3 flex items-center justify-between shrink-0 bg-background" style="border-top:1px solid hsl(240 5.9% 90%)">
-      <Button variant="outline" size="sm" @click="showExposeParser = !showExposeParser">
-        Exposé auslesen
-      </Button>
+      <div></div>
       <div class="flex gap-2">
         <Button variant="outline" size="sm" @click="handleDiscard">Verwerfen</Button>
         <Button size="sm" @click="handleSave">Speichern</Button>

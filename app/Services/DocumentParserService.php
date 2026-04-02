@@ -178,6 +178,243 @@ class DocumentParserService
         ];
     }
 
+/**
+     * Parse units (apartments) and parking from uploaded files using AI.
+     * Protects units with buyer_name (Kaufanbot) from status changes.
+     *
+     * @return array{success: bool, units_created: int, units_updated: int, units_skipped: int, parking_created: int, parking_updated: int, confidence: string}
+     */
+    public function parseUnits(int $propertyId, array $fileIds = []): array
+    {
+        $property = DB::table('properties')->where('id', $propertyId)->first();
+        if (!$property) {
+            return ['success' => false, 'error' => 'Property not found'];
+        }
+
+        // Resolve file paths
+        $filePaths = $this->resolveFilePaths($propertyId, $fileIds);
+        if (empty($filePaths)) {
+            return ['success' => false, 'error' => 'Keine Dateien gefunden'];
+        }
+
+        Log::info("parseUnits: property={$propertyId}, files=" . count($filePaths));
+
+        // Extract content from all files
+        $allImages = [];
+        $allText = '';
+        foreach ($filePaths as $fp) {
+            $content = $this->extractContent($fp);
+            if (!empty($content['images'])) {
+                $allImages = array_merge($allImages, $content['images']);
+            }
+            if (!empty($content['text'])) {
+                $allText .= $content['text'] . "\n\n";
+            }
+        }
+
+        // Limit to 20 images (API limit)
+        $allImages = array_slice($allImages, 0, 20);
+
+        Log::info("parseUnits: images=" . count($allImages) . ", text_len=" . strlen($allText));
+
+        if (empty($allImages) && empty(trim($allText))) {
+            return ['success' => false, 'error' => 'Keine Inhalte extrahiert'];
+        }
+
+        // Build unit-specific AI prompt
+        $prompt = "Analysiere dieses Immobilien-Dokument und extrahiere ALLE Einheiten (Wohnungen) und Parkplätze.\n\n";
+        $prompt .= "WICHTIG: Extrahiere NUR Einheiten und Parkplätze, KEINE allgemeinen Objektdaten!\n\n";
+        $prompt .= "PRO WOHNEINHEIT extrahiere:\n";
+        $prompt .= "- unit_number: Einheitennummer (z.B. 'Top 1', 'W01', 'Whg 3')\n";
+        $prompt .= "- unit_type: Typ (z.B. '2-Zimmer-Wohnung', '3-Zimmer-Wohnung', 'Penthouse', 'Maisonette', 'Dachgeschoss')\n";
+        $prompt .= "- floor: Stockwerk als Zahl (0=EG/Erdgeschoss, -1=UG/Untergeschoss/Keller, 1=OG/1.OG, 2=2.OG, usw.)\n";
+        $prompt .= "- area_m2: Wohnfläche in m² als Zahl (z.B. 85.5)\n";
+        $prompt .= "- rooms: Anzahl Zimmer als Zahl (z.B. 3)\n";
+        $prompt .= "- price: Kaufpreis als Zahl OHNE Tausendertrennzeichen (z.B. 350000 statt 350.000). Bei 'auf Anfrage' oder leer: null\n";
+        $prompt .= "- status: 'frei' | 'reserviert' | 'verkauft'\n";
+        $prompt .= "- balcony_terrace_m2: Balkon/Terrasse in m² als Zahl (0 wenn keiner)\n";
+        $prompt .= "- garden_m2: Garten in m² als Zahl (0 wenn keiner)\n\n";
+        $prompt .= "PRO PARKPLATZ extrahiere:\n";
+        $prompt .= "- unit_number: Stellplatznummer (z.B. 'TG 1', 'CP 5', 'S01')\n";
+        $prompt .= "- unit_type: Typ ('Tiefgarage' | 'Carport' | 'Freistellplatz')\n";
+        $prompt .= "- price: Preis als Zahl OHNE Tausendertrennzeichen. Bei 'auf Anfrage' oder leer: null\n";
+        $prompt .= "- status: 'frei' | 'reserviert' | 'verkauft'\n\n";
+        $prompt .= "STATUS-ERKENNUNG:\n";
+        $prompt .= "- Durchgestrichene Preise oder Namen = 'verkauft'\n";
+        $prompt .= "- Grau/rot markierte Einheiten = oft 'verkauft' oder 'reserviert'\n";
+        $prompt .= "- 'VERKAUFT', 'VERGEBEN', 'SOLD' = 'verkauft'\n";
+        $prompt .= "- 'RESERVIERT', 'OPTION' = 'reserviert'\n";
+        $prompt .= "- Alles andere = 'frei'\n\n";
+        $prompt .= "REGELN:\n";
+        $prompt .= "- Liste ALLE Einheiten auf, auch bereits verkaufte!\n";
+        $prompt .= "- Entferne Tausendertrennzeichen aus Preisen (350.000 → 350000)\n";
+        $prompt .= "- Wenn Preis 'auf Anfrage' oder leer ist: price = null\n";
+        $prompt .= "- KEINE allgemeinen Objektdaten — NUR Einheiten und Parkplätze\n\n";
+        $prompt .= "Antworte NUR mit gültigem JSON:\n";
+        $prompt .= '{ "units": [{ "unit_number": "...", "unit_type": "...", "floor": 0, "area_m2": 0, "rooms": 0, "price": 0, "status": "frei", "balcony_terrace_m2": 0, "garden_m2": 0 }], "parking": [{ "unit_number": "...", "unit_type": "...", "price": 0, "status": "frei" }], "confidence": "high|medium|low" }';
+
+        $systemPrompt = "Du bist ein präziser Immobilien-Datenextraktions-Agent für den österreichischen Markt. Du extrahierst Wohneinheiten und Parkplätze aus Exposés und Preislisten.";
+
+        // Switch to Sonnet model for unit parsing (better at structured extraction)
+        $originalModel = (new \ReflectionClass($this->anthropic))->getProperty('model');
+        $originalModel->setAccessible(true);
+        $savedModel = $originalModel->getValue($this->anthropic);
+        $originalModel->setValue($this->anthropic, 'claude-sonnet-4-20250514');
+
+        $result = null;
+        try {
+            if (count($allImages) > 0) {
+                $textForVision = $prompt;
+                if (!empty(trim($allText))) {
+                    $textForVision = "ZUSÄTZLICHER TEXT AUS DATEIEN:\n" . mb_substr($allText, 0, 15000) . "\n\n" . $prompt;
+                }
+                $result = $this->anthropic->chatWithImagesJson(
+                    $systemPrompt,
+                    $textForVision,
+                    $allImages,
+                    16000
+                );
+            } else {
+                $textPrompt = "DOKUMENTINHALT:\n" . mb_substr($allText, 0, 15000) . "\n\n" . $prompt;
+                $result = $this->anthropic->chatJson(
+                    $systemPrompt,
+                    $textPrompt,
+                    16000
+                );
+            }
+        } catch (\Throwable $e) {
+            // Restore model before returning
+            $originalModel->setValue($this->anthropic, $savedModel);
+            Log::error("parseUnits: AI call failed: " . $e->getMessage());
+            return ['success' => false, 'error' => 'AI-Analyse fehlgeschlagen: ' . $e->getMessage()];
+        }
+
+        // Restore original model
+        $originalModel->setValue($this->anthropic, $savedModel);
+
+        if (!$result || (!isset($result['units']) && !isset($result['parking']))) {
+            Log::warning("parseUnits: No units/parking in AI result for property {$propertyId}");
+            return ['success' => false, 'error' => 'KI konnte keine Einheiten extrahieren'];
+        }
+
+        $confidence = $result['confidence'] ?? 'medium';
+        $unitsCreated = 0;
+        $unitsUpdated = 0;
+        $unitsSkipped = 0;
+        $parkingCreated = 0;
+        $parkingUpdated = 0;
+
+        // Process units
+        $units = $result['units'] ?? [];
+        foreach ($units as $unit) {
+            $unitNumber = trim($unit['unit_number'] ?? '');
+            if (empty($unitNumber)) {
+                continue;
+            }
+
+            $existing = DB::table('property_units')
+                ->where('property_id', $propertyId)
+                ->where('unit_number', $unitNumber)
+                ->first();
+
+            $data = [
+                'unit_type'          => $unit['unit_type'] ?? null,
+                'floor'              => isset($unit['floor']) ? (int) $unit['floor'] : null,
+                'area_m2'            => isset($unit['area_m2']) ? (float) $unit['area_m2'] : null,
+                'rooms'              => isset($unit['rooms']) ? (float) $unit['rooms'] : null,
+                'price'              => isset($unit['price']) ? (float) $unit['price'] : null,
+                'balcony_terrace_m2' => isset($unit['balcony_terrace_m2']) ? (float) $unit['balcony_terrace_m2'] : null,
+                'garden_m2'          => isset($unit['garden_m2']) ? (float) $unit['garden_m2'] : null,
+                'updated_at'         => now(),
+            ];
+
+            if ($existing) {
+                $existing = (array) $existing;
+                if (!empty($existing['buyer_name'])) {
+                    // Kaufanbot protection: update data fields but NOT status
+                    DB::table('property_units')
+                        ->where('id', $existing['id'])
+                        ->update($data);
+                    $unitsSkipped++;
+                } else {
+                    // No buyer — update everything including status
+                    $data['status'] = $unit['status'] ?? 'frei';
+                    DB::table('property_units')
+                        ->where('id', $existing['id'])
+                        ->update($data);
+                    $unitsUpdated++;
+                }
+            } else {
+                // Insert new unit
+                $data['property_id'] = $propertyId;
+                $data['unit_number'] = $unitNumber;
+                $data['status'] = $unit['status'] ?? 'frei';
+                $data['is_parking'] = 0;
+                $data['created_at'] = now();
+                DB::table('property_units')->insert($data);
+                $unitsCreated++;
+            }
+        }
+
+        // Process parking
+        $parking = $result['parking'] ?? [];
+        foreach ($parking as $spot) {
+            $unitNumber = trim($spot['unit_number'] ?? '');
+            if (empty($unitNumber)) {
+                continue;
+            }
+
+            $existing = DB::table('property_units')
+                ->where('property_id', $propertyId)
+                ->where('unit_number', $unitNumber)
+                ->first();
+
+            $data = [
+                'unit_type'  => $spot['unit_type'] ?? null,
+                'floor'      => -1,
+                'price'      => isset($spot['price']) ? (float) $spot['price'] : null,
+                'updated_at' => now(),
+            ];
+
+            if ($existing) {
+                $existing = (array) $existing;
+                if (!empty($existing['buyer_name'])) {
+                    // Kaufanbot protection: update data but NOT status
+                    DB::table('property_units')
+                        ->where('id', $existing['id'])
+                        ->update($data);
+                    $parkingUpdated++; // counted as skipped in summary but DB updated
+                } else {
+                    $data['status'] = $spot['status'] ?? 'frei';
+                    DB::table('property_units')
+                        ->where('id', $existing['id'])
+                        ->update($data);
+                    $parkingUpdated++;
+                }
+            } else {
+                $data['property_id'] = $propertyId;
+                $data['unit_number'] = $unitNumber;
+                $data['status'] = $spot['status'] ?? 'frei';
+                $data['is_parking'] = 1;
+                $data['created_at'] = now();
+                DB::table('property_units')->insert($data);
+                $parkingCreated++;
+            }
+        }
+
+        Log::info("parseUnits: property={$propertyId}, units_created={$unitsCreated}, units_updated={$unitsUpdated}, units_skipped={$unitsSkipped}, parking_created={$parkingCreated}, parking_updated={$parkingUpdated}, confidence={$confidence}");
+
+        return [
+            'success'         => true,
+            'units_created'   => $unitsCreated,
+            'units_updated'   => $unitsUpdated,
+            'units_skipped'   => $unitsSkipped,
+            'parking_created' => $parkingCreated,
+            'parking_updated' => $parkingUpdated,
+            'confidence'      => $confidence,
+        ];
+    }
+
     /**
      * Resolve file paths for a property.
      *

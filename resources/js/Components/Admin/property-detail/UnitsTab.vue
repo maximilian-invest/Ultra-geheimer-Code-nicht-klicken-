@@ -1,12 +1,12 @@
 <script setup>
 import { ref, computed, inject, reactive, onMounted } from "vue";
-import { Plus, Check, Trash2, Save, ChevronDown, ChevronUp, Building2, ParkingSquare, Search } from "lucide-vue-next";
+import { Plus, Check, Trash2, Save, ChevronDown, ChevronUp, Building2, ParkingSquare, Search, Sparkles, Upload, X } from "lucide-vue-next";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 const props = defineProps({
@@ -27,6 +27,13 @@ const parkingGenOpen = ref(false);
 
 const unitGen = reactive({ prefix: "TOP", from: 1, count: 5, floors: 3 });
 const parkingGen = reactive({ prefix: "Stellplatz", from: 1, to: 10, price: null, type: "Tiefgarage" });
+
+// ─── Parse Units ───
+const unitParseOpen = ref(false);
+const unitParseLoading = ref(false);
+const unitParseFiles = ref([]);
+const unitParseSelectedFiles = ref([]);
+const unitParseUploading = ref(false);
 
 // ─── Computed ───────────────────────────────────────────
 const realUnits = computed(() => units.value.filter(u => !u.is_parking));
@@ -59,7 +66,7 @@ const filteredUnits = computed(() => {
 // ─── Helpers ────────────────────────────────────────────
 const statusColor = (s) => {
   if (s === "verkauft") return "bg-red-100 text-red-700";
-  if (s === "reserviert") return "bg-amber-100 text-amber-700";
+  if (s === "reserviert") return "bg-amber-100 text-muted-foreground";
   return "bg-emerald-100 text-emerald-700";
 };
 
@@ -180,6 +187,68 @@ function addUnitRow() {
     notes: "",
     is_parking: 0,
   });
+}
+
+// ─── Parse Units ─────────────────────────────────────
+async function loadUnitParseFiles() {
+  try {
+    const r = await fetch(API.value + "&action=get_property_files&property_id=" + props.property.id);
+    const d = await r.json();
+    unitParseFiles.value = d.files || [];
+    unitParseSelectedFiles.value = unitParseFiles.value
+      .filter(f => /preis/i.test(f.filename) || /excel/i.test(f.label || '') || /\.xlsx?$/i.test(f.filename))
+      .map(f => f.id);
+  } catch (e) { unitParseFiles.value = []; }
+}
+
+async function uploadUnitParseFiles(event) {
+  const files = event.target.files;
+  if (!files || !files.length) return;
+  unitParseUploading.value = true;
+  for (const file of files) {
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('property_id', props.property.id);
+      fd.append('label', file.name.replace(/\.[^.]+$/, ''));
+      const r = await fetch(API.value + '&action=upload_property_file', { method: 'POST', body: fd });
+      const d = await r.json();
+      if (d.success && d.file) {
+        unitParseFiles.value.push(d.file);
+        unitParseSelectedFiles.value.push(d.file.id);
+      }
+    } catch (e) { console.error(e); }
+  }
+  event.target.value = '';
+  unitParseUploading.value = false;
+  toast(files.length + ' Datei(en) hochgeladen');
+}
+
+async function runParseUnits() {
+  unitParseLoading.value = true;
+  try {
+    const r = await fetch(API.value + "&action=parse_units", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ property_id: props.property.id, file_ids: unitParseSelectedFiles.value }),
+    });
+    const txt = await r.text();
+    if (txt.startsWith("<!") || txt.startsWith("<html")) { toast("Session abgelaufen"); unitParseLoading.value = false; return; }
+    const d = JSON.parse(txt);
+    if (d.error) { toast(d.error, "error"); }
+    else {
+      const parts = [];
+      if (d.units_created) parts.push(d.units_created + " erstellt");
+      if (d.units_updated) parts.push(d.units_updated + " aktualisiert");
+      if (d.units_skipped) parts.push(d.units_skipped + " uebersprungen (Kaufanbot)");
+      if (d.parking_created) parts.push(d.parking_created + " Stellplaetze erstellt");
+      if (d.parking_updated) parts.push(d.parking_updated + " Stellplaetze aktualisiert");
+      toast(parts.join(", ") || "Keine Einheiten gefunden", parts.length ? "success" : "warning");
+      unitParseOpen.value = false;
+      await loadUnits();
+    }
+  } catch (e) { toast("Fehler: " + e.message, "error"); }
+  unitParseLoading.value = false;
 }
 
 // ─── Unit Generator ─────────────────────────────────────
@@ -372,11 +441,51 @@ onMounted(() => {
             <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
             <Input v-model="unitSearch" placeholder="Top, Typ suchen..." class="h-7 pl-7 text-[11px] w-40" />
           </div>
+          <Button size="sm" variant="outline" class="h-7 text-[11px] gap-1" @click="unitParseOpen = !unitParseOpen; if (unitParseOpen && !unitParseFiles.length) loadUnitParseFiles()">
+            <Sparkles class="w-3 h-3" />
+            Einheiten auslesen
+          </Button>
+          <Button size="sm" variant="outline" class="h-7 text-[11px] gap-1" @click="unitGenOpen = !unitGenOpen">
+            <Building2 class="w-3 h-3" />
+            Generator
+          </Button>
           <Button size="sm" variant="outline" class="h-7 text-[11px] gap-1" @click="addUnitRow">
             <Plus class="w-3 h-3" />
             Neue Einheit
           </Button>
         </div>
+      </div>
+
+      <!-- Einheiten auslesen Panel -->
+      <div v-if="unitParseOpen" class="rounded-lg p-4 space-y-3 mb-3" style="border:1px solid hsl(240 5.9% 90%); background:hsl(240 4.8% 95.9% / 0.3)">
+        <div class="flex items-center justify-between">
+          <h3 class="text-[13px] font-semibold">Einheiten aus Dokumenten auslesen</h3>
+          <button @click="unitParseOpen = false" class="text-muted-foreground hover:text-foreground">
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+        <p class="text-[11px] text-muted-foreground">Existierende Einheiten werden per TOP-Nr. aktualisiert. Verkaufte Einheiten (via Kaufanbot) behalten ihren Status.</p>
+
+        <label class="flex items-center gap-2 p-3 rounded-lg cursor-pointer hover:bg-muted/50" style="border:1px dashed hsl(240 5.9% 85%)">
+          <Upload class="w-4 h-4 text-muted-foreground" />
+          <span class="text-[11px] text-muted-foreground">{{ unitParseUploading ? 'Wird hochgeladen...' : 'Preisliste / Expose hochladen' }}</span>
+          <input type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls" class="sr-only" @change="uploadUnitParseFiles" :disabled="unitParseUploading" />
+        </label>
+
+        <div class="space-y-1 max-h-40 overflow-y-auto">
+          <label v-for="f in unitParseFiles" :key="f.id" class="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer">
+            <input type="checkbox" :value="f.id" v-model="unitParseSelectedFiles" class="rounded border-border" />
+            <span class="text-[11px] flex-1 truncate">{{ f.label || f.filename }}</span>
+            <span class="text-[9px] text-muted-foreground uppercase">{{ f.filename?.split('.').pop() }}</span>
+          </label>
+        </div>
+        <div v-if="!unitParseFiles.length" class="text-[11px] text-muted-foreground py-2">Noch keine Dateien. Bitte oben hochladen.</div>
+
+        <Button size="sm" :disabled="!unitParseSelectedFiles.length || unitParseLoading" @click="runParseUnits">
+          <Sparkles v-if="!unitParseLoading" class="w-3.5 h-3.5 mr-1.5" />
+          <div v-else class="w-3.5 h-3.5 mr-1.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          {{ unitParseLoading ? 'Wird analysiert (Sonnet)...' : unitParseSelectedFiles.length + ' Datei(en) auslesen' }}
+        </Button>
       </div>
 
       <!-- Units Table -->
@@ -478,7 +587,7 @@ onMounted(() => {
                 <!-- Preis -->
                 <TableCell class="py-1.5 px-2 text-right">
                   <input
-                    v-model.number="unit.purchase_price"
+                    v-model.number="unit.price"
                     type="number"
                     step="100"
                     placeholder="€"
@@ -517,52 +626,43 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Unit Generator (Collapsible) -->
-      <Collapsible v-model:open="unitGenOpen" class="mt-3">
-        <CollapsibleTrigger class="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors group">
-          <component :is="unitGenOpen ? ChevronUp : ChevronDown" class="w-3 h-3" />
-          <span>Einheiten-Generator</span>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div class="mt-3 p-4 bg-violet-50 border border-violet-200 rounded-lg space-y-3">
-            <h4 class="text-xs font-semibold text-violet-900">Einheiten generieren</h4>
-            <div class="flex flex-wrap items-end gap-3">
+      <!-- Unit Generator Dialog -->
+      <Dialog :open="unitGenOpen" @update:open="unitGenOpen = $event">
+        <DialogContent class="max-w-md">
+          <DialogHeader>
+            <DialogTitle class="text-sm">Einheiten generieren</DialogTitle>
+          </DialogHeader>
+          <div class="space-y-4 pt-2">
+            <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-[10px] font-medium text-violet-700 mb-1">Prefix</label>
-                <input v-model="unitGen.prefix" type="text" class="w-20 px-2.5 py-1.5 bg-white border border-violet-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                <label class="text-[11px] text-muted-foreground mb-1 block">Prefix</label>
+                <Input v-model="unitGen.prefix" class="h-8 text-[13px]" />
               </div>
               <div>
-                <label class="block text-[10px] font-medium text-violet-700 mb-1">Start-Nr.</label>
-                <input v-model.number="unitGen.from" type="number" min="1" class="w-16 px-2.5 py-1.5 bg-white border border-violet-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                <label class="text-[11px] text-muted-foreground mb-1 block">Start-Nr.</label>
+                <Input v-model.number="unitGen.from" type="number" min="1" class="h-8 text-[13px]" />
               </div>
               <div>
-                <label class="block text-[10px] font-medium text-violet-700 mb-1">Anzahl</label>
-                <input v-model.number="unitGen.count" type="number" min="1" class="w-16 px-2.5 py-1.5 bg-white border border-violet-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                <label class="text-[11px] text-muted-foreground mb-1 block">Anzahl</label>
+                <Input v-model.number="unitGen.count" type="number" min="1" class="h-8 text-[13px]" />
               </div>
               <div>
-                <label class="block text-[10px] font-medium text-violet-700 mb-1">Stockwerke</label>
-                <input v-model.number="unitGen.floors" type="number" min="1" class="w-16 px-2.5 py-1.5 bg-white border border-violet-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                <label class="text-[11px] text-muted-foreground mb-1 block">Stockwerke</label>
+                <Input v-model.number="unitGen.floors" type="number" min="1" class="h-8 text-[13px]" />
               </div>
-              <button
-                @click="generateUnitRows"
-                class="px-3 py-1.5 bg-violet-600 text-white text-xs font-medium rounded-lg hover:bg-violet-500 transition-colors active:scale-[0.97] flex items-center gap-1"
-              >
-                <Plus class="w-3 h-3" /> Generieren
-              </button>
-              <button
-                v-if="realUnits.some(u => u._isNew)"
-                @click="bulkImportUnits"
-                class="px-3 py-1.5 bg-violet-900 text-white text-xs font-medium rounded-lg hover:bg-violet-800 transition-colors active:scale-[0.97] flex items-center gap-1"
-              >
-                <Save class="w-3 h-3" /> Alle speichern
-              </button>
             </div>
-            <p class="text-[10px] text-violet-600">
-              Generiert {{ unitGen.count }} Einheiten verteilt auf {{ unitGen.floors }} Stockwerke, beginnend bei "{{ unitGen.prefix }} {{ unitGen.from }}".
+            <p class="text-[11px] text-muted-foreground">
+              Generiert {{ unitGen.count }} Einheiten auf {{ unitGen.floors }} Stockwerke, ab "{{ unitGen.prefix }} {{ unitGen.from }}".
             </p>
+            <div class="flex justify-end gap-2">
+              <Button variant="outline" size="sm" @click="unitGenOpen = false">Abbrechen</Button>
+              <Button size="sm" @click="generateUnitRows(); unitGenOpen = false">
+                <Plus class="w-3.5 h-3.5 mr-1.5" /> Generieren
+              </Button>
+            </div>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        </DialogContent>
+      </Dialog>
     </div>
 
     <!-- ═══════ STELLPLÄTZE SECTION ═══════ -->
@@ -701,61 +801,55 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Parking Generator (Collapsible) -->
-      <Collapsible v-model:open="parkingGenOpen" class="mt-3">
-        <CollapsibleTrigger class="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
-          <component :is="parkingGenOpen ? ChevronUp : ChevronDown" class="w-3 h-3" />
-          <span>Stellplatz-Generator</span>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div class="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-3">
-            <h4 class="text-xs font-semibold text-amber-900">Stellplätze generieren</h4>
-            <div class="flex flex-wrap items-end gap-3">
+      <!-- Parking Generator Dialog -->
+      <Dialog :open="parkingGenOpen" @update:open="parkingGenOpen = $event">
+        <DialogContent class="max-w-md">
+          <DialogHeader>
+            <DialogTitle class="text-sm">Stellplaetze generieren</DialogTitle>
+          </DialogHeader>
+          <div class="space-y-4 pt-2">
+            <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-[10px] font-medium text-amber-700 mb-1">Prefix</label>
-                <input v-model="parkingGen.prefix" type="text" class="w-24 px-2.5 py-1.5 bg-white border border-amber-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-amber-400" />
+                <label class="text-[11px] text-muted-foreground mb-1 block">Prefix</label>
+                <Input v-model="parkingGen.prefix" class="h-8 text-[13px]" />
               </div>
               <div>
-                <label class="block text-[10px] font-medium text-amber-700 mb-1">Typ</label>
-                <select v-model="parkingGen.type" class="w-28 px-2.5 py-1.5 bg-white border border-amber-200 rounded-lg text-xs focus:outline-none">
-                  <option>Tiefgarage</option>
-                  <option>Freiplatz</option>
-                  <option>Carport</option>
-                  <option>Garage</option>
-                </select>
+                <label class="text-[11px] text-muted-foreground mb-1 block">Typ</label>
+                <Select v-model="parkingGen.type">
+                  <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Tiefgarage">Tiefgarage</SelectItem>
+                    <SelectItem value="Freiplatz">Freiplatz</SelectItem>
+                    <SelectItem value="Carport">Carport</SelectItem>
+                    <SelectItem value="Garage">Garage</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
-                <label class="block text-[10px] font-medium text-amber-700 mb-1">Von Nr.</label>
-                <input v-model.number="parkingGen.from" type="number" min="1" class="w-16 px-2.5 py-1.5 bg-white border border-amber-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-amber-400" />
+                <label class="text-[11px] text-muted-foreground mb-1 block">Von Nr.</label>
+                <Input v-model.number="parkingGen.from" type="number" min="1" class="h-8 text-[13px]" />
               </div>
               <div>
-                <label class="block text-[10px] font-medium text-amber-700 mb-1">Bis Nr.</label>
-                <input v-model.number="parkingGen.to" type="number" min="1" class="w-16 px-2.5 py-1.5 bg-white border border-amber-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-amber-400" />
+                <label class="text-[11px] text-muted-foreground mb-1 block">Bis Nr.</label>
+                <Input v-model.number="parkingGen.to" type="number" min="1" class="h-8 text-[13px]" />
               </div>
               <div>
-                <label class="block text-[10px] font-medium text-amber-700 mb-1">Preis/Stk.</label>
-                <input v-model.number="parkingGen.price" type="number" step="100" class="w-20 px-2.5 py-1.5 bg-white border border-amber-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-amber-400" />
+                <label class="text-[11px] text-muted-foreground mb-1 block">Preis/Stk.</label>
+                <Input v-model.number="parkingGen.price" type="number" step="100" class="h-8 text-[13px]" />
               </div>
-              <button
-                @click="generateParkingRows"
-                class="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-500 transition-colors active:scale-[0.97] flex items-center gap-1"
-              >
-                <Plus class="w-3 h-3" /> Generieren
-              </button>
-              <button
-                v-if="parkingUnits.some(u => u._isNew)"
-                @click="bulkImportParking"
-                class="px-3 py-1.5 bg-amber-900 text-white text-xs font-medium rounded-lg hover:bg-amber-800 transition-colors active:scale-[0.97] flex items-center gap-1"
-              >
-                <Save class="w-3 h-3" /> Alle speichern
-              </button>
             </div>
-            <p class="text-[10px] text-amber-600">
-              Generiert Stellplätze {{ parkingGen.prefix }} {{ parkingGen.from }} bis {{ parkingGen.prefix }} {{ parkingGen.to }} als {{ parkingGen.type }}.
+            <p class="text-[11px] text-muted-foreground">
+              Generiert Stellplaetze {{ parkingGen.prefix }} {{ parkingGen.from }} bis {{ parkingGen.prefix }} {{ parkingGen.to }} als {{ parkingGen.type }}.
             </p>
+            <div class="flex justify-end gap-2">
+              <Button variant="outline" size="sm" @click="parkingGenOpen = false">Abbrechen</Button>
+              <Button size="sm" @click="generateParkingRows(); parkingGenOpen = false">
+                <Plus class="w-3.5 h-3.5 mr-1.5" /> Generieren
+              </Button>
+            </div>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        </DialogContent>
+      </Dialog>
     </div>
 
   </div>

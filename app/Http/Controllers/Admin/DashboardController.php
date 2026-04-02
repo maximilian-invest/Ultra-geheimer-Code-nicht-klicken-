@@ -45,6 +45,7 @@ class DashboardController extends Controller
             DB::raw('COALESCE(on_hold, 0) as on_hold'), 'on_hold_note',
             DB::raw('(SELECT COUNT(*) FROM property_files WHERE property_files.property_id = properties.id) as files_count'),
             DB::raw('(SELECT COALESCE(SUM(price), 0) FROM property_units WHERE property_units.property_id = properties.id AND property_units.is_parking = 0) as total_volume'),
+            DB::raw('(SELECT COUNT(*) FROM property_units WHERE property_units.property_id = properties.id AND property_units.is_parking = 0) as unit_count'),
             DB::raw('(SELECT name FROM users WHERE users.id = properties.broker_id LIMIT 1) as broker_name'))
             // All users see all properties; makler gets readonly flag on non-owned ones
             ->orderBy('address')

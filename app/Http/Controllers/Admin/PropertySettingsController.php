@@ -28,7 +28,7 @@ class PropertySettingsController extends Controller
             'inserat_since', 'condition_note', 'realty_condition', 'quality', 'furnishing',
         ],
         'house' => [
-            'total_area', 'living_area', 'free_area', 'realty_area',
+            'living_area', 'free_area', 'realty_area',
             'area_balcony', 'area_terrace', 'area_garden', 'area_basement',
             'rooms_amount', 'bedrooms', 'bathrooms', 'toilets', 'floor_count',
             'construction_year', 'year_renovated', 'heating',
@@ -42,7 +42,7 @@ class PropertySettingsController extends Controller
             'orientation', 'noise_level', 'available_from',
         ],
         'apartment' => [
-            'total_area', 'living_area', 'realty_area',
+            'living_area', 'realty_area',
             'area_balcony', 'area_terrace', 'area_loggia', 'area_basement',
             'rooms_amount', 'bedrooms', 'bathrooms', 'toilets', 'floor_number', 'floor_count',
             'construction_year', 'year_renovated', 'heating',
@@ -56,7 +56,7 @@ class PropertySettingsController extends Controller
             'orientation', 'noise_level', 'available_from',
         ],
         'newbuild' => [
-            'total_area', 'living_area', 'free_area', 'realty_area', 'rooms_amount',
+            'living_area', 'free_area', 'realty_area', 'rooms_amount',
             'bedrooms', 'bathrooms',
             'builder_company', 'property_manager', 'construction_start', 'construction_end',
             'move_in_date', 'available_from', 'total_units',
@@ -67,68 +67,68 @@ class PropertySettingsController extends Controller
             'orientation',
         ],
         'newbuild_single' => [
-            'total_area', 'living_area', 'free_area', 'rooms_amount', 'floor_count',
+            'living_area', 'free_area', 'rooms_amount', 'floor_count',
             'construction_year', 'heating', 'energy_certificate', 'heating_demand_value',
             'garage_spaces', 'parking_spaces', 'has_basement', 'has_garden', 'has_balcony', 'has_terrace',
             'builder_company', 'construction_start', 'construction_end', 'move_in_date',
             'orientation', 'noise_level',
         ],
         'bungalow' => [
-            'total_area', 'living_area', 'free_area', 'rooms_amount',
+            'living_area', 'free_area', 'rooms_amount',
             'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value',
             'garage_spaces', 'parking_spaces', 'has_garden', 'has_terrace',
             'condition_note', 'furnishing', 'orientation', 'noise_level',
         ],
         'villa' => [
-            'total_area', 'living_area', 'free_area', 'rooms_amount', 'floor_count',
+            'living_area', 'free_area', 'rooms_amount', 'floor_count',
             'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value',
             'garage_spaces', 'parking_spaces', 'has_basement', 'has_garden', 'has_balcony', 'has_terrace',
             'condition_note', 'furnishing', 'orientation', 'noise_level',
         ],
         'reihenhaus' => [
-            'total_area', 'living_area', 'free_area', 'rooms_amount', 'floor_count',
+            'living_area', 'free_area', 'rooms_amount', 'floor_count',
             'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value',
             'garage_spaces', 'parking_spaces', 'has_basement', 'has_garden', 'has_balcony', 'has_terrace',
             'condition_note', 'orientation',
         ],
         'doppelhaus' => [
-            'total_area', 'living_area', 'free_area', 'rooms_amount', 'floor_count',
+            'living_area', 'free_area', 'rooms_amount', 'floor_count',
             'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value',
             'garage_spaces', 'parking_spaces', 'has_basement', 'has_garden', 'has_balcony', 'has_terrace',
             'condition_note', 'orientation',
         ],
         'penthouse' => [
-            'total_area', 'living_area', 'rooms_amount', 'floor_number', 'floor_count',
+            'living_area', 'rooms_amount', 'floor_number', 'floor_count',
             'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value',
             'has_elevator', 'has_terrace', 'has_loggia', 'parking_spaces', 'garage_spaces',
             'operating_costs', 'maintenance_reserves', 'condition_note', 'furnishing', 'orientation',
         ],
         'dachgeschoss' => [
-            'total_area', 'living_area', 'rooms_amount', 'floor_number', 'floor_count',
+            'living_area', 'rooms_amount', 'floor_number', 'floor_count',
             'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value',
             'has_elevator', 'has_balcony', 'has_terrace', 'parking_spaces',
             'operating_costs', 'maintenance_reserves', 'condition_note', 'orientation',
         ],
         'garconniere' => [
-            'total_area', 'living_area', 'rooms_amount', 'floor_number',
+            'living_area', 'rooms_amount', 'floor_number',
             'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value',
             'has_elevator', 'has_balcony', 'parking_spaces',
             'operating_costs', 'maintenance_reserves',
         ],
         'gewerbe' => [
-            'total_area', 'living_area', 'free_area', 'rooms_amount', 'floor_count',
+            'living_area', 'free_area', 'rooms_amount', 'floor_count',
             'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value',
             'garage_spaces', 'parking_spaces', 'has_elevator', 'has_basement',
             'operating_costs', 'condition_note', 'orientation',
         ],
         'anlage' => [
-            'total_area', 'living_area', 'free_area', 'rooms_amount', 'floor_count',
+            'living_area', 'free_area', 'rooms_amount', 'floor_count',
             'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value',
             'garage_spaces', 'parking_spaces', 'has_elevator', 'has_basement',
             'operating_costs', 'maintenance_reserves', 'total_units', 'condition_note',
         ],
         'land' => [
-            'total_area', 'free_area', 'realty_area',
+            'free_area', 'realty_area',
             'plot_dedication', 'plot_buildable', 'plot_developed',
             'orientation', 'noise_level', 'available_from',
         ],
@@ -186,7 +186,6 @@ class PropertySettingsController extends Controller
         'buyer_commission_text' => 'Käuferprovisions-Text',
         'inserat_since' => 'Inseriert seit',
         // Flächen
-        'total_area' => 'Gesamtfläche (m², nur Zahl)',
         'living_area' => 'Wohnfläche (m², nur Zahl)',
         'free_area' => 'Grundstücksfläche (m², nur Zahl)',
         'realty_area' => 'Nutzfläche (m²)',
@@ -282,7 +281,7 @@ class PropertySettingsController extends Controller
     private const FIELD_TYPES = [
         'purchase_price' => 'number', 'rental_price' => 'number', 'rent_warm' => 'number',
         'rent_deposit' => 'number', 'price_per_m2' => 'number',
-        'total_area' => 'number', 'living_area' => 'number', 'free_area' => 'number',
+        'living_area' => 'number', 'free_area' => 'number',
         'realty_area' => 'number', 'area_balcony' => 'number', 'area_terrace' => 'number',
         'area_garden' => 'number', 'area_basement' => 'number', 'area_loggia' => 'number',
         'area_garage' => 'number', 'office_space' => 'number',
@@ -1331,12 +1330,12 @@ PY;
             'updated_at'  => now(),
         ];
 
-        // For newbuild projects: auto-calculate total_area from unit areas
+        // For newbuild projects: auto-calculate living_area from unit areas
         $property = DB::table('properties')->where('id', $propId)->first();
         if ($property && $property->property_category === 'newbuild') {
             $sumArea = floatval($stats->sum_area ?? 0);
             if ($sumArea > 0) {
-                $update['total_area'] = round($sumArea, 2);
+                $update['living_area'] = round($sumArea, 2);
             }
         }
 

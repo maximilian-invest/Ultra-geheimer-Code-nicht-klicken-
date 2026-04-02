@@ -659,6 +659,9 @@ const statusCounts = computed(() => {
         const q = searchQuery.value.toLowerCase();
         list = list.filter(p => (p.address||'').toLowerCase().includes(q) || (p.ref_id||'').toLowerCase().includes(q) || (p.city||'').toLowerCase().includes(q) || (p.project_name||'').toLowerCase().includes(q) || (p.broker_name||'').toLowerCase().includes(q));
     }
+    // Apply broker filter so counts match visible list
+    if (selectedBrokers.value.size > 0) list = list.filter(p => selectedBrokers.value.has(p.broker_id));
+    else list = list.filter(p => !p.is_other_broker);
     return {
         aktiv: list.filter(p => p.realty_status !== 'inaktiv' && p.realty_status !== 'verkauft').length,
         inaktiv: list.filter(p => p.realty_status === 'inaktiv').length,
@@ -1278,8 +1281,8 @@ const FLOOR_NAMES = { '-1': 'Tiefgarage / Stellplätze', 0: 'Erdgeschoss', 1: '1
 
 const FIELD_GROUPS = {
     basis: ['ref_id', 'project_name', 'address', 'city', 'zip', 'property_category', 'purchase_price', 'platforms', 'inserat_since', 'realty_description', 'highlights'],
-    details_house: ['living_area', 'free_area', 'total_area', 'rooms_amount', 'floor_count', 'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value'],
-    details_apartment: ['living_area', 'total_area', 'rooms_amount', 'floor_number', 'floor_count', 'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value'],
+    details_house: ['living_area', 'free_area', 'rooms_amount', 'floor_count', 'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value'],
+    details_apartment: ['living_area', 'rooms_amount', 'floor_number', 'floor_count', 'construction_year', 'year_renovated', 'heating', 'energy_certificate', 'heating_demand_value'],
     ausstattung_house: ['garage_spaces', 'parking_spaces', 'has_basement', 'has_garden', 'has_balcony', 'has_terrace', 'condition_note', 'furnishing', 'orientation', 'noise_level'],
     ausstattung_apartment: ['garage_spaces', 'parking_spaces', 'has_elevator', 'has_balcony', 'has_terrace', 'has_loggia', 'has_basement', 'condition_note', 'furnishing', 'orientation', 'noise_level'],
     kosten: ['operating_costs', 'maintenance_reserves', 'commission_percent', 'commission_note'],

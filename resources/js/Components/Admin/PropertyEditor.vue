@@ -1171,8 +1171,7 @@ function formatLastExport(ts) {
                   <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Flaechen (m2)</h3>
                   <div class="grid grid-cols-2 gap-4">
                     <div v-for="f in [
-                      { key: 'total_area', label: 'Gesamtflaeche' },
-                      { key: 'living_area', label: 'Wohnflaeche' },
+                                            { key: 'living_area', label: 'Wohnflaeche' },
                       { key: 'realty_area', label: 'Nutzflaeche' },
                       { key: 'free_area', label: 'Grundstueck' },
                       { key: 'area_balcony', label: 'Balkon' },

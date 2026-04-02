@@ -40,7 +40,7 @@ const REQUIRED_FIELDS = [
   { key: 'zip', label: 'PLZ' },
   { key: 'object_type', label: 'Objekttyp', altKey: 'type' },
   { key: 'purchase_price', label: 'Kaufpreis', altKey: 'price' },
-  { key: 'total_area', label: 'Wohnfläche', altKey: 'size_m2' },
+  { key: 'living_area', label: 'Wohnfläche', altKey: 'size_m2' },
   { key: 'rooms', label: 'Zimmer' },
   { key: 'description', label: 'Beschreibung', altKey: 'realty_description' },
 ];

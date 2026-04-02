@@ -390,10 +390,10 @@ function ownerInitials(name) {
         <div class="text-[15px] sm:text-[17px] font-bold tabular-nums leading-tight" style="color:hsl(240 10% 3.9%)">
           {{ isNewbuild
             ? (property.unit_count || property.children?.length || '–')
-            : (property.total_area ? property.total_area + ' m²' : '–') }}
+            : (property.living_area ? property.living_area + ' m²' : '–') }}
         </div>
-        <div v-if="isNewbuild && property.total_area" class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">
-          {{ property.total_area }} m² gesamt
+        <div v-if="isNewbuild && property.living_area" class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">
+          {{ property.living_area }} m² gesamt
         </div>
         <div v-if="!isNewbuild && property.living_area" class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">
           {{ property.living_area }} m² Wohnfl.
@@ -438,8 +438,8 @@ function ownerInitials(name) {
           <!-- Row: Fläche / Typ -->
           <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-bottom:1px solid hsl(240 5.9% 90%)">Fläche</div>
           <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%);border-bottom:1px solid hsl(240 5.9% 90%)">
-            <template v-if="isNewbuild && property.total_area">{{ property.total_area }} m²</template>
-            <template v-else-if="property.total_area">{{ property.total_area }} m²</template>
+            <template v-if="isNewbuild && property.living_area">{{ property.living_area }} m²</template>
+            <template v-else-if="property.living_area">{{ property.living_area }} m²</template>
             <template v-else>–</template>
           </div>
           <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);border-bottom:1px solid hsl(240 5.9% 90%)">Objekttyp</div>

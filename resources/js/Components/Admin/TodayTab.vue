@@ -811,7 +811,7 @@ onMounted(async () => {
                         <span class="text-sm font-bold ml-2 whitespace-nowrap" style="color:#ee7606">&euro; {{ Number(prop.volume || 0).toLocaleString('de-DE') }}</span>
                     </div>
                     <div class="flex items-center justify-between mt-1">
-                        <span class="text-[10px] text-[var(--muted-foreground)]">{{ prop.city }} &middot; {{ prop.all_sold }}/{{ prop.total }} verkauft &middot; {{ Math.round((prop.sold_area / (prop.total_area || 1)) * 100) }}% m&sup2;</span>
+                        <span class="text-[10px] text-[var(--muted-foreground)]">{{ prop.city }} &middot; {{ prop.all_sold }}/{{ prop.total }} verkauft &middot; {{ Math.round((prop.sold_area / (prop.living_area || 1)) * 100) }}% m&sup2;</span>
                         <span class="text-[10px] font-semibold" style="color:#10b981" v-if="prop.commission_makler_amount">&euro; {{ Number(prop.commission_makler_amount).toLocaleString('de-DE') }} Prov.</span>
                     </div>
                     <div v-if="prop.sold_entries && prop.sold_entries.length" class="mt-2 space-y-1">

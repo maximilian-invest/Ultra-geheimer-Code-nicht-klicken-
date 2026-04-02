@@ -726,7 +726,7 @@ function unitRowClass(status) {
                 <div class="py-3 px-3.5 rounded-lg" style="background:hsl(240 4.8% 95.9%)">
                   <div class="text-[10px] font-medium uppercase tracking-wider mb-1" style="color:hsl(240 3.8% 46.1%)">Flaeche</div>
                   <div class="text-[14px] sm:text-[17px] font-bold tabular-nums" style="color:hsl(240 10% 3.9%)">
-                    {{ property?.total_area ? property.total_area + ' m²' : '–' }}
+                    {{ property?.living_area ? property.living_area + ' m²' : '–' }}
                   </div>
                 </div>
                 <div class="py-3 px-3.5 rounded-lg" style="background:hsl(240 4.8% 95.9%)">

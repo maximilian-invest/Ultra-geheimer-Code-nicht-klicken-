@@ -130,7 +130,6 @@ const fieldVis = {
   buyer_commission_percent: { icons: [], tip: 'Wird nirgends angezeigt' },
   commission_makler: { icons: ['I'], tip: 'Nur intern: Makler-Provision' },
   buyer_commission_text: { icons: [], tip: 'Wird nirgends angezeigt' },
-  total_area:     { icons: ['W'], tip: 'Website: Gesamtflaeche' },
   living_area:    { icons: ['W'], tip: 'Website: Wohnflaeche' },
   realty_area:    { icons: [], tip: 'Wird nirgends angezeigt' },
   free_area:      { icons: ['W'], tip: 'Website: Grundstueck' },
@@ -238,7 +237,7 @@ const form = reactive({
   purchase_price: null, price_per_m2: null, parking_price: null,
   rental_price: null, rent_warm: null, rent_deposit: null,
   operating_costs: null, maintenance_reserves: null,
-  total_area: null, living_area: null, realty_area: null, free_area: null,
+  living_area: null, realty_area: null, free_area: null,
   area_balcony: null, area_terrace: null, area_garden: null, area_basement: null,
   area_loggia: null, area_garage: null, office_space: null,
   rooms_amount: null, bedrooms: null, bathrooms: null, toilets: null,
@@ -312,7 +311,7 @@ const activeFeatureCount = computed(() =>
 
 const areaRoomsBadge = computed(() => {
   const parts = [];
-  if (form.total_area) parts.push(form.total_area + " m\u00B2");
+  if (form.living_area) parts.push(form.living_area + " m\u00B2");
   if (form.rooms_amount) parts.push(form.rooms_amount + " Zimmer");
   return parts.join(" \u00B7 ") || null;
 });
@@ -788,7 +787,6 @@ defineExpose({ save, discard });
         <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Flaechen (m2)</div>
         <div class="grid grid-cols-6 max-sm:grid-cols-3 gap-x-3 gap-y-2">
           <div v-for="f in [
-            { key: 'total_area', label: 'Gesamtflaeche' },
             { key: 'living_area', label: 'Wohnflaeche' },
             { key: 'realty_area', label: 'Nutzflaeche' },
             { key: 'free_area', label: 'Grundstueck' },
@@ -801,7 +799,7 @@ defineExpose({ save, discard });
             { key: 'office_space', label: 'Buero' },
           ]" :key="f.key">
             <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">{{ f.label }} <span v-if="vis(f.key).icons.length" class="inline-flex gap-0.5"><span v-for="i in vis(f.key).icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis(f.key).tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis(f.key).tip"></span></label>
-            <div v-if="f.key === 'total_area' && isNewbuild" class="relative">
+            <div v-if="f.key === 'living_area' && isNewbuild" class="relative">
               <Input :model-value="form[f.key]" type="number" step="0.01" class="h-8 text-[13px] bg-muted/50 cursor-not-allowed" disabled title="Wird automatisch aus Einheiten berechnet" />
               <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">auto</span>
             </div>

@@ -415,7 +415,7 @@ class DocumentParserService
 
         Log::info("parseUnits: property={$propertyId}, units_created={$unitsCreated}, units_updated={$unitsUpdated}, units_skipped={$unitsSkipped}, parking_created={$parkingCreated}, parking_updated={$parkingUpdated}, confidence={$confidence}");
 
-        // Recalculate unit stats (total_units + total_area for newbuilds)
+        // Recalculate unit stats (total_units + living_area for newbuilds)
         app(\App\Http\Controllers\Admin\PropertySettingsController::class)->recalcUnitStatsPublic($propertyId);
 
         return [

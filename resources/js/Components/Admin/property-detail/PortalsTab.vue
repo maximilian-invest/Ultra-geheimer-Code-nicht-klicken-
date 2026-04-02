@@ -32,6 +32,40 @@ const immojiCapacity = ref(null);
 const isMaster = computed(() => props.property?.property_category === "newbuild" && !props.property?.parent_id);
 const isChild = computed(() => !!props.property?.parent_id);
 
+// ─── Pflichtfelder für Veröffentlichung ───
+const REQUIRED_FIELDS = [
+  { key: 'ref_id', label: 'Ref-ID' },
+  { key: 'address', label: 'Adresse' },
+  { key: 'city', label: 'Stadt' },
+  { key: 'zip', label: 'PLZ' },
+  { key: 'object_type', label: 'Objekttyp', altKey: 'type' },
+  { key: 'purchase_price', label: 'Kaufpreis', altKey: 'price' },
+  { key: 'total_area', label: 'Wohnfläche', altKey: 'size_m2' },
+  { key: 'rooms', label: 'Zimmer' },
+  { key: 'description', label: 'Beschreibung', altKey: 'realty_description' },
+];
+
+const missingFields = computed(() => {
+  const p = props.property;
+  if (!p) return REQUIRED_FIELDS.map(f => f.label);
+  return REQUIRED_FIELDS.filter(f => {
+    const v = p[f.key];
+    const alt = f.altKey ? p[f.altKey] : null;
+    return !v && v !== 0 && !alt && alt !== 0;
+  }).map(f => f.label);
+});
+
+const canPublish = computed(() => missingFields.value.length === 0);
+
+function validateBeforePublish() {
+  if (!canPublish.value) {
+    toast("Pflichtfelder fehlen: " + missingFields.value.join(", "));
+    return false;
+  }
+  return true;
+}
+
+
 const PORTAL_TO_IMMOJI = {
   willhaben: "willhabenExportEnabled",
   immowelt: "immoweltExportEnabled",
@@ -105,6 +139,7 @@ async function savePortal(portalName, enabled) {
 }
 
 function toggleSrHomes(val) {
+  if (val && !validateBeforePublish()) return;
   emit("dirty");
   savePortal("sr-homes", val);
 }
@@ -161,6 +196,7 @@ async function disconnectImmoji() {
 
 async function pushToImmoji() {
   if (!props.property?.id) return;
+  if (!validateBeforePublish()) return;
   immojiPushing.value = true;
   try {
     const r = await fetch(API.value + "&action=immoji_push", {
@@ -261,6 +297,15 @@ onMounted(() => {
 
 <template>
   <div class="max-w-2xl space-y-4">
+
+    <!-- Pflichtfelder-Warnung -->
+    <div v-if="missingFields.length" class="rounded-lg p-3 text-xs space-y-1.5" style="background:hsl(0 84% 97%);border:1px solid hsl(0 84% 92%)">
+      <div class="font-medium" style="color:hsl(0 72% 51%)">Pflichtfelder fehlen für die Veröffentlichung:</div>
+      <div class="flex flex-wrap gap-1.5">
+        <span v-for="f in missingFields" :key="f" class="px-2 py-0.5 rounded-full text-[11px] font-medium" style="background:hsl(0 84% 92%);color:hsl(0 72% 40%)">{{ f }}</span>
+      </div>
+      <div class="text-[11px]" style="color:hsl(0 40% 50%)">Bitte im Bearbeiten-Tab ausfüllen, bevor du auf Portalen veröffentlichst.</div>
+    </div>
 
     <!-- SR-Homes Website Toggle (master or standalone only) -->
     <div v-if="!isChild" class="flex items-center justify-between py-3 border-b border-border/50">

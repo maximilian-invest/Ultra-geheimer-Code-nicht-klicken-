@@ -1,10 +1,11 @@
 <script setup>
 import { ref, reactive, computed, watch, inject, onMounted } from "vue";
-import { ChevronRight, Plus, Trash2 } from "lucide-vue-next";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronRight, Plus, Trash2, Sparkles, Upload, X } from "lucide-vue-next";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -39,6 +40,13 @@ const sections = reactive({
   verfuegbarkeit: false,
   historie: false,
 });
+
+// ─── Parse Fields ───
+const parseOpen = ref(false);
+const parseLoading = ref(false);
+const parseFiles = ref([]);
+const parseSelectedFiles = ref([]);
+const parseUploading = ref(false);
 
 // ─── Option arrays ───
 const objectTypes = [
@@ -88,6 +96,108 @@ const energyTypeOptions = [
 ];
 
 const energyClasses = ["A++", "A+", "A", "B", "C", "D", "E", "F", "G", "H"];
+
+// ─── Field visibility map ───
+// W = Website, P = Portal, I = Intern (admin only)
+const fieldVis = {
+  ref_id:         { icons: ['W'], tip: 'Website: Referenz-ID' },
+  object_type:    { icons: ['W','P'], tip: 'Website + Portal: Objekttyp' },
+  marketing_type: { icons: [], tip: 'Wird nirgends angezeigt' },
+  property_category: { icons: ['W'], tip: 'Website: Kategorie-Filter' },
+  project_name:   { icons: ['W'], tip: 'Website: Projektname' },
+  title:          { icons: [], tip: 'Wird nirgends angezeigt' },
+  address:        { icons: ['W','P'], tip: 'Website + Portal: Adresse' },
+  zip:            { icons: ['W','P'], tip: 'Website + Portal: PLZ' },
+  city:           { icons: ['W','P'], tip: 'Website + Portal: Stadt' },
+  latitude:       { icons: [], tip: 'Wird nirgends angezeigt' },
+  longitude:      { icons: [], tip: 'Wird nirgends angezeigt' },
+  broker_id:      { icons: ['I'], tip: 'Nur intern: Makler-Zuordnung' },
+  status:         { icons: ['I'], tip: 'Nur intern: Status-Verwaltung' },
+  construction_end: { icons: [], tip: 'Wird nirgends angezeigt' },
+  builder_company: { icons: [], tip: 'Wird nirgends angezeigt' },
+  purchase_price: { icons: ['W'], tip: 'Website: Kaufpreis' },
+  price_to:       { icons: [], tip: 'Wird nirgends angezeigt' },
+  price_per_m2:   { icons: [], tip: 'Wird nirgends angezeigt' },
+  parking_price:  { icons: [], tip: 'Wird nirgends angezeigt' },
+  operating_costs: { icons: [], tip: 'Wird nirgends angezeigt' },
+  maintenance_reserves: { icons: [], tip: 'Wird nirgends angezeigt' },
+  rental_price:   { icons: [], tip: 'Wird nirgends angezeigt' },
+  rent_warm:      { icons: [], tip: 'Wird nirgends angezeigt' },
+  rent_deposit:   { icons: [], tip: 'Wird nirgends angezeigt' },
+  commission_percent: { icons: ['I'], tip: 'Nur intern: Provision' },
+  commission_total: { icons: ['I'], tip: 'Nur intern: Provision EUR' },
+  commission_note: { icons: ['I'], tip: 'Nur intern: Provisionsnotiz' },
+  buyer_commission_percent: { icons: [], tip: 'Wird nirgends angezeigt' },
+  commission_makler: { icons: ['I'], tip: 'Nur intern: Makler-Provision' },
+  buyer_commission_text: { icons: [], tip: 'Wird nirgends angezeigt' },
+  total_area:     { icons: ['W'], tip: 'Website: Gesamtflaeche' },
+  living_area:    { icons: ['W'], tip: 'Website: Wohnflaeche' },
+  realty_area:    { icons: [], tip: 'Wird nirgends angezeigt' },
+  free_area:      { icons: ['W'], tip: 'Website: Grundstueck' },
+  area_balcony:   { icons: [], tip: 'Wird nirgends angezeigt' },
+  area_terrace:   { icons: [], tip: 'Wird nirgends angezeigt' },
+  area_garden:    { icons: [], tip: 'Wird nirgends angezeigt' },
+  area_loggia:    { icons: [], tip: 'Wird nirgends angezeigt' },
+  area_basement:  { icons: [], tip: 'Wird nirgends angezeigt' },
+  area_garage:    { icons: [], tip: 'Wird nirgends angezeigt' },
+  office_space:   { icons: [], tip: 'Wird nirgends angezeigt' },
+  rooms_amount:   { icons: ['W'], tip: 'Website: Zimmeranzahl' },
+  bedrooms:       { icons: [], tip: 'Wird nirgends angezeigt' },
+  bathrooms:      { icons: ['W'], tip: 'Website: Badezimmer' },
+  toilets:        { icons: [], tip: 'Wird nirgends angezeigt' },
+  floor_number:   { icons: [], tip: 'Wird nirgends angezeigt' },
+  floor_count:    { icons: [], tip: 'Wird nirgends angezeigt' },
+  garage_spaces:  { icons: ['W'], tip: 'Website: als Feature' },
+  parking_spaces: { icons: ['W'], tip: 'Website: als Feature' },
+  parking_type:   { icons: [], tip: 'Wird nirgends angezeigt' },
+  realty_condition: { icons: [], tip: 'Wird nirgends angezeigt' },
+  quality:        { icons: [], tip: 'Wird nirgends angezeigt' },
+  construction_year: { icons: ['W'], tip: 'Website: Baujahr' },
+  year_renovated: { icons: ['W'], tip: 'Website: Sanierungsjahr' },
+  kitchen_type:   { icons: [], tip: 'Wird nirgends angezeigt' },
+  heating:        { icons: [], tip: 'Wird nirgends angezeigt' },
+  flooring:       { icons: [], tip: 'Wird nirgends angezeigt' },
+  bathroom_equipment: { icons: [], tip: 'Wird nirgends angezeigt' },
+  orientation:    { icons: [], tip: 'Wird nirgends angezeigt' },
+  furnishing:     { icons: [], tip: 'Wird nirgends angezeigt' },
+  // Boolean features
+  has_balcony:    { icons: ['W'], tip: 'Website: Feature-Badge' },
+  has_terrace:    { icons: ['W'], tip: 'Website: Feature-Badge' },
+  has_loggia:     { icons: ['W'], tip: 'Website: Feature-Badge' },
+  has_garden:     { icons: ['W'], tip: 'Website: Feature-Badge' },
+  has_basement:   { icons: ['W'], tip: 'Website: Feature-Badge' },
+  has_cellar:     { icons: [], tip: 'Wird nirgends angezeigt' },
+  has_elevator:   { icons: ['W'], tip: 'Website: Feature "Lift"' },
+  has_fitted_kitchen: { icons: [], tip: 'Wird nirgends angezeigt' },
+  has_air_conditioning: { icons: [], tip: 'Wird nirgends angezeigt' },
+  has_pool:       { icons: [], tip: 'Wird nirgends angezeigt' },
+  has_sauna:      { icons: [], tip: 'Wird nirgends angezeigt' },
+  has_fireplace:  { icons: [], tip: 'Wird nirgends angezeigt' },
+  has_alarm:      { icons: [], tip: 'Wird nirgends angezeigt' },
+  has_barrier_free: { icons: [], tip: 'Wird nirgends angezeigt' },
+  has_guest_wc:   { icons: [], tip: 'Wird nirgends angezeigt' },
+  has_storage_room: { icons: [], tip: 'Wird nirgends angezeigt' },
+  has_washing_connection: { icons: [], tip: 'Wird nirgends angezeigt' },
+  // Energy
+  energy_type:    { icons: [], tip: 'Wird nirgends angezeigt' },
+  heating_demand_class: { icons: [], tip: 'Wird nirgends angezeigt' },
+  heating_demand_value: { icons: ['W'], tip: 'Website: HWB-Wert' },
+  energy_efficiency_value: { icons: [], tip: 'Wird nirgends angezeigt' },
+  energy_primary_source: { icons: [], tip: 'Wird nirgends angezeigt' },
+  energy_valid_until: { icons: [], tip: 'Wird nirgends angezeigt' },
+  energy_certificate: { icons: ['W'], tip: 'Website: Energieausweis-Text' },
+  // Verfuegbarkeit
+  available_from: { icons: [], tip: 'Wird nirgends angezeigt' },
+  available_text: { icons: [], tip: 'Wird nirgends angezeigt' },
+  construction_start: { icons: [], tip: 'Wird nirgends angezeigt' },
+  property_manager: { icons: [], tip: 'Wird nirgends angezeigt' },
+  inserat_since:  { icons: ['P'], tip: 'Portal: Tage am Markt' },
+  platforms:      { icons: [], tip: 'Wird nirgends angezeigt' },
+};
+
+function vis(key) {
+  return fieldVis[key] || { icons: [], tip: 'Unbekannt' };
+}
 
 const kitchenOptions = [
   { value: "", label: "-- Bitte waehlen --" },
@@ -186,8 +296,9 @@ function copyPropertyToForm(prop) {
   }
   // Ensure object_type is populated from type if not set
   if (!form.object_type && form.type) form.object_type = form.type;
-  // Set broker_id default
-  if (!form.broker_id && userId?.value) form.broker_id = userId.value;
+  // Set broker_id default + ensure String for Select compatibility
+  if (!form.broker_id && userId?.value) form.broker_id = String(userId.value);
+  else if (form.broker_id) form.broker_id = String(form.broker_id);
   snapshot = JSON.parse(JSON.stringify(form));
 }
 
@@ -339,6 +450,63 @@ function discard() {
   dirty.value = false;
 }
 
+// ─── Parse Fields Functions ───
+async function loadParseFiles() {
+  try {
+    const r = await fetch(API.value + "&action=get_property_files&property_id=" + props.property.id);
+    const d = await r.json();
+    parseFiles.value = d.files || [];
+    parseSelectedFiles.value = parseFiles.value
+      .filter(f => /expos/i.test(f.filename) || /expos/i.test(f.label || ''))
+      .map(f => f.id);
+  } catch (e) { parseFiles.value = []; }
+}
+
+async function uploadParseFiles(event) {
+  const files = event.target.files;
+  if (!files || !files.length) return;
+  parseUploading.value = true;
+  for (const file of files) {
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('property_id', props.property.id);
+      fd.append('label', file.name.replace(/\.[^.]+$/, ''));
+      const r = await fetch(API.value + '&action=upload_property_file', { method: 'POST', body: fd });
+      const d = await r.json();
+      if (d.success && d.file) {
+        parseFiles.value.push(d.file);
+        parseSelectedFiles.value.push(d.file.id);
+      }
+    } catch (e) { console.error(e); }
+  }
+  event.target.value = '';
+  parseUploading.value = false;
+  toast(files.length + ' Datei(en) hochgeladen');
+}
+
+async function runParseFields() {
+  parseLoading.value = true;
+  try {
+    const r = await fetch(API.value + "&action=parse_property_fields", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ property_id: props.property.id, file_ids: parseSelectedFiles.value }),
+    });
+    const txt = await r.text();
+    if (txt.startsWith("<!") || txt.startsWith("<html")) { toast("Session abgelaufen"); parseLoading.value = false; return; }
+    const d = JSON.parse(txt);
+    if (d.error) { toast(d.error, "error"); }
+    else {
+      const msg = d.fields_filled + " Felder ausgefuellt" + (d.fields_skipped ? ", " + d.fields_skipped + " uebersprungen (bereits befuellt)" : "");
+      toast(msg, "success");
+      parseOpen.value = false;
+      location.reload();
+    }
+  } catch (e) { toast("Fehler: " + e.message, "error"); }
+  parseLoading.value = false;
+}
+
 // ─── Expose methods to parent via template ref ───
 defineExpose({ save, discard });
 </script>
@@ -346,541 +514,565 @@ defineExpose({ save, discard });
 <template>
   <div class="space-y-3 max-w-5xl">
 
-    <!-- ═══ 1. Objekt & Adresse ═══ -->
-    <div class="border border-border/50 rounded-lg mb-3">
-      <Collapsible v-model:open="sections.objektAdresse">
-        <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
-          <div class="flex items-center gap-2">
-            <ChevronRight class="w-4 h-4 transition-transform duration-200" :class="{ 'rotate-90': sections.objektAdresse }" />
-            <span class="text-sm font-semibold">Objekt & Adresse</span>
-          </div>
-          <Badge v-if="form.ref_id" variant="outline" class="text-[10px]">{{ form.ref_id }}</Badge>
-        </CollapsibleTrigger>
-        <CollapsibleContent class="px-4 pb-4">
-          <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-3 gap-y-1.5">
-
-            <div class="col-span-4 max-sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-1 mb-0.5">Objekt</div>
-
-            <div>
-              <label class="text-xs text-muted-foreground">Ref-ID</label>
-              <Input v-model="form.ref_id" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Objekttyp</label>
-              <Select v-model="form.object_type">
-                <SelectTrigger class="h-[30px] text-[13px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="t in objectTypes" :key="t" :value="t">{{ t }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Transaktionsart</label>
-              <Select v-model="form.marketing_type">
-                <SelectTrigger class="h-[30px] text-[13px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="t in marketingTypes" :key="t.value" :value="t.value">{{ t.label }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Kategorie</label>
-              <Select v-model="form.property_category">
-                <SelectTrigger class="h-[30px] text-[13px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="c in categoryOptions" :key="c.value" :value="c.value">{{ c.label }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Projektname</label>
-              <Input v-model="form.project_name" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Inserat-Titel</label>
-              <Input v-model="form.title" class="h-[30px] text-[13px]" />
-            </div>
-
-            <div class="col-span-4 max-sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-3 mb-0.5">Adresse</div>
-
-            <div class="col-span-2 max-sm:col-span-2">
-              <label class="text-xs text-muted-foreground">Strasse & Hausnummer</label>
-              <Input v-model="form.address" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">PLZ</label>
-              <Input v-model="form.zip" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Stadt</label>
-              <Input v-model="form.city" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Breitengrad</label>
-              <Input v-model="form.latitude" type="number" step="0.0000001" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Laengengrad</label>
-              <Input v-model="form.longitude" type="number" step="0.0000001" class="h-[30px] text-[13px]" />
-            </div>
-
-            <div class="col-span-4 max-sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-3 mb-0.5">Zuordnung</div>
-
-            <div>
-              <label class="text-xs text-muted-foreground">Zustaendiger Makler</label>
-              <Select v-model="form.broker_id">
-                <SelectTrigger class="h-[30px] text-[13px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="b in brokerList" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Status</label>
-              <Select v-model="form.status">
-                <SelectTrigger class="h-[30px] text-[13px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auftrag">Auftrag</SelectItem>
-                  <SelectItem value="aktiv">Aktiv</SelectItem>
-                  <SelectItem value="verkauft">Verkauft</SelectItem>
-                  <SelectItem value="reserviert">Reserviert</SelectItem>
-                  <SelectItem value="inaktiv">Inaktiv</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Fertigstellung</label>
-              <Input v-model="form.construction_end" type="date" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Bautraeger</label>
-              <Input v-model="form.builder_company" class="h-[30px] text-[13px]" />
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+    <!-- Legend -->
+    <div class="flex items-center gap-4 px-1 mb-1">
+      <span class="text-[10px] text-muted-foreground">Feld-Sichtbarkeit:</span>
+      <span class="inline-flex items-center gap-1 text-[10px]"><span class="text-[8px] font-bold px-1 rounded" style="background:hsl(217 91% 93%);color:hsl(217 91% 50%)">W</span> Website</span>
+      <span class="inline-flex items-center gap-1 text-[10px]"><span class="text-[8px] font-bold px-1 rounded" style="background:hsl(280 67% 93%);color:hsl(280 67% 45%)">P</span> Kundenportal</span>
+      <span class="inline-flex items-center gap-1 text-[10px]"><span class="text-[8px] font-bold px-1 rounded" style="background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)">I</span> Nur intern</span>
+      <span class="inline-flex items-center gap-1 text-[10px]"><span class="w-1.5 h-1.5 rounded-full" style="background:hsl(240 5.9% 85%)"></span> Nicht angezeigt</span>
     </div>
 
-    <!-- ═══ 2. Preise & Kosten ═══ -->
-    <div class="border border-border/50 rounded-lg mb-3">
-      <Collapsible v-model:open="sections.preiseKosten">
-        <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
-          <div class="flex items-center gap-2">
-            <ChevronRight class="w-4 h-4 transition-transform duration-200" :class="{ 'rotate-90': sections.preiseKosten }" />
-            <span class="text-sm font-semibold">Preise & Kosten</span>
-          </div>
-          <Badge v-if="form.purchase_price" variant="outline" class="text-[10px]">{{ Number(form.purchase_price).toLocaleString('de-AT') }} EUR</Badge>
-        </CollapsibleTrigger>
-        <CollapsibleContent class="px-4 pb-4">
-          <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-3 gap-y-1.5">
-
-            <div>
-              <label class="text-xs text-muted-foreground">{{ isNewbuild ? 'Gesamtvolumen (berechnet)' : 'Kaufpreis / Miete' }}</label>
-              <Input v-model="form.purchase_price" type="number" step="0.01" :disabled="isNewbuild" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Preis bis</label>
-              <Input v-model="form.price_to" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Preis/m2</label>
-              <Input v-model="form.price_per_m2" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Stellplatz-Preis</label>
-              <Input v-model="form.parking_price" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
-
-            <div class="col-span-4 max-sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-3 mb-0.5">Provision Intern</div>
-
-            <div>
-              <label class="text-xs text-muted-foreground">Provision %</label>
-              <Input v-model="form.commission_percent" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Provision Gesamt EUR</label>
-              <Input v-model="form.commission_total" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
-            <div class="col-span-2 max-sm:col-span-2">
-              <label class="text-xs text-muted-foreground">Provisionsnotiz (intern)</label>
-              <Input v-model="form.commission_note" class="h-[30px] text-[13px]" />
-            </div>
-
-            <div class="col-span-4 max-sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-3 mb-0.5">Provision Oeffentlich</div>
-
-            <div>
-              <label class="text-xs text-muted-foreground">Makler-Provision %</label>
-              <Input v-model="form.buyer_commission_percent" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Makler-Provision EUR</label>
-              <Input v-model="form.commission_makler" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
-            <div class="col-span-2 max-sm:col-span-2">
-              <label class="text-xs text-muted-foreground">Provisionstext (Inserate)</label>
-              <Input v-model="form.buyer_commission_text" class="h-[30px] text-[13px]" />
-            </div>
-
-            <!-- Miete fields -->
-            <template v-if="form.marketing_type === 'miete'">
-              <div class="col-span-4 max-sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-3 mb-0.5">Miete</div>
-              <div>
-                <label class="text-xs text-muted-foreground">Kaltmiete</label>
-                <Input v-model="form.rental_price" type="number" step="0.01" class="h-[30px] text-[13px]" />
-              </div>
-              <div>
-                <label class="text-xs text-muted-foreground">Warmmiete</label>
-                <Input v-model="form.rent_warm" type="number" step="0.01" class="h-[30px] text-[13px]" />
-              </div>
-              <div>
-                <label class="text-xs text-muted-foreground">Kaution</label>
-                <Input v-model="form.rent_deposit" type="number" step="0.01" class="h-[30px] text-[13px]" />
-              </div>
-              <div></div>
-            </template>
-
-            <div class="col-span-4 max-sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-3 mb-0.5">Betriebskosten</div>
-
-            <div>
-              <label class="text-xs text-muted-foreground">Betriebskosten</label>
-              <Input v-model="form.operating_costs" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Ruecklage</label>
-              <Input v-model="form.maintenance_reserves" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+    <!-- Felder auslesen -->
+    <div class="flex items-center gap-2 px-1">
+      <Button size="sm" variant="outline" class="h-7 text-[11px] gap-1" @click="parseOpen = !parseOpen; if (parseOpen && !parseFiles.length) loadParseFiles()">
+        <Sparkles class="w-3 h-3" />
+        Felder auslesen
+      </Button>
     </div>
 
-    <!-- ═══ 3. Flaechen & Raeume ═══ -->
-    <div class="border border-border/50 rounded-lg mb-3">
-      <Collapsible v-model:open="sections.flaechenRaeume">
-        <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
-          <div class="flex items-center gap-2">
-            <ChevronRight class="w-4 h-4 transition-transform duration-200" :class="{ 'rotate-90': sections.flaechenRaeume }" />
-            <span class="text-sm font-semibold">Flaechen & Raeume</span>
-          </div>
-          <Badge v-if="areaRoomsBadge" variant="outline" class="text-[10px]">{{ areaRoomsBadge }}</Badge>
-        </CollapsibleTrigger>
-        <CollapsibleContent class="px-4 pb-4">
-          <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-3 gap-y-1.5">
+    <div v-if="parseOpen" class="rounded-lg p-4 space-y-3" style="border:1px solid hsl(240 5.9% 90%); background:hsl(240 4.8% 95.9% / 0.3)">
+      <div class="flex items-center justify-between">
+        <h3 class="text-[13px] font-semibold">Felder aus Dokumenten auslesen</h3>
+        <button @click="parseOpen = false" class="text-muted-foreground hover:text-foreground">
+          <X class="w-4 h-4" />
+        </button>
+      </div>
+      <p class="text-[11px] text-muted-foreground">Nur leere Felder werden befuellt. Bestehende Werte bleiben erhalten.</p>
 
-            <div class="col-span-4 max-sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-1 mb-0.5">Flaechen (m2)</div>
+      <label class="flex items-center gap-2 p-3 rounded-lg cursor-pointer hover:bg-muted/50" style="border:1px dashed hsl(240 5.9% 85%)">
+        <Upload class="w-4 h-4 text-muted-foreground" />
+        <span class="text-[11px] text-muted-foreground">{{ parseUploading ? 'Wird hochgeladen...' : 'Neue Dateien hochladen' }}</span>
+        <input type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls" class="sr-only" @change="uploadParseFiles" :disabled="parseUploading" />
+      </label>
 
-            <div v-for="f in [
-              { key: 'total_area', label: 'Gesamtflaeche' },
-              { key: 'living_area', label: 'Wohnflaeche' },
-              { key: 'realty_area', label: 'Nutzflaeche' },
-              { key: 'free_area', label: 'Grundstueck' },
-              { key: 'area_balcony', label: 'Balkon' },
-              { key: 'area_terrace', label: 'Terrasse' },
-              { key: 'area_garden', label: 'Garten' },
-              { key: 'area_loggia', label: 'Loggia' },
-              { key: 'area_basement', label: 'Keller' },
-              { key: 'area_garage', label: 'Garage' },
-              { key: 'office_space', label: 'Buero' },
-            ]" :key="f.key">
-              <label class="text-xs text-muted-foreground">{{ f.label }}</label>
-              <Input v-model="form[f.key]" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
+      <div class="space-y-1 max-h-40 overflow-y-auto">
+        <label v-for="f in parseFiles" :key="f.id" class="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer">
+          <input type="checkbox" :value="f.id" v-model="parseSelectedFiles" class="rounded border-border" />
+          <span class="text-[11px] flex-1 truncate">{{ f.label || f.filename }}</span>
+          <span class="text-[9px] text-muted-foreground uppercase">{{ f.filename?.split('.').pop() }}</span>
+        </label>
+      </div>
+      <div v-if="!parseFiles.length" class="text-[11px] text-muted-foreground py-2">Noch keine Dateien. Bitte oben hochladen.</div>
 
-            <div class="col-span-4 max-sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-3 mb-0.5">Raeume</div>
-
-            <div>
-              <label class="text-xs text-muted-foreground">Zimmer</label>
-              <Input v-model="form.rooms_amount" type="number" step="0.5" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Schlafzimmer</label>
-              <Input v-model="form.bedrooms" type="number" step="1" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Badezimmer</label>
-              <Input v-model="form.bathrooms" type="number" step="1" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Separate WCs</label>
-              <Input v-model="form.toilets" type="number" step="1" class="h-[30px] text-[13px]" />
-            </div>
-
-            <div class="col-span-4 max-sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-3 mb-0.5">Stockwerk & Parking</div>
-
-            <div>
-              <label class="text-xs text-muted-foreground">Stockwerk</label>
-              <Input v-model="form.floor_number" type="number" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Stockwerke gesamt</label>
-              <Input v-model="form.floor_count" type="number" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Garagen</label>
-              <Input v-model="form.garage_spaces" type="number" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Stellplaetze</label>
-              <Input v-model="form.parking_spaces" type="number" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Parkplatz-Typ</label>
-              <Input v-model="form.parking_type" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Stellplatz-Preis</label>
-              <Input v-model="form.parking_price" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+      <Button size="sm" :disabled="!parseSelectedFiles.length || parseLoading" @click="runParseFields">
+        <Sparkles v-if="!parseLoading" class="w-3.5 h-3.5 mr-1.5" />
+        <div v-else class="w-3.5 h-3.5 mr-1.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        {{ parseLoading ? 'Wird analysiert...' : parseSelectedFiles.length + ' Datei(en) auslesen' }}
+      </Button>
     </div>
 
-    <!-- ═══ 4. Ausstattung ═══ -->
-    <div v-if="!isChild" class="border border-border/50 rounded-lg mb-3">
-      <Collapsible v-model:open="sections.ausstattung">
-        <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
-          <div class="flex items-center gap-2">
-            <ChevronRight class="w-4 h-4 transition-transform duration-200" :class="{ 'rotate-90': sections.ausstattung }" />
-            <span class="text-sm font-semibold">Ausstattung</span>
+    <!-- 1. Objekt & Adresse -->
+    <Collapsible v-model:open="sections.objektAdresse" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+      <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/30 rounded-lg transition-colors cursor-pointer">
+        <div class="flex items-center gap-2">
+          <ChevronRight class="w-3.5 h-3.5 transition-transform duration-200 text-muted-foreground" :class="{ 'rotate-90': sections.objektAdresse }" />
+          <span class="text-[13px] font-semibold">Objekt & Adresse</span>
+        </div>
+        <span v-if="form.ref_id" class="text-[10px] text-muted-foreground px-2 py-0.5 rounded-full" style="background:hsl(240 4.8% 95.9%)">{{ form.ref_id }}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent class="px-4 pb-4">
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Objekt</div>
+        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Ref-ID <span v-if="vis('ref_id').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('ref_id').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('ref_id').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('ref_id').tip"></span></label>
+            <Input v-model="form.ref_id" class="h-8 text-[13px]" />
           </div>
-          <Badge v-if="activeFeatureCount" variant="outline" class="text-[10px]">{{ activeFeatureCount }} Merkmale</Badge>
-        </CollapsibleTrigger>
-        <CollapsibleContent class="px-4 pb-4">
-          <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-3 gap-y-1.5">
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Objekttyp <span v-if="vis('object_type').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('object_type').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('object_type').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('object_type').tip"></span></label>
+            <Select v-model="form.object_type">
+              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="t in objectTypes" :key="t" :value="t">{{ t }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Transaktionsart <span v-if="vis('marketing_type').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('marketing_type').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('marketing_type').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('marketing_type').tip"></span></label>
+            <Select v-model="form.marketing_type">
+              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="t in marketingTypes" :key="t.value" :value="t.value">{{ t.label }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Kategorie <span v-if="vis('property_category').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('property_category').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('property_category').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('property_category').tip"></span></label>
+            <Select v-model="form.property_category">
+              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="c in categoryOptions" :key="c.value" :value="c.value">{{ c.label }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Projektname <span v-if="vis('project_name').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('project_name').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('project_name').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('project_name').tip"></span></label>
+            <Input v-model="form.project_name" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Inserat-Titel <span v-if="vis('title').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('title').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('title').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('title').tip"></span></label>
+            <Input v-model="form.title" class="h-8 text-[13px]" />
+          </div>
+        </div>
 
-            <div>
-              <label class="text-xs text-muted-foreground">Zustand</label>
-              <Select v-model="form.realty_condition">
-                <SelectTrigger class="h-[30px] text-[13px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="o in conditionOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Qualitaet</label>
-              <Select v-model="form.quality">
-                <SelectTrigger class="h-[30px] text-[13px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="o in qualityOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Baujahr</label>
-              <Input v-model="form.construction_year" type="number" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Sanierungsjahr</label>
-              <Input v-model="form.year_renovated" type="number" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Kueche</label>
-              <Select v-model="form.kitchen_type">
-                <SelectTrigger class="h-[30px] text-[13px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="o in kitchenOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Heizung</label>
-              <Input v-model="form.heating" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Bodenbelag</label>
-              <Input v-model="form.flooring" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Badausstattung</label>
-              <Input v-model="form.bathroom_equipment" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Ausrichtung</label>
-              <Input v-model="form.orientation" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Moeblierung</label>
-              <Input v-model="form.furnishing" class="h-[30px] text-[13px]" />
-            </div>
+        <Separator class="my-3" />
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Adresse</div>
+        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+          <div class="col-span-2">
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Strasse & Hausnummer <span v-if="vis('address').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('address').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('address').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('address').tip"></span></label>
+            <Input v-model="form.address" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">PLZ <span v-if="vis('zip').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('zip').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('zip').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('zip').tip"></span></label>
+            <Input v-model="form.zip" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Stadt <span v-if="vis('city').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('city').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('city').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('city').tip"></span></label>
+            <Input v-model="form.city" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Breitengrad <span v-if="vis('latitude').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('latitude').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('latitude').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('latitude').tip"></span></label>
+            <Input v-model="form.latitude" type="number" step="0.0000001" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Laengengrad <span v-if="vis('longitude').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('longitude').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('longitude').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('longitude').tip"></span></label>
+            <Input v-model="form.longitude" type="number" step="0.0000001" class="h-8 text-[13px]" />
+          </div>
+        </div>
 
-            <div class="col-span-4 max-sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-3 mb-0.5">Merkmale</div>
+        <Separator class="my-3" />
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Zuordnung</div>
+        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler <span v-if="vis('broker_id').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('broker_id').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('broker_id').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('broker_id').tip"></span></label>
+            <Select v-model="form.broker_id">
+              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="b in brokerList" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Status <span v-if="vis('status').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('status').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('status').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('status').tip"></span></label>
+            <Select v-model="form.status">
+              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auftrag">Auftrag</SelectItem>
+                <SelectItem value="aktiv">Aktiv</SelectItem>
+                <SelectItem value="verkauft">Verkauft</SelectItem>
+                <SelectItem value="reserviert">Reserviert</SelectItem>
+                <SelectItem value="inaktiv">Inaktiv</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Fertigstellung <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" title="Wird nirgends angezeigt"></span></label>
+            <Input v-model="form.construction_end" type="date" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Bautraeger <span v-if="vis('builder_company').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('builder_company').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('builder_company').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('builder_company').tip"></span></label>
+            <Input v-model="form.builder_company" class="h-8 text-[13px]" />
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
 
-            <div class="col-span-4 max-sm:col-span-2 grid grid-cols-3 max-sm:grid-cols-2 gap-1.5 mt-2">
-              <button v-for="feat in features" :key="feat.key" type="button"
-                @click="form[feat.key] = !form[feat.key]"
-                :class="form[feat.key] ? 'bg-foreground text-background' : 'border border-border text-muted-foreground hover:bg-muted/50'"
-                class="px-3 py-1.5 rounded-md text-xs transition-colors">
-                {{ feat.label }}
+    <!-- 2. Preise & Kosten -->
+    <Collapsible v-model:open="sections.preiseKosten" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+      <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/30 rounded-lg transition-colors cursor-pointer">
+        <div class="flex items-center gap-2">
+          <ChevronRight class="w-3.5 h-3.5 transition-transform duration-200 text-muted-foreground" :class="{ 'rotate-90': sections.preiseKosten }" />
+          <span class="text-[13px] font-semibold">Preise & Kosten</span>
+        </div>
+        <span v-if="form.purchase_price" class="text-[10px] text-muted-foreground px-2 py-0.5 rounded-full" style="background:hsl(240 4.8% 95.9%)">{{ Number(form.purchase_price).toLocaleString('de-AT') }} EUR</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent class="px-4 pb-4">
+        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 block">{{ isNewbuild ? 'Gesamtvolumen' : 'Kaufpreis / Miete' }} <span class="inline-flex gap-0.5"><span class="text-[8px] font-bold px-1 rounded" style="background:hsl(217 91% 93%);color:hsl(217 91% 50%)" title="Website: Kaufpreis">W</span></span></label>
+            <Input v-model="form.purchase_price" type="number" step="0.01" :disabled="isNewbuild" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Preis bis <span v-if="vis('price_to').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('price_to').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('price_to').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('price_to').tip"></span></label>
+            <Input v-model="form.price_to" type="number" step="0.01" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Preis/m2 <span v-if="vis('price_per_m2').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('price_per_m2').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('price_per_m2').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('price_per_m2').tip"></span></label>
+            <Input v-model="form.price_per_m2" type="number" step="0.01" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplatz-Preis <span v-if="vis('parking_price').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('parking_price').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('parking_price').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('parking_price').tip"></span></label>
+            <Input v-model="form.parking_price" type="number" step="0.01" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Betriebskosten <span v-if="vis('operating_costs').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('operating_costs').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('operating_costs').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('operating_costs').tip"></span></label>
+            <Input v-model="form.operating_costs" type="number" step="0.01" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Ruecklage <span v-if="vis('maintenance_reserves').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('maintenance_reserves').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('maintenance_reserves').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('maintenance_reserves').tip"></span></label>
+            <Input v-model="form.maintenance_reserves" type="number" step="0.01" class="h-8 text-[13px]" />
+          </div>
+        </div>
+
+        <template v-if="form.marketing_type === 'miete'">
+          <Separator class="my-3" />
+          <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Miete</div>
+          <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+            <div>
+              <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Kaltmiete <span v-if="vis('rental_price').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('rental_price').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('rental_price').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('rental_price').tip"></span></label>
+              <Input v-model="form.rental_price" type="number" step="0.01" class="h-8 text-[13px]" />
+            </div>
+            <div>
+              <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Warmmiete <span v-if="vis('rent_warm').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('rent_warm').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('rent_warm').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('rent_warm').tip"></span></label>
+              <Input v-model="form.rent_warm" type="number" step="0.01" class="h-8 text-[13px]" />
+            </div>
+            <div>
+              <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Kaution <span v-if="vis('rent_deposit').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('rent_deposit').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('rent_deposit').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('rent_deposit').tip"></span></label>
+              <Input v-model="form.rent_deposit" type="number" step="0.01" class="h-8 text-[13px]" />
+            </div>
+          </div>
+        </template>
+
+        <Separator class="my-3" />
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Provision Intern</div>
+        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Provision % <span v-if="vis('commission_percent').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('commission_percent').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('commission_percent').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('commission_percent').tip"></span></label>
+            <Input v-model="form.commission_percent" type="number" step="0.01" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Provision EUR <span v-if="vis('commission_total').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('commission_total').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('commission_total').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('commission_total').tip"></span></label>
+            <Input v-model="form.commission_total" type="number" step="0.01" class="h-8 text-[13px]" />
+          </div>
+          <div class="col-span-2">
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Provisionsnotiz <span v-if="vis('commission_note').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('commission_note').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('commission_note').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('commission_note').tip"></span></label>
+            <Input v-model="form.commission_note" class="h-8 text-[13px]" />
+          </div>
+        </div>
+
+        <Separator class="my-3" />
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Provision Oeffentlich</div>
+        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler-Provision % <span v-if="vis('buyer_commission_percent').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('buyer_commission_percent').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('buyer_commission_percent').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('buyer_commission_percent').tip"></span></label>
+            <Input v-model="form.buyer_commission_percent" type="number" step="0.01" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler-Provision EUR <span v-if="vis('commission_makler').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('commission_makler').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('commission_makler').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('commission_makler').tip"></span></label>
+            <Input v-model="form.commission_makler" type="number" step="0.01" class="h-8 text-[13px]" />
+          </div>
+          <div class="col-span-2">
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Provisionstext (Inserate) <span v-if="vis('buyer_commission_text').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('buyer_commission_text').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('buyer_commission_text').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('buyer_commission_text').tip"></span></label>
+            <Input v-model="form.buyer_commission_text" class="h-8 text-[13px]" />
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+
+    <!-- 3. Flaechen & Raeume -->
+    <Collapsible v-model:open="sections.flaechenRaeume" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+      <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/30 rounded-lg transition-colors cursor-pointer">
+        <div class="flex items-center gap-2">
+          <ChevronRight class="w-3.5 h-3.5 transition-transform duration-200 text-muted-foreground" :class="{ 'rotate-90': sections.flaechenRaeume }" />
+          <span class="text-[13px] font-semibold">Flaechen & Raeume</span>
+        </div>
+        <span v-if="areaRoomsBadge" class="text-[10px] text-muted-foreground px-2 py-0.5 rounded-full" style="background:hsl(240 4.8% 95.9%)">{{ areaRoomsBadge }}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent class="px-4 pb-4">
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Flaechen (m2)</div>
+        <div class="grid grid-cols-6 max-sm:grid-cols-3 gap-x-3 gap-y-2">
+          <div v-for="f in [
+            { key: 'total_area', label: 'Gesamtflaeche' },
+            { key: 'living_area', label: 'Wohnflaeche' },
+            { key: 'realty_area', label: 'Nutzflaeche' },
+            { key: 'free_area', label: 'Grundstueck' },
+            { key: 'area_balcony', label: 'Balkon' },
+            { key: 'area_terrace', label: 'Terrasse' },
+            { key: 'area_garden', label: 'Garten' },
+            { key: 'area_loggia', label: 'Loggia' },
+            { key: 'area_basement', label: 'Keller' },
+            { key: 'area_garage', label: 'Garage' },
+            { key: 'office_space', label: 'Buero' },
+          ]" :key="f.key">
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">{{ f.label }} <span v-if="vis(f.key).icons.length" class="inline-flex gap-0.5"><span v-for="i in vis(f.key).icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis(f.key).tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis(f.key).tip"></span></label>
+            <Input v-model="form[f.key]" type="number" step="0.01" class="h-8 text-[13px]" />
+          </div>
+          <div></div>
+        </div>
+
+        <Separator class="my-3" />
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Raeume & Stockwerk</div>
+        <div class="grid grid-cols-6 max-sm:grid-cols-3 gap-x-3 gap-y-2">
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Zimmer <span v-if="vis('rooms_amount').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('rooms_amount').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('rooms_amount').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('rooms_amount').tip"></span></label>
+            <Input v-model="form.rooms_amount" type="number" step="0.5" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Schlafzimmer <span v-if="vis('bedrooms').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('bedrooms').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('bedrooms').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('bedrooms').tip"></span></label>
+            <Input v-model="form.bedrooms" type="number" step="1" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Badezimmer <span v-if="vis('bathrooms').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('bathrooms').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('bathrooms').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('bathrooms').tip"></span></label>
+            <Input v-model="form.bathrooms" type="number" step="1" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">WCs <span v-if="vis('toilets').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('toilets').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('toilets').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('toilets').tip"></span></label>
+            <Input v-model="form.toilets" type="number" step="1" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerk <span v-if="vis('floor_number').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('floor_number').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('floor_number').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('floor_number').tip"></span></label>
+            <Input v-model="form.floor_number" type="number" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerke ges. <span v-if="vis('floor_count').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('floor_count').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('floor_count').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('floor_count').tip"></span></label>
+            <Input v-model="form.floor_count" type="number" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Garagen <span v-if="vis('garage_spaces').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('garage_spaces').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('garage_spaces').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('garage_spaces').tip"></span></label>
+            <Input v-model="form.garage_spaces" type="number" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplaetze <span v-if="vis('parking_spaces').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('parking_spaces').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('parking_spaces').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('parking_spaces').tip"></span></label>
+            <Input v-model="form.parking_spaces" type="number" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Parkplatz-Typ <span v-if="vis('parking_type').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('parking_type').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('parking_type').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('parking_type').tip"></span></label>
+            <Input v-model="form.parking_type" class="h-8 text-[13px]" />
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+
+    <!-- 4. Ausstattung -->
+    <Collapsible v-if="!isChild" v-model:open="sections.ausstattung" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+      <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/30 rounded-lg transition-colors cursor-pointer">
+        <div class="flex items-center gap-2">
+          <ChevronRight class="w-3.5 h-3.5 transition-transform duration-200 text-muted-foreground" :class="{ 'rotate-90': sections.ausstattung }" />
+          <span class="text-[13px] font-semibold">Ausstattung</span>
+        </div>
+        <span v-if="activeFeatureCount" class="text-[10px] text-muted-foreground px-2 py-0.5 rounded-full" style="background:hsl(240 4.8% 95.9%)">{{ activeFeatureCount }} Merkmale</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent class="px-4 pb-4">
+        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Zustand <span v-if="vis('realty_condition').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('realty_condition').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('realty_condition').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('realty_condition').tip"></span></label>
+            <Select v-model="form.realty_condition">
+              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in conditionOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Qualitaet <span v-if="vis('quality').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('quality').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('quality').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('quality').tip"></span></label>
+            <Select v-model="form.quality">
+              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in qualityOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Baujahr <span v-if="vis('construction_year').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('construction_year').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('construction_year').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('construction_year').tip"></span></label>
+            <Input v-model="form.construction_year" type="number" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Sanierungsjahr <span v-if="vis('year_renovated').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('year_renovated').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('year_renovated').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('year_renovated').tip"></span></label>
+            <Input v-model="form.year_renovated" type="number" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Kueche <span v-if="vis('kitchen_type').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('kitchen_type').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('kitchen_type').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('kitchen_type').tip"></span></label>
+            <Select v-model="form.kitchen_type">
+              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in kitchenOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Heizung <span v-if="vis('heating').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('heating').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('heating').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('heating').tip"></span></label>
+            <Input v-model="form.heating" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Bodenbelag <span v-if="vis('flooring').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('flooring').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('flooring').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('flooring').tip"></span></label>
+            <Input v-model="form.flooring" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Badausstattung <span v-if="vis('bathroom_equipment').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('bathroom_equipment').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('bathroom_equipment').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('bathroom_equipment').tip"></span></label>
+            <Input v-model="form.bathroom_equipment" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausrichtung <span v-if="vis('orientation').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('orientation').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('orientation').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('orientation').tip"></span></label>
+            <Input v-model="form.orientation" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Moeblierung <span v-if="vis('furnishing').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('furnishing').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('furnishing').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('furnishing').tip"></span></label>
+            <Input v-model="form.furnishing" class="h-8 text-[13px]" />
+          </div>
+        </div>
+
+        <Separator class="my-3" />
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Merkmale</div>
+        <div class="flex flex-wrap gap-1.5">
+          <button v-for="feat in features" :key="feat.key" type="button"
+            @click="form[feat.key] = !form[feat.key]"
+            :style="form[feat.key] ? 'background:hsl(240 5.9% 10%);color:white' : 'border:1px solid hsl(240 5.9% 90%)'"
+            class="px-2.5 py-1 rounded-md text-[11px] transition-colors">
+            {{ feat.label }} <span v-if="vis(feat.key).icons.length" class="text-[7px] font-bold px-0.5 rounded ml-0.5" :style="form[feat.key] ? 'background:hsl(217 91% 80%);color:white' : 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)'">W</span><span v-else class="w-1 h-1 rounded-full ml-0.5 inline-block" style="background:hsl(240 5.9% 80%)"></span>
+          </button>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+
+    <!-- 5. Energie -->
+    <Collapsible v-model:open="sections.energie" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+      <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/30 rounded-lg transition-colors cursor-pointer">
+        <div class="flex items-center gap-2">
+          <ChevronRight class="w-3.5 h-3.5 transition-transform duration-200 text-muted-foreground" :class="{ 'rotate-90': sections.energie }" />
+          <span class="text-[13px] font-semibold">Energie</span>
+        </div>
+        <span v-if="energyBadge" class="text-[10px] text-muted-foreground px-2 py-0.5 rounded-full" style="background:hsl(240 4.8% 95.9%)">{{ energyBadge }}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent class="px-4 pb-4">
+        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausweistyp <span v-if="vis('energy_type').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('energy_type').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('energy_type').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('energy_type').tip"></span></label>
+            <Select v-model="form.energy_type">
+              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="o in energyTypeOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieklasse <span v-if="vis('heating_demand_class').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('heating_demand_class').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('heating_demand_class').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('heating_demand_class').tip"></span></label>
+            <Select v-model="form.heating_demand_class">
+              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">--</SelectItem>
+                <SelectItem v-for="c in energyClasses" :key="c" :value="c">{{ c }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">HWB (kWh/m2a) <span v-if="vis('heating_demand_value').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('heating_demand_value').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('heating_demand_value').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('heating_demand_value').tip"></span></label>
+            <Input v-model="form.heating_demand_value" type="number" step="0.01" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">fGEE <span v-if="vis('energy_efficiency_value').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('energy_efficiency_value').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('energy_efficiency_value').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('energy_efficiency_value').tip"></span></label>
+            <Input v-model="form.energy_efficiency_value" type="number" step="0.01" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Energietraeger <span v-if="vis('energy_primary_source').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('energy_primary_source').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('energy_primary_source').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('energy_primary_source').tip"></span></label>
+            <Input v-model="form.energy_primary_source" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Gueltig bis <span v-if="vis('energy_valid_until').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('energy_valid_until').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('energy_valid_until').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('energy_valid_until').tip"></span></label>
+            <Input v-model="form.energy_valid_until" type="date" class="h-8 text-[13px]" />
+          </div>
+          <div class="col-span-6 max-sm:col-span-2">
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieausweis (Freitext) <span v-if="vis('energy_certificate').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('energy_certificate').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('energy_certificate').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('energy_certificate').tip"></span></label>
+            <Textarea v-model="form.energy_certificate" rows="2" class="text-[13px]" />
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+
+    <!-- 6. Verfuegbarkeit & Bau -->
+    <Collapsible v-model:open="sections.verfuegbarkeit" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+      <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/30 rounded-lg transition-colors cursor-pointer">
+        <div class="flex items-center gap-2">
+          <ChevronRight class="w-3.5 h-3.5 transition-transform duration-200 text-muted-foreground" :class="{ 'rotate-90': sections.verfuegbarkeit }" />
+          <span class="text-[13px] font-semibold">Verfuegbarkeit & Bau</span>
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent class="px-4 pb-4">
+        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Verfuegbar ab <span v-if="vis('available_from').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('available_from').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('available_from').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('available_from').tip"></span></label>
+            <Input v-model="form.available_from" type="date" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Verfuegbarkeit <span v-if="vis('available_text').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('available_text').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('available_text').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('available_text').tip"></span></label>
+            <Input v-model="form.available_text" class="h-8 text-[13px]" placeholder="sofort, nach Vereinbarung" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Baubeginn <span v-if="vis('construction_start').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('construction_start').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('construction_start').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('construction_start').tip"></span></label>
+            <Input v-model="form.construction_start" type="date" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 block">Fertigstellung</label>
+            <Input v-model="form.construction_end" type="date" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Bautraeger <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" title="Wird nirgends angezeigt"></span></label>
+            <Input v-model="form.builder_company" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Hausverwaltung <span v-if="vis('property_manager').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('property_manager').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('property_manager').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('property_manager').tip"></span></label>
+            <Input v-model="form.property_manager" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Inseriert seit <span v-if="vis('inserat_since').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('inserat_since').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('inserat_since').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('inserat_since').tip"></span></label>
+            <Input v-model="form.inserat_since" type="date" class="h-8 text-[13px]" />
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Plattformen <span v-if="vis('platforms').icons.length" class="inline-flex gap-0.5"><span v-for="i in vis('platforms').icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis('platforms').tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis('platforms').tip"></span></label>
+            <Input v-model="form.platforms" class="h-8 text-[13px]" placeholder="willhaben, immoscout24" />
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+
+    <!-- 7. Objekthistorie -->
+    <Collapsible v-if="!isNewbuild && !isChild" v-model:open="sections.historie" class="rounded-lg" style="border:1px solid hsl(240 5.9% 90%)">
+      <CollapsibleTrigger class="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/30 rounded-lg transition-colors cursor-pointer">
+        <div class="flex items-center gap-2">
+          <ChevronRight class="w-3.5 h-3.5 transition-transform duration-200 text-muted-foreground" :class="{ 'rotate-90': sections.historie }" />
+          <span class="text-[13px] font-semibold">Objekthistorie</span>
+        </div>
+        <span v-if="historyCount" class="text-[10px] text-muted-foreground px-2 py-0.5 rounded-full" style="background:hsl(240 4.8% 95.9%)">{{ historyCount }} Eintraege</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent class="px-4 pb-4">
+        <div class="space-y-3">
+          <Button variant="outline" size="sm" @click="historyAdding = !historyAdding" class="text-xs h-7">
+            <Plus class="w-3 h-3 mr-1" />
+            {{ historyAdding ? 'Abbrechen' : 'Eintrag hinzufuegen' }}
+          </Button>
+
+          <div v-if="historyAdding" class="p-3 rounded-lg space-y-2" style="background:hsl(240 4.8% 95.9% / 0.5)">
+            <div class="flex gap-2">
+              <Input v-model="historyNew.year" placeholder="Jahr" class="h-8 text-[13px] w-20" />
+              <Input v-model="historyNew.title" placeholder="Titel" class="h-8 text-[13px] flex-1" />
+            </div>
+            <Input v-model="historyNew.description" placeholder="Beschreibung (optional)" class="h-8 text-[13px]" />
+            <Button size="sm" @click="historyAddEntry()" :disabled="!historyNew.year || !historyNew.title" class="text-xs h-7">
+              Hinzufuegen
+            </Button>
+          </div>
+
+          <div v-if="historyItems.length" class="relative pl-6 space-y-4">
+            <div class="absolute left-[11px] top-0 bottom-0 w-[2px]" style="background:hsl(240 5.9% 90%)"></div>
+            <div v-for="(h, i) in historyItems" :key="i" class="group relative flex items-start gap-3">
+              <div class="absolute left-[-17px] top-1.5 w-3 h-3 rounded-full border-2 border-background z-10" style="background:hsl(240 5.9% 10%)"></div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold">{{ h.year }}</span>
+                  <span class="text-xs font-medium">{{ h.title }}</span>
+                </div>
+                <p v-if="h.description" class="text-[11px] text-muted-foreground mt-0.5">{{ h.description }}</p>
+              </div>
+              <button @click="historyDeleteEntry(i)"
+                class="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-destructive rounded shrink-0">
+                <Trash2 class="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
 
-    <!-- ═══ 5. Energie ═══ -->
-    <div class="border border-border/50 rounded-lg mb-3">
-      <Collapsible v-model:open="sections.energie">
-        <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
-          <div class="flex items-center gap-2">
-            <ChevronRight class="w-4 h-4 transition-transform duration-200" :class="{ 'rotate-90': sections.energie }" />
-            <span class="text-sm font-semibold">Energie</span>
-          </div>
-          <Badge v-if="energyBadge" variant="outline" class="text-[10px]">{{ energyBadge }}</Badge>
-        </CollapsibleTrigger>
-        <CollapsibleContent class="px-4 pb-4">
-          <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-3 gap-y-1.5">
-
-            <div>
-              <label class="text-xs text-muted-foreground">Ausweistyp</label>
-              <Select v-model="form.energy_type">
-                <SelectTrigger class="h-[30px] text-[13px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="o in energyTypeOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Energieklasse</label>
-              <Select v-model="form.heating_demand_class">
-                <SelectTrigger class="h-[30px] text-[13px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">--</SelectItem>
-                  <SelectItem v-for="c in energyClasses" :key="c" :value="c">{{ c }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">HWB (kWh/m2a)</label>
-              <Input v-model="form.heating_demand_value" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">fGEE</label>
-              <Input v-model="form.energy_efficiency_value" type="number" step="0.01" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Energietraeger</label>
-              <Input v-model="form.energy_primary_source" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Gueltig bis</label>
-              <Input v-model="form.energy_valid_until" type="date" class="h-[30px] text-[13px]" />
-            </div>
-            <div class="col-span-4 max-sm:col-span-2">
-              <label class="text-xs text-muted-foreground">Energieausweis (Freitext)</label>
-              <Textarea v-model="form.energy_certificate" rows="2" class="text-[13px]" />
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
-
-    <!-- ═══ 6. Verfuegbarkeit & Bau ═══ -->
-    <div class="border border-border/50 rounded-lg mb-3">
-      <Collapsible v-model:open="sections.verfuegbarkeit">
-        <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
-          <div class="flex items-center gap-2">
-            <ChevronRight class="w-4 h-4 transition-transform duration-200" :class="{ 'rotate-90': sections.verfuegbarkeit }" />
-            <span class="text-sm font-semibold">Verfuegbarkeit & Bau</span>
-          </div>
-        </CollapsibleTrigger>
-        <CollapsibleContent class="px-4 pb-4">
-          <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-3 gap-y-1.5">
-            <div>
-              <label class="text-xs text-muted-foreground">Verfuegbar ab</label>
-              <Input v-model="form.available_from" type="date" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Verfuegbarkeit (Text)</label>
-              <Input v-model="form.available_text" class="h-[30px] text-[13px]" placeholder="sofort, nach Vereinbarung" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Baubeginn</label>
-              <Input v-model="form.construction_start" type="date" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Fertigstellung</label>
-              <Input v-model="form.construction_end" type="date" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Bautraeger</label>
-              <Input v-model="form.builder_company" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Hausverwaltung</label>
-              <Input v-model="form.property_manager" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Inseriert seit</label>
-              <Input v-model="form.inserat_since" type="date" class="h-[30px] text-[13px]" />
-            </div>
-            <div>
-              <label class="text-xs text-muted-foreground">Plattformen</label>
-              <Input v-model="form.platforms" class="h-[30px] text-[13px]" placeholder="willhaben, immoscout24" />
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
-
-    <!-- ═══ 7. Objekthistorie ═══ -->
-    <div v-if="!isNewbuild && !isChild" class="border border-border/50 rounded-lg mb-3">
-      <Collapsible v-model:open="sections.historie">
-        <CollapsibleTrigger class="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-t-lg cursor-pointer">
-          <div class="flex items-center gap-2">
-            <ChevronRight class="w-4 h-4 transition-transform duration-200" :class="{ 'rotate-90': sections.historie }" />
-            <span class="text-sm font-semibold">Objekthistorie</span>
-          </div>
-          <Badge v-if="historyCount" variant="outline" class="text-[10px]">{{ historyCount }} Eintraege</Badge>
-        </CollapsibleTrigger>
-        <CollapsibleContent class="px-4 pb-4">
-          <div class="space-y-3">
-
-            <!-- Add entry -->
-            <div class="flex items-center gap-2">
-              <Button variant="outline" size="sm" @click="historyAdding = !historyAdding" class="text-xs">
-                <Plus class="w-3 h-3 mr-1" />
-                {{ historyAdding ? 'Abbrechen' : 'Eintrag hinzufuegen' }}
-              </Button>
-            </div>
-
-            <div v-if="historyAdding" class="p-3 bg-muted/30 rounded-lg border border-border space-y-2">
-              <div class="flex gap-2">
-                <Input v-model="historyNew.year" placeholder="Jahr" class="h-[30px] text-[13px] w-20" />
-                <Input v-model="historyNew.title" placeholder="Titel" class="h-[30px] text-[13px] flex-1" />
-              </div>
-              <Input v-model="historyNew.description" placeholder="Beschreibung (optional)" class="h-[30px] text-[13px]" />
-              <Button size="sm" @click="historyAddEntry()" :disabled="!historyNew.year || !historyNew.title" class="text-xs">
-                Hinzufuegen
-              </Button>
-            </div>
-
-            <!-- Timeline -->
-            <div v-if="historyItems.length" class="relative pl-6 space-y-4">
-              <div class="absolute left-[11px] top-0 bottom-0 w-[2px] bg-border"></div>
-              <div v-for="(h, i) in historyItems" :key="i" class="group relative flex items-start gap-3">
-                <div class="absolute left-[-17px] top-1.5 w-3 h-3 rounded-full bg-foreground border-2 border-background z-10"></div>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2">
-                    <span class="text-xs font-bold">{{ h.year }}</span>
-                    <span class="text-xs font-medium text-foreground">{{ h.title }}</span>
-                  </div>
-                  <p v-if="h.description" class="text-[11px] text-muted-foreground mt-0.5">{{ h.description }}</p>
-                </div>
-                <button @click="historyDeleteEntry(i)"
-                  class="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-destructive rounded shrink-0">
-                  <Trash2 class="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            <p v-else class="text-xs text-muted-foreground">Keine Historie-Eintraege vorhanden.</p>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
+          <p v-else class="text-xs text-muted-foreground">Keine Historie-Eintraege vorhanden.</p>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
 
   </div>
 </template>

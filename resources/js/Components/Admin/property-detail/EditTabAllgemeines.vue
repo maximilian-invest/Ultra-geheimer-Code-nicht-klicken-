@@ -43,7 +43,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Objektbetreuer</label>
-          <Select v-model="form.agent_id">
+          <Select v-model="form.broker_id">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem v-for="b in brokerList" :key="b.id" :value="b.id">{{ b.name }}</SelectItem>
@@ -83,7 +83,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <AccordionSection title="Adresse" color="#3b82f6" :default-open="true">
         <div class="col-span-2">
           <label :class="labelCls">Strasse</label>
-          <Input v-model="form.street" :class="inputCls" />
+          <Input v-model="form.address" :class="inputCls" />
         </div>
         <div>
           <label :class="labelCls">Hausnummer</label>
@@ -111,11 +111,11 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Breitengrad</label>
-          <Input v-model="form.lat" type="number" step="0.0000001" :class="inputCls" />
+          <Input v-model="form.latitude" type="number" step="0.0000001" :class="inputCls" />
         </div>
         <div>
           <label :class="labelCls">Längengrad</label>
-          <Input v-model="form.lng" type="number" step="0.0000001" :class="inputCls" />
+          <Input v-model="form.longitude" type="number" step="0.0000001" :class="inputCls" />
         </div>
       </AccordionSection>
 
@@ -123,7 +123,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <AccordionSection title="Energieausweis" color="#22c55e" :default-open="false">
         <div>
           <label :class="labelCls">Ausweistyp</label>
-          <Select v-model="form.energy_certificate_type">
+          <Select v-model="form.energy_certificate">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Verbrauch">Verbrauch</SelectItem>
@@ -133,7 +133,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Energieklasse</label>
-          <Select v-model="form.energy_class">
+          <Select v-model="form.heating_demand_class">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="A++">A++</SelectItem>
@@ -151,15 +151,15 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">HWB kWh/m²a</label>
-          <Input v-model="form.hwb" type="number" :class="inputCls" />
+          <Input v-model="form.heating_demand_value" type="number" :class="inputCls" />
         </div>
         <div>
           <label :class="labelCls">fGEE</label>
-          <Input v-model="form.fgee" type="number" :class="inputCls" />
+          <Input v-model="form.energy_efficiency_value" type="number" :class="inputCls" />
         </div>
         <div>
           <label :class="labelCls">Energieträger</label>
-          <Input v-model="form.energy_carrier" :class="inputCls" />
+          <Input v-model="form.energy_primary_source" :class="inputCls" />
         </div>
         <div>
           <label :class="labelCls">Gültig bis</label>
@@ -174,7 +174,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <AccordionSection title="Allgemeines" color="#8b5cf6" :default-open="true">
         <div>
           <label :class="labelCls">Objektart</label>
-          <Select v-model="form.property_type">
+          <Select v-model="form.object_type">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Eigentumswohnung">Eigentumswohnung</SelectItem>
@@ -198,7 +198,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Unterobjektart</label>
-          <Select v-model="form.sub_property_type">
+          <Select v-model="form.sub_type">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="etagenwohnung">Etagenwohnung</SelectItem>
@@ -232,7 +232,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Objektzustand</label>
-          <Select v-model="form.condition">
+          <Select v-model="form.realty_condition">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="erstbezug">Erstbezug</SelectItem>
@@ -246,7 +246,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Baujahr</label>
-          <Input v-model="form.year_built" type="number" :class="inputCls" />
+          <Input v-model="form.construction_year" type="number" :class="inputCls" />
         </div>
         <div>
           <label :class="labelCls">Möblierung</label>
@@ -272,7 +272,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Wohneinheiten</label>
-          <Input v-model="form.unit_count" type="number" :class="inputCls" />
+          <Input v-model="form.total_units" type="number" :class="inputCls" />
         </div>
         <div>
           <label :class="labelCls">Beziehbar ab</label>

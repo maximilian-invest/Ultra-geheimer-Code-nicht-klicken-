@@ -1,13 +1,15 @@
 <script setup>
-import { ref, computed, inject, reactive, onMounted } from "vue";
-import { Plus, Check, Trash2, Save, ChevronDown, ChevronUp, Building2, ParkingSquare, Search, Sparkles, Upload, X } from "lucide-vue-next";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { ref, computed, inject, onMounted } from "vue";
+import { Plus, Save, Search, ChevronDown, ChevronRight } from "lucide-vue-next";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -16,77 +18,161 @@ const props = defineProps({
 const API = inject("API");
 const toast = inject("toast");
 
-// ─── State ─────────────────────────────────────────────
+// ─── State ──────────────────────────────────────────────
 const units = ref([]);
 const unitsLoading = ref(false);
 const unitSaving = ref({});
-const unitFilter = ref("alle");
 const unitSearch = ref("");
-const unitGenOpen = ref(false);
-const parkingGenOpen = ref(false);
+const expandedUnit = ref(null);
+const openGroups = ref({});
 
-const unitGen = reactive({ prefix: "TOP", from: 1, count: 5, floors: 3 });
-const parkingGen = reactive({ prefix: "Stellplatz", from: 1, to: 10, price: null, type: "Tiefgarage" });
+// ─── Floor colors ────────────────────────────────────────
+const floorColors = [
+  "#3b82f6",
+  "#8b5cf6",
+  "#22c55e",
+  "#ea580c",
+  "#f59e0b",
+  "#06b6d4",
+  "#ec4899",
+];
 
-// ─── Parse Units ───
-const unitParseOpen = ref(false);
-const unitParseLoading = ref(false);
-const unitParseFiles = ref([]);
-const unitParseSelectedFiles = ref([]);
-const unitParseUploading = ref(false);
+// ─── Portal config ───────────────────────────────────────
+const portalOptions = [
+  { key: "immoji",      label: "immoji",      color: "#ea580c" },
+  { key: "willhaben",   label: "willhaben",   color: "#dc2626" },
+  { key: "immowelt",    label: "immowelt",    color: "#2563eb" },
+  { key: "immoscout24", label: "ImmoScout24", color: "#16a34a" },
+  { key: "alleskralle", label: "alleskralle", color: "#7c3aed" },
+  { key: "dibon",       label: "dibon",       color: "#0891b2" },
+];
 
-// ─── Computed ───────────────────────────────────────────
-const realUnits = computed(() => units.value.filter(u => !u.is_parking));
-const parkingUnits = computed(() => units.value.filter(u => u.is_parking));
+const portalShorts = {
+  immoji:      "IMJ",
+  willhaben:   "WH",
+  immowelt:    "IW",
+  immoscout24: "IS",
+  alleskralle: "AK",
+  dibon:       "DB",
+};
 
-const freeCount = computed(() => realUnits.value.filter(u => u.status === "frei").length);
-const reservedCount = computed(() => realUnits.value.filter(u => u.status === "reserviert").length);
-const soldCount = computed(() => realUnits.value.filter(u => u.status === "verkauft").length);
+// ─── Computed ────────────────────────────────────────────
+const realUnits = computed(() => units.value.filter((u) => !u.is_parking));
 
-const parkingFreeCount = computed(() => parkingUnits.value.filter(u => u.status === "frei").length);
-const parkingReservedCount = computed(() => parkingUnits.value.filter(u => u.status === "reserviert").length);
-const parkingSoldCount = computed(() => parkingUnits.value.filter(u => u.status === "verkauft").length);
+const freeCount     = computed(() => realUnits.value.filter((u) => u.status === "frei").length);
+const reservedCount = computed(() => realUnits.value.filter((u) => u.status === "reserviert").length);
+const soldCount     = computed(() => realUnits.value.filter((u) => u.status === "verkauft").length);
 
-const filteredUnits = computed(() => {
-  let result = realUnits.value;
-  if (unitFilter.value !== "alle") {
-    result = result.filter(u => u.status === unitFilter.value);
+const floorGroups = computed(() => {
+  const map = new Map();
+
+  for (const unit of realUnits.value) {
+    const floor = unit.floor;
+    const key =
+      floor === null || floor === undefined || floor === ""
+        ? "__none__"
+        : String(floor);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(unit);
   }
-  if (unitSearch.value.trim()) {
-    const q = unitSearch.value.trim().toLowerCase();
-    result = result.filter(u =>
-      (u.unit_number || "").toLowerCase().includes(q) ||
-      (u.unit_type || "").toLowerCase().includes(q) ||
-      (u.top_number || "").toLowerCase().includes(q)
-    );
-  }
-  return result;
+
+  const sortedKeys = [...map.keys()].sort((a, b) => {
+    if (a === "__none__") return 1;
+    if (b === "__none__") return -1;
+    return Number(a) - Number(b);
+  });
+
+  return sortedKeys.map((key) => ({
+    floor: key,
+    label: floorLabel(key === "__none__" ? null : Number(key)),
+    units: map.get(key),
+  }));
 });
 
-// ─── Helpers ────────────────────────────────────────────
-const statusColor = (s) => {
-  if (s === "verkauft") return "bg-red-100 text-red-700";
-  if (s === "reserviert") return "bg-amber-100 text-muted-foreground";
-  return "bg-emerald-100 text-emerald-700";
-};
+const filteredFloorGroups = computed(() => {
+  const q = unitSearch.value.trim().toLowerCase();
+  if (!q) return floorGroups.value;
 
-const statusBadgeStyle = (s) => {
-  if (s === "verkauft") return "background:hsl(0 93% 97%);color:hsl(0 72% 51%);border:1px solid hsl(0 93% 90%)";
-  if (s === "reserviert") return "background:hsl(33 100% 96%);color:hsl(21 90% 48%);border:1px solid hsl(33 100% 90%)";
-  return "background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)";
-};
+  return floorGroups.value
+    .map((group) => ({
+      ...group,
+      units: group.units.filter(
+        (u) =>
+          (u.unit_number || "").toLowerCase().includes(q) ||
+          (u.unit_type || "").toLowerCase().includes(q)
+      ),
+    }))
+    .filter((group) => group.units.length > 0);
+});
 
-const floorLabel = (f) => {
-  if (f === -1 || f === "-1") return "UG";
-  if (f === 0 || f === "0") return "EG";
-  return f + ". OG";
-};
+// ─── Helpers ─────────────────────────────────────────────
+function floorLabel(floor) {
+  if (floor === null || floor === undefined || floor === "") return "Ohne Stockwerk";
+  const f = Number(floor);
+  if (f < 0) return "Untergeschoss";
+  if (f === 0) return "Erdgeschoss";
+  if (f === 1) return "1. Obergeschoss";
+  if (f === 2) return "2. Obergeschoss";
+  if (f === 3) return "3. Obergeschoss";
+  return f + ". Obergeschoss";
+}
 
-// ─── Load ───────────────────────────────────────────────
+function isGroupOpen(floor) {
+  return openGroups.value[floor] !== false;
+}
+
+function toggleGroup(floor) {
+  openGroups.value[floor] = !isGroupOpen(floor);
+}
+
+function unitKey(unit) {
+  return unit.id || unit._tempId;
+}
+
+function toggleUnit(unit) {
+  const k = unitKey(unit);
+  expandedUnit.value = expandedUnit.value === k ? null : k;
+}
+
+function isExpanded(unit) {
+  return expandedUnit.value === unitKey(unit);
+}
+
+function formatPrice(val) {
+  if (!val) return "—";
+  return Number(val).toLocaleString("de-AT", { minimumFractionDigits: 0 });
+}
+
+function isPortalActive(unit, key) {
+  const exports = unit.portal_exports;
+  if (!exports) return false;
+  const parsed = typeof exports === "string" ? JSON.parse(exports) : exports;
+  return !!parsed[key];
+}
+
+function togglePortal(unit, key) {
+  if (!unit.portal_exports) unit.portal_exports = {};
+  if (typeof unit.portal_exports === "string")
+    unit.portal_exports = JSON.parse(unit.portal_exports);
+  unit.portal_exports[key] = !unit.portal_exports[key];
+}
+
+function activePortals(unit) {
+  const exports = unit.portal_exports;
+  if (!exports) return [];
+  const parsed = typeof exports === "string" ? JSON.parse(exports) : exports;
+  return portalOptions
+    .filter((p) => parsed[p.key])
+    .map((p) => ({ ...p, short: portalShorts[p.key] }));
+}
+
+// ─── API ─────────────────────────────────────────────────
 async function loadUnits() {
   unitsLoading.value = true;
   try {
-    const r = await fetch(API.value + "&action=get_units&property_id=" + props.property.id);
+    const r = await fetch(
+      API.value + "&action=get_units&property_id=" + props.property.id
+    );
     const d = await r.json();
     if (d.units) units.value = d.units;
   } catch (e) {
@@ -95,9 +181,8 @@ async function loadUnits() {
   unitsLoading.value = false;
 }
 
-// ─── Unit CRUD ──────────────────────────────────────────
 async function saveUnit(unit) {
-  const key = unit.id || unit.unit_number;
+  const key = unitKey(unit);
   unitSaving.value[key] = true;
   try {
     const payload = {
@@ -110,12 +195,8 @@ async function saveUnit(unit) {
       rooms_amount: unit.rooms || unit.rooms_amount,
       purchase_price: unit.price || unit.purchase_price,
       status: unit.status || "frei",
-      balcony_terrace_m2: unit.balcony_terrace_m2,
-      garden_m2: unit.garden_m2,
-      parking: unit.parking,
-      notes: unit.notes,
-      assigned_parking: unit.assigned_parking,
-      is_parking: unit.is_parking || 0,
+      portal_exports: unit.portal_exports,
+      is_parking: 0,
     };
     const r = await fetch(API.value + "&action=save_property_unit", {
       method: "POST",
@@ -126,7 +207,7 @@ async function saveUnit(unit) {
     if (d.success) {
       if (d.unit?.id) unit.id = d.unit.id;
       unit._isNew = false;
-      unit._dirty = false;
+      expandedUnit.value = null;
       toast("Einheit gespeichert");
     } else {
       toast("Fehler: " + (d.error || "Unbekannt"));
@@ -135,14 +216,6 @@ async function saveUnit(unit) {
     toast("Fehler: " + e.message);
   }
   unitSaving.value[key] = false;
-}
-
-async function saveAllUnits() {
-  const unsaved = realUnits.value.filter(u => u._isNew || u._dirty);
-  for (const u of unsaved) {
-    await saveUnit(u);
-  }
-  toast("Alle Einheiten gespeichert");
 }
 
 async function deleteUnit(unit) {
@@ -164,693 +237,317 @@ async function deleteUnit(unit) {
       return;
     }
   }
+  const k = unitKey(unit);
   units.value.splice(units.value.indexOf(unit), 1);
+  if (expandedUnit.value === k) expandedUnit.value = null;
   toast("Einheit entfernt");
 }
 
+let _tempIdCounter = 0;
 function addUnitRow() {
   const maxNum = realUnits.value.reduce((max, u) => {
     const m = (u.unit_number || "").match(/(\d+)/);
     return m ? Math.max(max, parseInt(m[1])) : max;
   }, 0);
-  units.value.push({
+  const newUnit = {
     _isNew: true,
+    _tempId: "new_" + ++_tempIdCounter,
     unit_number: "TOP " + (maxNum + 1),
     unit_type: "Wohnung",
     floor: 0,
     area_m2: null,
-    rooms_amount: null,
+    rooms: null,
     price: null,
-    balcony_terrace_m2: null,
-    garden_m2: null,
     status: "frei",
-    notes: "",
+    portal_exports: {},
     is_parking: 0,
-  });
+  };
+  units.value.push(newUnit);
+  expandedUnit.value = newUnit._tempId;
 }
 
-// ─── Parse Units ─────────────────────────────────────
-async function loadUnitParseFiles() {
-  try {
-    const r = await fetch(API.value + "&action=get_property_files&property_id=" + props.property.id);
-    const d = await r.json();
-    unitParseFiles.value = d.files || [];
-    unitParseSelectedFiles.value = unitParseFiles.value
-      .filter(f => /preis/i.test(f.filename) || /excel/i.test(f.label || '') || /\.xlsx?$/i.test(f.filename))
-      .map(f => f.id);
-  } catch (e) { unitParseFiles.value = []; }
-}
-
-async function uploadUnitParseFiles(event) {
-  const files = event.target.files;
-  if (!files || !files.length) return;
-  unitParseUploading.value = true;
-  for (const file of files) {
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('property_id', props.property.id);
-      fd.append('label', file.name.replace(/\.[^.]+$/, ''));
-      const r = await fetch(API.value + '&action=upload_property_file', { method: 'POST', body: fd });
-      const d = await r.json();
-      if (d.success && d.file) {
-        unitParseFiles.value.push(d.file);
-        unitParseSelectedFiles.value.push(d.file.id);
-      }
-    } catch (e) { console.error(e); }
-  }
-  event.target.value = '';
-  unitParseUploading.value = false;
-  toast(files.length + ' Datei(en) hochgeladen');
-}
-
-async function runParseUnits() {
-  unitParseLoading.value = true;
-  try {
-    const r = await fetch(API.value + "&action=parse_units", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ property_id: props.property.id, file_ids: unitParseSelectedFiles.value }),
-    });
-    const txt = await r.text();
-    if (txt.startsWith("<!") || txt.startsWith("<html")) { toast("Session abgelaufen"); unitParseLoading.value = false; return; }
-    const d = JSON.parse(txt);
-    if (d.error) { toast(d.error, "error"); }
-    else {
-      const parts = [];
-      if (d.units_created) parts.push(d.units_created + " erstellt");
-      if (d.units_updated) parts.push(d.units_updated + " aktualisiert");
-      if (d.units_skipped) parts.push(d.units_skipped + " uebersprungen (Kaufanbot)");
-      if (d.parking_created) parts.push(d.parking_created + " Stellplaetze erstellt");
-      if (d.parking_updated) parts.push(d.parking_updated + " Stellplaetze aktualisiert");
-      toast(parts.join(", ") || "Keine Einheiten gefunden", parts.length ? "success" : "warning");
-      unitParseOpen.value = false;
-      await loadUnits();
-    }
-  } catch (e) { toast("Fehler: " + e.message, "error"); }
-  unitParseLoading.value = false;
-}
-
-// ─── Unit Generator ─────────────────────────────────────
-function generateUnitRows() {
-  const newUnits = [];
-  const unitsPerFloor = Math.ceil(unitGen.count / unitGen.floors);
-  let num = unitGen.from;
-  for (let f = 0; f < unitGen.floors && newUnits.length < unitGen.count; f++) {
-    for (let u = 0; u < unitsPerFloor && newUnits.length < unitGen.count; u++) {
-      newUnits.push({
-        _isNew: true,
-        unit_number: unitGen.prefix + " " + num,
-        unit_type: "Wohnung",
-        floor: f,
-        area_m2: null,
-        rooms_amount: null,
-        price: null,
-        balcony_terrace_m2: null,
-        garden_m2: null,
-        status: "frei",
-        notes: "",
-        is_parking: 0,
-      });
-      num++;
-    }
-  }
-  units.value.push(...newUnits);
-}
-
-async function bulkImportUnits() {
-  const newUnits = realUnits.value.filter(u => u._isNew);
-  if (!newUnits.length) { toast("Keine neuen Einheiten zum Importieren"); return; }
-  try {
-    const r = await fetch(API.value + "&action=bulk_import_units", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        property_id: props.property.id,
-        units: newUnits.map(u => ({
-          unit_number: u.unit_number,
-          unit_type: u.unit_type,
-          floor: u.floor,
-          area_m2: u.area_m2,
-          rooms_amount: u.rooms_amount,
-          purchase_price: u.price || u.purchase_price,
-          status: u.status || "frei",
-          balcony_terrace_m2: u.balcony_terrace_m2,
-          garden_m2: u.garden_m2,
-          is_parking: 0,
-        })),
-      }),
-    });
-    const d = await r.json();
-    if (d.success) {
-      toast((d.created || 0) + " Einheiten importiert, " + (d.updated || 0) + " aktualisiert");
-      await loadUnits();
-    } else {
-      toast("Fehler: " + (d.error || ""));
-    }
-  } catch (e) {
-    toast("Fehler: " + e.message);
-  }
-}
-
-// ─── Parking CRUD ───────────────────────────────────────
-async function saveParking(unit) {
-  await saveUnit(unit);
-}
-
-async function deleteParking(unit) {
-  await deleteUnit(unit);
-}
-
-function addParkingRow() {
-  const maxNum = parkingUnits.value.reduce((max, u) => {
-    const m = (u.unit_number || "").match(/(\d+)/);
-    return m ? Math.max(max, parseInt(m[1])) : max;
-  }, 0);
-  units.value.push({
-    _isNew: true,
-    unit_number: "Stellplatz " + (maxNum + 1),
-    unit_type: "Tiefgarage",
-    floor: -1,
-    price: null,
-    status: "frei",
-    is_parking: 1,
-  });
-}
-
-// ─── Parking Generator ──────────────────────────────────
-async function generateParkingRows() {
-  if (parkingGen.to < parkingGen.from) { toast("Bis-Nr. muss größer als Von-Nr. sein"); return; }
-  const newParking = [];
-  for (let i = parkingGen.from; i <= parkingGen.to; i++) {
-    newParking.push({
-      _isNew: true,
-      unit_number: parkingGen.prefix + " " + i,
-      unit_type: parkingGen.type,
-      floor: -1,
-      price: parkingGen.price || null,
-      status: "frei",
-      is_parking: 1,
-    });
-  }
-  units.value.push(...newParking);
-}
-
-async function bulkImportParking() {
-  const newParking = parkingUnits.value.filter(u => u._isNew);
-  if (!newParking.length) { toast("Keine neuen Stellplätze zum Importieren"); return; }
-  try {
-    const r = await fetch(API.value + "&action=bulk_import_units", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        property_id: props.property.id,
-        units: newParking.map(u => ({
-          unit_number: u.unit_number,
-          unit_type: u.unit_type,
-          floor: u.floor,
-          area_m2: null,
-          rooms_amount: null,
-          purchase_price: u.price || null,
-          status: u.status || "frei",
-          is_parking: 1,
-        })),
-      }),
-    });
-    const d = await r.json();
-    if (d.success) {
-      toast((d.created || 0) + " Stellplätze importiert, " + (d.updated || 0) + " aktualisiert");
-      await loadUnits();
-    } else {
-      toast("Fehler: " + (d.error || ""));
-    }
-  } catch (e) {
-    toast("Fehler: " + e.message);
-  }
-}
-
-// ─── Mount ──────────────────────────────────────────────
 onMounted(() => {
   loadUnits();
 });
 </script>
 
 <template>
-  <div class="space-y-6">
-
-    <!-- ═══════ EINHEITEN SECTION ═══════ -->
-    <div>
-      <!-- Header row -->
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-1.5">
-            <Building2 class="w-4 h-4 text-muted-foreground" />
-            <span class="text-[15px] font-semibold">Einheiten ({{ realUnits.length }})</span>
-          </div>
-          <!-- ToggleGroup filter pills -->
-          <ToggleGroup type="single" v-model="unitFilter" class="bg-muted rounded-[calc(var(--radius)-2px)] p-0.5 h-auto gap-0">
-            <ToggleGroupItem
-              value="alle"
-              class="px-2.5 py-1 text-[11px] h-auto rounded-[calc(var(--radius)-2px)] data-[state=on]:bg-background data-[state=on]:shadow-sm"
-            >
-              Alle {{ realUnits.length }}
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="frei"
-              class="px-2.5 py-1 text-[11px] h-auto rounded-[calc(var(--radius)-2px)] data-[state=on]:bg-background data-[state=on]:shadow-sm"
-            >
-              Frei {{ freeCount }}
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="reserviert"
-              class="px-2.5 py-1 text-[11px] h-auto rounded-[calc(var(--radius)-2px)] data-[state=on]:bg-background data-[state=on]:shadow-sm"
-            >
-              Reserv. {{ reservedCount }}
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="verkauft"
-              class="px-2.5 py-1 text-[11px] h-auto rounded-[calc(var(--radius)-2px)] data-[state=on]:bg-background data-[state=on]:shadow-sm"
-            >
-              Verk. {{ soldCount }}
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-        <div class="flex items-center gap-2">
-          <!-- Search -->
-          <div class="relative">
-            <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-            <Input v-model="unitSearch" placeholder="Top, Typ suchen..." class="h-7 pl-7 text-[11px] w-40" />
-          </div>
-          <Button size="sm" variant="outline" class="h-7 text-[11px] gap-1" @click="unitParseOpen = !unitParseOpen; if (unitParseOpen && !unitParseFiles.length) loadUnitParseFiles()">
-            <Sparkles class="w-3 h-3" />
-            Einheiten auslesen
-          </Button>
-          <Button size="sm" variant="outline" class="h-7 text-[11px] gap-1" @click="unitGenOpen = !unitGenOpen">
-            <Building2 class="w-3 h-3" />
-            Generator
-          </Button>
-          <Button size="sm" variant="outline" class="h-7 text-[11px] gap-1" @click="addUnitRow">
-            <Plus class="w-3 h-3" />
-            Neue Einheit
-          </Button>
+  <div>
+    <!-- Header bar -->
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <span class="text-[15px] font-bold tracking-tight">{{ realUnits.length }} Einheiten</span>
+        <div class="flex gap-1.5">
+          <span class="bg-green-100 text-green-800 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">{{ freeCount }} frei</span>
+          <span class="bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">{{ reservedCount }} reserviert</span>
+          <span class="bg-red-100 text-red-800 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">{{ soldCount }} verkauft</span>
         </div>
       </div>
-
-      <!-- Einheiten auslesen Panel -->
-      <div v-if="unitParseOpen" class="rounded-lg p-4 space-y-3 mb-3" style="border:1px solid hsl(240 5.9% 90%); background:hsl(240 4.8% 95.9% / 0.3)">
-        <div class="flex items-center justify-between">
-          <h3 class="text-[13px] font-semibold">Einheiten aus Dokumenten auslesen</h3>
-          <button @click="unitParseOpen = false" class="text-muted-foreground hover:text-foreground">
-            <X class="w-4 h-4" />
-          </button>
+      <div class="flex gap-2">
+        <div class="relative">
+          <Search class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            v-model="unitSearch"
+            placeholder="Suchen..."
+            class="h-9 pl-9 w-44 text-[13px] border border-input rounded-lg"
+          />
         </div>
-        <p class="text-[11px] text-muted-foreground">Existierende Einheiten werden per TOP-Nr. aktualisiert. Verkaufte Einheiten (via Kaufanbot) behalten ihren Status.</p>
-
-        <label class="flex items-center gap-2 p-3 rounded-lg cursor-pointer hover:bg-muted/50" style="border:1px dashed hsl(240 5.9% 85%)">
-          <Upload class="w-4 h-4 text-muted-foreground" />
-          <span class="text-[11px] text-muted-foreground">{{ unitParseUploading ? 'Wird hochgeladen...' : 'Preisliste / Expose hochladen' }}</span>
-          <input type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls" class="sr-only" @change="uploadUnitParseFiles" :disabled="unitParseUploading" />
-        </label>
-
-        <div class="space-y-1 max-h-40 overflow-y-auto">
-          <label v-for="f in unitParseFiles" :key="f.id" class="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer">
-            <input type="checkbox" :value="f.id" v-model="unitParseSelectedFiles" class="rounded border-border" />
-            <span class="text-[11px] flex-1 truncate">{{ f.label || f.filename }}</span>
-            <span class="text-[9px] text-muted-foreground uppercase">{{ f.filename?.split('.').pop() }}</span>
-          </label>
-        </div>
-        <div v-if="!unitParseFiles.length" class="text-[11px] text-muted-foreground py-2">Noch keine Dateien. Bitte oben hochladen.</div>
-
-        <Button size="sm" :disabled="!unitParseSelectedFiles.length || unitParseLoading" @click="runParseUnits">
-          <Sparkles v-if="!unitParseLoading" class="w-3.5 h-3.5 mr-1.5" />
-          <div v-else class="w-3.5 h-3.5 mr-1.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          {{ unitParseLoading ? 'Wird analysiert (Sonnet)...' : unitParseSelectedFiles.length + ' Datei(en) auslesen' }}
+        <Button size="sm" variant="outline" @click="addUnitRow" class="h-9 text-[13px]">
+          <Plus class="w-3.5 h-3.5 mr-1.5" /> Einheit
         </Button>
       </div>
+    </div>
 
-      <!-- Units Table -->
-      <div class="rounded-md border border-border/50 overflow-hidden">
-        <div v-if="unitsLoading" class="py-8 text-center text-sm text-muted-foreground">
-          Einheiten werden geladen...
+    <!-- Loading -->
+    <div v-if="unitsLoading" class="text-center py-8 text-sm text-muted-foreground">
+      Laden...
+    </div>
+
+    <!-- Floor groups -->
+    <div v-else class="flex flex-col gap-3">
+      <div
+        v-for="(group, idx) in filteredFloorGroups"
+        :key="group.floor"
+        class="rounded-xl border border-border overflow-hidden"
+        style="box-shadow: 0 1px 3px rgba(0,0,0,0.04)"
+      >
+        <!-- Floor accordion header -->
+        <div
+          class="w-full flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-zinc-50/50 transition-colors select-none"
+          :class="isGroupOpen(group.floor) ? 'bg-gradient-to-b from-zinc-50 to-zinc-100/50 border-b border-border/50' : ''"
+          @click="toggleGroup(group.floor)"
+        >
+          <div class="flex items-center gap-2">
+            <div
+              class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+              :style="{ background: floorColors[idx % floorColors.length] }"
+            ></div>
+            <span class="text-[13px] font-semibold text-foreground tracking-tight">
+              {{ group.label }}
+            </span>
+            <span class="text-[12px] text-muted-foreground ml-0.5">
+              ({{ group.units.length }})
+            </span>
+          </div>
+          <component
+            :is="isGroupOpen(group.floor) ? ChevronDown : ChevronRight"
+            class="w-3.5 h-3.5 text-muted-foreground"
+          />
         </div>
-        <div v-else class="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow class="bg-muted/40">
-                <TableHead class="text-[11px] h-8 font-medium">Einheit</TableHead>
-                <TableHead class="text-[11px] h-8 font-medium">Typ</TableHead>
-                <TableHead class="text-[11px] h-8 font-medium text-right">Fläche</TableHead>
-                <TableHead class="text-[11px] h-8 font-medium text-right">Zimmer</TableHead>
-                <TableHead class="text-[11px] h-8 font-medium text-center">OG</TableHead>
-                <TableHead class="text-[11px] h-8 font-medium">Status</TableHead>
-                <TableHead class="text-[11px] h-8 font-medium text-right">Preis</TableHead>
-                <TableHead class="text-[11px] h-8 w-16"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow
-                v-for="unit in filteredUnits"
-                :key="unit.id || unit.unit_number"
-                class="hover:bg-muted/20"
-              >
-                <!-- Einheit Nr. -->
-                <TableCell class="py-1.5 px-2">
-                  <input
+
+        <!-- Units list -->
+        <div v-if="isGroupOpen(group.floor)" class="p-2 flex flex-col gap-1.5">
+          <div
+            v-for="unit in group.units"
+            :key="unitKey(unit)"
+            class="border border-border rounded-lg bg-background transition-opacity"
+            :class="unit.status === 'verkauft' ? 'opacity-55' : ''"
+          >
+            <!-- Collapsed summary row -->
+            <div
+              class="px-3.5 py-2.5 flex items-center cursor-pointer"
+              @click="toggleUnit(unit)"
+            >
+              <div class="flex-1 flex items-center gap-4 min-w-0 overflow-hidden">
+                <span class="text-[14px] font-bold text-foreground min-w-[60px] truncate">
+                  {{ unit.unit_number || "—" }}
+                </span>
+                <span class="text-[12px] text-zinc-600 bg-zinc-100 px-2.5 py-0.5 rounded font-medium whitespace-nowrap">
+                  {{ unit.unit_type || "—" }}
+                </span>
+                <span class="text-[14px] text-foreground min-w-[70px] whitespace-nowrap hidden sm:inline">
+                  {{ unit.area_m2 ? unit.area_m2 + " m²" : "—" }}
+                </span>
+                <span class="text-[14px] font-bold text-foreground min-w-[110px] whitespace-nowrap hidden md:inline">
+                  {{ (unit.price || unit.purchase_price) ? "EUR " + formatPrice(unit.price || unit.purchase_price) : "—" }}
+                </span>
+              </div>
+              <div class="flex items-center gap-2.5 shrink-0">
+                <!-- Status badge -->
+                <span
+                  class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide whitespace-nowrap"
+                  :class="{
+                    'bg-green-100 text-green-800':   unit.status === 'frei',
+                    'bg-amber-100 text-amber-800':   unit.status === 'reserviert',
+                    'bg-red-100   text-red-800':     unit.status === 'verkauft',
+                  }"
+                >
+                  {{
+                    unit.status === 'frei'       ? 'FREI'       :
+                    unit.status === 'reserviert' ? 'RESERVIERT' :
+                    unit.status === 'verkauft'   ? 'VERKAUFT'   :
+                    unit.status
+                  }}
+                </span>
+
+                <!-- Portal dots -->
+                <div class="flex gap-0.5">
+                  <span
+                    v-for="p in activePortals(unit)"
+                    :key="p.key"
+                    class="w-[22px] h-[22px] rounded-full text-white text-[8px] font-bold flex items-center justify-center"
+                    :style="{ background: p.color }"
+                    :title="p.label"
+                  >{{ p.short }}</span>
+                </div>
+
+                <ChevronRight v-if="!isExpanded(unit)" class="w-3.5 h-3.5 text-zinc-500" />
+                <ChevronDown  v-else                   class="w-3.5 h-3.5 text-zinc-800" />
+              </div>
+            </div>
+
+            <!-- Expanded edit panel -->
+            <div
+              v-if="isExpanded(unit)"
+              class="px-4 py-4 border-t border-border bg-background"
+              @click.stop
+            >
+              <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-4 gap-x-3.5 mb-4">
+                <!-- Bezeichnung -->
+                <div>
+                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Bezeichnung</label>
+                  <Input
                     v-model="unit.unit_number"
-                    type="text"
-                    class="w-20 px-2 py-1 bg-muted/50 border border-border rounded text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                    @input="unit._dirty = true"
+                    class="h-9 text-[14px] border border-input rounded-lg bg-background"
+                    placeholder="z.B. TOP 1"
                   />
-                </TableCell>
+                </div>
+
                 <!-- Typ -->
-                <TableCell class="py-1.5 px-2">
-                  <select
-                    v-model="unit.unit_type"
-                    class="w-28 px-2 py-1 bg-muted/50 border border-border rounded text-xs focus:outline-none"
-                    @change="unit._dirty = true"
-                  >
-                    <option>Wohnung</option>
-                    <option>Reihenhaus</option>
-                    <option>Doppelhaus</option>
-                    <option>Penthouse</option>
-                    <option>Maisonette</option>
-                    <option>Geschäft</option>
-                    <option>Büro</option>
-                  </select>
-                </TableCell>
-                <!-- Fläche -->
-                <TableCell class="py-1.5 px-2 text-right">
-                  <input
-                    v-model.number="unit.area_m2"
+                <div>
+                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Typ</label>
+                  <Select v-model="unit.unit_type">
+                    <SelectTrigger class="h-9 text-[14px] border border-input rounded-lg bg-background">
+                      <SelectValue placeholder="Typ wählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Wohnung">Wohnung</SelectItem>
+                      <SelectItem value="Gewerbe">Gewerbe</SelectItem>
+                      <SelectItem value="Büro">Büro</SelectItem>
+                      <SelectItem value="Lager">Lager</SelectItem>
+                      <SelectItem value="Sonstige">Sonstige</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <!-- Stockwerk -->
+                <div>
+                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Stockwerk</label>
+                  <Input
+                    v-model.number="unit.floor"
                     type="number"
-                    step="0.1"
-                    placeholder="m²"
-                    class="w-16 px-2 py-1 bg-muted/50 border border-border rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-ring"
-                    @input="unit._dirty = true"
+                    class="h-9 text-[14px] border border-input rounded-lg bg-background"
+                    placeholder="0 = EG"
                   />
-                </TableCell>
+                </div>
+
                 <!-- Zimmer -->
-                <TableCell class="py-1.5 px-2 text-right">
-                  <input
-                    v-model.number="unit.rooms_amount"
+                <div>
+                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Zimmer</label>
+                  <Input
+                    v-model.number="unit.rooms"
                     type="number"
                     step="0.5"
-                    placeholder="Zi."
-                    class="w-14 px-2 py-1 bg-muted/50 border border-border rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-ring"
-                    @input="unit._dirty = true"
+                    class="h-9 text-[14px] border border-input rounded-lg bg-background"
+                    placeholder="z.B. 3"
                   />
-                </TableCell>
-                <!-- OG -->
-                <TableCell class="py-1.5 px-2 text-center">
-                  <select
-                    v-model.number="unit.floor"
-                    class="w-16 px-2 py-1 bg-muted/50 border border-border rounded text-xs focus:outline-none"
-                    @change="unit._dirty = true"
-                  >
-                    <option :value="-1">UG</option>
-                    <option :value="0">EG</option>
-                    <option v-for="f in 10" :key="f" :value="f">{{ f }}. OG</option>
-                  </select>
-                </TableCell>
-                <!-- Status -->
-                <TableCell class="py-1.5 px-2">
-                  <select
-                    v-model="unit.status"
-                    :class="['px-2 py-1 rounded text-xs font-medium border-0 focus:outline-none', statusColor(unit.status)]"
-                    @change="unit._dirty = true"
-                  >
-                    <option value="frei">Frei</option>
-                    <option value="reserviert">Reserviert</option>
-                    <option value="verkauft">Verkauft</option>
-                  </select>
-                </TableCell>
-                <!-- Preis -->
-                <TableCell class="py-1.5 px-2 text-right">
-                  <input
+                </div>
+
+                <!-- Wohnfläche -->
+                <div>
+                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Wohnfläche (m²)</label>
+                  <Input
+                    v-model.number="unit.area_m2"
+                    type="number"
+                    step="0.01"
+                    class="h-9 text-[14px] border border-input rounded-lg bg-background"
+                    placeholder="z.B. 75"
+                  />
+                </div>
+
+                <!-- Kaufpreis -->
+                <div>
+                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Kaufpreis (EUR)</label>
+                  <Input
                     v-model.number="unit.price"
                     type="number"
-                    step="100"
-                    placeholder="€"
-                    class="w-24 px-2 py-1 bg-muted/50 border border-border rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-ring"
-                    @input="unit._dirty = true"
+                    class="h-9 text-[14px] border border-input rounded-lg bg-background"
+                    placeholder="z.B. 350000"
                   />
-                </TableCell>
-                <!-- Actions -->
-                <TableCell class="py-1.5 px-2">
-                  <div class="flex items-center gap-0.5 justify-end">
-                    <button
-                      @click="saveUnit(unit)"
-                      :disabled="unitSaving[unit.id || unit.unit_number]"
-                      class="p-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors disabled:opacity-50"
-                      title="Speichern"
-                    >
-                      <Check class="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      @click="deleteUnit(unit)"
-                      class="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
-                      title="Löschen"
-                    >
-                      <Trash2 class="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </TableCell>
-              </TableRow>
-              <TableRow v-if="!filteredUnits.length && !unitsLoading">
-                <TableCell colspan="8" class="text-center text-xs py-6 text-muted-foreground">
-                  {{ realUnits.length === 0 ? 'Noch keine Einheiten. Nutze den Generator oder "+ Neue Einheit".' : 'Keine Einheiten für diesen Filter.' }}
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+                </div>
 
-      <!-- Unit Generator Dialog -->
-      <Dialog :open="unitGenOpen" @update:open="unitGenOpen = $event">
-        <DialogContent class="max-w-md">
-          <DialogHeader>
-            <DialogTitle class="text-sm">Einheiten generieren</DialogTitle>
-          </DialogHeader>
-          <div class="space-y-4 pt-2">
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="text-[11px] text-muted-foreground mb-1 block">Prefix</label>
-                <Input v-model="unitGen.prefix" class="h-8 text-[13px]" />
-              </div>
-              <div>
-                <label class="text-[11px] text-muted-foreground mb-1 block">Start-Nr.</label>
-                <Input v-model.number="unitGen.from" type="number" min="1" class="h-8 text-[13px]" />
-              </div>
-              <div>
-                <label class="text-[11px] text-muted-foreground mb-1 block">Anzahl</label>
-                <Input v-model.number="unitGen.count" type="number" min="1" class="h-8 text-[13px]" />
-              </div>
-              <div>
-                <label class="text-[11px] text-muted-foreground mb-1 block">Stockwerke</label>
-                <Input v-model.number="unitGen.floors" type="number" min="1" class="h-8 text-[13px]" />
-              </div>
-            </div>
-            <p class="text-[11px] text-muted-foreground">
-              Generiert {{ unitGen.count }} Einheiten auf {{ unitGen.floors }} Stockwerke, ab "{{ unitGen.prefix }} {{ unitGen.from }}".
-            </p>
-            <div class="flex justify-end gap-2">
-              <Button variant="outline" size="sm" @click="unitGenOpen = false">Abbrechen</Button>
-              <Button size="sm" @click="generateUnitRows(); unitGenOpen = false">
-                <Plus class="w-3.5 h-3.5 mr-1.5" /> Generieren
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-
-    <!-- ═══════ STELLPLÄTZE SECTION ═══════ -->
-    <div class="border-t border-border/50 mt-6 pt-4">
-      <!-- Header row -->
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-1.5">
-            <ParkingSquare class="w-4 h-4 text-indigo-600" />
-            <span class="text-[15px] font-semibold">Stellplätze ({{ parkingUnits.length }})</span>
-          </div>
-          <!-- Status count badges -->
-          <div class="flex items-center gap-1">
-            <span
-              v-if="parkingFreeCount > 0"
-              class="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
-              style="background:hsl(142 76% 96%);color:hsl(142 72% 29%);border:1px solid hsl(142 76% 85%)"
-            >
-              {{ parkingFreeCount }} frei
-            </span>
-            <span
-              v-if="parkingReservedCount > 0"
-              class="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
-              style="background:hsl(33 100% 96%);color:hsl(21 90% 48%);border:1px solid hsl(33 100% 90%)"
-            >
-              {{ parkingReservedCount }} res.
-            </span>
-            <span
-              v-if="parkingSoldCount > 0"
-              class="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
-              style="background:hsl(0 93% 97%);color:hsl(0 72% 51%);border:1px solid hsl(0 93% 90%)"
-            >
-              {{ parkingSoldCount }} verk.
-            </span>
-          </div>
-        </div>
-        <Button size="sm" variant="outline" class="h-7 text-[11px] gap-1" @click="addParkingRow">
-          <Plus class="w-3 h-3" />
-          Stellplatz
-        </Button>
-      </div>
-
-      <!-- Parking Table -->
-      <div class="rounded-md border border-border/50 overflow-hidden">
-        <div class="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow class="bg-muted/40">
-                <TableHead class="text-[11px] h-8 font-medium">Nr.</TableHead>
-                <TableHead class="text-[11px] h-8 font-medium">Typ</TableHead>
-                <TableHead class="text-[11px] h-8 font-medium">Status</TableHead>
-                <TableHead class="text-[11px] h-8 font-medium text-right">Preis</TableHead>
-                <TableHead class="text-[11px] h-8 w-16"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow
-                v-for="unit in parkingUnits"
-                :key="unit.id || unit.unit_number"
-                class="hover:bg-muted/20"
-              >
-                <!-- Nr. -->
-                <TableCell class="py-1.5 px-2">
-                  <input
-                    v-model="unit.unit_number"
-                    type="text"
-                    class="w-32 px-2 py-1 bg-muted/50 border border-border rounded text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                    @input="unit._dirty = true"
-                  />
-                </TableCell>
-                <!-- Typ -->
-                <TableCell class="py-1.5 px-2">
-                  <select
-                    v-model="unit.unit_type"
-                    class="w-28 px-2 py-1 bg-muted/50 border border-border rounded text-xs focus:outline-none"
-                    @change="unit._dirty = true"
-                  >
-                    <option>Tiefgarage</option>
-                    <option>Freiplatz</option>
-                    <option>Carport</option>
-                    <option>Garage</option>
-                    <option>Stellplatz</option>
-                  </select>
-                </TableCell>
                 <!-- Status -->
-                <TableCell class="py-1.5 px-2">
-                  <select
-                    v-model="unit.status"
-                    :class="['px-2 py-1 rounded text-xs font-medium border-0 focus:outline-none', statusColor(unit.status)]"
-                    @change="unit._dirty = true"
+                <div>
+                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Status</label>
+                  <Select v-model="unit.status">
+                    <SelectTrigger class="h-9 text-[14px] border border-input rounded-lg bg-background">
+                      <SelectValue placeholder="Status wählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="frei">Frei</SelectItem>
+                      <SelectItem value="reserviert">Reserviert</SelectItem>
+                      <SelectItem value="verkauft">Verkauft</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <!-- Portal toggles -->
+              <div class="mb-4">
+                <label class="text-[12px] text-zinc-600 font-semibold mb-2 block">Portale</label>
+                <div class="flex gap-2 flex-wrap">
+                  <button
+                    v-for="p in portalOptions"
+                    :key="p.key"
+                    type="button"
+                    @click="togglePortal(unit, p.key)"
+                    class="px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+                    :class="
+                      isPortalActive(unit, p.key)
+                        ? 'bg-zinc-900 text-white'
+                        : 'border border-border text-foreground hover:bg-zinc-50'
+                    "
+                  >{{ p.label }}</button>
+                </div>
+              </div>
+
+              <!-- Actions row -->
+              <div class="flex items-center justify-between">
+                <button
+                  type="button"
+                  class="text-[12px] text-red-500 hover:text-red-700 transition-colors"
+                  @click="deleteUnit(unit)"
+                >
+                  Löschen
+                </button>
+                <div class="flex gap-2">
+                  <Button variant="outline" size="sm" @click="expandedUnit = null">
+                    Abbrechen
+                  </Button>
+                  <Button
+                    size="sm"
+                    @click="saveUnit(unit)"
+                    :disabled="unitSaving[unitKey(unit)]"
                   >
-                    <option value="frei">Frei</option>
-                    <option value="reserviert">Reserviert</option>
-                    <option value="verkauft">Verkauft</option>
-                  </select>
-                </TableCell>
-                <!-- Preis -->
-                <TableCell class="py-1.5 px-2 text-right">
-                  <input
-                    v-model.number="unit.price"
-                    type="number"
-                    step="100"
-                    placeholder="€"
-                    class="w-24 px-2 py-1 bg-muted/50 border border-border rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-ring"
-                    @input="unit._dirty = true"
-                  />
-                </TableCell>
-                <!-- Actions -->
-                <TableCell class="py-1.5 px-2">
-                  <div class="flex items-center gap-0.5 justify-end">
-                    <button
-                      @click="saveParking(unit)"
-                      :disabled="unitSaving[unit.id || unit.unit_number]"
-                      class="p-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors disabled:opacity-50"
-                      title="Speichern"
-                    >
-                      <Check class="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      @click="deleteParking(unit)"
-                      class="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
-                      title="Löschen"
-                    >
-                      <Trash2 class="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </TableCell>
-              </TableRow>
-              <TableRow v-if="!parkingUnits.length">
-                <TableCell colspan="5" class="text-center text-xs py-6 text-muted-foreground">
-                  Noch keine Stellplätze. Nutze den Generator oder "+ Stellplatz".
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+                    <Save class="w-3.5 h-3.5 mr-1.5" />
+                    Speichern
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Parking Generator Dialog -->
-      <Dialog :open="parkingGenOpen" @update:open="parkingGenOpen = $event">
-        <DialogContent class="max-w-md">
-          <DialogHeader>
-            <DialogTitle class="text-sm">Stellplaetze generieren</DialogTitle>
-          </DialogHeader>
-          <div class="space-y-4 pt-2">
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="text-[11px] text-muted-foreground mb-1 block">Prefix</label>
-                <Input v-model="parkingGen.prefix" class="h-8 text-[13px]" />
-              </div>
-              <div>
-                <label class="text-[11px] text-muted-foreground mb-1 block">Typ</label>
-                <Select v-model="parkingGen.type">
-                  <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Tiefgarage">Tiefgarage</SelectItem>
-                    <SelectItem value="Freiplatz">Freiplatz</SelectItem>
-                    <SelectItem value="Carport">Carport</SelectItem>
-                    <SelectItem value="Garage">Garage</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label class="text-[11px] text-muted-foreground mb-1 block">Von Nr.</label>
-                <Input v-model.number="parkingGen.from" type="number" min="1" class="h-8 text-[13px]" />
-              </div>
-              <div>
-                <label class="text-[11px] text-muted-foreground mb-1 block">Bis Nr.</label>
-                <Input v-model.number="parkingGen.to" type="number" min="1" class="h-8 text-[13px]" />
-              </div>
-              <div>
-                <label class="text-[11px] text-muted-foreground mb-1 block">Preis/Stk.</label>
-                <Input v-model.number="parkingGen.price" type="number" step="100" class="h-8 text-[13px]" />
-              </div>
-            </div>
-            <p class="text-[11px] text-muted-foreground">
-              Generiert Stellplaetze {{ parkingGen.prefix }} {{ parkingGen.from }} bis {{ parkingGen.prefix }} {{ parkingGen.to }} als {{ parkingGen.type }}.
-            </p>
-            <div class="flex justify-end gap-2">
-              <Button variant="outline" size="sm" @click="parkingGenOpen = false">Abbrechen</Button>
-              <Button size="sm" @click="generateParkingRows(); parkingGenOpen = false">
-                <Plus class="w-3.5 h-3.5 mr-1.5" /> Generieren
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <!-- Empty state -->
+      <div
+        v-if="filteredFloorGroups.length === 0"
+        class="text-center py-12 text-sm text-muted-foreground"
+      >
+        <p class="font-medium mb-1">Keine Einheiten gefunden</p>
+        <p v-if="unitSearch" class="text-[13px]">Suche nach „{{ unitSearch }}" ergab keine Treffer.</p>
+        <p v-else class="text-[13px]">Klicke auf „+ Einheit" um die erste Einheit anzulegen.</p>
+      </div>
     </div>
-
   </div>
 </template>

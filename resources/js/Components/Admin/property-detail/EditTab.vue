@@ -9,6 +9,10 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import MediaTab from "@/Components/Admin/property-detail/MediaTab.vue";
+import EditTabAllgemeines from "@/Components/Admin/property-detail/EditTabAllgemeines.vue";
+import EditTabKosten from "@/Components/Admin/property-detail/EditTabKosten.vue";
+import EditTabFlaechen from "@/Components/Admin/property-detail/EditTabFlaechen.vue";
+import EditTabGebaeude from "@/Components/Admin/property-detail/EditTabGebaeude.vue";
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -32,7 +36,7 @@ async function loadBrokers() {
 }
 
 // ─── Active sub-tab ───
-const activeSubTab = ref("objekt");
+const activeSubTab = ref("allgemeines");
 
 // ─── Parse Fields ───
 const parseOpen = ref(false);
@@ -40,125 +44,6 @@ const parseLoading = ref(false);
 const parseFiles = ref([]);
 const parseSelectedFiles = ref([]);
 const parseUploading = ref(false);
-
-// ─── Option arrays ───
-const objectTypes = [
-  "Eigentumswohnung", "Haus", "Einfamilienhaus", "Grundstueck",
-  "Neubauprojekt", "Gartenwohnung", "Dachgeschosswohnung", "Penthouse",
-  "Maisonette", "Reihenhaus", "Doppelhaushaelfte", "Gewerbe",
-  "Buero", "Anlage", "Sonstiges", "Neubau",
-];
-
-const marketingTypes = [
-  { value: "kauf", label: "Kauf" },
-  { value: "miete", label: "Miete" },
-  { value: "pacht", label: "Pacht" },
-];
-
-const categoryOptions = [
-  { value: "", label: "-- Keine --" },
-  { value: "house", label: "Haus" },
-  { value: "apartment", label: "Wohnung" },
-  { value: "newbuild", label: "Neubauprojekt" },
-  { value: "land", label: "Grundstueck" },
-];
-
-const conditionOptions = [
-  { value: "", label: "-- Bitte waehlen --" },
-  { value: "erstbezug", label: "Erstbezug" },
-  { value: "neuwertig", label: "Neuwertig" },
-  { value: "gepflegt", label: "Gepflegt" },
-  { value: "renovierungsbeduerftig", label: "Renovierungsbeduerftig" },
-  { value: "saniert", label: "Saniert" },
-  { value: "teilsaniert", label: "Teilsaniert" },
-  { value: "abbruchreif", label: "Abbruchreif" },
-];
-
-const qualityOptions = [
-  { value: "", label: "-- Bitte waehlen --" },
-  { value: "einfach", label: "Einfach" },
-  { value: "normal", label: "Normal" },
-  { value: "gehoben", label: "Gehoben" },
-  { value: "luxurioes", label: "Luxurioes" },
-];
-
-const energyTypeOptions = [
-  { value: "", label: "-- Bitte waehlen --" },
-  { value: "Verbrauch", label: "Verbrauchsausweis" },
-  { value: "Bedarf", label: "Bedarfsausweis" },
-];
-
-const energyClasses = ["A++", "A+", "A", "B", "C", "D", "E", "F", "G", "H"];
-
-const subtypeOptions = [
-  { value: "", label: "-- Bitte waehlen --" },
-  { value: "etagenwohnung", label: "Etagenwohnung" },
-  { value: "penthouse", label: "Penthouse" },
-  { value: "maisonette", label: "Maisonette" },
-  { value: "dachgeschosswohnung", label: "Dachgeschosswohnung" },
-  { value: "gartenwohnung", label: "Gartenwohnung" },
-  { value: "erdgeschosswohnung", label: "Erdgeschosswohnung" },
-  { value: "doppelhaushaelfte", label: "Doppelhaushaelfte" },
-  { value: "einfamilienhaus", label: "Einfamilienhaus" },
-  { value: "reihenhaus", label: "Reihenhaus" },
-  { value: "bungalow", label: "Bungalow" },
-  { value: "villa", label: "Villa" },
-  { value: "mehrfamilienhaus", label: "Mehrfamilienhaus" },
-  { value: "bauernhaus", label: "Bauernhaus" },
-];
-
-const constructionTypeOptions = [
-  { value: "", label: "-- Bitte waehlen --" },
-  { value: "massiv", label: "Massiv" },
-  { value: "fertighaus", label: "Fertighaus" },
-  { value: "holz", label: "Holz" },
-  { value: "leichtbau", label: "Leichtbau" },
-  { value: "sonstige", label: "Sonstige" },
-];
-
-const ownershipOptions = [
-  { value: "", label: "-- Bitte waehlen --" },
-  { value: "wohnungseigentum", label: "Wohnungseigentum" },
-  { value: "miteigentum", label: "Miteigentum" },
-  { value: "alleineigentum", label: "Alleineigentum" },
-  { value: "baurecht", label: "Baurecht" },
-  { value: "genossenschaft", label: "Genossenschaft" },
-  { value: "sonstige", label: "Sonstige" },
-];
-
-const buildingOptions = {
-  constructionMethod: ["", "Massivbau", "Holzbau", "Stahlbau", "Fertigteilbau", "Mischbauweise"],
-  constructionCondition: ["", "Neubau", "Bestand", "Abbruchreif", "Rohbau", "Ausbauhaus"],
-  expansionStage: ["", "Schluesselfertig", "Belagsfertig", "Rohbau", "Ausbauhaus"],
-  facadeType: ["", "Putz", "Klinker", "Holz", "Glas", "Metall", "Naturstein", "WDVS"],
-  conditionGrade: ["", "Sehr gut", "Gut", "Befriedigend", "Mangelhaft", "Unzureichend"],
-  heatingType: ["", "Zentralheizung", "Etagenheizung", "Ofenheizung", "Fussbodenheizung", "Fernwaerme", "Waermepumpe"],
-  fuelType: ["", "Gas", "Oel", "Holz", "Pellets", "Strom", "Solar", "Erdwaerme", "Fernwaerme"],
-  hotWaterType: ["", "Zentral", "Boiler", "Durchlauferhitzer", "Solar"],
-  electricalType: ["", "Standard", "Aufputz", "Unterputz"],
-  ventilationType: ["", "Natuerlich", "Mechanisch", "Kontrolliert"],
-  tvConnection: ["", "Kabel", "SAT", "DVB-T", "IPTV"],
-  phoneConnection: ["", "Analog", "ISDN", "VoIP"],
-  internetConnection: ["", "DSL", "Glasfaser", "Kabel", "LTE/5G"],
-  securityType: ["", "Alarmanlage", "Videoueberwachung", "Gegensprechanlage", "Sicherheitstuer"],
-  roofShape: ["", "Satteldach", "Flachdach", "Walmdach", "Pultdach", "Mansarddach", "Zeltdach"],
-  roofCovering: ["", "Ziegel", "Betondachstein", "Schiefer", "Blech", "Bitumen", "Gruen"],
-  windowMaterial: ["", "Kunststoff", "Holz", "Aluminium", "Holz-Alu"],
-  glazingType: ["", "Einfach", "Doppelt", "Dreifach", "Schallschutz"],
-  sunProtection: ["", "Rollladen", "Jalousien", "Markise", "Aussenliegend", "Innenliegend"],
-  stairsType: ["", "Innen", "Aussen", "Aufzug"],
-  elevatorType: ["", "Vorhanden", "Nicht vorhanden"],
-  commonAreaCondition: ["", "Sehr gut", "Gut", "Befriedigend", "Mangelhaft"],
-};
-
-function bd(section, key) {
-  return form.building_details?.[section]?.[key] || "";
-}
-function setBd(section, key, value) {
-  if (!form.building_details) form.building_details = {};
-  if (!form.building_details[section]) form.building_details[section] = {};
-  form.building_details[section][key] = value;
-}
 
 // ─── Field visibility map ───
 // W = Website, P = Portal, I = Intern (admin only)
@@ -261,14 +146,6 @@ const iconMap = { globe: Globe, users: Users, lock: Lock };
 function vis(key) {
   return fieldVis[key] || { icons: [], tip: '' };
 }
-
-const kitchenOptions = [
-  { value: "", label: "-- Bitte waehlen --" },
-  { value: "ohne", label: "Ohne Kueche" },
-  { value: "offen", label: "Offene Kueche" },
-  { value: "einbau", label: "Einbaukueche" },
-  { value: "pantry", label: "Pantrykueche" },
-];
 
 // ─── Boolean features ───
 const features = [
@@ -640,16 +517,13 @@ defineExpose({ save, discard });
 </script>
 
 <template>
-  <Tabs v-model="activeSubTab" default-value="objekt">
+  <Tabs v-model="activeSubTab" default-value="allgemeines">
     <!-- Subtab bar — flush under main tabs -->
     <div class="-mx-6 -mt-6 mb-4">
-      <TabsList class="flex w-full justify-start bg-zinc-100/70 border-b border-zinc-200 rounded-none h-auto p-0 px-6 gap-0">
-        <TabsTrigger value="objekt" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Objekt</TabsTrigger>
-        <TabsTrigger value="preise" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Preise</TabsTrigger>
-        <TabsTrigger value="flaechen" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Flächen</TabsTrigger>
-        <TabsTrigger v-if="!isChild" value="ausstattung" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Ausstattung</TabsTrigger>
-        <TabsTrigger value="energie" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Energie</TabsTrigger>
-        <TabsTrigger value="bau" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Bau</TabsTrigger>
+      <TabsList class="flex w-full justify-start bg-gradient-to-b from-zinc-50 to-zinc-100/50 border-b border-zinc-200 rounded-none h-auto p-0 px-6 gap-0">
+        <TabsTrigger value="allgemeines" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Allgemeines</TabsTrigger>
+        <TabsTrigger value="kosten" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Kosten</TabsTrigger>
+        <TabsTrigger value="flaechen" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Flaechen</TabsTrigger>
         <TabsTrigger value="gebaeude" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Gebaeude</TabsTrigger>
         <TabsTrigger value="beschreibung" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Beschreibung</TabsTrigger>
         <TabsTrigger value="medien" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Medien</TabsTrigger>
@@ -693,7 +567,25 @@ defineExpose({ save, discard });
       </Button>
     </div>
 
-      <TabsContent value="objekt" class="mt-0">
+      <TabsContent value="allgemeines" class="mt-0 px-1">
+        <EditTabAllgemeines :form="form" :broker-list="brokerList" :is-newbuild="isNewbuild" :is-child="isChild" :features="features" :vis="vis" :icon-map="iconMap" />
+      </TabsContent>
+
+      <TabsContent value="kosten" class="mt-0 px-1">
+        <EditTabKosten :form="form" :is-newbuild="isNewbuild" />
+      </TabsContent>
+
+      <TabsContent value="flaechen" class="mt-0 px-1">
+        <EditTabFlaechen :form="form" :is-newbuild="isNewbuild" />
+      </TabsContent>
+
+      <TabsContent value="gebaeude" class="mt-0 px-1">
+        <EditTabGebaeude :form="form" />
+      </TabsContent>
+
+      <!-- REMOVED: old objekt inline content below — kept for reference until sub-components verified -->
+      <template v-if="false">
+      <TabsContent value="_objekt_old" class="mt-0">
         <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Objekt</div>
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
@@ -1369,6 +1261,7 @@ defineExpose({ save, discard });
           </div>
         </div>
       </TabsContent>
+      </template><!-- end v-if="false" old inline blocks -->
 
       <TabsContent value="beschreibung" class="mt-0">
         <div class="space-y-4">

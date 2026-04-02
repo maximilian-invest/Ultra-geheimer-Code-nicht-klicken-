@@ -413,9 +413,20 @@ watch(form, () => {
 }, { deep: true });
 
 // ─── Init ───
-onMounted(() => {
+onMounted(async () => {
   loadBrokers();
+  // First copy what we have from the parent (may be incomplete)
   copyPropertyToForm(props.property);
+  // Then fetch full property data (includes boolean features etc.)
+  if (props.property?.id) {
+    try {
+      const r = await fetch(API.value + '&action=get_property&property_id=' + props.property.id);
+      const d = await r.json();
+      if (d.property) {
+        copyPropertyToForm(d.property);
+      }
+    } catch (e) { console.error('Failed to load full property', e); }
+  }
   loadHistory();
   dirty.value = false;
 });

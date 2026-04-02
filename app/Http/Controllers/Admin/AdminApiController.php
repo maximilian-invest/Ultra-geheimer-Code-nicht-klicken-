@@ -50,7 +50,7 @@ class AdminApiController extends Controller
             'update_property', 'delete_property', 'set_on_hold', 'set_inactive', 'reactivate_property',
             'upload_property_file', 'delete_property_file',
             'upload_property_image', 'update_property_image', 'delete_property_image',
-            'upload_property_kaufanbot', 'delete_property_kaufanbot', 'update_property_kaufanbot_status',
+            'upload_property_kaufanbot', 'delete_property_kaufanbot', 'update_property_kaufanbot_status', 'update_kaufanbot_activity_status',
         ];
         if ($userType === 'makler' && in_array($action, $propertyWriteActions)) {
             $propId = intval($request->input('property_id', $request->query('property_id', 0)));
@@ -124,6 +124,11 @@ class AdminApiController extends Controller
                               ->orWhere('filename', 'LIKE', '%expose%')
                               ->orWhere('filename', 'LIKE', '%bab%');
                         })
+                        ->count();
+                    // Add unit_count for all properties
+                    $p->unit_count = DB::table('property_units')
+                        ->where('property_id', $p->id)
+                        ->where('is_parking', 0)
                         ->count();
                     // Add total_volume for newbuild properties
                     if ($p->property_category === 'newbuild') {
@@ -480,6 +485,8 @@ class AdminApiController extends Controller
             'delete_property_unit'      => app(PropertySettingsController::class)->deleteUnit($request),
             'bulk_import_units'         => app(PropertySettingsController::class)->bulkImportUnits($request),
             'parse_expose'              => app(PropertySettingsController::class)->parseExpose($request),
+            'parse_property_fields'     => $this->handleParsePropertyFields($request),
+            'parse_units'               => $this->handleParseUnits($request),
             'link_offer_to_unit'        => app(PropertySettingsController::class)->linkOfferToUnit($request),
             'bulk_create_parking'       => app(PropertySettingsController::class)->bulkCreateParking($request),
             'upload_kaufanbot_pdf'      => app(PropertySettingsController::class)->uploadKaufanbotPdf($request),
@@ -556,6 +563,7 @@ class AdminApiController extends Controller
             'upload_property_kaufanbot'      => $this->uploadPropertyKaufanbot($request),
             'delete_property_kaufanbot'      => $this->deletePropertyKaufanbot($request),
             'update_property_kaufanbot_status' => $this->updatePropertyKaufanbotStatus($request),
+            'update_kaufanbot_activity_status' => $this->updateKaufanbotActivityStatus($request),
 
             // Email Accounts
             'email_accounts'            => app(EmailAccountController::class)->index($request),
@@ -776,7 +784,7 @@ class AdminApiController extends Controller
                     'set_on_hold','fix_activity','fix_expose_categories','create_property','delete_property','set_inactive','reactivate_property','analyze_file',
                     'list_knowledge','add_knowledge','update_knowledge','delete_knowledge',
                     'delete_knowledge_permanent','knowledge_summary','ai_categorize_knowledge','extract_file_text','ai_bulk_categorize','ai_extract_from_file','list_activities','update_activity','delete_activity',
-                    'ingest_document','bulk_extract_knowledge',
+                    'ingest_document','bulk_extract_knowledge','parse_property_fields','parse_units',
                     'followup_recommendation',
                     'cross_property_matches','proactive_alerts',
                     'upload_portal_document','list_portal_documents','delete_portal_document',
@@ -1669,6 +1677,7 @@ class AdminApiController extends Controller
         $prop = DB::table('properties')->where('id', $id)->first();
         if (!$prop) return response()->json(['error' => 'Not found'], 404);
         $prop->children_count = DB::table('properties')->where('parent_id', $id)->count();
+        $prop->unit_count = DB::table('property_units')->where('property_id', $id)->where('is_parking', 0)->count();
         return response()->json(['property' => $prop], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -2917,10 +2926,45 @@ PY;
 
         $rows = DB::table('property_kaufanbote')
             ->where('property_id', $propertyId)
-            ->orderByDesc('created_at')
-            ->get(['id','buyer_name','buyer_email','buyer_phone','pdf_filename','amount','kaufanbot_date','status','notes','created_at']);
+            ->orderByDesc('kaufanbot_date')
+            ->get();
 
-        return response()->json(['kaufanbote' => $rows], 200, [], JSON_UNESCAPED_UNICODE);
+        $allUnits = DB::table('property_units')
+            ->where('property_id', $propertyId)
+            ->get()
+            ->keyBy('id');
+
+        $kaufanbote = $rows->map(function ($r) use ($allUnits) {
+            $unitIds = json_decode($r->unit_ids ?? '[]', true) ?: [];
+            $parkingIds = json_decode($r->parking_ids ?? '[]', true) ?: [];
+
+            $unitNames = [];
+            foreach ($unitIds as $uid) {
+                if (isset($allUnits[$uid])) $unitNames[] = $allUnits[$uid]->unit_number;
+            }
+            $parkingNames = [];
+            foreach ($parkingIds as $pid) {
+                if (isset($allUnits[$pid])) $parkingNames[] = $allUnits[$pid]->unit_number;
+            }
+
+            return [
+                'id' => $r->id,
+                'buyer_name' => $r->buyer_name,
+                'amount' => $r->amount,
+                'kaufanbot_date' => $r->kaufanbot_date,
+                'status' => $r->status,
+                'pdf_path' => $r->pdf_path,
+                'pdf_filename' => $r->pdf_filename,
+                'unit_ids' => $unitIds,
+                'parking_ids' => $parkingIds,
+                'unit_names' => $unitNames,
+                'parking_names' => $parkingNames,
+                'notes' => $r->notes,
+                'created_at' => $r->created_at,
+            ];
+        })->values();
+
+        return response()->json(['kaufanbote' => $kaufanbote], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     private function uploadPropertyKaufanbot(Request $request): \Illuminate\Http\JsonResponse
@@ -2935,6 +2979,13 @@ PY;
             return response()->json(['error' => 'PDF file required'], 400);
         }
 
+        $unitIds = json_decode($request->input('unit_ids', '[]'), true) ?: [];
+        $parkingIds = json_decode($request->input('parking_ids', '[]'), true) ?: [];
+
+        if (empty($unitIds)) {
+            return response()->json(['error' => 'Mindestens eine Einheit muss zugeordnet werden.'], 400);
+        }
+
         $file     = $request->file('pdf');
         $dir      = 'kaufanbote/' . $propertyId;
         $filename = 'KA_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $buyerName) . '_' . time() . '.' . $file->getClientOriginalExtension();
@@ -2943,42 +2994,74 @@ PY;
         $id = DB::table('property_kaufanbote')->insertGetId([
             'property_id'    => $propertyId,
             'buyer_name'     => $buyerName,
-            'buyer_email'    => trim($request->input('buyer_email', '')) ?: null,
-            'buyer_phone'    => trim($request->input('buyer_phone', '')) ?: null,
             'amount'         => $request->input('amount') ? floatval($request->input('amount')) : null,
-            'kaufanbot_date' => $request->input('kaufanbot_date') ?: null,
-            'notes'          => trim($request->input('notes', '')) ?: null,
+            'kaufanbot_date' => $request->input('kaufanbot_date') ?: now()->toDateString(),
+            'status'         => 'akzeptiert',
             'pdf_path'       => $path,
             'pdf_filename'   => $filename,
-            'status'         => 'eingegangen',
+            'unit_ids'       => json_encode($unitIds),
+            'parking_ids'    => json_encode($parkingIds),
+            'notes'          => trim($request->input('notes', '')) ?: null,
             'created_at'     => now(),
             'updated_at'     => now(),
         ]);
 
-        $entry = DB::table('property_kaufanbote')->where('id', $id)->first();
+        // Mark units as verkauft
+        DB::table('property_units')
+            ->whereIn('id', $unitIds)
+            ->update([
+                'status' => 'verkauft',
+                'buyer_name' => $buyerName,
+                'kaufanbot_pdf' => $path,
+                'updated_at' => now(),
+            ]);
 
-        return response()->json(['success' => true, 'kaufanbot' => $entry], 200, [], JSON_UNESCAPED_UNICODE);
+        // Mark parking as verkauft
+        if (!empty($parkingIds)) {
+            DB::table('property_units')
+                ->whereIn('id', $parkingIds)
+                ->update([
+                    'status' => 'verkauft',
+                    'buyer_name' => $buyerName,
+                    'updated_at' => now(),
+                ]);
+        }
+
+        return response()->json(['success' => true, 'id' => $id, 'path' => $path]);
     }
-
     private function deletePropertyKaufanbot(Request $request): \Illuminate\Http\JsonResponse
     {
-        $id = intval($request->json('id', 0));
-        if (!$id) return response()->json(['error' => 'id required'], 400);
+        $id = intval($request->input('kaufanbot_id', 0));
+        if (!$id) return response()->json(['error' => 'kaufanbot_id required'], 400);
 
-        $entry = DB::table('property_kaufanbote')->where('id', $id)->first();
-        if (!$entry) return response()->json(['error' => 'Not found'], 404);
+        $ka = DB::table('property_kaufanbote')->where('id', $id)->first();
+        if (!$ka) return response()->json(['error' => 'Kaufanbot not found'], 404);
 
-        // Delete file
-        $disk = \Illuminate\Support\Facades\Storage::disk('public');
-        if ($entry->pdf_path && $disk->exists($entry->pdf_path)) {
-            $disk->delete($entry->pdf_path);
+        // Free linked units
+        $unitIds = json_decode($ka->unit_ids ?? '[]', true) ?: [];
+        $parkingIds = json_decode($ka->parking_ids ?? '[]', true) ?: [];
+
+        if (!empty($unitIds)) {
+            DB::table('property_units')
+                ->whereIn('id', $unitIds)
+                ->update(['status' => 'frei', 'buyer_name' => null, 'kaufanbot_pdf' => null, 'updated_at' => now()]);
+        }
+        if (!empty($parkingIds)) {
+            DB::table('property_units')
+                ->whereIn('id', $parkingIds)
+                ->update(['status' => 'frei', 'buyer_name' => null, 'updated_at' => now()]);
+        }
+
+        // Delete PDF file
+        if ($ka->pdf_path) {
+            $filePath = storage_path('app/public/' . $ka->pdf_path);
+            if (file_exists($filePath)) @unlink($filePath);
         }
 
         DB::table('property_kaufanbote')->where('id', $id)->delete();
 
         return response()->json(['success' => true]);
     }
-
     private function updatePropertyKaufanbotStatus(Request $request): \Illuminate\Http\JsonResponse
     {
         $id     = intval($request->json('id', 0));
@@ -2994,6 +3077,21 @@ PY;
         DB::table('property_kaufanbote')->where('id', $id)->update([
             'status'     => $status,
             'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    private function updateKaufanbotActivityStatus(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $id     = intval($request->input('activity_id', 0));
+        $status = trim($request->input('kaufanbot_status', ''));
+
+        if (!$id) return response()->json(['error' => 'activity_id required'], 400);
+
+        DB::table('activities')->where('id', $id)->update([
+            'kaufanbot_status' => $status ?: null,
+            'updated_at'       => now(),
         ]);
 
         return response()->json(['success' => true]);
@@ -3526,6 +3624,43 @@ PY;
             'created' => $created,
             'message' => count($created) . ' Unterobjekt(e) erstellt',
         ]);
+    }
+
+
+    /**
+     * Handle parse_property_fields API action.
+     */
+    private function handleParsePropertyFields(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $propertyId = intval($request->input('property_id', $request->query('property_id', 0)));
+        if (!$propertyId) return response()->json(['error' => 'property_id required'], 400);
+
+        $fileIds = $request->input('file_ids', []);
+        $service = app(\App\Services\DocumentParserService::class);
+        $result = $service->parsePropertyFields($propertyId, $fileIds);
+
+        if (isset($result['error'])) {
+            return response()->json($result, 400);
+        }
+        return response()->json($result, 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Handle parse_units API action.
+     */
+    private function handleParseUnits(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $propertyId = intval($request->input('property_id', $request->query('property_id', 0)));
+        if (!$propertyId) return response()->json(['error' => 'property_id required'], 400);
+
+        $fileIds = $request->input('file_ids', []);
+        $service = app(\App\Services\DocumentParserService::class);
+        $result = $service->parseUnits($propertyId, $fileIds);
+
+        if (isset($result['error'])) {
+            return response()->json($result, 400);
+        }
+        return response()->json($result, 200, [], JSON_UNESCAPED_UNICODE);
     }
 
 }

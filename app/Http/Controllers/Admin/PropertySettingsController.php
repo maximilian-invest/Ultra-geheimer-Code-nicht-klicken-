@@ -1306,6 +1306,14 @@ PY;
         return response()->json(['success' => true, 'images' => $images]);
     }
 
+    /**
+     * Public wrapper for recalcUnitStats — callable from DocumentParserService.
+     */
+    public function recalcUnitStatsPublic(int $propId): void
+    {
+        $this->recalcUnitStats($propId);
+    }
+
     private function recalcUnitStats(int $propId): void
     {
         $stats = DB::selectOne("
@@ -1313,14 +1321,26 @@ PY;
                 COUNT(*) as total,
                 SUM(status = 'frei') as frei,
                 SUM(status = 'reserviert') as reserviert,
-                SUM(status = 'verkauft') as verkauft
+                SUM(status = 'verkauft') as verkauft,
+                SUM(CASE WHEN is_parking = 0 THEN COALESCE(area_m2, 0) ELSE 0 END) as sum_area
             FROM property_units WHERE property_id = ?
         ", [$propId]);
 
-        DB::table('properties')->where('id', $propId)->update([
+        $update = [
             'total_units' => $stats->total ?? 0,
             'updated_at'  => now(),
-        ]);
+        ];
+
+        // For newbuild projects: auto-calculate total_area from unit areas
+        $property = DB::table('properties')->where('id', $propId)->first();
+        if ($property && $property->property_category === 'newbuild') {
+            $sumArea = floatval($stats->sum_area ?? 0);
+            if ($sumArea > 0) {
+                $update['total_area'] = round($sumArea, 2);
+            }
+        }
+
+        DB::table('properties')->where('id', $propId)->update($update);
     }
 
     /**

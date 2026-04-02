@@ -801,7 +801,11 @@ defineExpose({ save, discard });
             { key: 'office_space', label: 'Buero' },
           ]" :key="f.key">
             <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">{{ f.label }} <span v-if="vis(f.key).icons.length" class="inline-flex gap-0.5"><span v-for="i in vis(f.key).icons" :key="i" class="text-[8px] font-bold px-1 rounded" :style="i==='W' ? 'background:hsl(217 91% 93%);color:hsl(217 91% 50%)' : i==='P' ? 'background:hsl(280 67% 93%);color:hsl(280 67% 45%)' : 'background:hsl(240 4.8% 93%);color:hsl(240 3.8% 46%)'" :title="vis(f.key).tip">{{i}}</span></span><span v-else class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:hsl(240 5.9% 85%)" :title="vis(f.key).tip"></span></label>
-            <Input v-model="form[f.key]" type="number" step="0.01" class="h-8 text-[13px]" />
+            <div v-if="f.key === 'total_area' && isNewbuild" class="relative">
+              <Input :model-value="form[f.key]" type="number" step="0.01" class="h-8 text-[13px] bg-muted/50 cursor-not-allowed" disabled title="Wird automatisch aus Einheiten berechnet" />
+              <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">auto</span>
+            </div>
+            <Input v-else v-model="form[f.key]" type="number" step="0.01" class="h-8 text-[13px]" />
           </div>
           <div></div>
         </div>

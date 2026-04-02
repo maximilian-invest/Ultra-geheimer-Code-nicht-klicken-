@@ -149,21 +149,12 @@ function vis(key) {
 
 // ─── Boolean features ───
 const features = [
-  { key: "has_balcony", label: "Balkon" },
-  { key: "has_terrace", label: "Terrasse" },
-  { key: "has_loggia", label: "Loggia" },
-  { key: "has_garden", label: "Garten" },
-  { key: "has_basement", label: "Keller" },
-  { key: "has_cellar", label: "Kellerabteil" },
   { key: "has_elevator", label: "Aufzug" },
   { key: "has_fitted_kitchen", label: "Einbaukueche" },
   { key: "has_air_conditioning", label: "Klimaanlage" },
-  { key: "has_pool", label: "Pool" },
-  { key: "has_sauna", label: "Sauna" },
-  { key: "has_fireplace", label: "Kamin" },
   { key: "has_alarm", label: "Alarmanlage" },
   { key: "has_barrier_free", label: "Barrierefrei" },
-  { key: "has_guest_wc", label: "Gaeste-WC" },
+  { key: "has_fireplace", label: "Kamin" },
   { key: "has_storage_room", label: "Abstellraum" },
   { key: "has_washing_connection", label: "Waschmaschinenanschluss" },
 ];
@@ -929,10 +920,6 @@ defineExpose({ save, discard });
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerke ges. <span v-if="vis('floor_count').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('floor_count').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('floor_count').tip" /></span></label>
             <Input v-model="form.floor_count" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
-          </div>
-          <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Garagen <span v-if="vis('garage_spaces').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('garage_spaces').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('garage_spaces').tip" /></span></label>
-            <Input v-model="form.garage_spaces" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplaetze <span v-if="vis('parking_spaces').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_spaces').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_spaces').tip" /></span></label>

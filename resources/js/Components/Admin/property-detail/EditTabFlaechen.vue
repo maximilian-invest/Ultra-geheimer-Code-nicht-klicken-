@@ -76,11 +76,11 @@ const areaFields = [
           <Input v-model="form.floor_number" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Stockwerke ges.</label>
+          <label :class="labelCls">Stockwerke ges. <span class="text-[10px] text-muted-foreground font-normal">(auto aus Einheiten)</span></label>
           <Input v-model="form.floor_count" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Garagen</label>
+          <label :class="labelCls">Garagen <span class="text-[10px] text-muted-foreground font-normal">(auto aus Einheiten)</span></label>
           <Input v-model="form.garage_spaces" type="number" :class="inputCls" />
         </div>
         <div>

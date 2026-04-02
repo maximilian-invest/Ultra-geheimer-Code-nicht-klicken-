@@ -42,15 +42,6 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           </Select>
         </div>
         <div>
-          <label :class="labelCls">Objektbetreuer</label>
-          <Select v-model="form.broker_id">
-            <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="b in brokerList" :key="b.id" :value="b.id">{{ b.name }}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
           <label :class="labelCls">Vermarktungsart</label>
           <Select v-model="form.marketing_type">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
@@ -81,6 +72,9 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
 
       <!-- Adresse -->
       <AccordionSection title="Adresse" color="#3b82f6" :default-open="true">
+        <div class="col-span-2 text-[11px] text-muted-foreground bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 mb-1">
+          Auf Portalen und der Website wird nur die Stadt angezeigt, nicht die genaue Adresse.
+        </div>
         <div class="col-span-2">
           <label :class="labelCls">Strasse</label>
           <Input v-model="form.address" :class="inputCls" />
@@ -283,7 +277,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <!-- Zuordnung & Status -->
       <AccordionSection title="Zuordnung & Status" color="#f59e0b" :default-open="false">
         <div>
-          <label :class="labelCls">Makler</label>
+          <label :class="labelCls">Objektbetreuer / Makler</label>
           <Select v-model="form.broker_id">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>

@@ -345,20 +345,20 @@ onMounted(() => {
           >
             <!-- Collapsed summary row -->
             <div
-              class="px-3.5 py-2.5 flex items-center cursor-pointer"
+              class="px-3 py-2 flex items-center cursor-pointer"
               @click="toggleUnit(unit)"
             >
               <div class="flex-1 flex items-center gap-4 min-w-0 overflow-hidden">
-                <span class="text-[14px] font-bold text-foreground min-w-[60px] truncate">
+                <span class="text-[13px] font-semibold text-foreground min-w-[60px] truncate">
                   {{ unit.unit_number || "—" }}
                 </span>
                 <span class="text-[12px] text-zinc-600 bg-zinc-100 px-2.5 py-0.5 rounded font-medium whitespace-nowrap">
                   {{ unit.unit_type || "—" }}
                 </span>
-                <span class="text-[14px] text-foreground min-w-[70px] whitespace-nowrap hidden sm:inline">
+                <span class="text-[13px] text-foreground min-w-[70px] whitespace-nowrap hidden sm:inline">
                   {{ unit.area_m2 ? unit.area_m2 + " m²" : "—" }}
                 </span>
-                <span class="text-[14px] font-bold text-foreground min-w-[110px] whitespace-nowrap hidden md:inline">
+                <span class="text-[13px] font-semibold text-foreground min-w-[110px] whitespace-nowrap hidden md:inline">
                   {{ (unit.price || unit.purchase_price) ? "EUR " + formatPrice(unit.price || unit.purchase_price) : "—" }}
                 </span>
               </div>
@@ -405,19 +405,19 @@ onMounted(() => {
               <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-4 gap-x-3.5 mb-4">
                 <!-- Bezeichnung -->
                 <div>
-                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Bezeichnung</label>
+                  <label class="text-[12px] text-zinc-600 font-medium mb-1.5 block">Bezeichnung</label>
                   <Input
                     v-model="unit.unit_number"
-                    class="h-9 text-[14px] border border-input rounded-lg bg-background"
+                    class="h-9 text-[13px] border border-input rounded-lg bg-background"
                     placeholder="z.B. TOP 1"
                   />
                 </div>
 
                 <!-- Typ -->
                 <div>
-                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Typ</label>
+                  <label class="text-[12px] text-zinc-600 font-medium mb-1.5 block">Typ</label>
                   <Select v-model="unit.unit_type">
-                    <SelectTrigger class="h-9 text-[14px] border border-input rounded-lg bg-background">
+                    <SelectTrigger class="h-9 text-[13px] border border-input rounded-lg bg-background">
                       <SelectValue placeholder="Typ wählen" />
                     </SelectTrigger>
                     <SelectContent>
@@ -432,55 +432,55 @@ onMounted(() => {
 
                 <!-- Stockwerk -->
                 <div>
-                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Stockwerk</label>
+                  <label class="text-[12px] text-zinc-600 font-medium mb-1.5 block">Stockwerk</label>
                   <Input
                     v-model.number="unit.floor"
                     type="number"
-                    class="h-9 text-[14px] border border-input rounded-lg bg-background"
+                    class="h-9 text-[13px] border border-input rounded-lg bg-background"
                     placeholder="0 = EG"
                   />
                 </div>
 
                 <!-- Zimmer -->
                 <div>
-                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Zimmer</label>
+                  <label class="text-[12px] text-zinc-600 font-medium mb-1.5 block">Zimmer</label>
                   <Input
                     v-model.number="unit.rooms"
                     type="number"
                     step="0.5"
-                    class="h-9 text-[14px] border border-input rounded-lg bg-background"
+                    class="h-9 text-[13px] border border-input rounded-lg bg-background"
                     placeholder="z.B. 3"
                   />
                 </div>
 
                 <!-- Wohnfläche -->
                 <div>
-                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Wohnfläche (m²)</label>
+                  <label class="text-[12px] text-zinc-600 font-medium mb-1.5 block">Wohnfläche (m²)</label>
                   <Input
                     v-model.number="unit.area_m2"
                     type="number"
                     step="0.01"
-                    class="h-9 text-[14px] border border-input rounded-lg bg-background"
+                    class="h-9 text-[13px] border border-input rounded-lg bg-background"
                     placeholder="z.B. 75"
                   />
                 </div>
 
                 <!-- Kaufpreis -->
                 <div>
-                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Kaufpreis (EUR)</label>
+                  <label class="text-[12px] text-zinc-600 font-medium mb-1.5 block">Kaufpreis (EUR)</label>
                   <Input
                     v-model.number="unit.price"
                     type="number"
-                    class="h-9 text-[14px] border border-input rounded-lg bg-background"
+                    class="h-9 text-[13px] border border-input rounded-lg bg-background"
                     placeholder="z.B. 350000"
                   />
                 </div>
 
                 <!-- Status -->
                 <div>
-                  <label class="text-[12px] text-zinc-600 font-semibold mb-1.5 block">Status</label>
+                  <label class="text-[12px] text-zinc-600 font-medium mb-1.5 block">Status</label>
                   <Select v-model="unit.status">
-                    <SelectTrigger class="h-9 text-[14px] border border-input rounded-lg bg-background">
+                    <SelectTrigger class="h-9 text-[13px] border border-input rounded-lg bg-background">
                       <SelectValue placeholder="Status wählen" />
                     </SelectTrigger>
                     <SelectContent>
@@ -494,14 +494,14 @@ onMounted(() => {
 
               <!-- Portal toggles -->
               <div class="mb-4">
-                <label class="text-[12px] text-zinc-600 font-semibold mb-2 block">Portale</label>
+                <label class="text-[12px] text-zinc-600 font-medium mb-2 block">Portale</label>
                 <div class="flex gap-2 flex-wrap">
                   <button
                     v-for="p in portalOptions"
                     :key="p.key"
                     type="button"
                     @click="togglePortal(unit, p.key)"
-                    class="px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-colors"
+                    class="px-3 py-1 rounded-lg text-[12px] font-medium transition-colors"
                     :class="
                       isPortalActive(unit, p.key)
                         ? 'bg-zinc-900 text-white'

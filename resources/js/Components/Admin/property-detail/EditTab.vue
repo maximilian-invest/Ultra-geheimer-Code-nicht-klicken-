@@ -233,6 +233,21 @@ const form = reactive({
   building_details: {},
 });
 
+// Auto-derive category from object_type (replaces manual Kategorie dropdown)
+watch(() => form.object_type, (newType) => {
+  if (!newType) return;
+  const t = newType.toLowerCase();
+  if (['eigentumswohnung', 'gartenwohnung', 'dachgeschosswohnung', 'penthouse', 'maisonette'].includes(t)) {
+    form.property_category = 'apartment';
+  } else if (['haus', 'einfamilienhaus', 'reihenhaus', 'doppelhaushaelfte'].includes(t)) {
+    form.property_category = 'house';
+  } else if (['grundstueck'].includes(t)) {
+    form.property_category = 'land';
+  } else if (['neubauprojekt', 'neubau'].includes(t)) {
+    form.property_category = 'newbuild';
+  }
+});
+
 // ─── Snapshot for discard ───
 let snapshot = {};
 

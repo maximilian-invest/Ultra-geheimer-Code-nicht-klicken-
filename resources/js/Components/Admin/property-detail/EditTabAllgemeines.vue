@@ -61,18 +61,6 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <label :class="labelCls">Kategorie</label>
-          <Select v-model="form.category">
-            <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="house">Haus</SelectItem>
-              <SelectItem value="apartment">Wohnung</SelectItem>
-              <SelectItem value="newbuild">Neubau</SelectItem>
-              <SelectItem value="land">Grundstück</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
         <div class="col-span-2">
           <label :class="labelCls">Titel</label>
           <Input v-model="form.title" :class="inputCls" />

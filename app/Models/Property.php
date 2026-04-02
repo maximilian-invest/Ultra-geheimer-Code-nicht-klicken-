@@ -11,12 +11,19 @@ class Property extends Model
     protected $fillable = [
         // Core
         'customer_id', 'broker_id', 'ref_id', 'openimmo_id', 'openimmo_anbieter_id',
-        'project_name', 'title', 'address', 'latitude', 'longitude', 'geo_precision',
-        'city', 'zip', 'object_type', 'property_category', 'object_subtype', 'marketing_type',
+        'project_name', 'title', 'subtitle', 'ad_tag', 'closing_date', 'internal_rating',
+        'address', 'house_number', 'staircase', 'door', 'entrance', 'address_floor',
+        'latitude', 'longitude', 'geo_precision',
+        'city', 'zip', 'object_type', 'property_category', 'object_subtype',
+        'construction_type', 'ownership_type', 'marketing_type',
 
         // Pricing
         'price', 'rental_price', 'rent_warm', 'rent_deposit', 'price_per_m2',
         'operating_costs', 'maintenance_reserves',
+        'heating_costs', 'warm_water_costs', 'cooling_costs', 'admin_costs',
+        'elevator_costs', 'parking_costs_monthly', 'other_costs', 'monthly_costs',
+        'land_register_fee_pct', 'land_transfer_tax_pct', 'contract_fee_pct',
+        'buyer_commission_free',
 
         // Areas
         'total_area', 'living_area', 'free_area', 'realty_area', 'area_balcony',
@@ -75,6 +82,9 @@ class Property extends Model
         // Files
         'expose_path', 'nebenkosten_path', 'last_expose_parsed_at',
 
+        // Building details (Gebaeude)
+        'building_details',
+
         // Parent-Child Hierarchy
         'parent_id',
     ];
@@ -110,6 +120,22 @@ class Property extends Model
             'commission_total' => 'decimal:2',
             'commission_makler' => 'decimal:2',
             'buyer_commission_percent' => 'decimal:2',
+            // New decimal cost fields
+            'heating_costs' => 'decimal:2',
+            'warm_water_costs' => 'decimal:2',
+            'cooling_costs' => 'decimal:2',
+            'admin_costs' => 'decimal:2',
+            'elevator_costs' => 'decimal:2',
+            'parking_costs_monthly' => 'decimal:2',
+            'other_costs' => 'decimal:2',
+            'monthly_costs' => 'decimal:2',
+            'land_register_fee_pct' => 'decimal:2',
+            'land_transfer_tax_pct' => 'decimal:2',
+            'contract_fee_pct' => 'decimal:2',
+            'internal_rating' => 'decimal:1',
+            // New boolean fields
+            'buyer_commission_free' => 'boolean',
+            // Existing booleans
             'on_hold' => 'boolean',
             'is_published' => 'boolean',
             'plot_buildable' => 'boolean',
@@ -132,6 +158,9 @@ class Property extends Model
             'has_washing_connection' => 'boolean',
             'has_cellar' => 'boolean',
             'commission_incl_vat' => 'boolean',
+            // New date field
+            'closing_date' => 'date',
+            // Existing dates
             'inserat_since' => 'date',
             'construction_start' => 'date',
             'construction_end' => 'date',
@@ -141,6 +170,8 @@ class Property extends Model
             'on_hold_since' => 'datetime',
             'published_at' => 'datetime',
             'last_expose_parsed_at' => 'datetime',
+            // New json field
+            'building_details' => 'array',
         ];
     }
 

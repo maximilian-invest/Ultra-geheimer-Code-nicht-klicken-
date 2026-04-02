@@ -360,12 +360,12 @@ watch(form, () => {
 }, { deep: true });
 
 // ─── Live Preview ───
-const previewOpen = ref(false);
+const previewOpen = ref(true);
 const previewFrame = ref(null);
 
 const previewUrl = computed(() => {
   if (!form.id) return '';
-  return 'http://187.124.166.153:8082/objekt.html?id=' + form.id + '&preview=1';
+  return '/website-preview/objekt.html?id=' + form.id + '&preview=1';
 });
 
 // Debounced preview update
@@ -549,9 +549,9 @@ defineExpose({ save, discard });
 </script>
 
 <template>
-  <div class="flex gap-4">
+  <div class="flex gap-3">
     <!-- Left: Form content -->
-    <div class="flex-1 min-w-0 space-y-3 max-w-5xl">
+    <div class="flex-1 min-w-0 space-y-2">
 
     <!-- Felder auslesen -->
     <div class="flex items-center gap-2 px-1">
@@ -603,91 +603,91 @@ defineExpose({ save, discard });
         <TabsTrigger v-if="!isNewbuild && !isChild" value="historie" class="flex-shrink-0 text-[12px] px-3 py-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:text-white data-[state=active]:shadow-none">Historie</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="objekt" class="mt-4">
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Objekt</div>
-        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+      <TabsContent value="objekt" class="mt-3">
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Objekt</div>
+        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Ref-ID <span v-if="vis('ref_id').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('ref_id').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('ref_id').tip" /></span></label>
-            <Input v-model="form.ref_id" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ref-ID <span v-if="vis('ref_id').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('ref_id').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('ref_id').tip" /></span></label>
+            <Input v-model="form.ref_id" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Objekttyp <span v-if="vis('object_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('object_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('object_type').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Objekttyp <span v-if="vis('object_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('object_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('object_type').tip" /></span></label>
             <Select v-model="form.object_type">
-              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="t in objectTypes" :key="t" :value="t">{{ t }}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Transaktionsart <span v-if="vis('marketing_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('marketing_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('marketing_type').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Transaktionsart <span v-if="vis('marketing_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('marketing_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('marketing_type').tip" /></span></label>
             <Select v-model="form.marketing_type">
-              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="t in marketingTypes" :key="t.value" :value="t.value">{{ t.label }}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Kategorie <span v-if="vis('property_category').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('property_category').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('property_category').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kategorie <span v-if="vis('property_category').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('property_category').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('property_category').tip" /></span></label>
             <Select v-model="form.property_category">
-              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="c in categoryOptions" :key="c.value" :value="c.value">{{ c.label }}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Projektname <span v-if="vis('project_name').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('project_name').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('project_name').tip" /></span></label>
-            <Input v-model="form.project_name" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Projektname <span v-if="vis('project_name').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('project_name').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('project_name').tip" /></span></label>
+            <Input v-model="form.project_name" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Inserat-Titel <span v-if="vis('title').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('title').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('title').tip" /></span></label>
-            <Input v-model="form.title" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Inserat-Titel <span v-if="vis('title').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('title').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('title').tip" /></span></label>
+            <Input v-model="form.title" class="h-7 text-[12px]" />
           </div>
         </div>
 
-        <Separator class="my-3" />
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Adresse</div>
-        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Adresse</div>
+        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div class="col-span-2">
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Strasse & Hausnummer <span v-if="vis('address').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('address').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('address').tip" /></span></label>
-            <Input v-model="form.address" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Strasse & Hausnummer <span v-if="vis('address').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('address').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('address').tip" /></span></label>
+            <Input v-model="form.address" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">PLZ <span v-if="vis('zip').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('zip').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('zip').tip" /></span></label>
-            <Input v-model="form.zip" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">PLZ <span v-if="vis('zip').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('zip').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('zip').tip" /></span></label>
+            <Input v-model="form.zip" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Stadt <span v-if="vis('city').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('city').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('city').tip" /></span></label>
-            <Input v-model="form.city" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stadt <span v-if="vis('city').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('city').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('city').tip" /></span></label>
+            <Input v-model="form.city" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Breitengrad <span v-if="vis('latitude').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('latitude').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('latitude').tip" /></span></label>
-            <Input v-model="form.latitude" type="number" step="0.0000001" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Breitengrad <span v-if="vis('latitude').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('latitude').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('latitude').tip" /></span></label>
+            <Input v-model="form.latitude" type="number" step="0.0000001" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Laengengrad <span v-if="vis('longitude').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('longitude').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('longitude').tip" /></span></label>
-            <Input v-model="form.longitude" type="number" step="0.0000001" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Laengengrad <span v-if="vis('longitude').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('longitude').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('longitude').tip" /></span></label>
+            <Input v-model="form.longitude" type="number" step="0.0000001" class="h-7 text-[12px]" />
           </div>
         </div>
 
-        <Separator class="my-3" />
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Zuordnung</div>
-        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Zuordnung</div>
+        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler <span v-if="vis('broker_id').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('broker_id').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('broker_id').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler <span v-if="vis('broker_id').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('broker_id').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('broker_id').tip" /></span></label>
             <Select v-model="form.broker_id">
-              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="b in brokerList" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Status <span v-if="vis('status').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('status').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('status').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Status <span v-if="vis('status').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('status').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('status').tip" /></span></label>
             <Select v-model="form.status">
-              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="auftrag">Auftrag</SelectItem>
                 <SelectItem value="aktiv">Aktiv</SelectItem>
@@ -698,101 +698,101 @@ defineExpose({ save, discard });
             </Select>
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Fertigstellung</label>
-            <Input v-model="form.construction_end" type="date" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Fertigstellung</label>
+            <Input v-model="form.construction_end" type="date" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Bautraeger <span v-if="vis('builder_company').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('builder_company').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('builder_company').tip" /></span></label>
-            <Input v-model="form.builder_company" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Bautraeger <span v-if="vis('builder_company').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('builder_company').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('builder_company').tip" /></span></label>
+            <Input v-model="form.builder_company" class="h-7 text-[12px]" />
           </div>
         </div>
       </TabsContent>
 
-      <TabsContent value="preise" class="mt-4">
-        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+      <TabsContent value="preise" class="mt-3">
+        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 block">{{ isNewbuild ? 'Gesamtvolumen' : 'Kaufpreis / Miete' }} <span class="inline-flex gap-0.5"><component :is="iconMap['globe']" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" title="Sichtbar auf der Website" /></span></label>
-            <Input v-model="form.purchase_price" type="number" step="0.01" :disabled="isNewbuild" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 block">{{ isNewbuild ? 'Gesamtvolumen' : 'Kaufpreis / Miete' }} <span class="inline-flex gap-0.5"><component :is="iconMap['globe']" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" title="Sichtbar auf der Website" /></span></label>
+            <Input v-model="form.purchase_price" type="number" step="0.01" :disabled="isNewbuild" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Preis bis <span v-if="vis('price_to').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('price_to').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('price_to').tip" /></span></label>
-            <Input v-model="form.price_to" type="number" step="0.01" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Preis bis <span v-if="vis('price_to').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('price_to').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('price_to').tip" /></span></label>
+            <Input v-model="form.price_to" type="number" step="0.01" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Preis/m2 <span v-if="vis('price_per_m2').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('price_per_m2').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('price_per_m2').tip" /></span></label>
-            <Input v-model="form.price_per_m2" type="number" step="0.01" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Preis/m2 <span v-if="vis('price_per_m2').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('price_per_m2').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('price_per_m2').tip" /></span></label>
+            <Input v-model="form.price_per_m2" type="number" step="0.01" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplatz-Preis <span v-if="vis('parking_price').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_price').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_price').tip" /></span></label>
-            <Input v-model="form.parking_price" type="number" step="0.01" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplatz-Preis <span v-if="vis('parking_price').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_price').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_price').tip" /></span></label>
+            <Input v-model="form.parking_price" type="number" step="0.01" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Betriebskosten <span v-if="vis('operating_costs').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('operating_costs').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('operating_costs').tip" /></span></label>
-            <Input v-model="form.operating_costs" type="number" step="0.01" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Betriebskosten <span v-if="vis('operating_costs').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('operating_costs').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('operating_costs').tip" /></span></label>
+            <Input v-model="form.operating_costs" type="number" step="0.01" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Ruecklage <span v-if="vis('maintenance_reserves').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('maintenance_reserves').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('maintenance_reserves').tip" /></span></label>
-            <Input v-model="form.maintenance_reserves" type="number" step="0.01" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ruecklage <span v-if="vis('maintenance_reserves').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('maintenance_reserves').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('maintenance_reserves').tip" /></span></label>
+            <Input v-model="form.maintenance_reserves" type="number" step="0.01" class="h-7 text-[12px]" />
           </div>
         </div>
 
         <template v-if="form.marketing_type === 'miete'">
-          <Separator class="my-3" />
-          <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Miete</div>
-          <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+          <Separator class="my-2" />
+          <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Miete</div>
+          <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
             <div>
-              <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Kaltmiete <span v-if="vis('rental_price').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rental_price').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rental_price').tip" /></span></label>
-              <Input v-model="form.rental_price" type="number" step="0.01" class="h-8 text-[13px]" />
+              <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kaltmiete <span v-if="vis('rental_price').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rental_price').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rental_price').tip" /></span></label>
+              <Input v-model="form.rental_price" type="number" step="0.01" class="h-7 text-[12px]" />
             </div>
             <div>
-              <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Warmmiete <span v-if="vis('rent_warm').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rent_warm').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rent_warm').tip" /></span></label>
-              <Input v-model="form.rent_warm" type="number" step="0.01" class="h-8 text-[13px]" />
+              <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Warmmiete <span v-if="vis('rent_warm').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rent_warm').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rent_warm').tip" /></span></label>
+              <Input v-model="form.rent_warm" type="number" step="0.01" class="h-7 text-[12px]" />
             </div>
             <div>
-              <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Kaution <span v-if="vis('rent_deposit').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rent_deposit').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rent_deposit').tip" /></span></label>
-              <Input v-model="form.rent_deposit" type="number" step="0.01" class="h-8 text-[13px]" />
+              <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kaution <span v-if="vis('rent_deposit').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rent_deposit').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rent_deposit').tip" /></span></label>
+              <Input v-model="form.rent_deposit" type="number" step="0.01" class="h-7 text-[12px]" />
             </div>
           </div>
         </template>
 
-        <Separator class="my-3" />
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Provision Intern</div>
-        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Provision Intern</div>
+        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Provision % <span v-if="vis('commission_percent').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_percent').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_percent').tip" /></span></label>
-            <Input v-model="form.commission_percent" type="number" step="0.01" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provision % <span v-if="vis('commission_percent').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_percent').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_percent').tip" /></span></label>
+            <Input v-model="form.commission_percent" type="number" step="0.01" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Provision EUR <span v-if="vis('commission_total').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_total').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_total').tip" /></span></label>
-            <Input v-model="form.commission_total" type="number" step="0.01" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provision EUR <span v-if="vis('commission_total').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_total').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_total').tip" /></span></label>
+            <Input v-model="form.commission_total" type="number" step="0.01" class="h-7 text-[12px]" />
           </div>
           <div class="col-span-2">
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Provisionsnotiz <span v-if="vis('commission_note').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_note').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_note').tip" /></span></label>
-            <Input v-model="form.commission_note" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provisionsnotiz <span v-if="vis('commission_note').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_note').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_note').tip" /></span></label>
+            <Input v-model="form.commission_note" class="h-7 text-[12px]" />
           </div>
         </div>
 
-        <Separator class="my-3" />
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Provision Oeffentlich</div>
-        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Provision Oeffentlich</div>
+        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler-Provision % <span v-if="vis('buyer_commission_percent').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('buyer_commission_percent').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('buyer_commission_percent').tip" /></span></label>
-            <Input v-model="form.buyer_commission_percent" type="number" step="0.01" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler-Provision % <span v-if="vis('buyer_commission_percent').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('buyer_commission_percent').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('buyer_commission_percent').tip" /></span></label>
+            <Input v-model="form.buyer_commission_percent" type="number" step="0.01" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler-Provision EUR <span v-if="vis('commission_makler').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_makler').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_makler').tip" /></span></label>
-            <Input v-model="form.commission_makler" type="number" step="0.01" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler-Provision EUR <span v-if="vis('commission_makler').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_makler').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_makler').tip" /></span></label>
+            <Input v-model="form.commission_makler" type="number" step="0.01" class="h-7 text-[12px]" />
           </div>
           <div class="col-span-2">
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Provisionstext (Inserate) <span v-if="vis('buyer_commission_text').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('buyer_commission_text').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('buyer_commission_text').tip" /></span></label>
-            <Input v-model="form.buyer_commission_text" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provisionstext (Inserate) <span v-if="vis('buyer_commission_text').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('buyer_commission_text').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('buyer_commission_text').tip" /></span></label>
+            <Input v-model="form.buyer_commission_text" class="h-7 text-[12px]" />
           </div>
         </div>
       </TabsContent>
 
-      <TabsContent value="flaechen" class="mt-4">
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Flaechen (m2)</div>
-        <div class="grid grid-cols-6 max-sm:grid-cols-3 gap-x-3 gap-y-2">
+      <TabsContent value="flaechen" class="mt-3">
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Flaechen (m2)</div>
+        <div class="grid grid-cols-6 max-sm:grid-cols-3 gap-x-2 gap-y-1.5">
           <div v-for="f in [
             { key: 'living_area', label: 'Wohnflaeche' },
             { key: 'realty_area', label: 'Nutzflaeche' },
@@ -805,119 +805,119 @@ defineExpose({ save, discard });
             { key: 'area_garage', label: 'Garage' },
             { key: 'office_space', label: 'Buero' },
           ]" :key="f.key">
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">{{ f.label }} <span v-if="vis(f.key).icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis(f.key).icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis(f.key).tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">{{ f.label }} <span v-if="vis(f.key).icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis(f.key).icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis(f.key).tip" /></span></label>
             <div v-if="f.key === 'living_area' && isNewbuild" class="relative">
               <Input :model-value="form[f.key]" type="number" step="0.01" class="h-8 text-[13px] bg-muted/50 cursor-not-allowed" disabled title="Wird automatisch aus Einheiten berechnet" />
               <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">auto</span>
             </div>
-            <Input v-else v-model="form[f.key]" type="number" step="0.01" class="h-8 text-[13px]" />
+            <Input v-else v-model="form[f.key]" type="number" step="0.01" class="h-7 text-[12px]" />
           </div>
           <div></div>
         </div>
 
-        <Separator class="my-3" />
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Raeume & Stockwerk</div>
-        <div class="grid grid-cols-6 max-sm:grid-cols-3 gap-x-3 gap-y-2">
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Raeume & Stockwerk</div>
+        <div class="grid grid-cols-6 max-sm:grid-cols-3 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Zimmer <span v-if="vis('rooms_amount').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rooms_amount').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rooms_amount').tip" /></span></label>
-            <Input v-model="form.rooms_amount" type="number" step="0.5" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Zimmer <span v-if="vis('rooms_amount').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rooms_amount').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rooms_amount').tip" /></span></label>
+            <Input v-model="form.rooms_amount" type="number" step="0.5" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Schlafzimmer <span v-if="vis('bedrooms').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('bedrooms').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('bedrooms').tip" /></span></label>
-            <Input v-model="form.bedrooms" type="number" step="1" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Schlafzimmer <span v-if="vis('bedrooms').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('bedrooms').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('bedrooms').tip" /></span></label>
+            <Input v-model="form.bedrooms" type="number" step="1" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Badezimmer <span v-if="vis('bathrooms').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('bathrooms').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('bathrooms').tip" /></span></label>
-            <Input v-model="form.bathrooms" type="number" step="1" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Badezimmer <span v-if="vis('bathrooms').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('bathrooms').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('bathrooms').tip" /></span></label>
+            <Input v-model="form.bathrooms" type="number" step="1" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">WCs <span v-if="vis('toilets').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('toilets').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('toilets').tip" /></span></label>
-            <Input v-model="form.toilets" type="number" step="1" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">WCs <span v-if="vis('toilets').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('toilets').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('toilets').tip" /></span></label>
+            <Input v-model="form.toilets" type="number" step="1" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerk <span v-if="vis('floor_number').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('floor_number').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('floor_number').tip" /></span></label>
-            <Input v-model="form.floor_number" type="number" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerk <span v-if="vis('floor_number').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('floor_number').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('floor_number').tip" /></span></label>
+            <Input v-model="form.floor_number" type="number" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerke ges. <span v-if="vis('floor_count').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('floor_count').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('floor_count').tip" /></span></label>
-            <Input v-model="form.floor_count" type="number" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerke ges. <span v-if="vis('floor_count').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('floor_count').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('floor_count').tip" /></span></label>
+            <Input v-model="form.floor_count" type="number" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Garagen <span v-if="vis('garage_spaces').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('garage_spaces').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('garage_spaces').tip" /></span></label>
-            <Input v-model="form.garage_spaces" type="number" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Garagen <span v-if="vis('garage_spaces').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('garage_spaces').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('garage_spaces').tip" /></span></label>
+            <Input v-model="form.garage_spaces" type="number" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplaetze <span v-if="vis('parking_spaces').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_spaces').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_spaces').tip" /></span></label>
-            <Input v-model="form.parking_spaces" type="number" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplaetze <span v-if="vis('parking_spaces').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_spaces').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_spaces').tip" /></span></label>
+            <Input v-model="form.parking_spaces" type="number" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Parkplatz-Typ <span v-if="vis('parking_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_type').tip" /></span></label>
-            <Input v-model="form.parking_type" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Parkplatz-Typ <span v-if="vis('parking_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_type').tip" /></span></label>
+            <Input v-model="form.parking_type" class="h-7 text-[12px]" />
           </div>
         </div>
       </TabsContent>
 
-      <TabsContent v-if="!isChild" value="ausstattung" class="mt-4">
-        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+      <TabsContent v-if="!isChild" value="ausstattung" class="mt-3">
+        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Zustand <span v-if="vis('realty_condition').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('realty_condition').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('realty_condition').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Zustand <span v-if="vis('realty_condition').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('realty_condition').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('realty_condition').tip" /></span></label>
             <Select v-model="form.realty_condition">
-              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in conditionOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Qualitaet <span v-if="vis('quality').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('quality').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('quality').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Qualitaet <span v-if="vis('quality').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('quality').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('quality').tip" /></span></label>
             <Select v-model="form.quality">
-              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in qualityOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Baujahr <span v-if="vis('construction_year').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('construction_year').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('construction_year').tip" /></span></label>
-            <Input v-model="form.construction_year" type="number" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Baujahr <span v-if="vis('construction_year').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('construction_year').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('construction_year').tip" /></span></label>
+            <Input v-model="form.construction_year" type="number" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Sanierungsjahr <span v-if="vis('year_renovated').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('year_renovated').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('year_renovated').tip" /></span></label>
-            <Input v-model="form.year_renovated" type="number" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Sanierungsjahr <span v-if="vis('year_renovated').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('year_renovated').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('year_renovated').tip" /></span></label>
+            <Input v-model="form.year_renovated" type="number" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Kueche <span v-if="vis('kitchen_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('kitchen_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('kitchen_type').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kueche <span v-if="vis('kitchen_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('kitchen_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('kitchen_type').tip" /></span></label>
             <Select v-model="form.kitchen_type">
-              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in kitchenOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Heizung <span v-if="vis('heating').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating').tip" /></span></label>
-            <Input v-model="form.heating" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Heizung <span v-if="vis('heating').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating').tip" /></span></label>
+            <Input v-model="form.heating" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Bodenbelag <span v-if="vis('flooring').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('flooring').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('flooring').tip" /></span></label>
-            <Input v-model="form.flooring" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Bodenbelag <span v-if="vis('flooring').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('flooring').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('flooring').tip" /></span></label>
+            <Input v-model="form.flooring" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Badausstattung <span v-if="vis('bathroom_equipment').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('bathroom_equipment').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('bathroom_equipment').tip" /></span></label>
-            <Input v-model="form.bathroom_equipment" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Badausstattung <span v-if="vis('bathroom_equipment').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('bathroom_equipment').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('bathroom_equipment').tip" /></span></label>
+            <Input v-model="form.bathroom_equipment" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausrichtung <span v-if="vis('orientation').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('orientation').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('orientation').tip" /></span></label>
-            <Input v-model="form.orientation" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausrichtung <span v-if="vis('orientation').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('orientation').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('orientation').tip" /></span></label>
+            <Input v-model="form.orientation" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Moeblierung <span v-if="vis('furnishing').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('furnishing').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('furnishing').tip" /></span></label>
-            <Input v-model="form.furnishing" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Moeblierung <span v-if="vis('furnishing').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('furnishing').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('furnishing').tip" /></span></label>
+            <Input v-model="form.furnishing" class="h-7 text-[12px]" />
           </div>
         </div>
 
-        <Separator class="my-3" />
-        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Merkmale</div>
+        <Separator class="my-2" />
+        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Merkmale</div>
         <div class="flex flex-wrap gap-1.5">
           <button v-for="feat in features" :key="feat.key" type="button"
             @click="form[feat.key] = !form[feat.key]"
@@ -928,21 +928,21 @@ defineExpose({ save, discard });
         </div>
       </TabsContent>
 
-      <TabsContent value="energie" class="mt-4">
-        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+      <TabsContent value="energie" class="mt-3">
+        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausweistyp <span v-if="vis('energy_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_type').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausweistyp <span v-if="vis('energy_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_type').tip" /></span></label>
             <Select v-model="form.energy_type">
-              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in energyTypeOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieklasse <span v-if="vis('heating_demand_class').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating_demand_class').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating_demand_class').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieklasse <span v-if="vis('heating_demand_class').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating_demand_class').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating_demand_class').tip" /></span></label>
             <Select v-model="form.heating_demand_class">
-              <SelectTrigger class="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger class="h-7 text-[12px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="">--</SelectItem>
                 <SelectItem v-for="c in energyClasses" :key="c" :value="c">{{ c }}</SelectItem>
@@ -950,66 +950,66 @@ defineExpose({ save, discard });
             </Select>
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">HWB (kWh/m2a) <span v-if="vis('heating_demand_value').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating_demand_value').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating_demand_value').tip" /></span></label>
-            <Input v-model="form.heating_demand_value" type="number" step="0.01" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">HWB (kWh/m2a) <span v-if="vis('heating_demand_value').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating_demand_value').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating_demand_value').tip" /></span></label>
+            <Input v-model="form.heating_demand_value" type="number" step="0.01" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">fGEE <span v-if="vis('energy_efficiency_value').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_efficiency_value').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_efficiency_value').tip" /></span></label>
-            <Input v-model="form.energy_efficiency_value" type="number" step="0.01" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">fGEE <span v-if="vis('energy_efficiency_value').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_efficiency_value').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_efficiency_value').tip" /></span></label>
+            <Input v-model="form.energy_efficiency_value" type="number" step="0.01" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Energietraeger <span v-if="vis('energy_primary_source').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_primary_source').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_primary_source').tip" /></span></label>
-            <Input v-model="form.energy_primary_source" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energietraeger <span v-if="vis('energy_primary_source').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_primary_source').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_primary_source').tip" /></span></label>
+            <Input v-model="form.energy_primary_source" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Gueltig bis <span v-if="vis('energy_valid_until').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_valid_until').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_valid_until').tip" /></span></label>
-            <Input v-model="form.energy_valid_until" type="date" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Gueltig bis <span v-if="vis('energy_valid_until').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_valid_until').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_valid_until').tip" /></span></label>
+            <Input v-model="form.energy_valid_until" type="date" class="h-7 text-[12px]" />
           </div>
           <div class="col-span-6 max-sm:col-span-2">
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieausweis (Freitext) <span v-if="vis('energy_certificate').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_certificate').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_certificate').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieausweis (Freitext) <span v-if="vis('energy_certificate').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_certificate').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_certificate').tip" /></span></label>
             <Textarea v-model="form.energy_certificate" rows="2" class="text-[13px]" />
           </div>
         </div>
       </TabsContent>
 
-      <TabsContent value="bau" class="mt-4">
-        <div class="grid grid-cols-6 max-sm:grid-cols-2 gap-x-3 gap-y-2">
+      <TabsContent value="bau" class="mt-3">
+        <div class="grid grid-cols-4 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Verfuegbar ab <span v-if="vis('available_from').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('available_from').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('available_from').tip" /></span></label>
-            <Input v-model="form.available_from" type="date" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Verfuegbar ab <span v-if="vis('available_from').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('available_from').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('available_from').tip" /></span></label>
+            <Input v-model="form.available_from" type="date" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Verfuegbarkeit <span v-if="vis('available_text').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('available_text').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('available_text').tip" /></span></label>
-            <Input v-model="form.available_text" class="h-8 text-[13px]" placeholder="sofort, nach Vereinbarung" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Verfuegbarkeit <span v-if="vis('available_text').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('available_text').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('available_text').tip" /></span></label>
+            <Input v-model="form.available_text" class="h-7 text-[12px]" placeholder="sofort, nach Vereinbarung" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Baubeginn <span v-if="vis('construction_start').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('construction_start').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('construction_start').tip" /></span></label>
-            <Input v-model="form.construction_start" type="date" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Baubeginn <span v-if="vis('construction_start').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('construction_start').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('construction_start').tip" /></span></label>
+            <Input v-model="form.construction_start" type="date" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 block">Fertigstellung</label>
-            <Input v-model="form.construction_end" type="date" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 block">Fertigstellung</label>
+            <Input v-model="form.construction_end" type="date" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Bautraeger</label>
-            <Input v-model="form.builder_company" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Bautraeger</label>
+            <Input v-model="form.builder_company" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Hausverwaltung <span v-if="vis('property_manager').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('property_manager').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('property_manager').tip" /></span></label>
-            <Input v-model="form.property_manager" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Hausverwaltung <span v-if="vis('property_manager').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('property_manager').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('property_manager').tip" /></span></label>
+            <Input v-model="form.property_manager" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Inseriert seit <span v-if="vis('inserat_since').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('inserat_since').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('inserat_since').tip" /></span></label>
-            <Input v-model="form.inserat_since" type="date" class="h-8 text-[13px]" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Inseriert seit <span v-if="vis('inserat_since').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('inserat_since').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('inserat_since').tip" /></span></label>
+            <Input v-model="form.inserat_since" type="date" class="h-7 text-[12px]" />
           </div>
           <div>
-            <label class="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">Plattformen <span v-if="vis('platforms').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('platforms').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('platforms').tip" /></span></label>
-            <Input v-model="form.platforms" class="h-8 text-[13px]" placeholder="willhaben, immoscout24" />
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Plattformen <span v-if="vis('platforms').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('platforms').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('platforms').tip" /></span></label>
+            <Input v-model="form.platforms" class="h-7 text-[12px]" placeholder="willhaben, immoscout24" />
           </div>
         </div>
       </TabsContent>
 
-      <TabsContent v-if="!isNewbuild && !isChild" value="historie" class="mt-4">
+      <TabsContent v-if="!isNewbuild && !isChild" value="historie" class="mt-3">
         <div class="space-y-3">
           <Button variant="outline" size="sm" @click="historyAdding = !historyAdding" class="text-xs h-7">
             <Plus class="w-3 h-3 mr-1" />
@@ -1021,7 +1021,7 @@ defineExpose({ save, discard });
               <Input v-model="historyNew.year" placeholder="Jahr" class="h-8 text-[13px] w-20" />
               <Input v-model="historyNew.title" placeholder="Titel" class="h-8 text-[13px] flex-1" />
             </div>
-            <Input v-model="historyNew.description" placeholder="Beschreibung (optional)" class="h-8 text-[13px]" />
+            <Input v-model="historyNew.description" placeholder="Beschreibung (optional)" class="h-7 text-[12px]" />
             <Button size="sm" @click="historyAddEntry()" :disabled="!historyNew.year || !historyNew.title" class="text-xs h-7">
               Hinzufuegen
             </Button>
@@ -1053,21 +1053,21 @@ defineExpose({ save, discard });
     </div>
 
     <!-- Live Preview Panel -->
-    <div v-if="form.id && !isNew" class="hidden xl:block flex-shrink-0" style="width:400px">
+    <div v-if="form.id && !isNew" class="hidden xl:block flex-shrink-0" style="width:480px">
       <div class="sticky top-2">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Website-Vorschau</span>
+          <span class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Vorschau</span>
           <Button variant="outline" size="sm" class="h-6 text-[10px] gap-1" @click="previewOpen = !previewOpen">
             <component :is="previewOpen ? X : Eye" class="w-3 h-3" />
             {{ previewOpen ? 'Schliessen' : 'Vorschau' }}
           </Button>
         </div>
-        <div v-if="previewOpen" class="rounded-lg overflow-hidden" style="border:1px solid hsl(240 5.9% 90%);height:calc(100vh - 100px)">
+        <div v-if="previewOpen" class="rounded-lg overflow-hidden" style="border:1px solid hsl(240 5.9% 90%);height:calc(100vh - 90px)">
           <iframe
             ref="previewFrame"
             :src="previewUrl"
             class="w-full h-full border-0"
-            style="transform-origin:top left;transform:scale(0.55);width:182%;height:182%"
+            style="transform-origin:top left;transform:scale(0.5);width:200%;height:200%"
           />
         </div>
       </div>

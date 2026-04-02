@@ -116,6 +116,7 @@ class ImmojiUploadService
         $costsInput = self::mapPropertyToImmojiCosts($property);
         $areasInput = self::mapPropertyToImmojiAreas($property);
         $descriptionsInput = self::mapPropertyToImmojiDescriptions($property);
+        $buildingInput = self::mapPropertyToImmojiBuilding($property);
 
         $query = 'mutation($input: UpdateRealtyInput!) { updateRealty(updateRealtyInput: $input) { id } }';
 
@@ -129,6 +130,7 @@ class ImmojiUploadService
                 'areasInput' => $areasInput,
                 'descriptionsInput' => $descriptionsInput,
                 'filesInput' => $filesInput,
+                'buildingInput' => $buildingInput,
             ], fn($v) => $v !== null),
         ];
 
@@ -187,12 +189,18 @@ class ImmojiUploadService
                 'marketingType' => $marketingType,
                 'title' => $prop['title'] ?? null,
                 'realtyManagerId' => self::mapBrokerToImmojiUser($prop['broker_id'] ?? null),
+                'subtitle' => $prop['subtitle'] ?? null,
+                'adTag' => $prop['ad_tag'] ?? null,
+                'closingDate' => $prop['closing_date'] ?? null,
+                'internalRating' => isset($prop['internal_rating']) ? (float) $prop['internal_rating'] : null,
             ], fn($v) => $v !== null),
             'general' => array_filter([
                 'objectType' => self::mapObjectType($prop['object_type'] ?? ''),
                 'objectSubtype' => self::mapObjectSubtype($prop['object_subtype'] ?? null),
                 'objectNumber' => $prop['ref_id'] ?? null,
                 'constructionType' => $prop['construction_type'] ?? null,
+                'ownershipType' => self::mapOwnershipType($prop['ownership_type'] ?? null),
+                'residentialUnits' => isset($prop['unit_count']) ? (int) $prop['unit_count'] : null,
                 'realtyCondition' => self::mapCondition($prop['realty_condition'] ?? null),
                 'constructionYear' => isset($prop['construction_year']) ? (int) $prop['construction_year'] : null,
                 'furnishing' => $furnishing,
@@ -206,6 +214,11 @@ class ImmojiUploadService
                 'city' => $prop['city'] ?? null,
                 'latitude' => isset($prop['latitude']) ? (float) $prop['latitude'] : null,
                 'longitude' => isset($prop['longitude']) ? (float) $prop['longitude'] : null,
+                'houseNumber' => $prop['house_number'] ?? null,
+                'staircase' => $prop['staircase'] ?? null,
+                'door' => $prop['door'] ?? null,
+                'entrance' => $prop['entrance'] ?? null,
+                'floor' => $prop['address_floor'] ?? null,
             ], fn($v) => $v !== null),
             'energyCertificate' => !empty($energyCertificate) ? $energyCertificate : null,
         ];
@@ -220,14 +233,14 @@ class ImmojiUploadService
             'purchasePrice' => ['netAmount' => isset($prop['purchase_price']) ? (float) $prop['purchase_price'] : null, 'vat' => null],
             'rentalPrice' => ['netAmount' => isset($prop['rental_price']) ? (float) $prop['rental_price'] : null, 'vat' => null],
             'operatingCosts' => ['netAmount' => isset($prop['operating_costs']) ? (float) $prop['operating_costs'] : null, 'vat' => null],
-            'heatingCosts' => ['netAmount' => null, 'vat' => null],
-            'warmWaterCosts' => ['netAmount' => null, 'vat' => null],
-            'coolingCosts' => ['netAmount' => null, 'vat' => null],
+            'heatingCosts' => ['netAmount' => isset($prop['heating_costs']) ? (float) $prop['heating_costs'] : null, 'vat' => null],
+            'warmWaterCosts' => ['netAmount' => isset($prop['warm_water_costs']) ? (float) $prop['warm_water_costs'] : null, 'vat' => null],
+            'coolingCosts' => ['netAmount' => isset($prop['cooling_costs']) ? (float) $prop['cooling_costs'] : null, 'vat' => null],
             'maintenanceReserves' => ['netAmount' => isset($prop['maintenance_reserves']) ? (float) $prop['maintenance_reserves'] : null, 'vat' => null],
-            'administrativeCosts' => ['netAmount' => null, 'vat' => null],
-            'elevatorCosts' => ['netAmount' => null, 'vat' => null],
-            'parkingCosts' => ['netAmount' => null, 'vat' => null],
-            'otherCosts' => ['netAmount' => null, 'vat' => null],
+            'administrativeCosts' => ['netAmount' => isset($prop['admin_costs']) ? (float) $prop['admin_costs'] : null, 'vat' => null],
+            'elevatorCosts' => ['netAmount' => isset($prop['elevator_costs']) ? (float) $prop['elevator_costs'] : null, 'vat' => null],
+            'parkingCosts' => ['netAmount' => isset($prop['parking_costs_monthly']) ? (float) $prop['parking_costs_monthly'] : null, 'vat' => null],
+            'otherCosts' => ['netAmount' => isset($prop['other_costs']) ? (float) $prop['other_costs'] : null, 'vat' => null],
         ];
 
         $customerCommission = null;
@@ -249,7 +262,7 @@ class ImmojiUploadService
         }
 
         $provision = array_filter([
-            'commissionPaidBySeller' => false,
+            'commissionPaidBySeller' => !empty($prop['buyer_commission_free']),
             'customerCommission' => $customerCommission,
             'sellerCommission' => $sellerCommission,
         ], fn($v) => $v !== null);
@@ -380,6 +393,47 @@ class ImmojiUploadService
     }
 
     /**
+     * Map SR-Homes building_details to Immoji buildingInput structure.
+     */
+    public static function mapPropertyToImmojiBuilding(array $prop): ?array
+    {
+        $bd = $prop['building_details'] ?? null;
+        if (empty($bd) || !is_array($bd)) return null;
+
+        $result = [];
+
+        $sections = [
+            'construction' => ['method', 'condition', 'expansionStage' => 'expansion'],
+            'facade' => ['type', 'exteriorCondition' => 'exterior_condition', 'masonryCondition' => 'masonry_condition', 'basementMasonry' => 'basement_masonry', 'insulation'],
+            'heating' => ['type', 'fuel', 'hotWater' => 'hot_water'],
+            'electrical' => ['type', 'condition', 'ventilationType' => 'ventilation_type', 'ventilationCondition' => 'ventilation_condition'],
+            'telecom' => ['tv', 'phone', 'internet', 'techEquipment' => 'tech_equipment'],
+            'roof' => ['shape', 'covering', 'insulation', 'dormers', 'skylights', 'gutters', 'framework', 'chimney'],
+            'windows' => ['material', 'glazing', 'sunProtection' => 'sun_protection', 'condition'],
+            'floors' => ['stairs', 'elevator', 'commonArea' => 'common_area'],
+        ];
+
+        foreach ($sections as $section => $fields) {
+            if (empty($bd[$section])) continue;
+            $mapped = [];
+            foreach ($fields as $immojiKey => $localKey) {
+                if (is_int($immojiKey)) {
+                    $immojiKey = $localKey;
+                }
+                $val = $bd[$section][$localKey] ?? null;
+                if (!empty($val)) {
+                    $mapped[$immojiKey] = $val;
+                }
+            }
+            if (!empty($mapped)) {
+                $result[$section] = $mapped;
+            }
+        }
+
+        return !empty($result) ? $result : null;
+    }
+
+    /**
      * Map SR-Homes type to Immoji objectType ENUM.
      */
     public static function mapObjectType(string $srType): string
@@ -439,6 +493,22 @@ class ImmojiUploadService
             'sanierungsbedürftig', 'sanierungsbedurftig', 'need_of_renovation', 'renovierungsbedürftig', 'abbruchreif' => 'DILAPIDATED',
             'gepflegt', 'well_maintained', 'gut' => 'MAINTAINED',
             'neuwertig', 'as_new', 'mint_condition' => 'AS_NEW',
+            default => null,
+        };
+    }
+
+    /**
+     * Map SR-Homes ownership_type to Immoji ownershipType ENUM.
+     */
+    public static function mapOwnershipType(?string $type): ?string
+    {
+        if (empty($type)) return null;
+        return match (strtolower(trim($type))) {
+            'wohnungseigentum' => 'CONDOMINIUM',
+            'miteigentum' => 'CO_OWNERSHIP',
+            'alleineigentum' => 'SOLE_OWNERSHIP',
+            'baurecht' => 'BUILDING_RIGHT',
+            'genossenschaft' => 'COOPERATIVE',
             default => null,
         };
     }

@@ -108,6 +108,14 @@ watch(() => props.property?.id, () => loadFiles());
 
 <template>
   <div class="space-y-6">
+    <!-- Not saved yet -->
+    <div v-if="!property?.id" class="flex flex-col items-center justify-center py-16 text-center">
+      <Upload class="w-8 h-8 text-zinc-300 mb-3" />
+      <p class="text-sm font-medium text-zinc-600">Objekt zuerst speichern</p>
+      <p class="text-xs text-zinc-400 mt-1">Dateien koennen erst nach dem Speichern des Objekts hochgeladen werden.</p>
+    </div>
+
+    <template v-else>
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2">
@@ -198,5 +206,6 @@ watch(() => props.property?.id, () => loadFiles());
       <FileText class="w-8 h-8 text-zinc-300 mb-2" />
       <p class="text-sm text-zinc-400">Keine Dateien vorhanden.</p>
     </div>
+  </template>
   </div>
 </template>

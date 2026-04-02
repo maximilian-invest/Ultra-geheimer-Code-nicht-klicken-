@@ -273,6 +273,42 @@ class PropertySettingsController extends Controller
         // Verfuegbarkeit
         'available_text' => 'Verfuegbarkeit (Text)',
         'platforms' => 'Plattformen',
+        // Immoji Sync - Allgemeines
+        'construction_type' => 'Bauart',
+        'ownership_type' => 'Eigentumsform',
+        'subtitle' => 'Untertitel',
+        'ad_tag' => 'Werbetag',
+        'closing_date' => 'Abschlussdatum',
+        'internal_rating' => 'Interne Bewertung',
+        'house_number' => 'Hausnummer',
+        'staircase' => 'Stiege',
+        'door' => 'Tuer',
+        'entrance' => 'Eingang',
+        'address_floor' => 'Adress-Etage',
+        'latitude' => 'Breitengrad',
+        'longitude' => 'Laengengrad',
+        // Immoji Sync - Kosten
+        'heating_costs' => 'Heizkosten',
+        'warm_water_costs' => 'Warmwasserkosten',
+        'cooling_costs' => 'Kuehlungskosten',
+        'admin_costs' => 'Verwaltungskosten',
+        'elevator_costs' => 'Aufzugkosten',
+        'parking_costs_monthly' => 'Parkplatzkosten monatlich',
+        'other_costs' => 'Sonstige Kosten',
+        'monthly_costs' => 'Monatliche Kosten gesamt',
+        'land_register_fee_pct' => 'Grundbucheintragung %',
+        'land_transfer_tax_pct' => 'Grunderwerbssteuer %',
+        'contract_fee_pct' => 'Vertragserstellung %',
+        'buyer_commission_free' => 'Provisionsfrei fuer Kaeufer',
+        // Immoji Sync - Gebaeude
+        'building_details' => 'Gebaeudedetails (JSON)',
+        // Status/Verwaltung
+        'realty_status' => 'Status',
+        'is_published' => 'Veroeffentlicht',
+        'on_hold' => 'Pausiert',
+        'parent_id' => 'Uebergeordnetes Objekt',
+        'total_area' => 'Gesamtflaeche',
+        'broker_id' => 'Makler-ID',
     ];
 
     /**
@@ -307,6 +343,16 @@ class PropertySettingsController extends Controller
         'highlights' => 'textarea',
         'inserat_since' => 'date', 'construction_start' => 'date',
         'construction_end' => 'date', 'move_in_date' => 'date', 'available_from' => 'date',
+        // Immoji Sync
+        'internal_rating' => 'number', 'closing_date' => 'date',
+        'heating_costs' => 'number', 'warm_water_costs' => 'number', 'cooling_costs' => 'number',
+        'admin_costs' => 'number', 'elevator_costs' => 'number', 'parking_costs_monthly' => 'number',
+        'other_costs' => 'number', 'monthly_costs' => 'number',
+        'land_register_fee_pct' => 'number', 'land_transfer_tax_pct' => 'number', 'contract_fee_pct' => 'number',
+        'buyer_commission_free' => 'boolean', 'is_published' => 'boolean', 'on_hold' => 'boolean',
+        'latitude' => 'number', 'longitude' => 'number', 'total_area' => 'number',
+        'commission_total' => 'number', 'commission_makler' => 'number',
+        'energy_valid_until' => 'date',
     ];
 
     /**

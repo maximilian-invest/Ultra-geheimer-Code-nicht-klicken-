@@ -498,10 +498,16 @@ async function runParseFields() {
     const d = JSON.parse(txt);
     if (d.error) { toast(d.error, "error"); }
     else {
-      const msg = d.fields_filled + " Felder ausgefuellt" + (d.fields_skipped ? ", " + d.fields_skipped + " uebersprungen (bereits befuellt)" : "");
+      const filled = d.filled_list || [];
+      const msg = d.fields_filled + " Felder ausgefuellt" + (filled.length ? ": " + filled.slice(0, 8).join(", ") + (filled.length > 8 ? " ..." : "") : "") + (d.fields_skipped ? " | " + d.fields_skipped + " uebersprungen (bereits befuellt)" : "");
       toast(msg, "success");
       parseOpen.value = false;
-      location.reload();
+      // Refresh property data in-place (no page reload)
+      try {
+        const pr = await fetch(API.value + "&action=get_property&property_id=" + props.property.id);
+        const pd = await pr.json();
+        if (pd.property) { copyPropertyToForm(pd.property); dirty.value = false; }
+      } catch (e2) { console.error("Property refresh failed", e2); }
     }
   } catch (e) { toast("Fehler: " + e.message, "error"); }
   parseLoading.value = false;

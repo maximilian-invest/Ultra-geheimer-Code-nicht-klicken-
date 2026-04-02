@@ -49,8 +49,7 @@ class DocumentParserService
             }
         }
 
-        // Limit to 20 images (API limit)
-        $allImages = array_slice($allImages, 0, 10);
+        // Page selection is handled in buildImages() — no additional slicing needed
 
         Log::info("parsePropertyFields: images=" . count($allImages) . ", text_len=" . strlen($allText));
 
@@ -225,8 +224,7 @@ class DocumentParserService
             }
         }
 
-        // Limit to 20 images (API limit)
-        $allImages = array_slice($allImages, 0, 10);
+        // Page selection is handled in buildImages() — no additional slicing needed
 
         Log::info("parseUnits: images=" . count($allImages) . ", text_len=" . strlen($allText));
 
@@ -531,13 +529,30 @@ class DocumentParserService
         if ($pageCount < 1) {
             $pageCount = $maxPages;
         }
-        $renderPages = min($pageCount, $maxPages);
 
-        exec(
-            'pdftoppm -png -r 72 -l ' . $renderPages . ' '
-            . escapeshellarg($pdfPath) . ' '
-            . escapeshellarg($tmpDir . '/page') . ' 2>/dev/null'
-        );
+        // Page selection strategy: first 9 pages + second-to-last page
+        // This captures the intro/overview pages AND the summary/price page near the end
+        $pagesToRender = [];
+        $firstN = min(9, $pageCount);
+        for ($i = 1; $i <= $firstN; $i++) {
+            $pagesToRender[] = $i;
+        }
+        // Add second-to-last page if it exists and isn't already included
+        if ($pageCount >= 2) {
+            $secondToLast = $pageCount - 1;
+            if (!in_array($secondToLast, $pagesToRender)) {
+                $pagesToRender[] = $secondToLast;
+            }
+        }
+
+        // Render selected pages individually
+        foreach ($pagesToRender as $pageNum) {
+            exec(
+                'pdftoppm -png -r 72 -f ' . $pageNum . ' -l ' . $pageNum . ' '
+                . escapeshellarg($pdfPath) . ' '
+                . escapeshellarg($tmpDir . '/page') . ' 2>/dev/null'
+            );
+        }
 
         $pageFiles = glob("$tmpDir/page-*.png");
         sort($pageFiles);
@@ -550,7 +565,7 @@ class DocumentParserService
             ];
         }
 
-        Log::info("DocumentParserService::buildImages: {$pdfPath} — {$pageCount} pages, {$renderPages} rendered, " . count($images) . " images");
+        Log::info("DocumentParserService::buildImages: {$pdfPath} — {$pageCount} total pages, selected " . implode(',', $pagesToRender) . ", " . count($images) . " images");
 
         // Cleanup
         array_map('unlink', glob("$tmpDir/*"));

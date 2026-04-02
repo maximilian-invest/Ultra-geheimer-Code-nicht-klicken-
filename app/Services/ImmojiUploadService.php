@@ -77,6 +77,75 @@ class ImmojiUploadService
     }
 
     /**
+     * Push a single unit to Immoji. Merges master property data with unit overrides.
+     */
+    public function pushUnit(array $masterProperty, array $unit): array
+    {
+        // Merge: start with master, override with unit fields
+        $merged = $masterProperty;
+        $merged['title'] = ($masterProperty['project_name'] ?? $masterProperty['title'] ?? '') . ' - ' . ($unit['unit_number'] ?? '');
+        $merged['living_area'] = $unit['area_m2'] ?? null;
+        $merged['purchase_price'] = $unit['price'] ?? $unit['purchase_price'] ?? null;
+        $merged['rooms_amount'] = $unit['rooms'] ?? $unit['rooms_amount'] ?? null;
+        $merged['floor_number'] = $unit['floor'] ?? null;
+        if (!empty($unit['unit_type'])) {
+            $merged['object_type'] = $unit['unit_type'];
+        }
+
+        $immojiId = $unit['immoji_id'] ?? null;
+
+        if ($immojiId) {
+            $merged['openimmo_id'] = $immojiId;
+            $this->updateRealty($immojiId, $merged);
+            return ['action' => 'updated', 'immoji_id' => $immojiId];
+        }
+
+        $immojiId = $this->createRealty($merged);
+        return ['action' => 'created', 'immoji_id' => $immojiId];
+    }
+
+    /**
+     * Push all units with active portal exports to Immoji.
+     */
+    public function pushPropertyUnits(array $masterProperty): array
+    {
+        $propertyId = $masterProperty['id'] ?? null;
+        if (!$propertyId) return ['error' => 'No property ID'];
+
+        $units = \DB::table('property_units')
+            ->where('property_id', $propertyId)
+            ->where('is_parking', 0)
+            ->whereNotNull('portal_exports')
+            ->get();
+
+        $results = [];
+        foreach ($units as $unit) {
+            $unitArr = (array) $unit;
+            $exports = json_decode($unit->portal_exports ?? '{}', true);
+
+            // Only push if immoji export is enabled
+            if (empty($exports['immoji'])) continue;
+
+            try {
+                $result = $this->pushUnit($masterProperty, $unitArr);
+
+                // Save immoji_id back to unit
+                if (!empty($result['immoji_id']) && $result['action'] === 'created') {
+                    \DB::table('property_units')
+                        ->where('id', $unit->id)
+                        ->update(['immoji_id' => $result['immoji_id']]);
+                }
+
+                $results[] = ['unit' => $unit->unit_number, 'status' => 'ok', 'action' => $result['action']];
+            } catch (\Exception $e) {
+                $results[] = ['unit' => $unit->unit_number, 'status' => 'error', 'message' => $e->getMessage()];
+            }
+        }
+
+        return $results;
+    }
+
+    /**
      * Create a new realty in Immoji and return the Immoji UUID.
      */
     public function createRealty(array $property): string

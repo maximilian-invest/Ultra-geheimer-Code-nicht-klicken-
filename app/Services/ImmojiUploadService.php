@@ -294,7 +294,7 @@ class ImmojiUploadService
         if (!empty($prop['heating_demand_value'])) {
             $energyCertificate['heatingDemand'] = [
                 'value' => (string) $prop['heating_demand_value'],
-                'class' => $prop['heating_demand_class'] ?? null,
+                'class' => in_array($prop['heating_demand_class'] ?? '', ['A','B','C','D','E','F']) ? $prop['heating_demand_class'] : null,
             ];
         }
         if (!empty($prop['energy_efficiency_value'])) {

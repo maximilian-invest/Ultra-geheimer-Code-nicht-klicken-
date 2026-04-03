@@ -191,7 +191,7 @@ function formatDateLabel(raw) {
     </div>
 
     <!-- Slots below chat -->
-    <slot name="ai-draft" />
-    <slot name="bottom-bar" />
+    <div class="flex-shrink-0"><slot name="ai-draft" /></div>
+    <div class="flex-shrink-0"><slot name="bottom-bar" /></div>
   </div>
 </template>

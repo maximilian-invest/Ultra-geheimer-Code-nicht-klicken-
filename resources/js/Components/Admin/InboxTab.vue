@@ -87,6 +87,21 @@ const sheetMode = ref('offen'); // 'offen' | 'nachfassen'
 
 // Detail state
 const expandedDetail = ref(null);
+
+// Combine thread + current email into one messages array for chat view
+const allDetailMessages = computed(() => {
+  if (!expandedDetail.value) return [];
+  const thread = expandedDetail.value.thread || expandedDetail.value.messages || [];
+  const email = expandedDetail.value.email;
+  if (!email) return thread;
+  // Check if the current email is already in the thread (by id or message_id)
+  const isDuplicate = thread.some(m => 
+    (m.id && email.id && m.id === email.id) ||
+    (m.message_id && email.message_id && m.message_id === email.message_id)
+  );
+  if (isDuplicate) return thread;
+  return [...thread, email];
+});
 const expandedLoading = ref(false);
 const expandedAiDraft = ref(null);
 const expandedAiLoading = ref(false);
@@ -1792,7 +1807,7 @@ onMounted(() => {
     </div>
 
     <!-- Content Area: Split Panel -->
-    <div class="flex flex-1 min-h-0">
+    <div class="flex flex-1 min-h-0 overflow-hidden">
       <!-- Left: Conversation List -->
       <div class="w-[400px] flex-shrink-0 border-r border-border/50 flex flex-col h-full overflow-hidden bg-[#fafafa]">
         <!-- Offen -->
@@ -1970,7 +1985,7 @@ onMounted(() => {
       <InboxChatView
         v-else-if="selectedItem"
         :item="selectedItem"
-        :messages="expandedDetail?.thread || expandedDetail?.messages || []"
+        :messages="allDetailMessages"
         :loading="expandedLoading"
         :mode="selectedMode"
         @close="selectedItem = null; detailOpen = false"

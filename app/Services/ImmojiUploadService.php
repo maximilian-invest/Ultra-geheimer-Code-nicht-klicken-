@@ -73,8 +73,8 @@ class ImmojiUploadService
                 return ['action' => 'updated', 'immoji_id' => $immojiId];
             } catch (\RuntimeException $e) {
                 // If entity was deleted on immoji, create a new one
-                if (str_contains($e->getMessage(), 'Entity not found') || str_contains($e->getMessage(), 'not found')) {
-                    Log::warning("Immoji entity {$immojiId} not found, creating new. Error: " . $e->getMessage());
+                if (str_contains($e->getMessage(), 'Entity not found for ID')) {
+                    Log::warning("Immoji entity {$immojiId} deleted on immoji, creating new.");
                     $immojiId = $this->createRealty($property);
                     return ['action' => 'created', 'immoji_id' => $immojiId];
                 }
@@ -113,8 +113,8 @@ class ImmojiUploadService
                 $this->updateRealty($immojiId, $merged);
                 return ['action' => 'updated', 'immoji_id' => $immojiId];
             } catch (\RuntimeException $e) {
-                if (str_contains($e->getMessage(), 'Entity not found') || str_contains($e->getMessage(), 'not found')) {
-                    Log::warning("Immoji unit entity {$immojiId} not found, creating new.");
+                if (str_contains($e->getMessage(), 'Entity not found for ID')) {
+                    Log::warning("Immoji unit entity {$immojiId} deleted on immoji, creating new.");
                     $immojiId = $this->createRealty($merged);
                     return ['action' => 'created', 'immoji_id' => $immojiId];
                 }

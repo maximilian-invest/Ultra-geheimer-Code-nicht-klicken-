@@ -2,7 +2,6 @@
 import { computed } from "vue";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Reply, ArrowUpRight } from "lucide-vue-next";
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -65,14 +64,7 @@ const stageColor = computed(() => {
   return "bg-zinc-100 text-zinc-700 border-zinc-200";
 });
 
-const isInbound = computed(() => {
-  const dir = (props.item.direction || "").toLowerCase();
-  return dir === "inbound" || dir === "in";
-});
 
-const isEmailSubtab = computed(() => {
-  return ["posteingang", "gesendet"].includes(props.subtab);
-});
 
 const isKaufanbot = computed(() => {
   const cat = (props.item.category || "").toLowerCase();
@@ -106,11 +98,7 @@ function getAvatarColor(name) {
       <!-- Row 1: Name + Time -->
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-1 min-w-0">
-          <template v-if="isEmailSubtab">
-            <ArrowUpRight v-if="!isInbound" class="w-3 h-3 text-green-500 flex-shrink-0" title="Gesendet" />
-            <Reply v-else class="w-3 h-3 text-blue-400 flex-shrink-0" title="Eingehend" />
-          </template>
-          <span class="text-[13px] font-semibold text-foreground truncate">{{ displayName }}</span>
+<span class="text-[13px] font-semibold text-foreground truncate">{{ displayName }}</span>
         </div>
         <span class="text-[10px] text-muted-foreground whitespace-nowrap flex-shrink-0">{{ timestamp }}</span>
         </div>

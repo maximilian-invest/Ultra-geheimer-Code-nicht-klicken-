@@ -687,10 +687,22 @@ function openDetail(item, mode) {
       .finally(() => { expandedFilesLoading.value = false; });
   } else { expandedFilesLoading.value = false; }
 
-  // Load email context
-  const contextPromise = fetch(API.value + "&action=email_context&email_id=" + item.id + "&type=activity")
+  // Load email context — for offen/nachfassen use activity type, for posteingang/gesendet use portal_emails directly
+  const isEmailHistory = mode === "posteingang" || mode === "gesendet";
+  const contextUrl = isEmailHistory
+    ? API.value + "&action=email_context&email_id=" + item.id
+    : API.value + "&action=email_context&email_id=" + item.id + "&type=activity";
+  const contextPromise = fetch(contextUrl)
     .then(r => r.json())
-    .then(d => { expandedDetail.value = { email: d.email || null, thread: d.thread || [] }; })
+    .then(d => {
+      if (isEmailHistory && d.email && !d.thread?.length) {
+        // For email history: if no thread found, show the email itself as the only message
+        const emailMsg = d.email;
+        expandedDetail.value = { email: emailMsg, thread: d.thread || [] };
+      } else {
+        expandedDetail.value = { email: d.email || null, thread: d.thread || [] };
+      }
+    })
     .catch(e => { toast("Fehler: " + e.message); })
     .finally(() => { expandedLoading.value = false; });
 

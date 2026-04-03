@@ -415,6 +415,16 @@ async function save() {
       snapshot = JSON.parse(JSON.stringify(form));
       dirty.value = false;
       emit("saved", d.property || payload);
+
+      // Auto-sync to immoji if property is already connected
+      if (form.openimmo_id || (d.property && d.property.openimmo_id)) {
+        try {
+          await fetch(API.value + "&action=immoji_push&property_id=" + form.id, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (e) { /* silent sync */ }
+      }
     } else {
       toast("Fehler: " + (d.error || "Unbekannt"));
     }

@@ -463,20 +463,22 @@ onMounted(() => {
                 </span>
 
                 <!-- Inline portal checkboxes -->
-                <div v-if="unit.id && unit.status !== 'verkauft'" class="flex items-center gap-1.5" @click.stop>
+                <div v-if="unit.id && unit.status !== 'verkauft'" class="flex items-center gap-2" @click.stop>
                   <label v-for="p in portalOptions" :key="p.key"
-                    class="flex items-center gap-1 cursor-pointer group" :title="p.label">
+                    class="flex items-center gap-1 cursor-pointer select-none"
+                    :class="p.key !== 'immoji' && !isPortalActive(unit, 'immoji') ? 'opacity-30' : ''"
+                    :title="p.label">
                     <input type="checkbox"
                       :checked="isPortalActive(unit, p.key)"
                       @change="inlineTogglePortal(unit, p.key)"
                       :disabled="p.key !== 'immoji' && !isPortalActive(unit, 'immoji')"
-                      class="w-3.5 h-3.5 rounded border-zinc-300 text-orange-500 focus:ring-orange-500/20 disabled:opacity-30 cursor-pointer"
+                      class="w-3.5 h-3.5 rounded border-zinc-300 accent-orange-500 cursor-pointer disabled:cursor-not-allowed"
                     />
-                    <span class="text-[10px] font-medium hidden xl:inline"
+                    <span class="text-[10px] font-medium"
                       :class="isPortalActive(unit, p.key) ? 'text-foreground' : 'text-muted-foreground'"
-                    >{{ p.short }}</span>
+                    >{{ p.label }}</span>
                   </label>
-                  <Loader2 v-if="unitSyncing[unitKey(unit)]" class="w-3.5 h-3.5 animate-spin text-orange-500 ml-1" />
+                  <Loader2 v-if="unitSyncing[unitKey(unit)]" class="w-3.5 h-3.5 animate-spin text-orange-500" />
                 </div>
 
                 <ChevronRight v-if="!isExpanded(unit)" class="w-3.5 h-3.5 text-zinc-500" />

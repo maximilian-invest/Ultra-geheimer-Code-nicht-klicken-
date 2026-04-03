@@ -68,8 +68,18 @@ class ImmojiUploadService
         $immojiId = $property['openimmo_id'] ?? null;
 
         if ($immojiId) {
-            $this->updateRealty($immojiId, $property);
-            return ['action' => 'updated', 'immoji_id' => $immojiId];
+            try {
+                $this->updateRealty($immojiId, $property);
+                return ['action' => 'updated', 'immoji_id' => $immojiId];
+            } catch (\RuntimeException $e) {
+                // If entity was deleted on immoji, create a new one
+                if (str_contains($e->getMessage(), 'Entity not found') || str_contains($e->getMessage(), 'not found')) {
+                    Log::warning("Immoji entity {$immojiId} not found, creating new. Error: " . $e->getMessage());
+                    $immojiId = $this->createRealty($property);
+                    return ['action' => 'created', 'immoji_id' => $immojiId];
+                }
+                throw $e;
+            }
         }
 
         $immojiId = $this->createRealty($property);
@@ -97,9 +107,18 @@ class ImmojiUploadService
         $immojiId = $unit['immoji_id'] ?? null;
 
         if ($immojiId) {
-            $merged['openimmo_id'] = $immojiId;
-            $this->updateRealty($immojiId, $merged);
-            return ['action' => 'updated', 'immoji_id' => $immojiId];
+            try {
+                $merged['openimmo_id'] = $immojiId;
+                $this->updateRealty($immojiId, $merged);
+                return ['action' => 'updated', 'immoji_id' => $immojiId];
+            } catch (\RuntimeException $e) {
+                if (str_contains($e->getMessage(), 'Entity not found') || str_contains($e->getMessage(), 'not found')) {
+                    Log::warning("Immoji unit entity {$immojiId} not found, creating new.");
+                    $immojiId = $this->createRealty($merged);
+                    return ['action' => 'created', 'immoji_id' => $immojiId];
+                }
+                throw $e;
+            }
         }
 
         $immojiId = $this->createRealty($merged);

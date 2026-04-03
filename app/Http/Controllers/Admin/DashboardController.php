@@ -41,7 +41,7 @@ class DashboardController extends Controller
             'customers' => Customer::count(),
         ];
 
-        $properties = Property::select('id', 'broker_id', 'ref_id', 'project_name', 'title', 'address', 'city', 'realty_status', 'property_category', 'customer_id', 'owner_name', 'owner_email', 'owner_phone', 'purchase_price', 'total_area', 'rooms_amount', 'object_type', 'project_group_id', 'parent_id', 'openimmo_id', 'show_on_website', 'property_history', 'created_at',
+        $properties = Property::select('id', 'broker_id', 'ref_id', 'project_name', 'title', 'address', 'city', 'realty_status', 'property_category', 'customer_id', 'owner_name', 'owner_email', 'owner_phone', 'purchase_price', 'total_area', 'rooms_amount', 'object_type', 'project_group_id', 'parent_id', 'living_area', 'realty_description', 'openimmo_id', 'show_on_website', 'property_history', 'created_at',
             DB::raw('COALESCE(on_hold, 0) as on_hold'), 'on_hold_note',
             DB::raw('(SELECT COUNT(*) FROM property_files WHERE property_files.property_id = properties.id) as files_count'),
             DB::raw('(SELECT COALESCE(SUM(price), 0) FROM property_units WHERE property_units.property_id = properties.id AND property_units.is_parking = 0) as total_volume'),

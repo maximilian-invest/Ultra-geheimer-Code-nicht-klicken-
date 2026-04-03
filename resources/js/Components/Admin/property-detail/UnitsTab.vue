@@ -40,12 +40,12 @@ const floorColors = [
 
 // ─── Portal config ───────────────────────────────────────
 const portalOptions = [
-  { key: "immoji",      label: "immoji",      color: "#ea580c" },
-  { key: "willhaben",   label: "willhaben",   color: "#dc2626" },
-  { key: "immowelt",    label: "immowelt",    color: "#2563eb" },
-  { key: "immoscout24", label: "ImmoScout24", color: "#16a34a" },
-  { key: "allesKralle", label: "alleskralle", color: "#7c3aed" },
-  { key: "dibeo",       label: "dibon",       color: "#0891b2" },
+  { key: "immoji",      label: "IMJ",  color: "#ea580c" },
+  { key: "willhaben",   label: "WH",   color: "#dc2626" },
+  { key: "immowelt",    label: "IW",   color: "#2563eb" },
+  { key: "immoscout24", label: "IS24", color: "#16a34a" },
+  { key: "allesKralle", label: "AK",   color: "#7c3aed" },
+  { key: "dibeo",       label: "DB",   color: "#0891b2" },
 ];
 
 const portalShorts = {
@@ -142,6 +142,17 @@ function isExpanded(unit) {
 function formatPrice(val) {
   if (!val) return "—";
   return Number(val).toLocaleString("de-AT", { minimumFractionDigits: 0 });
+}
+
+function formatSyncTime(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return "gerade";
+  if (diff < 3600000) return Math.floor(diff / 60000) + "m";
+  if (diff < 86400000) return Math.floor(diff / 3600000) + "h";
+  return d.toLocaleDateString("de-AT", { day: "2-digit", month: "2-digit" });
 }
 
 function isPortalActive(unit, key) {
@@ -529,6 +540,10 @@ onMounted(() => {
                       @click="!isPortalActive(unit, p.key) ? null : undefined"
                     >{{ p.label }}</span>
                   </div>
+                  <!-- Last sync timestamp -->
+                  <span v-if="unit.last_synced_at" class="text-[9px] text-muted-foreground whitespace-nowrap hidden lg:inline" :title="unit.last_synced_at">
+                    {{ formatSyncTime(unit.last_synced_at) }}
+                  </span>
                   <!-- Per-unit sync button -->
                   <button v-if="isPortalActive(unit, 'immoji')"
                     @click.stop="syncSingleUnit(unit)"

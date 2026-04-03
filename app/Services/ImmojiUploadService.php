@@ -153,11 +153,11 @@ class ImmojiUploadService
 
                 $immojiId = $result['immoji_id'];
 
-                // Always save immoji_id back (covers both created and re-created after delete)
+                // Always save immoji_id + sync timestamp
                 if (!empty($immojiId)) {
                     \DB::table('property_units')
                         ->where('id', $unit->id)
-                        ->update(['immoji_id' => $immojiId]);
+                        ->update(['immoji_id' => $immojiId, 'last_synced_at' => now()]);
                 }
 
                 // Set portal export flags on immoji (willhaben, immowelt etc.)

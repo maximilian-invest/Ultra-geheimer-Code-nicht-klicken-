@@ -374,7 +374,7 @@ class AdminApiController extends Controller
 
                     // Save immoji_id back (for both created and updated)
                     if (!empty($result['immoji_id'])) {
-                        \DB::table('property_units')->where('id', $unitId)->update(['immoji_id' => $result['immoji_id']]);
+                        \DB::table('property_units')->where('id', $unitId)->update(['immoji_id' => $result['immoji_id'], 'last_synced_at' => now()]);
                     }
 
                     // Set portal flags — handle double-encoded JSON

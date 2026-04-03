@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, inject, onMounted } from "vue";
-import { Plus, Save, Search, ChevronDown, ChevronRight, Upload, Loader2 } from "lucide-vue-next";
+import { Plus, Save, Search, ChevronDown, ChevronRight, Upload, Loader2, RefreshCw } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,7 +22,7 @@ const toast = inject("toast");
 const units = ref([]);
 const unitsLoading = ref(false);
 const unitSaving = ref({});
-const unitSyncing = ref({});
+// unitSyncing removed — no more per-unit auto-sync
 const unitSearch = ref("");
 const expandedUnit = ref(null);
 const openGroups = ref({});
@@ -223,11 +223,7 @@ async function saveUnit(unit) {
       expandedUnit.value = null;
       toast("Einheit gespeichert");
 
-      // Auto-sync to immoji if portal is enabled
-      const exports = typeof unit.portal_exports === "string" ? JSON.parse(unit.portal_exports) : (unit.portal_exports || {});
-      if (exports.immoji) {
-        syncUnitToImmoji();
-      }
+      // No auto-sync — user clicks sync button manually
     } else {
       toast("Fehler: " + (d.error || "Unbekannt"));
     }
@@ -237,7 +233,10 @@ async function saveUnit(unit) {
   unitSaving.value[key] = false;
 }
 
-async function syncUnitToImmoji() {
+// Global sync: push all units with immoji:true to immoji + set portal flags
+const syncing = ref(false);
+async function syncAllUnits() {
+  syncing.value = true;
   try {
     const r = await fetch(API.value + "&action=immoji_push_units&property_id=" + props.property.id, {
       method: "POST",
@@ -245,66 +244,24 @@ async function syncUnitToImmoji() {
     });
     const d = await r.json();
     if (d.success) {
-      toast("Einheiten synchronisiert");
-      // Reload and WAIT for completion so unit objects have fresh immoji_ids
+      const count = (d.units || []).filter(u => u.status === "ok").length;
+      toast(count + " Einheit(en) synchronisiert");
       await loadUnits();
     } else {
       toast("Sync-Fehler: " + (d.message || "Unbekannt"));
     }
   } catch (e) {
-    console.error("Immoji sync error:", e);
     toast("Sync-Fehler: " + e.message);
   }
+  syncing.value = false;
 }
 
-// Sync only portal flags (willhaben, immowelt etc.) without re-pushing the unit
-async function syncPortalFlags(unit) {
-  const exports = typeof unit.portal_exports === "string" ? JSON.parse(unit.portal_exports) : (unit.portal_exports || {});
-  const portalMap = {
-    willhaben: "willhabenExportEnabled",
-    immowelt: "immoweltExportEnabled",
-    immoscout24: "immoscoutExportEnabled",
-    dibeo: "dibeoExportEnabled",
-    allesKralle: "allesKralleExportEnabled",
-  };
-  const flags = {};
-  for (const [key, immojiKey] of Object.entries(portalMap)) {
-    if (key in exports) flags[immojiKey] = !!exports[key];
-  }
-
-  // Get fresh immoji_id from DB (don't trust stale frontend object)
-  let immojiId = unit.immoji_id;
-  if (!immojiId && unit.id) {
-    try {
-      const r = await fetch(API.value + "&action=get_units&property_id=" + props.property.id);
-      const d = await r.json();
-      const freshUnit = (d.units || []).find(u => u.id === unit.id);
-      if (freshUnit?.immoji_id) {
-        immojiId = freshUnit.immoji_id;
-        unit.immoji_id = immojiId; // update local ref
-      }
-    } catch (e) { /* ignore */ }
-  }
-
-  if (!immojiId) {
-    // Unit not on immoji yet — cannot set portal flags without immoji_id
-    // User needs to enable immoji first
-    toast("Bitte zuerst immoji aktivieren");
-    return;
-  }
-
-  try {
-    const r = await fetch(API.value + "&action=immoji_set_unit_portals&immoji_id=" + immojiId, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ portals: flags }),
-    });
-    const d = await r.json();
-    if (!d.success) toast("Portal-Sync Fehler: " + (d.message || "Unbekannt"));
-  } catch (e) {
-    console.error("Portal flags sync error:", e);
-  }
-}
+const hasUnsyncedUnits = computed(() => {
+  return realUnits.value.some(u => {
+    const ex = typeof u.portal_exports === "string" ? JSON.parse(u.portal_exports || "{}") : (u.portal_exports || {});
+    return ex.immoji && !u.immoji_id;
+  });
+});
 
 // Inline toggle: check/uncheck a portal, auto-save + auto-sync
 async function inlineTogglePortal(unit, portalKey) {
@@ -327,7 +284,7 @@ async function inlineTogglePortal(unit, portalKey) {
   unit.portal_exports = { ...exports };
 
   // Save immediately
-  unitSyncing.value[key] = true;
+  // saving inline
   try {
     const payload = {
       property_id: props.property.id,
@@ -350,21 +307,14 @@ async function inlineTogglePortal(unit, portalKey) {
     const d = await r.json();
     if (d.success) {
       if (d.unit?.id) unit.id = d.unit.id;
-      // Sync to immoji
-      if (portalKey === "immoji" && exports.immoji) {
-        // First time enabling immoji → full push (create unit on immoji)
-        await syncUnitToImmoji();
-      } else if (portalKey !== "immoji" && exports.immoji) {
-        // Toggling willhaben/immowelt etc → only update portal flags on immoji (no re-push)
-        await syncPortalFlags(unit);
-      }
+      // Just saved — no auto-sync. User clicks the global Sync button.
     } else {
       toast("Fehler: " + (d.error || "Unbekannt"));
     }
   } catch (e) {
     toast("Fehler: " + e.message);
   }
-  unitSyncing.value[key] = false;
+  // done
 }
 
 async function deleteUnit(unit) {
@@ -441,6 +391,11 @@ onMounted(() => {
             class="h-9 pl-9 w-44 text-[13px] border border-input rounded-lg"
           />
         </div>
+        <Button size="sm" @click="syncAllUnits" :disabled="syncing" class="h-9 text-[13px] bg-orange-500 hover:bg-orange-600 text-white">
+          <Loader2 v-if="syncing" class="w-3.5 h-3.5 mr-1.5 animate-spin" />
+          <RefreshCw v-else class="w-3.5 h-3.5 mr-1.5" />
+          Sync
+        </Button>
         <Button size="sm" variant="outline" @click="addUnitRow" class="h-9 text-[13px]">
           <Plus class="w-3.5 h-3.5 mr-1.5" /> Einheit
         </Button>
@@ -553,7 +508,7 @@ onMounted(() => {
                       @click="!isPortalActive(unit, p.key) ? null : undefined"
                     >{{ p.label }}</span>
                   </div>
-                  <Loader2 v-if="unitSyncing[unitKey(unit)]" class="w-3.5 h-3.5 animate-spin text-orange-500" />
+                  <!-- Sync indicator removed — global sync button instead -->
                 </div>
 
                 <ChevronRight v-if="!isExpanded(unit)" class="w-3.5 h-3.5 text-zinc-500" />

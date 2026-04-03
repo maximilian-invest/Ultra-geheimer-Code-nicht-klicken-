@@ -248,20 +248,20 @@ async function syncUnitToImmoji() {
 }
 
 // Quick export: enable immoji, save, sync — one click
-async function quickExport(unit, event) {
-  event.stopPropagation(); // don't toggle expand
+// Inline toggle: check/uncheck a portal, auto-save + auto-sync
+async function inlineTogglePortal(unit, portalKey) {
   const key = unitKey(unit);
-  unitSyncing.value[key] = true;
 
-  // 1. Enable immoji
+  // Toggle the portal
   let exports = unit.portal_exports;
   if (!exports || typeof exports === "string") {
     exports = exports ? JSON.parse(exports) : {};
   }
-  exports.immoji = true;
+  exports[portalKey] = !exports[portalKey];
   unit.portal_exports = { ...exports };
 
-  // 2. Save unit
+  // Save immediately
+  unitSyncing.value[key] = true;
   try {
     const payload = {
       property_id: props.property.id,
@@ -284,9 +284,10 @@ async function quickExport(unit, event) {
     const d = await r.json();
     if (d.success) {
       if (d.unit?.id) unit.id = d.unit.id;
-      // 3. Sync to immoji
-      await syncUnitToImmoji();
-      toast("Einheit auf immoji exportiert");
+      // Auto-sync to immoji if any portal is active
+      if (exports.immoji) {
+        await syncUnitToImmoji();
+      }
     } else {
       toast("Fehler: " + (d.error || "Unbekannt"));
     }
@@ -461,29 +462,22 @@ onMounted(() => {
                   }}
                 </span>
 
-                <!-- Portal dots -->
-                <div class="flex gap-0.5">
-                  <span
-                    v-for="p in activePortals(unit)"
-                    :key="p.key"
-                    class="w-[22px] h-[22px] rounded-full text-white text-[8px] font-bold flex items-center justify-center"
-                    :style="{ background: p.color }"
-                    :title="p.label"
-                  >{{ p.short }}</span>
+                <!-- Inline portal checkboxes -->
+                <div v-if="unit.id && unit.status !== 'verkauft'" class="flex items-center gap-1.5" @click.stop>
+                  <label v-for="p in portalOptions" :key="p.key"
+                    class="flex items-center gap-1 cursor-pointer group" :title="p.label">
+                    <input type="checkbox"
+                      :checked="isPortalActive(unit, p.key)"
+                      @change="inlineTogglePortal(unit, p.key)"
+                      :disabled="p.key !== 'immoji' && !isPortalActive(unit, 'immoji')"
+                      class="w-3.5 h-3.5 rounded border-zinc-300 text-orange-500 focus:ring-orange-500/20 disabled:opacity-30 cursor-pointer"
+                    />
+                    <span class="text-[10px] font-medium hidden xl:inline"
+                      :class="isPortalActive(unit, p.key) ? 'text-foreground' : 'text-muted-foreground'"
+                    >{{ p.short }}</span>
+                  </label>
+                  <Loader2 v-if="unitSyncing[unitKey(unit)]" class="w-3.5 h-3.5 animate-spin text-orange-500 ml-1" />
                 </div>
-
-                <!-- Quick export button -->
-                <button
-                  v-if="unit.id && unit.status !== 'verkauft' && !isPortalActive(unit, 'immoji')"
-                  @click="quickExport(unit, $event)"
-                  :disabled="unitSyncing[unitKey(unit)]"
-                  class="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50"
-                  title="Auf immoji exportieren"
-                >
-                  <Loader2 v-if="unitSyncing[unitKey(unit)]" class="w-3 h-3 animate-spin" />
-                  <Upload v-else class="w-3 h-3" />
-                  <span class="hidden lg:inline">Export</span>
-                </button>
 
                 <ChevronRight v-if="!isExpanded(unit)" class="w-3.5 h-3.5 text-zinc-500" />
                 <ChevronDown  v-else                   class="w-3.5 h-3.5 text-zinc-800" />

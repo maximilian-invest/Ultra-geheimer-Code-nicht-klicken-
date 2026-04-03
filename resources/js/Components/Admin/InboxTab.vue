@@ -1935,7 +1935,7 @@ onMounted(() => {
     <!-- Background image -->
     <div v-if="bgImage" class="absolute inset-0 z-0">
       <img :src="bgImage" class="w-full h-full object-cover" />
-      <div class="absolute inset-0 bg-white/70 backdrop-blur-sm"></div>
+      <div class="absolute inset-0 bg-white/30 backdrop-blur-[2px]"></div>
     </div>
 
     <!-- BG picker button -->
@@ -1954,7 +1954,7 @@ onMounted(() => {
     <!-- Content (z-10 above background) -->
     <div class="relative z-10 flex flex-1 min-h-0 overflow-hidden">
       <!-- Left: Conversation List -->
-      <div class="w-[400px] flex-shrink-0 border-r border-zinc-100 flex flex-col h-full overflow-hidden" :class="bgImage ? 'bg-white/80 backdrop-blur-md' : 'bg-white'">
+      <div class="w-[400px] flex-shrink-0 border-r border-zinc-100 flex flex-col h-full overflow-hidden" :class="bgImage ? 'bg-white/60 backdrop-blur-sm' : 'bg-white'">
 
         <!-- Panel Header with Pill Tabs -->
         <div class="px-4 pt-3 pb-2 flex-shrink-0">
@@ -2021,7 +2021,7 @@ onMounted(() => {
             <Settings2 class="w-3 h-3 text-muted-foreground" />
           </Button>
         </div>
-        <div v-if="showAutoReplySettings && activeSubtab === 'offen'" class="mx-4 mb-2 rounded-lg border border-zinc-100 bg-white/90 backdrop-blur-sm p-3 space-y-3">
+        <div v-if="showAutoReplySettings && activeSubtab === 'offen'" class="mx-4 mb-2 rounded-lg border border-zinc-100 bg-white/80 backdrop-blur-sm p-3 space-y-3">
           <div class="text-[12px] font-semibold">Auto-Reply Einstellungen</div>
           <div class="text-[10px] text-muted-foreground">Wähle Objekte für automatische Antworten:</div>
           <div class="space-y-1 max-h-40 overflow-y-auto">
@@ -2300,7 +2300,7 @@ onMounted(() => {
           />
         </template>
       </InboxChatView>
-      <div v-else class="flex-1 flex items-center justify-center text-sm text-muted-foreground" :class="bgImage ? 'bg-white/80 backdrop-blur-md' : 'bg-white'">
+      <div v-else class="flex-1 flex items-center justify-center text-sm text-muted-foreground" :class="bgImage ? 'bg-white/60 backdrop-blur-sm' : 'bg-white'">
         Konversation auswählen
       </div>
     </div>

@@ -203,7 +203,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                     MAX(a.category = 'kaufanbot') as has_kaufanbot,
                     MAX(a.category IN ('anfrage','email-in','besichtigung','kaufanbot','absage','eigentuemer')) as has_inbound,
                     MAX(a.category = 'anfrage') as has_erstanfrage,
-                    SUM(a.category IN ('anfrage','email-in','besichtigung','kaufanbot','absage')) as inbound_replies,
+                    SUM(a.category IN ('email-in','besichtigung','kaufanbot','absage')) + CASE WHEN MAX(CASE WHEN a.category = 'anfrage' THEN a.activity_date END) > MAX(CASE WHEN a.category IN ('email-out','expose','nachfassen') THEN a.activity_date END) THEN 1 ELSE 0 END as inbound_replies,
                     MAX(a.source_email_id IS NOT NULL) as has_real_email,
                     -- Check if the LAST activity (the one we filter on) has a source email
                     SUBSTRING_INDEX(GROUP_CONCAT(CASE WHEN a.source_email_id IS NOT NULL THEN 1 ELSE 0 END ORDER BY a.id DESC), ',', 1) as last_has_email,
@@ -429,7 +429,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                     SUBSTRING_INDEX(GROUP_CONCAT(a.category ORDER BY a.id DESC), ',', 1) as last_cat,
                     MAX(COALESCE(pe.email_date, a.activity_date)) as last_date,
                     MAX(a.category = 'anfrage') as has_erstanfrage,
-                    SUM(a.category IN ('anfrage','email-in','besichtigung','kaufanbot','absage')) as inbound_replies,
+                    SUM(a.category IN ('email-in','besichtigung','kaufanbot','absage')) + CASE WHEN MAX(CASE WHEN a.category = 'anfrage' THEN a.activity_date END) > MAX(CASE WHEN a.category IN ('email-out','expose','nachfassen') THEN a.activity_date END) THEN 1 ELSE 0 END as inbound_replies,
                     SUM(CASE WHEN a.category = 'nachfassen' AND COALESCE(a.followup_stage, 0) != 1 THEN 1 ELSE 0 END) as stage2_nachfassen_count
                 FROM activities a
                 LEFT JOIN portal_emails pe ON pe.id = a.source_email_id
@@ -969,7 +969,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                     SUBSTRING_INDEX(GROUP_CONCAT(IFNULL(a.result,'') ORDER BY a.id DESC SEPARATOR '|||'), '|||', 1) as last_result,
                     MAX(a.category = 'kaufanbot') as has_kaufanbot,
                     MAX(a.category = 'anfrage') as has_erstanfrage,
-                    SUM(a.category IN ('anfrage','email-in','besichtigung','kaufanbot','absage')) as inbound_replies,
+                    SUM(a.category IN ('email-in','besichtigung','kaufanbot','absage')) + CASE WHEN MAX(CASE WHEN a.category = 'anfrage' THEN a.activity_date END) > MAX(CASE WHEN a.category IN ('email-out','expose','nachfassen') THEN a.activity_date END) THEN 1 ELSE 0 END as inbound_replies,
                     SUBSTRING_INDEX(GROUP_CONCAT(CASE WHEN a.source_email_id IS NOT NULL THEN 1 ELSE 0 END ORDER BY a.id DESC), ',', 1) as last_has_email
                 FROM activities a
                 LEFT JOIN portal_emails pe ON pe.id = a.source_email_id
@@ -1127,7 +1127,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                     MAX(a.stakeholder) as display_name,
                     a.property_id,
                     MAX(a.category = 'anfrage') as has_erstanfrage,
-                    SUM(a.category IN ('anfrage','email-in','besichtigung','kaufanbot','absage')) as inbound_replies,
+                    SUM(a.category IN ('email-in','besichtigung','kaufanbot','absage')) + CASE WHEN MAX(CASE WHEN a.category = 'anfrage' THEN a.activity_date END) > MAX(CASE WHEN a.category IN ('email-out','expose','nachfassen') THEN a.activity_date END) THEN 1 ELSE 0 END as inbound_replies,
                     SUM(CASE WHEN a.category = 'nachfassen' AND COALESCE(a.followup_stage, 0) != 1 THEN 1 ELSE 0 END) as stage2_nachfassen_count,
                     MAX(COALESCE(pe.email_date, a.activity_date)) as last_date,
                     SUBSTRING_INDEX(GROUP_CONCAT(a.category ORDER BY a.id DESC), ',', 1) as last_category,

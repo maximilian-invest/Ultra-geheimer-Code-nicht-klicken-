@@ -105,7 +105,7 @@ function getAvatarColor(name) {
         </div>
         <div class="flex items-center gap-1 flex-shrink-0">
           <button
-            @click.stop="emit(delete, item)"
+            @click.stop="emit('delete', item)"
             class="hidden group-hover:flex items-center justify-center w-5 h-5 rounded hover:bg-red-100 text-zinc-400 hover:text-red-500 transition-colors"
             title="Löschen"
           >

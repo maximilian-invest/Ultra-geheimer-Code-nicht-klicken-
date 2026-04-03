@@ -5,7 +5,7 @@ import {
   Mail, Clock, Send, CheckCircle, X, ChevronDown, ChevronUp, CalendarDays,
   Paperclip, Loader2, Search, Sparkles, ArrowUp, ArrowDown,
   PenSquare, History, FileEdit, Trash2, Inbox, LayoutTemplate, Plus, Pencil,
-  ChevronLeft, ChevronRight, Reply, Save, MailQuestion
+  ChevronLeft, ChevronRight, Reply, Save, MailQuestion, Settings2
 } from "lucide-vue-next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import InboxConversationList from "./inbox/InboxConversationList.vue";
 import InboxChatView from "./inbox/InboxChatView.vue";
 import InboxAiDraft from "./inbox/InboxAiDraft.vue";
@@ -131,6 +132,10 @@ const recipientEmailSaved = ref(false);
 const autoReplyLogs = ref([]);
 const autoReplyLoading = ref(false);
 const autoReplyBannerOpen = ref(false);
+const showAutoReplySettings = ref(false);
+const autoReplyEnabled = ref(false);
+const autoReplyText = ref('');
+const autoReplySaving = ref(false);
 
 // Broker filter
 const maklerFilter = ref('all');
@@ -566,6 +571,97 @@ async function loadAutoReplyLogs() {
     autoReplyLogs.value = res.logs || [];
   } catch (e) { console.error(e); }
   autoReplyLoading.value = false;
+}
+
+async function loadAutoReplySettings() {
+  try {
+    const r = await fetch(API.value + "&action=get_settings");
+    const d = await r.json();
+    autoReplyEnabled.value = !!d.auto_reply_enabled;
+    autoReplyText.value = d.auto_reply_text || '';
+  } catch (e) { console.error(e); }
+}
+
+async function toggleAutoReply() {
+  try {
+    const r = await fetch(API.value + "&action=toggle_auto_reply", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enabled: !autoReplyEnabled.value,
+        auto_reply_text: autoReplyText.value || null,
+      }),
+    });
+    const d = await r.json();
+    if (d.success) {
+      autoReplyEnabled.value = d.auto_reply_enabled;
+      toast(autoReplyEnabled.value ? "Auto-Reply aktiviert!" : "Auto-Reply deaktiviert!");
+    } else { toast("Fehler: " + (d.error || "Unbekannt")); }
+  } catch (e) { toast("Fehler: " + e.message); }
+}
+
+async function saveAutoReplySettings() {
+  autoReplySaving.value = true;
+  try {
+    const r = await fetch(API.value + "&action=toggle_auto_reply", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enabled: autoReplyEnabled.value,
+        auto_reply_text: autoReplyText.value || null,
+      }),
+    });
+    const d = await r.json();
+    if (d.success) toast("Auto-Reply gespeichert!");
+    else toast("Fehler: " + (d.error || "Unbekannt"));
+  } catch (e) { toast("Fehler: " + e.message); }
+  autoReplySaving.value = false;
+}
+
+async function nachfassenAlle() {
+  const items = filteredFollowups.value.filter(f => f._prefetchedDraft);
+  if (!items.length) return;
+  if (!confirm("Alle " + items.length + " Nachfass-Entw\u00fcrfe jetzt senden?")) return;
+
+  let sentCount = 0;
+  let errorCount = 0;
+  for (const item of items) {
+    try {
+      const draft = item._prefetchedDraft;
+      let sigText = "\n\n--\nSR-Homes Immobilien GmbH\nwww.sr-homes.at";
+      let sigHtml = '<br><br><span style="color:#999">--</span><br>SR-Homes Immobilien GmbH<br>www.sr-homes.at';
+      try {
+        const sr = await fetch(API.value + "&action=get_settings");
+        const sd = await sr.json();
+        if (sd.signature_name) {
+          sigText = "\n\n--\n" + (sd.signature_name || "") + "\n" + (sd.signature_company || "") + "\nTel: " + (sd.signature_phone || "") + "\n" + (sd.signature_website || "");
+          sigHtml = '<br><br><span style="color:#999">--</span><br><strong>' + (sd.signature_name || "") + '</strong><br>' + (sd.signature_company || "") + '<br>Tel: ' + (sd.signature_phone || "") + '<br>' + (sd.signature_website || "");
+        }
+      } catch {}
+
+      const htmlBody = draft.body.replace(/\n/g, "<br>") + sigHtml;
+      const fd = new FormData();
+      fd.append("account_id", sendAccountId.value ? String(sendAccountId.value) : "1");
+      fd.append("to_email", draft.to || item.from_email || "");
+      fd.append("to_name", item.from_name || item.stakeholder || "");
+      fd.append("subject", draft.subject || "");
+      fd.append("body_html", htmlBody);
+      fd.append("body_text", draft.body + sigText);
+      fd.append("property_id", item.property_id || "");
+      fd.append("in_reply_to", String(item.id) || "");
+      fd.append("is_followup", "1");
+
+      const r = await fetch(API.value + "&action=send_email", { method: "POST", body: fd });
+      const result = await r.json();
+      if (result.success) sentCount++;
+      else errorCount++;
+    } catch { errorCount++; }
+  }
+
+  if (sentCount > 0) toast(sentCount + " Nachfass-Emails gesendet!");
+  if (errorCount > 0) toast(errorCount + " Fehler beim Senden");
+  loadFollowups(followupFilter.value);
+  loadStage1();
+  loadUnanswered(unansweredFilter.value);
+  refreshCounts();
 }
 
 async function loadBrokerList() {
@@ -1724,6 +1820,7 @@ onMounted(() => {
   loadFollowups("all");
   loadStage1();
   loadAutoReplyLogs();
+  loadAutoReplySettings();
   loadBrokerList();
 
   // Comms data
@@ -1854,9 +1951,29 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Auto-Reply Info + Broker Filter -->
-        <div v-if="autoReplyLogs.length && activeSubtab === 'offen'" class="px-4 pb-1">
-          <span class="text-[10px] text-emerald-600">✓ {{ autoReplyLogs.length }} Auto-Replies gesendet (24h)</span>
+        <!-- Auto-Reply Info + Settings -->
+        <div v-if="activeSubtab === 'offen'" class="px-4 pb-1 flex items-center gap-2">
+          <span v-if="autoReplyLogs.length" class="text-[10px] text-emerald-600">✓ {{ autoReplyLogs.length }} Auto-Replies (24h)</span>
+          <div class="flex-1"></div>
+          <Button variant="ghost" size="sm" class="h-6 w-6 p-0" @click="showAutoReplySettings = !showAutoReplySettings; if (showAutoReplySettings && !autoReplyText) loadAutoReplySettings()" title="Auto-Reply Einstellungen">
+            <Settings2 class="w-3 h-3 text-muted-foreground" />
+          </Button>
+        </div>
+        <div v-if="showAutoReplySettings && activeSubtab === 'offen'" class="mx-4 mb-2 rounded-lg border border-zinc-100 bg-white p-3 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-[12px] font-semibold">Auto-Reply</div>
+              <div class="text-[10px] text-muted-foreground">Automatische Antwort bei neuen Anfragen</div>
+            </div>
+            <Switch :checked="autoReplyEnabled" @update:checked="toggleAutoReply" />
+          </div>
+          <div v-if="autoReplyEnabled" class="space-y-2">
+            <div class="text-[11px] font-medium text-muted-foreground">Antwort-Text</div>
+            <Textarea v-model="autoReplyText" class="text-[12px] min-h-[80px]" placeholder="Vielen Dank für Ihre Anfrage..." />
+            <div class="flex justify-end">
+              <Button size="sm" class="h-7 text-[11px]" :disabled="autoReplySaving" @click="saveAutoReplySettings">Speichern</Button>
+            </div>
+          </div>
         </div>
         <div v-if="isAssistenz && brokerList.length" class="px-3 pb-1 flex-shrink-0">
           <select v-model="maklerFilter" class="h-6 rounded-md border border-zinc-100 bg-background px-2 text-[11px]">
@@ -1881,6 +1998,19 @@ onMounted(() => {
           @update:object-filter="objectFilter = $event"
           @compose="startCompose()" @delete="trashEmail($event.id)"
         />
+
+        <!-- Nachfassen Alle Button -->
+        <div v-if="activeSubtab === 'nachfassen' && filteredFollowups.filter(f => f._prefetchedDraft).length > 0" class="px-4 pb-2">
+          <Button
+            variant="outline"
+            size="sm"
+            class="w-full h-8 text-[11px] gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50"
+            @click="nachfassenAlle"
+          >
+            <Send class="w-3 h-3" />
+            Alle nachfassen ({{ filteredFollowups.filter(f => f._prefetchedDraft).length }})
+          </Button>
+        </div>
 
         <!-- Nachfassen -->
         <InboxConversationList

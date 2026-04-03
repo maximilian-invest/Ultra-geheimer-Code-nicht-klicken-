@@ -268,7 +268,7 @@ const navGroups = [
         { key: "reports", label: "Berichte", icon: FileText },
         { key: "analytics", label: "Marktanalyse", icon: TrendingUp },
     ]},
-    { label: "System", items: [
+    { label: "", items: [
         { key: "calendar", label: "Kalender", icon: Calendar },
         { key: "admin", label: "Kontakte", icon: Users },
         { key: "website", label: "Website", icon: Globe, adminOnly: true },

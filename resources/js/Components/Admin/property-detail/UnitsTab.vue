@@ -373,7 +373,7 @@ onMounted(() => {
           >
             <!-- Collapsed summary row -->
             <div
-              class="px-3 py-2 flex items-center cursor-pointer transition-colors hover:bg-gradient-to-r hover:from-orange-50/80 hover:to-transparent"
+              class="px-3 py-2 flex items-center cursor-pointer transition-colors hover:bg-gradient-to-r hover:from-orange-100/70 hover:to-transparent"
               @click="toggleUnit(unit)"
             >
               <div class="flex-1 flex items-center gap-4 min-w-0 overflow-hidden">

@@ -92,9 +92,8 @@ class ImmojiUploadService
     public function pushUnit(array $masterProperty, array $unit): array
     {
         // Merge: start with master, override with unit fields
+        // Keep master id so uploadAndMapImages uses master's images for this unit
         $merged = $masterProperty;
-        // Remove master id so uploadAndMapImages won't try to find images for this unit
-        unset($merged['id']);
         $merged['title'] = ($masterProperty['project_name'] ?? $masterProperty['title'] ?? '') . ' - ' . ($unit['unit_number'] ?? '');
         $merged['living_area'] = $unit['area_m2'] ?? null;
         $merged['purchase_price'] = $unit['price'] ?? $unit['purchase_price'] ?? null;

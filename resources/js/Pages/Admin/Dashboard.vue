@@ -572,7 +572,7 @@ function navBadge(key) {
             </TransitionGroup>
         </div>
     </div>
-    <AiChatWidget v-if="tab !== 'priorities'" />
+    <AiChatWidget v-if="tab !== 'inbox'" />
 </template>
 
 <style>

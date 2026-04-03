@@ -255,7 +255,7 @@ function handleExposeParsed(result) {
         <PortalsTab v-else-if="activeTab === 'portale'" ref="portalsTabRef" :property="property" @dirty="isDirty = true" />
         <KnowledgeTab v-else-if="activeTab === 'wissen'" :property="property" />
         <FilesTab v-else-if="activeTab === 'dateien'" :property="property" />
-        <ActivityTab v-else-if="activeTab === 'aktivitaeten'" :property="property" @open-activities="(id, addr) => { if (switchTabFn) switchTabFn('activities'); }" @open-messages="(id, addr) => { if (switchTabFn) switchTabFn('comms'); }" />
+        <ActivityTab v-else-if="activeTab === 'aktivitaeten'" :property="property" @open-activities="(id, addr) => { if (switchTabFn) switchTabFn('activities'); }" @open-messages="(id, addr) => { if (switchTabFn) switchTabFn('inbox'); }" />
         <div v-else class="text-muted-foreground text-sm">Tab: {{ activeTab }}</div>
       </div>
     </Tabs>

@@ -334,13 +334,13 @@ onMounted(async () => {
                         <CardDescription>Hier ist dein Tagesüberblick</CardDescription>
                     </div>
                     <div class="flex gap-1.5 flex-wrap">
-                        <Badge v-if="unansweredCount > 0" variant="destructive" class="cursor-pointer" @click="switchTab('priorities')">
+                        <Badge v-if="unansweredCount > 0" variant="destructive" class="cursor-pointer" @click="switchTab('inbox')">
                             {{ unansweredCount }} Unbeantwortet
                         </Badge>
-                        <Badge v-if="followupCount > 0" class="cursor-pointer bg-orange-100 text-orange-700 hover:bg-orange-200 border-0" @click="switchTab('priorities')">
+                        <Badge v-if="followupCount > 0" class="cursor-pointer bg-orange-100 text-orange-700 hover:bg-orange-200 border-0" @click="switchTab('inbox')">
                             {{ followupCount }} Nachfassen
                         </Badge>
-                        <Badge v-if="unmatchedCount > 0" class="cursor-pointer bg-blue-100 text-blue-700 hover:bg-blue-200 border-0" @click="switchTab('comms')">
+                        <Badge v-if="unmatchedCount > 0" class="cursor-pointer bg-blue-100 text-blue-700 hover:bg-blue-200 border-0" @click="switchTab('inbox')">
                             {{ unmatchedCount }} Posteingang
                         </Badge>
                     </div>
@@ -348,14 +348,14 @@ onMounted(async () => {
             </CardHeader>
             <CardContent class="pt-0">
                 <div class="divide-y divide-gray-200 -mx-6 px-6">
-                    <div v-if="unansweredCount > 0" @click="switchTab('priorities')"
+                    <div v-if="unansweredCount > 0" @click="switchTab('inbox')"
                         class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent/80 -mx-6 px-6 transition-all duration-150">
                         <span class="w-2 h-2 rounded-full bg-destructive shrink-0"></span>
                         <span class="flex-1 text-sm font-medium">{{ unansweredCount }} unbeantwortete Anfrage{{ unansweredCount > 1 ? 'n' : '' }} bearbeiten</span>
                         <Badge variant="destructive" class="text-[10px]">Dringend</Badge>
                         <ChevronRight class="w-4 h-4 text-muted-foreground" />
                     </div>
-                    <div v-if="followupCount > 0" @click="switchTab('priorities')"
+                    <div v-if="followupCount > 0" @click="switchTab('inbox')"
                         class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent/80 -mx-6 px-6 transition-all duration-150">
                         <span class="w-2 h-2 rounded-full bg-orange-500 shrink-0"></span>
                         <span class="flex-1 text-sm font-medium">{{ followupCount }} Kontakte zum Nachfassen</span>
@@ -368,7 +368,7 @@ onMounted(async () => {
                         <span class="flex-1 text-sm font-medium">{{ stats.viewings_today }} Besichtigung{{ stats.viewings_today > 1 ? 'en' : '' }} heute</span>
                         <ChevronRight class="w-4 h-4 text-muted-foreground" />
                     </div>
-                    <div v-if="openTaskCount > 0" @click="switchTab('priorities')"
+                    <div v-if="openTaskCount > 0" @click="switchTab('inbox')"
                         class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-accent/80 -mx-6 px-6 transition-all duration-150">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
                         <span class="flex-1 text-sm font-medium">{{ openTaskCount }} offene Aufgabe{{ openTaskCount > 1 ? 'n' : '' }}</span>

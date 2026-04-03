@@ -419,7 +419,7 @@ async function save() {
       // Auto-sync to immoji if property is already connected
       if (form.openimmo_id || (d.property && d.property.openimmo_id)) {
         try {
-          await fetch(API.value + "&action=immoji_push&property_id=" + form.id, {
+          await fetch(API.value + "&action=immoji_push&property_id=" + form.id + "&skip_units=1", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
           });

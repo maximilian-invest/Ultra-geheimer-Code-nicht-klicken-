@@ -277,8 +277,11 @@ class AdminApiController extends Controller
                         ['sync_enabled' => 1, 'status' => 'active', 'external_id' => $result['immoji_id'], 'last_synced_at' => now(), 'updated_at' => now()]
                     );
 
-                    // Also push units that have immoji portal enabled
-                    $unitResults = $service->pushPropertyUnits((array) $property);
+                    // Also push units (unless skip_units flag is set)
+                    $unitResults = [];
+                    if (!$request->input('skip_units')) {
+                        $unitResults = $service->pushPropertyUnits((array) $property);
+                    }
 
                     return response()->json([
                         'success' => true,

@@ -151,11 +151,32 @@ class ImmojiUploadService
             try {
                 $result = $this->pushUnit($masterProperty, $unitArr);
 
+                $immojiId = $result['immoji_id'];
+
                 // Save immoji_id back to unit
-                if (!empty($result['immoji_id']) && $result['action'] === 'created') {
+                if (!empty($immojiId) && $result['action'] === 'created') {
                     \DB::table('property_units')
                         ->where('id', $unit->id)
-                        ->update(['immoji_id' => $result['immoji_id']]);
+                        ->update(['immoji_id' => $immojiId]);
+                }
+
+                // Set portal export flags on immoji (willhaben, immowelt etc.)
+                if (!empty($immojiId)) {
+                    $portalMap = self::portalFieldMap();
+                    $portalFlags = [];
+                    foreach ($exports as $key => $enabled) {
+                        if ($key === 'immoji') continue; // immoji itself is not a portal flag
+                        if (isset($portalMap[$key])) {
+                            $portalFlags[$portalMap[$key]] = (bool) $enabled;
+                        }
+                    }
+                    if (!empty($portalFlags)) {
+                        try {
+                            $this->setPortalExports($immojiId, $portalFlags);
+                        } catch (\Exception $e) {
+                            Log::warning("Failed to set portal exports for unit {$unit->unit_number}: " . $e->getMessage());
+                        }
+                    }
                 }
 
                 $results[] = ['unit' => $unit->unit_number, 'status' => 'ok', 'action' => $result['action']];
@@ -300,14 +321,14 @@ class ImmojiUploadService
                 'objectType' => self::mapObjectType($prop['object_type'] ?? ''),
                 'objectSubtype' => self::mapObjectSubtype($prop['object_subtype'] ?? null),
                 'objectNumber' => $prop['ref_id'] ?? null,
-                'constructionType' => $prop['construction_type'] ?? null,
+                'constructionType' => self::mapConstructionType($prop['construction_type'] ?? null),
                 'ownershipType' => self::mapOwnershipType($prop['ownership_type'] ?? null),
                 'residentialUnits' => isset($prop['unit_count']) ? (int) $prop['unit_count'] : null,
                 'realtyCondition' => self::mapCondition($prop['realty_condition'] ?? null),
                 'constructionYear' => isset($prop['construction_year']) ? (int) $prop['construction_year'] : null,
                 'furnishing' => $furnishing,
                 'roomsAmount' => isset($prop['rooms_amount']) ? (float) $prop['rooms_amount'] : null,
-                'freeFrom' => $prop['available_from'] ?? $prop['available_text'] ?? null,
+                // freeFrom is not a valid field in RealtyGeneralInfoInput — removed
             ], fn($v) => $v !== null),
             'address' => array_filter([
                 'country' => 'AT',
@@ -602,6 +623,13 @@ class ImmojiUploadService
     /**
      * Map SR-Homes ownership_type to Immoji ownershipType ENUM.
      */
+    public static function mapConstructionType(?string $type): ?string
+    {
+        // TODO: immoji enum values for constructionType are unknown (introspection blocked)
+        // Field is stored locally but not sent to immoji until enums are confirmed
+        return null;
+    }
+
     public static function mapOwnershipType(?string $type): ?string
     {
         if (empty($type)) return null;

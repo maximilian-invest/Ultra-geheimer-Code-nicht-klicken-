@@ -44,8 +44,8 @@ const portalOptions = [
   { key: "willhaben",   label: "willhaben",   color: "#dc2626" },
   { key: "immowelt",    label: "immowelt",    color: "#2563eb" },
   { key: "immoscout24", label: "ImmoScout24", color: "#16a34a" },
-  { key: "alleskralle", label: "alleskralle", color: "#7c3aed" },
-  { key: "dibon",       label: "dibon",       color: "#0891b2" },
+  { key: "allesKralle", label: "alleskralle", color: "#7c3aed" },
+  { key: "dibeo",       label: "dibon",       color: "#0891b2" },
 ];
 
 const portalShorts = {
@@ -53,8 +53,8 @@ const portalShorts = {
   willhaben:   "WH",
   immowelt:    "IW",
   immoscout24: "IS",
-  alleskralle: "AK",
-  dibon:       "DB",
+  allesKralle: "AK",
+  dibeo:       "DB",
 };
 
 // ─── Computed ────────────────────────────────────────────

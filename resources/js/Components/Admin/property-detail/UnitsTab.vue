@@ -212,6 +212,12 @@ async function saveUnit(unit) {
       unit._isNew = false;
       expandedUnit.value = null;
       toast("Einheit gespeichert");
+
+      // Auto-sync to immoji if portal is enabled
+      const exports = typeof unit.portal_exports === "string" ? JSON.parse(unit.portal_exports) : (unit.portal_exports || {});
+      if (exports.immoji) {
+        syncUnitToImmoji();
+      }
     } else {
       toast("Fehler: " + (d.error || "Unbekannt"));
     }
@@ -219,6 +225,22 @@ async function saveUnit(unit) {
     toast("Fehler: " + e.message);
   }
   unitSaving.value[key] = false;
+}
+
+async function syncUnitToImmoji() {
+  try {
+    const r = await fetch(API.value + "&action=immoji_push&property_id=" + props.property.id, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+    });
+    const d = await r.json();
+    if (d.success) {
+      toast("Immoji synchronisiert");
+      loadUnits(); // Reload to get updated immoji_ids
+    }
+  } catch (e) {
+    console.error("Immoji sync error:", e);
+  }
 }
 
 async function deleteUnit(unit) {

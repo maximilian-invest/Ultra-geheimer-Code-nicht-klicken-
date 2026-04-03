@@ -290,8 +290,8 @@ const filteredUnanswered = computed(() => {
 });
 
 const allFollowups = computed(() => {
-  const s1 = stage1Followups.value.map(f => ({ ...f, _stage: 1 }));
-  const s2 = (followupData.value?.followups || []).map(f => ({ ...f, _stage: 2 }));
+  const s1 = stage1Followups.value;
+  const s2 = (followupData.value?.followups || []);
   return [...s1, ...s2];
 });
 
@@ -564,39 +564,49 @@ async function loadUnanswered(filter) {
   unansweredLoading.value = true;
   try {
     const brokerParam = (maklerFilter.value && maklerFilter.value !== 'all') ? "&broker_filter=" + maklerFilter.value : "";
-    const r = await fetch(API.value + "&action=followups&mode=unanswered&filter=" + filter + brokerParam);
+    const r = await fetch(API.value + "&action=conv_list&status=offen" + brokerParam);
     const d = await r.json();
-    unansweredList.value = d.followups || [];
-    unansweredCount.value = (d.total_open || 0) + (d.total_unmatched || 0);
+    unansweredList.value = (d.conversations || []).map(c => ({
+      ...c,
+      from_name: c.from_name || c.stakeholder || '',
+      from_email: c.from_email || c.contact_email || '',
+    }));
+    unansweredCount.value = d.total || 0;
   } catch (e) { toast("Fehler: " + e.message); }
   unansweredLoading.value = false;
-  prefetchDrafts(unansweredList.value);
 }
 
 async function loadFollowups(filter) {
   followupFilter.value = filter;
   followupLoading.value = true;
-  try {
-    const brokerParam = (maklerFilter.value && maklerFilter.value !== 'all') ? "&broker_filter=" + maklerFilter.value : "";
-    const r = await fetch(API.value + "&action=followups&mode=followup&filter=" + filter + brokerParam);
-    followupData.value = await r.json();
-    followupCount.value = followupData.value.total_followup || 0;
-  } catch (e) { toast("Fehler: " + e.message); }
-  followupLoading.value = false;
-  const items = [...(followupData.value?.followups || [])];
-  prefetchFollowupDrafts(items);
-}
-
-async function loadStage1() {
   stage1Loading.value = true;
   try {
     const brokerParam = (maklerFilter.value && maklerFilter.value !== 'all') ? "&broker_filter=" + maklerFilter.value : "";
-    const r = await fetch(API.value + "&action=followups_stage1" + brokerParam);
+    const r = await fetch(API.value + "&action=conv_list&status=nachfassen" + brokerParam);
     const d = await r.json();
-    stage1Followups.value = d.followups || [];
-    stage1Count.value = d.total_stage1 || stage1Followups.value.length;
-  } catch (e) { toast("Stage-1 Fehler: " + e.message); }
+    const all = (d.conversations || []).map(c => {
+      const stageMap = { beantwortet: 0, nachfassen_1: 1, nachfassen_2: 2, nachfassen_3: 3 };
+      return {
+        ...c,
+        from_name: c.from_name || c.stakeholder || '',
+        from_email: c.from_email || c.contact_email || '',
+        _stage: stageMap[c.status] !== undefined ? stageMap[c.status] : 1,
+      };
+    });
+    // Stage 0 (beantwortet) goes to stage1Followups, rest to followupData
+    stage1Followups.value = all.filter(c => c._stage === 0).map(c => ({ ...c, _stage: 1 }));
+    stage1Count.value = stage1Followups.value.length;
+    const followups = all.filter(c => c._stage > 0);
+    followupData.value = { followups };
+    followupCount.value = d.total || all.length;
+  } catch (e) { toast("Fehler: " + e.message); }
+  followupLoading.value = false;
   stage1Loading.value = false;
+}
+
+async function loadStage1() {
+  // Now handled by loadFollowups() via conv_list&status=nachfassen
+  // Kept as no-op for call-site compatibility
 }
 
 async function loadAutoReplyLogs() {
@@ -655,49 +665,25 @@ async function saveAutoReplySettings() {
 }
 
 async function nachfassenAlle() {
-  const items = filteredFollowups.value.filter(f => f._prefetchedDraft);
+  const items = filteredFollowups.value.filter(f => f.draft_body);
   if (!items.length) return;
   if (!confirm("Alle " + items.length + " Nachfass-Entw\u00fcrfe jetzt senden?")) return;
 
-  let sentCount = 0;
-  let errorCount = 0;
-  for (const item of items) {
-    try {
-      const draft = item._prefetchedDraft;
-      let sigText = "\n\n--\nSR-Homes Immobilien GmbH\nwww.sr-homes.at";
-      let sigHtml = '<br><br><span style="color:#999">--</span><br>SR-Homes Immobilien GmbH<br>www.sr-homes.at';
-      try {
-        const sr = await fetch(API.value + "&action=get_settings");
-        const sd = await sr.json();
-        if (sd.signature_name) {
-          sigText = "\n\n--\n" + (sd.signature_name || "") + "\n" + (sd.signature_company || "") + "\nTel: " + (sd.signature_phone || "") + "\n" + (sd.signature_website || "");
-          sigHtml = '<br><br><span style="color:#999">--</span><br><strong>' + (sd.signature_name || "") + '</strong><br>' + (sd.signature_company || "") + '<br>Tel: ' + (sd.signature_phone || "") + '<br>' + (sd.signature_website || "");
-        }
-      } catch {}
+  try {
+    const r = await fetch(API.value + "&action=conv_followup_all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account_id: sendAccountId.value || 1 }),
+    });
+    const d = await r.json();
+    if (d.success) {
+      toast((d.sent_count || items.length) + " Nachfass-Emails gesendet!");
+    } else {
+      toast("Fehler: " + (d.error || "Unbekannt"));
+    }
+  } catch (e) { toast("Fehler: " + e.message); }
 
-      const htmlBody = draft.body.replace(/\n/g, "<br>") + sigHtml;
-      const fd = new FormData();
-      fd.append("account_id", sendAccountId.value ? String(sendAccountId.value) : "1");
-      fd.append("to_email", draft.to || item.from_email || "");
-      fd.append("to_name", item.from_name || item.stakeholder || "");
-      fd.append("subject", draft.subject || "");
-      fd.append("body_html", htmlBody);
-      fd.append("body_text", draft.body + sigText);
-      fd.append("property_id", item.property_id || "");
-      fd.append("in_reply_to", String(item.id) || "");
-      fd.append("is_followup", "1");
-
-      const r = await fetch(API.value + "&action=send_email", { method: "POST", body: fd });
-      const result = await r.json();
-      if (result.success) sentCount++;
-      else errorCount++;
-    } catch { errorCount++; }
-  }
-
-  if (sentCount > 0) toast(sentCount + " Nachfass-Emails gesendet!");
-  if (errorCount > 0) toast(errorCount + " Fehler beim Senden");
   loadFollowups(followupFilter.value);
-  loadStage1();
   loadUnanswered(unansweredFilter.value);
   refreshCounts();
 }
@@ -723,53 +709,7 @@ async function loadSendAccounts(brokerId) {
   } catch {}
 }
 
-async function prefetchDrafts(items) {
-  const needDraft = items.filter(i => !i.draft || !i.draft.body);
-  if (!needDraft.length) return;
-  const batch = needDraft.slice(0, 6);
-  const promises = batch.map(item =>
-    fetch(API.value + "&action=ai_reply", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email_id: item.id, tone: "professional", type: "activity", detail_level: "standard" })
-    })
-    .then(r => r.json())
-    .then(d => {
-      if (d.reply_text) {
-        item.draft = { body: d.reply_text, subject: d.subject, to: d.to };
-      }
-    })
-    .catch(() => {})
-  );
-  await Promise.all(promises);
-}
-
-async function prefetchFollowupDrafts(items) {
-  if (!items || !items.length) return;
-  const batch = items.filter(f => !f._prefetchedDraft).slice(0, 15);
-  const promises = batch.map(f =>
-    fetch(API.value + "&action=followup_draft&stakeholder=" + encodeURIComponent(f.from_name) + "&property_id=" + f.property_id)
-    .then(r => r.json())
-    .then(d => {
-      if (d.draft) {
-        f._prefetchedDraft = {
-          body: d.draft.email_body || "",
-          subject: d.draft.email_subject || ("Re: " + (f.subject || f.activity || "")),
-          to: d.email || f.from_email || f.contact_email || "",
-          phone: d.phone || f.contact_phone || "",
-          callScript: d.draft.call_script || null,
-          preferredAction: d.draft.preferred_action || "email",
-          leadPhase: d.draft.lead_phase || null,
-          mailType: d.draft.mail_type || null,
-          leadStatus: d.draft.lead_status || null,
-          mailGoal: d.draft.mail_goal || null,
-        };
-      }
-    })
-    .catch(() => {})
-  );
-  await Promise.all(promises);
-}
+// prefetchDrafts and prefetchFollowupDrafts removed — drafts now come from conv_list response (item.draft_body)
 
 // ============================================================
 // DETAIL PANEL FUNCTIONS (from PrioritiesTab.vue, sheetOpen → detailOpen)
@@ -781,8 +721,11 @@ function openDetail(item, mode) {
   composing.value = false;
   detailOpen.value = true;
 
-  // Mark as read if unread
-  if (!item.is_read && item.id) {
+  // Mark as read via conv_read
+  if (!item.is_read && item.id && (mode === 'offen' || mode === 'nachfassen')) {
+    fetch(API.value + "&action=conv_read&id=" + item.id, { method: "POST" }).catch(() => {});
+    item.is_read = 1;
+  } else if (!item.is_read && item.id) {
     fetch(API.value + "&action=mark_read", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -802,17 +745,13 @@ function openDetail(item, mode) {
   expandedLoading.value = true;
   expandedAiLoading.value = true;
 
-  // Use pre-generated draft if available
-  if (mode === 'offen' && item.draft && item.draft.body) {
+  // Use draft from conv_list response if available
+  if ((mode === 'offen' || mode === 'nachfassen') && item.draft_body) {
     expandedAiDraft.value = {
-      body: item.draft.body,
-      subject: item.draft.subject || ("Re: " + (item.subject || "")),
-      to: item.draft.to || item.from_email || item.contact_email || "",
-      prospect_email: item.draft.to || "",
+      body: item.draft_body,
+      subject: item.draft_subject || item.subject || '',
+      to: item.draft_to || item.contact_email || '',
     };
-    expandedAiLoading.value = false;
-  } else if (mode === 'nachfassen' && item._prefetchedDraft) {
-    expandedAiDraft.value = item._prefetchedDraft;
     expandedAiLoading.value = false;
   } else if (mode === "posteingang" || mode === "gesendet") {
     expandedAiLoading.value = false;
@@ -831,63 +770,51 @@ function openDetail(item, mode) {
       .finally(() => { expandedFilesLoading.value = false; });
   } else { expandedFilesLoading.value = false; }
 
-  // Load email context — for offen/nachfassen use activity type, for posteingang/gesendet use portal_emails directly
+  // Load conversation detail — for offen/nachfassen use conv_detail, for posteingang/gesendet use email_context
   const isEmailHistory = mode === "posteingang" || mode === "gesendet";
-  const contextUrl = isEmailHistory
-    ? API.value + "&action=email_context&email_id=" + item.id
-    : API.value + "&action=email_context&email_id=" + item.id + "&type=activity";
-  const contextPromise = fetch(contextUrl)
-    .then(r => r.json())
-    .then(d => {
-      if (isEmailHistory && d.email && !d.thread?.length) {
-        // For email history: if no thread found, show the email itself as the only message
-        const emailMsg = d.email;
-        expandedDetail.value = { email: emailMsg, thread: d.thread || [] };
-      } else {
-        expandedDetail.value = { email: d.email || null, thread: d.thread || [] };
-      }
-    })
-    .catch(e => { toast("Fehler: " + e.message); })
-    .finally(() => { expandedLoading.value = false; });
+  let contextPromise;
+  if (isEmailHistory) {
+    contextPromise = fetch(API.value + "&action=email_context&email_id=" + item.id)
+      .then(r => r.json())
+      .then(d => {
+        if (d.email && !d.thread?.length) {
+          expandedDetail.value = { email: d.email, thread: d.thread || [] };
+        } else {
+          expandedDetail.value = { email: d.email || null, thread: d.thread || [] };
+        }
+      })
+      .catch(e => { toast("Fehler: " + e.message); })
+      .finally(() => { expandedLoading.value = false; });
+  } else {
+    contextPromise = fetch(API.value + "&action=conv_detail&id=" + item.id)
+      .then(r => r.json())
+      .then(d => {
+        expandedDetail.value = { email: d.conversation || null, thread: d.messages || [] };
+      })
+      .catch(e => { toast("Fehler: " + e.message); })
+      .finally(() => { expandedLoading.value = false; });
+  }
 
-  // Generate draft if not pre-fetched
+  // Generate draft if not available from conv_list
   const promises = [contextPromise];
-  if (mode === 'offen' && (!item.draft || !item.draft.body)) {
-    const aiPromise = fetch(API.value + "&action=ai_reply", {
+  if ((mode === 'offen' || mode === 'nachfassen') && !item.draft_body) {
+    const aiPromise = fetch(API.value + "&action=conv_regenerate_draft&id=" + item.id, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email_id: item.id, tone: "professional", type: "activity", detail_level: aiDetailLevel.value }),
+      body: JSON.stringify({}),
     })
       .then(r => r.json())
       .then(d => {
-        if (d.reply_text) {
+        if (d.draft_body) {
           expandedAiDraft.value = {
-            body: d.reply_text,
-            subject: d.subject || ("Re: " + (item.subject || "")),
-            to: d.prospect_email || d.to || item.from_email || "",
-            prospect_email: d.prospect_email || "",
+            body: d.draft_body,
+            subject: d.draft_subject || item.subject || '',
+            to: d.draft_to || item.contact_email || '',
           };
-          item.draft = { body: d.reply_text, subject: d.subject, to: d.to };
         }
       })
       .catch(() => {})
       .finally(() => { expandedAiLoading.value = false; });
     promises.push(aiPromise);
-  } else if (mode === 'nachfassen' && !item._prefetchedDraft) {
-    const draftPromise = fetch(API.value + "&action=followup_draft&stakeholder=" + encodeURIComponent(item.from_name || item.stakeholder) + "&property_id=" + item.property_id)
-      .then(r => r.json())
-      .then(d => {
-        if (d.draft) {
-          expandedAiDraft.value = {
-            body: d.draft.email_body || "",
-            subject: d.draft.email_subject || ("Re: " + (item.subject || item.activity || "")),
-            to: d.email || item.from_email || item.contact_email || "",
-            phone: d.phone || item.contact_phone || "",
-          };
-        }
-      })
-      .catch(() => {})
-      .finally(() => { expandedAiLoading.value = false; });
-    promises.push(draftPromise);
   }
 
   Promise.all(promises);
@@ -903,31 +830,17 @@ async function regenerateAiDraft() {
   expandedAiLoading.value = true;
   const item = selectedItem.value;
   try {
-    if (sheetMode.value === 'offen') {
-      const r = await fetch(API.value + "&action=ai_reply", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email_id: item.id, tone: "professional", type: "activity", detail_level: aiDetailLevel.value }),
-      });
-      const d = await r.json();
-      if (d.reply_text) {
-        expandedAiDraft.value = {
-          body: d.reply_text,
-          subject: d.subject || ("Re: " + (item.subject || "")),
-          to: d.prospect_email || d.to || item.from_email || "",
-          prospect_email: d.prospect_email || "",
-        };
-      }
-    } else {
-      const r = await fetch(API.value + "&action=followup_draft&stakeholder=" + encodeURIComponent(item.from_name || item.stakeholder) + "&property_id=" + item.property_id);
-      const d = await r.json();
-      if (d.draft) {
-        expandedAiDraft.value = {
-          body: d.draft.email_body || "",
-          subject: d.draft.email_subject || ("Re: " + (item.subject || item.activity || "")),
-          to: d.email || item.from_email || item.contact_email || "",
-          phone: d.phone || item.contact_phone || "",
-        };
-      }
+    const r = await fetch(API.value + "&action=conv_regenerate_draft&id=" + item.id, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const d = await r.json();
+    if (d.draft_body) {
+      expandedAiDraft.value = {
+        body: d.draft_body,
+        subject: d.draft_subject || item.subject || '',
+        to: d.draft_to || item.contact_email || '',
+      };
     }
   } catch (e) { toast("KI-Fehler: " + e.message); }
   expandedAiLoading.value = false;
@@ -939,8 +852,9 @@ async function improveWithAi() {
     return;
   }
   expandedAiLoading.value = true;
+  const item = selectedItem.value;
   try {
-    const r = await fetch(API.value + "&action=improve_text", {
+    const r = await fetch(API.value + "&action=conv_improve_draft&id=" + item.id, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: expandedAiDraft.value.body }),
@@ -983,10 +897,11 @@ async function saveRecipientEmail(stakeholder, propertyId, newEmail) {
 }
 
 async function markHandled(stakeholder, propertyId) {
+  const item = selectedItem.value;
   try {
-    const r = await fetch(API.value + "&action=mark_handled", {
+    const r = await fetch(API.value + "&action=conv_done&id=" + (item ? item.id : ''), {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stakeholder, property_id: propertyId, note: "Bereits beantwortet (extern/Kalender/Telefon)" }),
+      body: JSON.stringify({}),
     });
     const d = await r.json();
     if (d.success) {
@@ -995,7 +910,6 @@ async function markHandled(stakeholder, propertyId) {
       selectedItem.value = null;
       loadUnanswered(unansweredFilter.value);
       loadFollowups(followupFilter.value);
-      loadStage1();
       refreshCounts();
     } else { toast("Fehler: " + (d.error || "Unbekannt")); }
   } catch (e) { toast("Fehler: " + e.message); }
@@ -1035,71 +949,25 @@ async function sendDraft() {
   }
 
   try {
-    let sigText = "\n\n--\nSR-Homes Immobilien GmbH\nwww.sr-homes.at";
-    let sigHtml = '<br><br><span style="color:#999">--</span><br>SR-Homes Immobilien GmbH<br>www.sr-homes.at';
-    try {
-      const sr = await fetch(API.value + "&action=get_settings");
-      const sd = await sr.json();
-      if (sd.signature_name) {
-        sigText = "\n\n--\n" + (sd.signature_name || "") + "\n" + (sd.signature_title || "") + "\n" + (sd.signature_company || "") + "\nTel: " + (sd.signature_phone || "") + "\n" + (sd.signature_website || "");
-        let sh = '<br><br><table cellpadding="0" cellspacing="0" style="font-family:Arial,sans-serif;font-size:13px;color:#333">';
-        const hasPhoto = !!sd.signature_photo_url;
-        const cs = hasPhoto ? 2 : 1;
-        if (sd.signature_logo_url) sh += '<tr><td colspan="' + cs + '" style="padding-bottom:8px"><img src="' + sd.signature_logo_url + '" alt="Logo" style="max-height:60px;max-width:200px"></td></tr>';
-        sh += '<tr>';
-        if (hasPhoto) sh += '<td style="border-top:2px solid #D4622B;padding-top:8px;padding-right:12px;vertical-align:top"><img src="' + sd.signature_photo_url + '" alt="" style="width:70px;height:90px;object-fit:cover;border-radius:4px"></td>';
-        sh += '<td style="border-top:2px solid #D4622B;padding-top:8px">';
-        sh += '<strong style="font-size:14px;color:#222">' + (sd.signature_name || "") + '</strong>';
-        if (sd.signature_title) sh += '<br><span style="color:#666">' + sd.signature_title + '</span>';
-        sh += '<br><span style="color:#666">' + (sd.signature_company || "") + '</span>';
-        sh += '<br>Tel: <a href="tel:' + (sd.signature_phone || "").replace(/\s/g, "") + '" style="color:#D4622B;text-decoration:none">' + (sd.signature_phone || "") + '</a>';
-        sh += '<br><a href="https://' + (sd.signature_website || "") + '" style="color:#D4622B;text-decoration:none">' + (sd.signature_website || "") + '</a>';
-        sh += '</td></tr>';
-        if (sd.signature_banner_url) sh += '<tr><td colspan="' + cs + '" style="padding-top:8px"><img src="' + sd.signature_banner_url + '" alt="" style="max-width:400px;width:100%;border-radius:4px"></td></tr>';
-        sh += '</table>';
-        sigHtml = sh;
-      }
-    } catch {}
-
-    let htmlBody = draft.body.replace(/\n/g, "<br>") + sigHtml;
-
-    const attachments = [];
-    if (expandedSelectedFiles.value.length && expandedFiles.value.length) {
-      for (const fileId of expandedSelectedFiles.value) {
-        const ef = expandedFiles.value.find(f => f.id === fileId);
-        if (ef && ef.url) {
-          try {
-            const resp = await fetch(ef.url);
-            const blob = await resp.blob();
-            attachments.push(new File([blob], ef.filename || ef.label, { type: blob.type }));
-          } catch {}
-        }
-      }
-    }
-
-    const fd = new FormData();
-    const accountId = sendAccountId.value ? String(sendAccountId.value) : "1";
-    fd.append("account_id", accountId);
-    fd.append("to_email", draft.to || item.from_email || "");
-    fd.append("to_name", item.from_name || item.stakeholder || "");
-    fd.append("subject", draft.subject || "");
-    fd.append("body_html", htmlBody);
-    fd.append("body_text", draft.body + sigText);
-    fd.append("property_id", item.property_id || "");
-    fd.append("in_reply_to", String(item.id) || "");
-    if (isFollowup) fd.append("is_followup", "1");
-    for (const file of attachments) fd.append("attachments[]", file);
-
-    const r = await fetch(API.value + "&action=send_email", { method: "POST", body: fd });
+    const action = isFollowup ? "conv_followup" : "conv_reply";
+    const r = await fetch(API.value + "&action=" + action + "&id=" + itemId, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        body: draft.body,
+        subject: draft.subject || '',
+        to: draft.to || item.from_email || item.contact_email || '',
+        account_id: sendAccountId.value || 1,
+      }),
+    });
     const result = await r.json();
 
     if (sendingEl) sendingEl.remove();
 
     if (result.success) {
-      toast("Email an " + itemName + " gesendet!" + (attachments.length ? " (" + attachments.length + " Anhang" + (attachments.length > 1 ? "e" : "") + ")" : ""));
+      toast("Email an " + itemName + " gesendet!");
       loadUnanswered(unansweredFilter.value);
       loadFollowups(followupFilter.value);
-      loadStage1();
       refreshCounts();
     } else {
       toast("Fehler beim Senden an " + itemName + ": " + (result.error || "Unbekannt"));
@@ -1113,6 +981,7 @@ async function sendDraft() {
     loadFollowups(followupFilter.value);
   }
 }
+
 
 // ============================================================
 // API FUNCTIONS — COMMS (from CommsTab.vue)
@@ -1837,13 +1706,12 @@ const filteredTemplates = computed(() => {
 watch(maklerFilter, () => {
   loadUnanswered(unansweredFilter.value);
   loadFollowups(followupFilter.value);
-  loadStage1();
 });
 
 watch(activeSubtab, (v) => {
   if (v === 'posteingang') { ehDirection.value = 'inbound'; ehShowUnmatched.value = false; ehPage.value = 1; loadEmailHistory(); }
   if (v === 'gesendet') { ehDirection.value = 'outbound'; ehPage.value = 1; loadEmailHistory(); }
-  if (v === 'nachfassen') { loadFollowups(followupFilter.value); loadStage1(); }
+  if (v === 'nachfassen') { loadFollowups(followupFilter.value); }
   if (v === 'papierkorb') loadTrash();
   if (v === 'offen') { loadUnanswered(unansweredFilter.value); }
   if (v === 'entwuerfe') loadDrafts();
@@ -1863,7 +1731,6 @@ onMounted(() => {
   // Priorities data
   loadUnanswered("all");
   loadFollowups("all");
-  loadStage1();
   loadAutoReplyLogs();
   loadAutoReplySettings();
   loadBrokerList();
@@ -2079,7 +1946,7 @@ onMounted(() => {
         />
 
         <!-- Nachfassen Alle Button -->
-        <div v-if="activeSubtab === 'nachfassen' && filteredFollowups.filter(f => f._prefetchedDraft).length > 0" class="px-4 pb-2">
+        <div v-if="activeSubtab === 'nachfassen' && filteredFollowups.filter(f => f.draft_body).length > 0" class="px-4 pb-2">
           <Button
             variant="outline"
             size="sm"
@@ -2087,7 +1954,7 @@ onMounted(() => {
             @click="nachfassenAlle"
           >
             <Send class="w-3 h-3" />
-            Alle nachfassen ({{ filteredFollowups.filter(f => f._prefetchedDraft).length }})
+            Alle nachfassen ({{ filteredFollowups.filter(f => f.draft_body).length }})
           </Button>
         </div>
 

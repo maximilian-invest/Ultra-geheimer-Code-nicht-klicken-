@@ -49,13 +49,13 @@ const groupedMessages = computed(() => {
   let currentKey = null
 
   const sorted = [...props.messages].sort((a, b) => {
-    const da = new Date(a.email_date || a.date || 0)
-    const db = new Date(b.email_date || b.date || 0)
+    const da = new Date(a.email_date || a.activity_date || a.date || 0)
+    const db = new Date(b.email_date || b.activity_date || b.date || 0)
     return da - db
   })
 
   for (const msg of sorted) {
-    const raw = msg.email_date || msg.date
+    const raw = msg.email_date || msg.activity_date || msg.date
     const dateKey = raw ? new Date(raw).toDateString() : 'unknown'
     if (dateKey !== currentKey) {
       currentKey = dateKey
@@ -91,7 +91,7 @@ function formatDateLabel(raw) {
 <template>
   <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
     <!-- Header -->
-    <div class="flex-shrink-0 border-b border-border px-5 py-3">
+    <div class="flex-shrink-0 border-b border-border/50 px-5 py-3">
       <div class="flex items-start justify-between gap-3">
         <!-- Subject + badges -->
         <div class="min-w-0 flex-1">
@@ -132,7 +132,7 @@ function formatDateLabel(raw) {
     </div>
 
     <!-- Chat area -->
-    <div class="flex-1 overflow-y-auto bg-muted/30 px-5 py-4">
+    <div class="flex-1 overflow-y-auto bg-[#fafafa] px-5 py-4">
       <!-- Loading -->
       <div v-if="loading" class="flex items-center justify-center h-full">
         <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />

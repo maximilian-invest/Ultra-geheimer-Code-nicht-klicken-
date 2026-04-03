@@ -68,6 +68,12 @@ const isKaufanbot = computed(() => {
   const cat = (props.item.category || "").toLowerCase();
   return cat === "kaufanbot" || cat === "anbot";
 });
+
+function getAvatarColor(name) {
+  const colors = ['bg-zinc-800', 'bg-zinc-700', 'bg-zinc-600', 'bg-zinc-500', 'bg-zinc-400'];
+  const idx = (name || '').length % colors.length;
+  return colors[idx];
+}
 </script>
 
 <template>
@@ -80,7 +86,7 @@ const isKaufanbot = computed(() => {
   >
     <!-- Avatar -->
     <Avatar class="h-[34px] w-[34px] rounded-lg flex-shrink-0">
-      <AvatarFallback class="rounded-lg bg-zinc-100 text-zinc-600 text-[11px] font-semibold">
+      <AvatarFallback :class="['rounded-lg text-white text-[11px] font-semibold', getAvatarColor(displayName)]">
         {{ initials }}
       </AvatarFallback>
     </Avatar>

@@ -1794,7 +1794,7 @@ onMounted(() => {
     <!-- Content Area: Split Panel -->
     <div class="flex flex-1 min-h-0">
       <!-- Left: Conversation List -->
-      <div class="w-[400px] flex-shrink-0 border-r border-border flex flex-col h-full overflow-hidden">
+      <div class="w-[400px] flex-shrink-0 border-r border-border/50 flex flex-col h-full overflow-hidden bg-[#fafafa]">
         <!-- Offen -->
         <InboxConversationList
           v-if="activeSubtab === 'offen'"

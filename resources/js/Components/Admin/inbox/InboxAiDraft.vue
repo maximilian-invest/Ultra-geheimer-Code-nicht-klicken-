@@ -33,6 +33,7 @@ const emit = defineEmits([
 ])
 
 const toneModel = ref('standard')
+const collapsed = ref(true)
 
 const isNachfassen = computed(() => props.mode === 'nachfassen')
 
@@ -65,7 +66,7 @@ function onToneChange(val) {
 </script>
 
 <template>
-  <div class="flex flex-col border-t border-border bg-background">
+  <div class="flex flex-col border-t border-border/50 bg-background">
     <!-- LOADING STATE -->
     <div v-if="loading && !draft" class="flex items-center justify-center gap-2 py-8">
       <Loader2 class="w-4 h-4 animate-spin text-orange-500" />
@@ -83,8 +84,8 @@ function onToneChange(val) {
 
     <!-- DRAFT AVAILABLE -->
     <template v-else-if="draft">
-      <!-- Header bar -->
-      <div class="flex items-center gap-2 px-4 py-2 bg-muted/50 border-b border-border">
+      <!-- Header bar (click to toggle) -->
+      <div class="flex items-center gap-2 px-4 py-2 bg-muted/50 cursor-pointer select-none" :class="collapsed ? '' : 'border-b border-border/50'" @click="collapsed = !collapsed">
         <Sparkles class="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
         <span class="text-xs font-medium">{{ headerLabel }}</span>
 
@@ -113,10 +114,11 @@ function onToneChange(val) {
         <span v-if="senderEmail" class="text-[10px] text-muted-foreground ml-2">
           {{ senderEmail }}
         </span>
+        <ChevronDown class="w-3.5 h-3.5 text-muted-foreground transition-transform" :class="collapsed ? '' : 'rotate-180'" />
       </div>
 
       <!-- Email fields (collapsible) -->
-      <div v-if="showEmailFields" class="px-4 py-2 space-y-1.5 border-b border-border bg-muted/20">
+      <div v-if="showEmailFields && !collapsed" class="px-4 py-2 space-y-1.5 border-b border-border bg-muted/20">
         <!-- Von -->
         <div class="flex items-center gap-2">
           <span class="text-[11px] text-muted-foreground w-8 flex-shrink-0">Von:</span>
@@ -165,17 +167,17 @@ function onToneChange(val) {
       </div>
 
       <!-- Textarea -->
-      <div class="px-4 pt-3 pb-2 flex-1">
+      <div v-show="!collapsed" class="px-4 pt-3 pb-2 flex-1">
         <textarea
           :value="draft.body || ''"
           @input="updateDraftField('body', $event.target.value)"
-          class="ai-draft-textarea w-full min-h-[300px] text-[13px] leading-relaxed bg-transparent border-0 outline-none resize-vertical p-0 placeholder:text-muted-foreground/50"
+          class="ai-draft-textarea w-full min-h-[180px] text-[13px] leading-relaxed bg-transparent border-0 outline-none resize-vertical p-0 placeholder:text-muted-foreground/50"
           placeholder="KI-Entwurf erscheint hier..."
         />
       </div>
 
       <!-- Actions bar -->
-      <div class="flex items-center gap-2 px-4 py-2 bg-muted/30 border-t border-border">
+      <div v-show="!collapsed" class="flex items-center gap-2 px-4 py-2 bg-muted/30 border-t border-border/50">
         <!-- Tone select -->
         <Select :model-value="toneModel" @update:model-value="onToneChange">
           <SelectTrigger class="w-[110px] h-7 text-xs">
@@ -228,6 +230,6 @@ function onToneChange(val) {
   transition: min-height 0.2s ease;
 }
 .ai-draft-textarea:focus {
-  min-height: 420px;
+  min-height: 280px;
 }
 </style>

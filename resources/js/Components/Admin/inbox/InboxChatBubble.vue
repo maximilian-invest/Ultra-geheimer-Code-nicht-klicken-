@@ -39,7 +39,8 @@ const displayName = computed(() => {
 })
 
 const displayBody = computed(() => {
-  return props.message.body_text || props.message.body || ''
+  const m = props.message
+  return m.body_text || m.body || m.full_body || m.ai_summary || m.result || ''
 })
 
 const attachments = computed(() => {
@@ -67,7 +68,7 @@ function formatDate(d) {
       <!-- Meta line -->
       <div class="flex items-center gap-2 mb-1 flex-wrap">
         <span class="text-[10px] font-medium opacity-70">{{ displayName }}</span>
-        <span class="text-[10px] opacity-50">{{ formatDate(message.email_date || message.date) }}</span>
+        <span class="text-[10px] opacity-50">{{ formatDate(message.email_date || message.activity_date || message.date) }}</span>
         <Badge
           variant="outline"
           class="text-[9px] px-1.5 py-0 h-4 font-normal border"

@@ -272,6 +272,7 @@ const navGroups = [
         { key: "calendar", label: "Kalender", icon: Calendar },
         { key: "admin", label: "Kontakte", icon: Users },
         { key: "website", label: "Website", icon: Globe, adminOnly: true },
+        { key: "settings", label: "Einstellungen", icon: Settings, adminOnly: true },
     ]},
 ];
 const filteredGroups = computed(() =>

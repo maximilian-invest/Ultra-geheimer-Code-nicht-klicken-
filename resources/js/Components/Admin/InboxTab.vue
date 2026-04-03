@@ -1296,8 +1296,10 @@ async function replyToEmail(em) {
 
 // === TRASH / SELECT / BULK ===
 async function trashEmail(id) {
+  if (!id) return;
   if (trashConfirmId.value !== id) {
     trashConfirmId.value = id;
+    toast("Nochmal klicken zum Löschen");
     setTimeout(() => { if (trashConfirmId.value === id) trashConfirmId.value = null; }, 3000);
     return;
   }
@@ -1305,7 +1307,16 @@ async function trashEmail(id) {
   try {
     const r = await fetch(API.value + "&action=trash_emails", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: [id] }) });
     const d = await r.json();
-    if (d.ok) { ehData.value = ehData.value.filter((e) => e.id !== id); ehTotal.value--; trashCount.value++; toast("In Papierkorb verschoben"); }
+    if (d.ok) {
+      ehData.value = ehData.value.filter((e) => e.id !== id);
+      unansweredList.value = unansweredList.value.filter((e) => e.id !== id);
+      if (followupData.value && followupData.value.followups) followupData.value.followups = followupData.value.followups.filter((e) => e.id !== id);
+      stage1Followups.value = stage1Followups.value.filter((e) => e.id !== id);
+      ehTotal.value--;
+      trashCount.value++;
+      if (selectedItem.value && selectedItem.value.id === id) { selectedItem.value = null; }
+      toast("In Papierkorb verschoben");
+    }
   } catch (e) { toast("Fehler: " + e.message); }
 }
 
@@ -1843,26 +1854,12 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Auto-Reply Banner + Broker Filter -->
-        <div v-if="autoReplyLogs.length || isAssistenz" class="flex items-center gap-2 px-3 py-1.5 flex-wrap flex-shrink-0">
-          <Collapsible v-if="autoReplyLogs.length" v-model:open="autoReplyBannerOpen" class="flex-1 min-w-[150px]">
-            <CollapsibleTrigger class="flex items-center gap-2 w-full px-2.5 py-1 rounded-lg text-[11px] font-medium cursor-pointer" style="background:rgba(16,185,129,0.08);color:#059669">
-              <Send class="w-3 h-3" />
-              <span>{{ autoReplyLogs.length }} Auto-Replies (24h)</span>
-              <ChevronDown class="w-3 h-3 ml-auto transition-transform" :class="autoReplyBannerOpen ? 'rotate-180' : ''" />
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div class="mt-1 rounded-lg border border-zinc-100 p-2 space-y-1 max-h-28 overflow-y-auto" style="background:rgba(16,185,129,0.03)">
-                <div v-for="log in autoReplyLogs" :key="log.id" class="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <Send class="w-3 h-3 text-emerald-500 flex-shrink-0" />
-                  <span class="font-medium text-foreground">{{ log.to_name || log.to_email }}</span>
-                  <span class="text-muted-foreground truncate">{{ log.subject }}</span>
-                  <span class="ml-auto text-[10px] whitespace-nowrap">{{ timeAgo(log.sent_at || log.created_at) }}</span>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-          <select v-if="isAssistenz && brokerList.length" v-model="maklerFilter" class="h-6 rounded-md border border-zinc-100 bg-background px-2 text-[11px]">
+        <!-- Auto-Reply Info + Broker Filter -->
+        <div v-if="autoReplyLogs.length && activeSubtab === 'offen'" class="px-4 pb-1">
+          <span class="text-[10px] text-emerald-600">✓ {{ autoReplyLogs.length }} Auto-Replies gesendet (24h)</span>
+        </div>
+        <div v-if="isAssistenz && brokerList.length" class="px-3 pb-1 flex-shrink-0">
+          <select v-model="maklerFilter" class="h-6 rounded-md border border-zinc-100 bg-background px-2 text-[11px]">
             <option value="all">Alle Makler</option>
             <option v-for="b in brokerList" :key="b.id" :value="b.id">{{ b.name }}</option>
           </select>

@@ -93,7 +93,7 @@ const isGrouped = computed(() => props.groupedSections && props.groupedSections.
           :item="item"
           :active="selectedId != null && String(item.id) === String(selectedId)"
           :subtab="subtab"
-          @click="emit('select', item)"
+          @click="emit('select', item)" @delete="emit('delete', $event)"
         />
       </div>
 
@@ -119,7 +119,7 @@ const isGrouped = computed(() => props.groupedSections && props.groupedSections.
                 :item="item"
                 :active="selectedId != null && String(item.id) === String(selectedId)"
                 :subtab="subtab"
-                @click="emit('select', item)"
+                @click="emit('select', item)" @delete="emit('delete', $event)"
               />
             </div>
           </div>

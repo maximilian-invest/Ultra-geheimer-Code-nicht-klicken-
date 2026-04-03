@@ -99,8 +99,8 @@ function getAvatarColor(name) {
       <!-- Row 1: Name + Time -->
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-1 min-w-0">
-          <span v-if="!item.is_read" class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
-          <span class="text-[13px] text-foreground truncate" :class="!item.is_read ? 'font-bold' : 'font-semibold'">{{ displayName }}</span>
+          <span v-if="subtab === 'posteingang' && !item.is_read" class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+          <span class="text-[13px] text-foreground truncate"  :class="(subtab === 'posteingang' && !item.is_read) ? 'font-bold' : 'font-semibold'" >{{ displayName }}</span>
           <CheckCircle v-if="item.has_reply && item.direction === 'inbound'" class="w-3 h-3 text-green-500 flex-shrink-0" title="Beantwortet" />
         </div>
         <div class="flex items-center gap-1 flex-shrink-0">

@@ -234,18 +234,22 @@ async function saveUnit(unit) {
 }
 
 // Global sync: push all units with immoji:true to immoji + set portal flags
-// Global sync: push ONLY master property to immoji (descriptions, address, etc.)
+// Sync ALL units with immoji:true (each gets fresh master data merged)
 const syncing = ref(false);
-async function syncMaster() {
+async function syncAllUnits() {
   syncing.value = true;
   try {
-    const r = await fetch(API.value + "&action=immoji_push&property_id=" + props.property.id + "&skip_units=1", {
+    const r = await fetch(API.value + "&action=immoji_push_units&property_id=" + props.property.id, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
     });
     const d = await r.json();
     if (d.success) {
-      toast("Master-Objekt synchronisiert");
+      const results = d.units || [];
+      const ok = results.filter(u => u.status === "ok").length;
+      const err = results.filter(u => u.status === "error").length;
+      toast(ok + " Einheit(en) synchronisiert" + (err ? ", " + err + " Fehler" : ""));
+      await loadUnits();
     } else {
       toast("Sync-Fehler: " + (d.message || "Unbekannt"));
     }
@@ -408,10 +412,10 @@ onMounted(() => {
             class="h-9 pl-9 w-44 text-[13px] border border-input rounded-lg"
           />
         </div>
-        <Button size="sm" @click="syncMaster" :disabled="syncing" class="h-9 text-[13px] bg-orange-500 hover:bg-orange-600 text-white" title="Master-Daten (Beschreibung, Adresse etc.) an immoji senden">
+        <Button size="sm" @click="syncAllUnits" :disabled="syncing" class="h-9 text-[13px] bg-orange-500 hover:bg-orange-600 text-white" title="Alle markierten Einheiten synchronisieren (inkl. aktuelle Beschreibung/Adresse vom Master)">
           <Loader2 v-if="syncing" class="w-3.5 h-3.5 mr-1.5 animate-spin" />
           <RefreshCw v-else class="w-3.5 h-3.5 mr-1.5" />
-          Master Sync
+          Alle syncen
         </Button>
         <Button size="sm" variant="outline" @click="addUnitRow" class="h-9 text-[13px]">
           <Plus class="w-3.5 h-3.5 mr-1.5" /> Einheit

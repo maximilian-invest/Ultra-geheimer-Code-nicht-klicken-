@@ -261,6 +261,20 @@ class AdminApiController extends Controller
                     $password = \Illuminate\Support\Facades\Crypt::decryptString($encPassword);
                     $token = \App\Services\ImmojiUploadService::signIn($email, $password);
                     $service = new \App\Services\ImmojiUploadService($token);
+                    $isNewbuild = $property->property_category === 'newbuild';
+
+                    if ($isNewbuild) {
+                        // Neubauprojekte: push only units, no master on immoji
+                        $unitResults = $service->pushPropertyUnits((array) $property);
+                        return response()->json([
+                            'success' => true,
+                            'action' => 'units_synced',
+                            'message' => count($unitResults) . ' Einheit(en) synchronisiert',
+                            'units' => $unitResults,
+                        ]);
+                    }
+
+                    // Normal properties: push the property itself
                     $result = $service->pushProperty((array) $property);
 
                     // Save the immoji_id back to the property if newly created
@@ -277,18 +291,11 @@ class AdminApiController extends Controller
                         ['sync_enabled' => 1, 'status' => 'active', 'external_id' => $result['immoji_id'], 'last_synced_at' => now(), 'updated_at' => now()]
                     );
 
-                    // Also push units (unless skip_units flag is set)
-                    $unitResults = [];
-                    if (!$request->input('skip_units')) {
-                        $unitResults = $service->pushPropertyUnits((array) $property);
-                    }
-
                     return response()->json([
                         'success' => true,
                         'action' => $result['action'],
                         'immoji_id' => $result['immoji_id'],
                         'message' => $result['action'] === 'created' ? 'Objekt in Immoji erstellt' : 'Objekt in Immoji aktualisiert',
-                        'units' => $unitResults,
                     ]);
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Immoji push failed', ['error' => $e->getMessage(), 'property_id' => $propertyId]);
@@ -326,14 +333,8 @@ class AdminApiController extends Controller
                     $token = \App\Services\ImmojiUploadService::signIn($email, $password);
                     $service = new \App\Services\ImmojiUploadService($token);
 
-                    if (empty($propArr['openimmo_id'])) {
-                        $result = $service->pushProperty($propArr);
-                        if (!empty($result['immoji_id'])) {
-                            \DB::table('properties')->where('id', $propertyId)->update(['openimmo_id' => $result['immoji_id'], 'updated_at' => now()]);
-                            $propArr['openimmo_id'] = $result['immoji_id'];
-                        }
-                    }
-
+                    // No master push — only units get synced to immoji
+                    // Master data (description, address, images) is merged into each unit by pushUnit
                     $unitResults = $service->pushPropertyUnits($propArr);
                     return response()->json(['success' => true, 'units' => $unitResults]);
                 } catch (\Exception $e) {

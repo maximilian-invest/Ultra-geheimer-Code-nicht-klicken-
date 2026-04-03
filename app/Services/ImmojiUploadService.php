@@ -143,6 +143,7 @@ class ImmojiUploadService
         foreach ($units as $unit) {
             $unitArr = (array) $unit;
             $exports = json_decode($unit->portal_exports ?? '{}', true);
+            if (is_string($exports)) $exports = json_decode($exports, true); // handle double-encoded
 
             // Only push if immoji export is enabled
             if (empty($exports['immoji'])) continue;
@@ -152,8 +153,8 @@ class ImmojiUploadService
 
                 $immojiId = $result['immoji_id'];
 
-                // Save immoji_id back to unit
-                if (!empty($immojiId) && $result['action'] === 'created') {
+                // Always save immoji_id back (covers both created and re-created after delete)
+                if (!empty($immojiId)) {
                     \DB::table('property_units')
                         ->where('id', $unit->id)
                         ->update(['immoji_id' => $immojiId]);

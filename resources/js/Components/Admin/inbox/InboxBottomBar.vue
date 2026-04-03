@@ -53,7 +53,7 @@ const sendLabel = computed(() => props.mode === "nachfassen" ? "Nachfassen" : "S
       variant="outline"
       size="sm"
       class="h-8 gap-1.5 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
-      @click="emit(delete)"
+      @click="emit('delete')"
     >
       <Trash2 class="w-3.5 h-3.5" />
       Löschen

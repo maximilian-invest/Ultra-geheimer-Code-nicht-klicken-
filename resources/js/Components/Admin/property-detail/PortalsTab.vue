@@ -35,12 +35,11 @@ const REQUIRED_FIELDS = [
   { key: 'ref_id', label: 'Ref-ID' },
   { key: 'address', label: 'Adresse' },
   { key: 'city', label: 'Stadt' },
-  { key: 'zip', label: 'PLZ' },
-  { key: 'object_type', label: 'Objekttyp', altKey: 'type' },
-  { key: 'purchase_price', label: 'Kaufpreis', altKey: 'price' },
-  { key: 'living_area', label: 'Wohnfläche', altKey: 'size_m2' },
-  { key: 'rooms', label: 'Zimmer' },
-  { key: 'description', label: 'Beschreibung', altKey: 'realty_description' },
+  { key: 'object_type', label: 'Objekttyp' },
+  { key: 'purchase_price', label: 'Kaufpreis' },
+  { key: 'living_area', label: 'Wohnfläche' },
+  { key: 'rooms_amount', label: 'Zimmer' },
+  { key: 'realty_description', label: 'Beschreibung' },
 ];
 
 const missingFields = computed(() => {

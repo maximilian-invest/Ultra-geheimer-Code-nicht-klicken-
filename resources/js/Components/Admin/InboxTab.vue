@@ -46,20 +46,22 @@ const activeSubtab = ref(localStorage.getItem("sr-admin-inboxview") || "offen");
 watch(activeSubtab, (v) => localStorage.setItem("sr-admin-inboxview", v));
 
 // Background image
-const bgImage = ref(localStorage.getItem('sr-inbox-bg') || '');
+const bgGradient = ref(localStorage.getItem('sr-inbox-bg') || '');
+const bgOpacity = ref(parseFloat(localStorage.getItem('sr-inbox-bg-opacity') || '0.15'));
 const showBgPicker = ref(false);
 
 const defaultBgs = [
-  { label: 'Keine', url: '' },
-  { label: 'Berge', url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80' },
-  { label: 'Meer', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80' },
-  { label: 'Stadt', url: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=1920&q=80' },
-  { label: 'Wald', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&q=80' },
+  { label: 'Keine', value: '' },
+  { label: 'Orange', value: 'linear-gradient(135deg, #fed7aa 0%, #fdba74 50%, #fb923c 100%)' },
+  { label: 'Blau', value: 'linear-gradient(135deg, #dbeafe 0%, #93c5fd 50%, #60a5fa 100%)' },
+  { label: 'Grün', value: 'linear-gradient(135deg, #d1fae5 0%, #6ee7b7 50%, #34d399 100%)' },
+  { label: 'Lila', value: 'linear-gradient(135deg, #ede9fe 0%, #c4b5fd 50%, #a78bfa 100%)' },
+  { label: 'Sunset', value: 'linear-gradient(135deg, #fecaca 0%, #fdba74 50%, #f97316 100%)' },
 ];
 
-function setBg(url) {
-  bgImage.value = url;
-  localStorage.setItem('sr-inbox-bg', url);
+function setBg(value) {
+  bgGradient.value = value;
+  localStorage.setItem('sr-inbox-bg', value);
   showBgPicker.value = false;
 }
 
@@ -70,7 +72,8 @@ provide("inboxAPI", API);
 provide("inboxToast", toast);
 provide("inboxProperties", properties);
 provide("inboxCalendarUrl", calendarEmbedUrl);
-provide("inboxBgImage", bgImage);
+provide("inboxBgGradient", bgGradient);
+provide("inboxBgOpacity", bgOpacity);
 
 // ============================================================
 // SELECTED CONVERSATION (from Task 1 shell)
@@ -1932,29 +1935,39 @@ onMounted(() => {
 <template>
   <div class="flex flex-col h-full relative" style="min-height:0">
 
-    <!-- Background image -->
-    <div v-if="bgImage" class="absolute inset-0 z-0">
-      <img :src="bgImage" class="w-full h-full object-cover" />
-      <div class="absolute inset-0 bg-white/30 backdrop-blur-[2px]"></div>
-    </div>
+    <!-- Background gradient -->
+    <div v-if="bgGradient" class="absolute inset-0 z-0" :style="{ background: bgGradient, opacity: bgOpacity }"></div>
 
     <!-- BG picker button -->
     <button @click="showBgPicker = !showBgPicker" class="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-white/80 hover:bg-white shadow-sm flex items-center justify-center" title="Hintergrund wählen">
       <ImageIcon class="w-3 h-3 text-muted-foreground" />
     </button>
-    <div v-if="showBgPicker" class="absolute top-10 right-2 z-30 bg-white rounded-lg shadow-lg border border-zinc-100 p-2 space-y-1 w-48">
-      <button v-for="bg in defaultBgs" :key="bg.label" @click="setBg(bg.url)"
-        class="w-full text-left px-2 py-1.5 text-[11px] rounded hover:bg-zinc-50 flex items-center gap-2"
-        :class="bgImage === bg.url ? 'bg-orange-50 text-orange-700' : ''"
-      >
-        {{ bg.label }}
-      </button>
+    <div v-if="showBgPicker" class="absolute top-10 right-2 z-30 bg-white rounded-lg shadow-lg border border-zinc-100 p-2 w-52">
+      <div class="space-y-0.5">
+        <button v-for="bg in defaultBgs" :key="bg.label" @click="setBg(bg.value)"
+          class="w-full text-left px-2 py-1.5 text-[11px] rounded flex items-center gap-2 hover:bg-zinc-50"
+          :class="bgGradient === bg.value ? 'bg-orange-50 text-orange-700' : ''"
+        >
+          <div v-if="bg.value" class="w-4 h-4 rounded-full flex-shrink-0 border border-zinc-200" :style="{ background: bg.value }"></div>
+          <div v-else class="w-4 h-4 rounded-full flex-shrink-0 border border-zinc-200 bg-white"></div>
+          {{ bg.label }}
+        </button>
+      </div>
+      <div v-if="bgGradient" class="pt-2 mt-2 border-t border-zinc-100">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[10px] text-muted-foreground">Intensität</span>
+          <span class="text-[10px] text-muted-foreground">{{ Math.round(bgOpacity * 100) }}%</span>
+        </div>
+        <input type="range" min="0.05" max="0.5" step="0.05" v-model.number="bgOpacity"
+          @input="localStorage.setItem('sr-inbox-bg-opacity', String(bgOpacity))"
+          class="w-full h-1 accent-orange-500 cursor-pointer" />
+      </div>
     </div>
 
     <!-- Content (z-10 above background) -->
     <div class="relative z-10 flex flex-1 min-h-0 overflow-hidden">
       <!-- Left: Conversation List -->
-      <div class="w-[400px] flex-shrink-0 border-r border-zinc-100 flex flex-col h-full overflow-hidden" :class="bgImage ? 'bg-white/60 backdrop-blur-sm' : 'bg-white'">
+      <div class="w-[400px] flex-shrink-0 border-r border-zinc-100 flex flex-col h-full overflow-hidden" :style="bgGradient ? { background: 'rgba(255,255,255,0.92)' } : {}">
 
         <!-- Panel Header with Pill Tabs -->
         <div class="px-4 pt-3 pb-2 flex-shrink-0">
@@ -2300,7 +2313,7 @@ onMounted(() => {
           />
         </template>
       </InboxChatView>
-      <div v-else class="flex-1 flex items-center justify-center text-sm text-muted-foreground" :class="bgImage ? 'bg-white/60 backdrop-blur-sm' : 'bg-white'">
+      <div v-else class="flex-1 flex items-center justify-center text-sm text-muted-foreground" :style="bgGradient ? { background: 'rgba(255,255,255,0.92)' } : {}">
         Konversation auswählen
       </div>
     </div>

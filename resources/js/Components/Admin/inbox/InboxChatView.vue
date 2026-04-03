@@ -14,7 +14,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close'])
-const bgImage = inject("inboxBgImage", ref(""));
+const bgGradient = inject("inboxBgGradient", ref(""));
+const bgOpacity = inject("inboxBgOpacity", ref(0.15));
 
 // ── Header badges ──
 const contactBadge = computed(() => {
@@ -90,7 +91,7 @@ function formatDateLabel(raw) {
 </script>
 
 <template>
-  <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden" :class="bgImage ? 'bg-white/80 backdrop-blur-md' : 'bg-white'">
+  <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-white" :style="bgGradient ? { background: 'rgba(255,255,255,0.92)' } : {}">
     <!-- Header -->
     <div class="flex-shrink-0 border-b border-zinc-100 px-5 py-3">
       <div class="flex items-start justify-between gap-3">
@@ -133,7 +134,7 @@ function formatDateLabel(raw) {
     </div>
 
     <!-- Chat area -->
-    <div class="flex-1 overflow-y-auto px-5 py-4" :class="bgImage ? 'bg-white/60' : 'bg-white'">
+    <div class="flex-1 overflow-y-auto px-5 py-4 bg-white" :style="bgGradient ? { background: 'rgba(255,255,255,0.92)' } : {}">
       <!-- Loading -->
       <div v-if="loading" class="flex items-center justify-center h-full">
         <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />

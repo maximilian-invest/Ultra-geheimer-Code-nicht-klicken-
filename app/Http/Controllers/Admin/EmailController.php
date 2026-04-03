@@ -1314,4 +1314,33 @@ private static function findEmailInText(string $text, array $excludePatterns = [
             return response()->json(['error' => 'Speichern fehlgeschlagen: ' . $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Improve/polish existing draft text without changing content.
+     */
+    public function improveText(Request $request): JsonResponse
+    {
+        if (!$request->isMethod('post')) {
+            return response()->json(['error' => 'POST required'], 405);
+        }
+
+        $text = $request->json('text', '');
+        if (empty(trim($text))) {
+            return response()->json(['error' => 'Kein Text zum Verbessern'], 400);
+        }
+
+        try {
+            $anthropic = app(\App\Services\AnthropicService::class);
+            $systemPrompt = 'Du bist ein professioneller deutschsprachiger Lektor fuer geschaeftliche E-Mails im Immobilienbereich. Verbessere NUR das Wording, die Grammatik und den Stil des folgenden Textes. Aendere NICHT den Inhalt, die Fakten oder die Aussage. Fuege KEINE neuen Informationen hinzu. Behalte die Laenge bei. Antworte NUR mit dem verbesserten Text, ohne Erklaerungen.';
+            $improved = $anthropic->chat($systemPrompt, $text, 2048);
+
+            if ($improved) {
+                return response()->json(['improved_text' => $improved]);
+            }
+
+            return response()->json(['error' => 'KI konnte Text nicht verbessern'], 500);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'KI-Fehler: ' . $e->getMessage()], 500);
+        }
+    }
 }

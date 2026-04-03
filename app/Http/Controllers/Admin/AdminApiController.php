@@ -645,6 +645,7 @@ class AdminApiController extends Controller
             // Emails
             'email_context'             => app(EmailController::class)->context($request),
             'ai_reply'                  => app(EmailController::class)->aiReply($request),
+            'improve_text'              => app(EmailController::class)->improveText($request),
             'mark_handled'              => app(EmailController::class)->markHandled($request),
             'send_email'                => app(EmailController::class)->send($request),
             'email_history'             => app(EmailController::class)->history($request),
@@ -900,7 +901,7 @@ class AdminApiController extends Controller
                 'error'     => 'Unknown action',
                 'available' => [
                     'briefing','followups','performance','conversations',
-                    'property_health','email_context','ai_reply','mark_handled',
+                    'property_health','email_context','ai_reply','improve_text','mark_handled',
                     'send_email','email_history','mark_read','create_portal_access','check_portal_access','toggle_auto_reply','trash_emails','restore_emails','pending_viewings','dismiss_viewing_alert',
                     'download_attachment','save_attachment_to_property','unmatched_emails','assign_email','property_contacts',
                     'save_draft','list_drafts','delete_draft',

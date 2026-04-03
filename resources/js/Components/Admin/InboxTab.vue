@@ -198,6 +198,7 @@ const ehSelectAll = ref(false);
 const ehThreadLoading = ref(null);
 const ehThreadMessages = ref({});
 const ehThreadExpanded = ref(null);
+let ehRequestId = 0;
 
 // Attachment handling (email history)
 const attachAssignOpen = ref(null);
@@ -899,24 +900,23 @@ async function regenerateAiDraft() {
 }
 
 async function improveWithAi() {
-  if (!expandedAiDraft.value?.body) return;
+  if (!expandedAiDraft.value?.body?.trim()) {
+    toast("Bitte zuerst einen Text eingeben.");
+    return;
+  }
   expandedAiLoading.value = true;
   try {
-    const r = await fetch(API.value + "&action=ai_reply", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email_id: selectedItem.value?.id || 0,
-        tone: "professional",
-        type: "improve",
-        detail_level: aiDetailLevel.value,
-        existing_draft: expandedAiDraft.value.body,
-      }),
+    const r = await fetch(API.value + "&action=improve_text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: expandedAiDraft.value.body }),
     });
     const d = await r.json();
-    if (d.reply_text) {
-      expandedAiDraft.value = { ...expandedAiDraft.value, body: d.reply_text };
+    if (d.improved_text) {
+      expandedAiDraft.value = { ...expandedAiDraft.value, body: d.improved_text };
+      toast("Wording verbessert!");
     } else {
-      toast("KI-Verbesserung: Keine Aenderungen vorgeschlagen.");
+      toast("Fehler: " + (d.error || "Unbekannt"));
     }
   } catch (e) { toast("KI-Fehler: " + e.message); }
   expandedAiLoading.value = false;
@@ -1220,6 +1220,7 @@ async function saveDraft() {
 
 // === EMAIL HISTORY ===
 async function loadEmailHistory() {
+  const thisRequest = ++ehRequestId;
   ehLoading.value = true;
   try {
     let url = API.value + "&action=email_history&per_page=" + ehPerPage.value + "&page=" + ehPage.value;
@@ -1232,12 +1233,16 @@ async function loadEmailHistory() {
     if (ehShowUnmatched.value && !inboxProps.value.length) loadInbox();
     const r = await fetch(url);
     const d = await r.json();
+    if (thisRequest !== ehRequestId) return;
     const newItems = (d.emails || []).map(e => ({ ...e, _assignTo: e._assignTo || "", ref_id: e.property_ref_id || e.matched_ref_id || "" }));
     if (ehPage.value > 1) { ehData.value = [...ehData.value, ...newItems]; } else { ehData.value = newItems; }
     ehTotal.value = d.total || 0;
     ehTotalPages.value = d.total_pages || 0;
-  } catch (e) { toast("Fehler: " + e.message); }
-  ehLoading.value = false;
+  } catch (e) {
+    if (thisRequest !== ehRequestId) return;
+    toast("Fehler: " + e.message);
+  }
+  if (thisRequest === ehRequestId) ehLoading.value = false;
 }
 
 function ehPageChange(p) { ehPage.value = p; loadEmailHistory(); }
@@ -1985,6 +1990,9 @@ onMounted(() => {
             <div class="mt-2">
               <div class="text-[11px] font-medium mb-1">Antwort-Text</div>
               <Textarea v-model="autoReplyText" class="text-[11px] min-h-[60px]" placeholder="Vielen Dank fuer Ihre Anfrage..." />
+              <div v-if="autoReplyEnabled && !autoReplyText" class="text-[10px] text-amber-600 bg-amber-50 rounded px-2 py-1 mt-1">
+                Kein Text hinterlegt — es wird automatisch ein KI-Entwurf als Antwort generiert.
+              </div>
             </div>
             <div class="flex justify-end mt-2">
               <Button size="sm" class="h-7 text-[11px]" :disabled="autoReplySaving" @click="saveAutoReplySettings">Speichern</Button>

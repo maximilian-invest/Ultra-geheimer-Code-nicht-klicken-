@@ -151,10 +151,13 @@ function isPortalActive(unit, key) {
 }
 
 function togglePortal(unit, key) {
-  if (!unit.portal_exports) unit.portal_exports = {};
-  if (typeof unit.portal_exports === "string")
-    unit.portal_exports = JSON.parse(unit.portal_exports);
-  unit.portal_exports[key] = !unit.portal_exports[key];
+  let exports = unit.portal_exports;
+  if (!exports || typeof exports === "string") {
+    exports = exports ? JSON.parse(exports) : {};
+  }
+  exports[key] = !exports[key];
+  // Replace the entire object to trigger Vue reactivity
+  unit.portal_exports = { ...exports };
 }
 
 function activePortals(unit) {

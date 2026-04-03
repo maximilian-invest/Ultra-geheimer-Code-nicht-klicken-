@@ -18,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import InboxConversationList from "./inbox/InboxConversationList.vue";
+import InboxChatView from "./inbox/InboxChatView.vue";
+import InboxAiDraft from "./inbox/InboxAiDraft.vue";
 
 // ============================================================
 // INJECTIONS (merged from PrioritiesTab + CommsTab)
@@ -623,6 +625,7 @@ async function prefetchFollowupDrafts(items) {
 function openDetail(item, mode) {
   selectedItem.value = item;
   sheetMode.value = mode;
+  selectedMode.value = mode;
   detailOpen.value = true;
   expandedDetail.value = null;
   expandedAiDraft.value = null;
@@ -749,6 +752,30 @@ async function regenerateAiDraft() {
           phone: d.phone || item.contact_phone || "",
         };
       }
+    }
+  } catch (e) { toast("KI-Fehler: " + e.message); }
+  expandedAiLoading.value = false;
+}
+
+async function improveWithAi() {
+  if (!expandedAiDraft.value?.body) return;
+  expandedAiLoading.value = true;
+  try {
+    const r = await fetch(API.value + "&action=ai_reply", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email_id: selectedItem.value?.id || 0,
+        tone: "professional",
+        type: "improve",
+        detail_level: aiDetailLevel.value,
+        existing_draft: expandedAiDraft.value.body,
+      }),
+    });
+    const d = await r.json();
+    if (d.reply_text) {
+      expandedAiDraft.value = { ...expandedAiDraft.value, body: d.reply_text };
+    } else {
+      toast("KI-Verbesserung: Keine Aenderungen vorgeschlagen.");
     }
   } catch (e) { toast("KI-Fehler: " + e.message); }
   expandedAiLoading.value = false;
@@ -1644,9 +1671,39 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Right: Chat View (placeholder) -->
-      <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden items-center justify-center">
-        <div class="text-sm text-muted-foreground">Konversation auswaehlen</div>
+<!-- Right: Chat View -->
+      <InboxChatView
+        v-if="selectedItem"
+        :item="selectedItem"
+        :messages="expandedDetail?.thread || expandedDetail?.messages || []"
+        :loading="expandedLoading"
+        :mode="selectedMode"
+        @close="selectedItem = null; detailOpen = false"
+      >
+        <template #ai-draft>
+          <InboxAiDraft
+            v-if="expandedAiDraft || expandedAiLoading"
+            :draft="expandedAiDraft"
+            :loading="expandedAiLoading"
+            :mode="selectedMode"
+            :send-accounts="sendAccounts"
+            :send-account-id="sendAccountId"
+            :show-email-fields="showEmailFields"
+            :stage="selectedItem?._stage || 1"
+            @update:draft="expandedAiDraft = $event"
+            @update:send-account-id="sendAccountId = $event"
+            @update:show-email-fields="showEmailFields = $event"
+            @regenerate="regenerateAiDraft"
+            @improve="improveWithAi"
+            @update:tone="setAiDetailLevel($event)"
+          />
+        </template>
+        <template #bottom-bar>
+          <!-- Task 7 placeholder -->
+        </template>
+      </InboxChatView>
+      <div v-else class="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+        Konversation auswählen
       </div>
     </div>
   </div>

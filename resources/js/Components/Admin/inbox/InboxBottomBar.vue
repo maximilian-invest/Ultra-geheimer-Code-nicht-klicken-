@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from "vue"
 import { Button } from "@/components/ui/button"
-import { Paperclip, CalendarDays, CheckCircle, Send, Loader2 } from "lucide-vue-next"
+import { Paperclip, CalendarDays, CheckCircle, Send, Loader2, Trash2 } from "lucide-vue-next"
 
 const props = defineProps({
   mode:            { type: String, default: "offen" },
@@ -11,7 +11,7 @@ const props = defineProps({
   showCalendar:    { type: Boolean, default: false },
 })
 
-const emit = defineEmits(["send", "markHandled", "toggleAttach", "toggleCalendar"])
+const emit = defineEmits(["send", "markHandled", "toggleAttach", "toggleCalendar", "delete"])
 
 const sendLabel = computed(() => props.mode === "nachfassen" ? "Nachfassen" : "Senden")
 </script>
@@ -48,7 +48,16 @@ const sendLabel = computed(() => props.mode === "nachfassen" ? "Nachfassen" : "S
     <!-- Spacer -->
     <div class="flex-1" />
 
-    <!-- Right: Erledigt + Send -->
+    <!-- Right: Delete + Erledigt + Send -->
+    <Button
+      variant="outline"
+      size="sm"
+      class="h-8 gap-1.5 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
+      @click="emit(delete)"
+    >
+      <Trash2 class="w-3.5 h-3.5" />
+      Löschen
+    </Button>
     <Button
       variant="outline"
       size="sm"

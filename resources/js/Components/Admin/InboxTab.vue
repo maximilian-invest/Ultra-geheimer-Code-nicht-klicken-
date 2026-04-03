@@ -2074,6 +2074,7 @@ onMounted(() => {
             :attachment-count="expandedSelectedFiles?.length || 0"
             :show-calendar="showCalendar"
             @send="sendDraft"
+            @delete="trashEmail(selectedItem?.id)"
             @mark-handled="markHandled(selectedItem?.from_name || selectedItem?.stakeholder, selectedItem?.property_id)"
             @toggle-attach="showAttachPopup = !showAttachPopup"
             @toggle-calendar="showCalendar = !showCalendar"

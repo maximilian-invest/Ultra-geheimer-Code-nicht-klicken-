@@ -2081,7 +2081,7 @@ onMounted(() => {
           />
         </template>
       </InboxChatView>
-      <div v-else class="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+      <div v-else class="flex-1 flex items-center justify-center text-sm text-muted-foreground bg-white">
         Konversation auswählen
       </div>
     </div>

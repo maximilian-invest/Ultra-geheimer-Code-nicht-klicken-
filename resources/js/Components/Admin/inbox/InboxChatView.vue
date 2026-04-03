@@ -89,7 +89,7 @@ function formatDateLabel(raw) {
 </script>
 
 <template>
-  <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
+  <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-white">
     <!-- Header -->
     <div class="flex-shrink-0 border-b border-zinc-100 px-5 py-3">
       <div class="flex items-start justify-between gap-3">

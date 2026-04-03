@@ -76,7 +76,7 @@ function onToneChange(val) {
     </div>
 
     <!-- NO DRAFT / RETRY STATE -->
-    <div v-else-if="!loading && !draft" class="mx-4 mb-4 rounded-2xl shadow-lg overflow-hidden border border-zinc-200 bg-white">
+    <div v-else-if="!loading && !draft" class="mx-4 mb-4 rounded-2xl shadow-lg overflow-hidden border border-zinc-100 bg-white">
       <div class="flex flex-col items-center justify-center gap-2 py-5">
         <span class="text-xs text-muted-foreground">Kein KI-Entwurf verfuegbar</span>
         <Button variant="outline" size="sm" class="h-7 text-xs gap-1.5" @click="emit('regenerate')">

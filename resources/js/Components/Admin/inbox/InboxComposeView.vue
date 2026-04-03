@@ -84,7 +84,7 @@ const headerTitle = computed(() => isReply.value ? "Antworten" : "Neue Nachricht
 <template>
   <div class="flex flex-col h-full bg-background">
     <!-- Header -->
-    <div class="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-100 flex-shrink-0">
       <span class="text-[14px] font-semibold text-foreground">{{ headerTitle }}</span>
       <Button variant="ghost" size="icon" class="h-7 w-7" @click="emit('close')">
         <X class="h-4 w-4" />
@@ -94,7 +94,7 @@ const headerTitle = computed(() => isReply.value ? "Antworten" : "Neue Nachricht
     <!-- Reply Context Banner -->
     <div
       v-if="replyContext"
-      class="px-4 py-2 bg-muted/50 border-b border-border text-[11px] text-muted-foreground"
+      class="px-4 py-2 bg-muted/50 border-b border-zinc-100 text-[11px] text-muted-foreground"
     >
       <span class="font-medium">Antwort an:</span>
       {{ replyContext.stakeholder }}
@@ -141,7 +141,7 @@ const headerTitle = computed(() => isReply.value ? "Antworten" : "Neue Nachricht
           <!-- Contact autocomplete dropdown -->
           <div
             v-if="showContactSearch && (contactSearchResults.length || contactSearchLoading)"
-            class="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-[200px] overflow-y-auto"
+            class="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-zinc-100 rounded-md shadow-lg max-h-[200px] overflow-y-auto"
           >
             <div v-if="contactSearchLoading" class="px-3 py-2 text-[11px] text-muted-foreground flex items-center gap-2">
               <Loader2 class="h-3 w-3 animate-spin" /> Suche...
@@ -271,7 +271,7 @@ const headerTitle = computed(() => isReply.value ? "Antworten" : "Neue Nachricht
           </Button>
           <div
             v-if="showTemplateMenu && templates.length"
-            class="absolute z-50 top-full right-0 mt-1 bg-popover border border-border rounded-md shadow-lg min-w-[200px] max-h-[250px] overflow-y-auto"
+            class="absolute z-50 top-full right-0 mt-1 bg-popover border border-zinc-100 rounded-md shadow-lg min-w-[200px] max-h-[250px] overflow-y-auto"
           >
             <div
               v-for="tpl in templates"
@@ -317,7 +317,7 @@ const headerTitle = computed(() => isReply.value ? "Antworten" : "Neue Nachricht
     </div>
 
     <!-- Bottom Bar -->
-    <div class="flex items-center gap-2 px-4 py-3 border-t border-border flex-shrink-0">
+    <div class="flex items-center gap-2 px-4 py-3 border-t border-zinc-100 flex-shrink-0">
       <!-- Attachment button -->
       <Button variant="ghost" size="icon" class="h-8 w-8" @click="onFileClick">
         <Paperclip class="h-4 w-4" />

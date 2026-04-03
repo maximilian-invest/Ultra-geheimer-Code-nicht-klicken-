@@ -1757,7 +1757,7 @@ onMounted(() => {
 <template>
   <div class="flex flex-col h-full" style="min-height:0">
     <!-- Subtab Navigation -->
-    <div class="flex items-center gap-1 px-4 pt-3 pb-0 border-b border-border">
+    <div class="flex items-center gap-1 px-4 pt-3 pb-0 border-b border-zinc-100">
       <button
         v-for="st in [
           { key: 'offen', label: 'Offen', count: unansweredCount, color: 'bg-red-50 text-red-600' },
@@ -1789,7 +1789,7 @@ onMounted(() => {
           <ChevronDown class="w-3 h-3 ml-auto transition-transform" :class="autoReplyBannerOpen ? 'rotate-180' : ''" />
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div class="mt-1 rounded-lg border border-gray-200 p-2 space-y-1 max-h-36 overflow-y-auto" style="background:rgba(16,185,129,0.03)">
+          <div class="mt-1 rounded-lg border border-zinc-100 p-2 space-y-1 max-h-36 overflow-y-auto" style="background:rgba(16,185,129,0.03)">
             <div v-for="log in autoReplyLogs" :key="log.id" class="flex items-center gap-2 text-xs text-muted-foreground">
               <Send class="w-3 h-3 text-emerald-500 flex-shrink-0" />
               <span class="font-medium text-foreground">{{ log.to_name || log.to_email }}</span>
@@ -1800,7 +1800,7 @@ onMounted(() => {
         </CollapsibleContent>
       </Collapsible>
       <!-- Broker Filter (Assistenz only) -->
-      <select v-if="isAssistenz && brokerList.length" v-model="maklerFilter" class="h-7 rounded-md border border-border bg-background px-2 text-xs">
+      <select v-if="isAssistenz && brokerList.length" v-model="maklerFilter" class="h-7 rounded-md border border-zinc-100 bg-background px-2 text-xs">
         <option value="all">Alle Makler</option>
         <option v-for="b in brokerList" :key="b.id" :value="b.id">{{ b.name }}</option>
       </select>
@@ -1809,7 +1809,7 @@ onMounted(() => {
     <!-- Content Area: Split Panel -->
     <div class="flex flex-1 min-h-0 overflow-hidden">
       <!-- Left: Conversation List -->
-      <div class="w-[400px] flex-shrink-0 border-r border-border/50 flex flex-col h-full overflow-hidden bg-[#fafafa]">
+      <div class="w-[400px] flex-shrink-0 border-r border-zinc-100 flex flex-col h-full overflow-hidden bg-[#fafafa]">
         <!-- Offen -->
         <InboxConversationList
           v-if="activeSubtab === 'offen'"
@@ -1898,7 +1898,7 @@ onMounted(() => {
         <!-- Templates -->
         <div v-else-if="activeSubtab === 'templates'" class="flex flex-col h-full overflow-hidden">
           <!-- Toolbar -->
-          <div class="flex items-center gap-1.5 px-3 py-2 border-b border-border flex-shrink-0">
+          <div class="flex items-center gap-1.5 px-3 py-2 border-b border-zinc-100 flex-shrink-0">
             <div class="relative flex-1 min-w-0">
               <Search class="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               <Input
@@ -1920,7 +1920,7 @@ onMounted(() => {
             <div v-else-if="!filteredTemplates.length" class="flex items-center justify-center py-12">
               <span class="text-[12px] text-muted-foreground">Keine Templates</span>
             </div>
-            <div v-else class="divide-y divide-border">
+            <div v-else class="divide-y divide-zinc-100">
               <div
                 v-for="tpl in filteredTemplates"
                 :key="tpl.id"

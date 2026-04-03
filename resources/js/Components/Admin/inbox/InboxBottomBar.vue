@@ -17,7 +17,7 @@ const sendLabel = computed(() => props.mode === "nachfassen" ? "Nachfassen" : "S
 </script>
 
 <template>
-  <div class="flex-shrink-0 border-t border-border/50 bg-background px-4 py-2.5 flex items-center gap-2">
+  <div class="flex-shrink-0 border-t border-zinc-100 bg-background px-4 py-2.5 flex items-center gap-2">
     <!-- Left: Anhang + Calendar -->
     <Button
       variant="outline"

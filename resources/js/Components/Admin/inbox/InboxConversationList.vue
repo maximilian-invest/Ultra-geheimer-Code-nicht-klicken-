@@ -26,7 +26,7 @@ const isGrouped = computed(() => props.groupedSections && props.groupedSections.
 <template>
   <div class="flex flex-col h-full overflow-hidden">
     <!-- Toolbar -->
-    <div class="flex items-center gap-1.5 px-3 py-2 border-b border-border/50 flex-shrink-0">
+    <div class="flex items-center gap-1.5 px-3 py-2 border-b border-zinc-100 flex-shrink-0">
       <!-- Search -->
       <div class="relative flex-1 min-w-0">
         <Search class="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -86,7 +86,7 @@ const isGrouped = computed(() => props.groupedSections && props.groupedSections.
       </div>
 
       <!-- Flat List -->
-      <div v-else-if="!isGrouped" class="divide-y divide-border/40">
+      <div v-else-if="!isGrouped" class="divide-y divide-zinc-100">
         <InboxConversationItem
           v-for="item in items"
           :key="item.id"
@@ -104,7 +104,7 @@ const isGrouped = computed(() => props.groupedSections && props.groupedSections.
             v-if="section.items && section.items.length"
           >
             <!-- Section Header -->
-            <div class="sticky top-0 z-10 px-3 py-1.5 bg-muted/50 backdrop-blur-sm border-b border-border/50">
+            <div class="sticky top-0 z-10 px-3 py-1.5 bg-muted/50 backdrop-blur-sm border-b border-zinc-100">
               <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {{ section.label }}
                 <span class="ml-1 font-normal">({{ section.items.length }})</span>
@@ -112,7 +112,7 @@ const isGrouped = computed(() => props.groupedSections && props.groupedSections.
             </div>
 
             <!-- Section Items -->
-            <div class="divide-y divide-border/40">
+            <div class="divide-y divide-zinc-100">
               <InboxConversationItem
                 v-for="item in section.items"
                 :key="item.id"
@@ -133,6 +133,13 @@ const isGrouped = computed(() => props.groupedSections && props.groupedSections.
           <span class="text-[12px] text-muted-foreground">{{ emptyMessage }}</span>
         </div>
       </div>
+    </div>
+    <!-- Neue Nachricht Button -->
+    <div class="p-3 border-t border-zinc-100 flex-shrink-0">
+      <button @click="emit('compose')" class="w-full h-9 flex items-center justify-center gap-2 text-[12px] font-medium text-zinc-600 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
+        <Plus class="w-3.5 h-3.5" />
+        Neue Nachricht
+      </button>
     </div>
   </div>
 </template>

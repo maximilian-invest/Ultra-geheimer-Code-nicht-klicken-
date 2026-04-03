@@ -71,7 +71,7 @@ const bubbleClasses = computed(() => {
     return 'bg-amber-50 border border-amber-100 text-zinc-800 rounded-xl rounded-bl-sm'
   }
   if (isOutbound.value) {
-    return 'bg-zinc-100 border border-zinc-200 text-zinc-800 rounded-xl rounded-br-sm'
+    return 'bg-zinc-100 border border-zinc-100 text-zinc-800 rounded-xl rounded-br-sm'
   }
   /* Inbound */
   return 'bg-blue-50 border border-blue-100 text-zinc-800 rounded-xl rounded-bl-sm'

@@ -91,7 +91,7 @@ function formatDateLabel(raw) {
 <template>
   <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
     <!-- Header -->
-    <div class="flex-shrink-0 border-b border-border/50 px-5 py-3">
+    <div class="flex-shrink-0 border-b border-zinc-100 px-5 py-3">
       <div class="flex items-start justify-between gap-3">
         <!-- Subject + badges -->
         <div class="min-w-0 flex-1">
@@ -148,9 +148,9 @@ function formatDateLabel(raw) {
         <div v-for="(group, gi) in groupedMessages" :key="gi">
           <!-- Date divider -->
           <div class="flex items-center gap-3 my-4" v-if="group.label">
-            <div class="flex-1 h-px bg-border" />
+            <div class="flex-1 h-px bg-zinc-100" />
             <span class="text-[11px] text-muted-foreground font-medium whitespace-nowrap">{{ group.label }}</span>
-            <div class="flex-1 h-px bg-border" />
+            <div class="flex-1 h-px bg-zinc-100" />
           </div>
 
           <!-- Messages -->

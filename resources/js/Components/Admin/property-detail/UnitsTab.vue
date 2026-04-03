@@ -278,15 +278,10 @@ async function syncPortalFlags(unit) {
   }
 
   if (!immojiId) {
-    // Unit not yet on immoji — full push first, then set flags
-    await syncUnitToImmoji();
-    // After push, reload to get immoji_id and retry
-    await loadUnits();
-    const freshUnit = units.value.find(u => u.id === unit.id);
-    if (freshUnit?.immoji_id) {
-      immojiId = freshUnit.immoji_id;
-    }
-    if (!immojiId) return; // still no ID, give up
+    // Unit not on immoji yet — cannot set portal flags without immoji_id
+    // User needs to enable immoji first
+    toast("Bitte zuerst immoji aktivieren");
+    return;
   }
 
   try {

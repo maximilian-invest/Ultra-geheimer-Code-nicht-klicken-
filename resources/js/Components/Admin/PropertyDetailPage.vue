@@ -36,7 +36,8 @@ const API = inject("API");
 const toast = inject("toast");
 const switchTabFn = inject("switchTab", null);
 
-const activeTab = ref("uebersicht");
+const activeTab = ref(localStorage.getItem("sr-property-tab") || "uebersicht");
+watch(activeTab, (v) => localStorage.setItem("sr-property-tab", v));
 
 const isNewbuild = computed(() => props.property?.property_category === 'newbuild');
 

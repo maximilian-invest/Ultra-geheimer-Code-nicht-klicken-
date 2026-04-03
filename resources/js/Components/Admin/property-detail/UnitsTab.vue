@@ -258,6 +258,14 @@ async function inlineTogglePortal(unit, portalKey) {
     exports = exports ? JSON.parse(exports) : {};
   }
   exports[portalKey] = !exports[portalKey];
+
+  // If immoji is unchecked, uncheck all other portals too
+  if (portalKey === "immoji" && !exports[portalKey]) {
+    for (const p of portalOptions) {
+      if (p.key !== "immoji") exports[p.key] = false;
+    }
+  }
+
   unit.portal_exports = { ...exports };
 
   // Save immediately

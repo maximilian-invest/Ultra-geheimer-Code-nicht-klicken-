@@ -142,6 +142,14 @@ class EmailService
                 Activity::create($activityData);
             }
 
+            // Mark inbound emails from same stakeholder+property as replied
+            if ($stakeholder && $propertyId) {
+                \DB::update("UPDATE portal_emails SET has_reply = 1 WHERE direction = 'inbound' AND has_reply = 0 AND LOWER(TRIM(COALESCE(stakeholder, from_name, ''))) = ? AND COALESCE(property_id, 0) = ?", [
+                    strtolower(trim($stakeholder)),
+                    (int) $propertyId
+                ]);
+            }
+
             return ['success' => true, 'email_id' => $portalEmail->id, 'activity_id' => $activity->id ?? null];
         } catch (\Exception $e) {
             Log::error('Email send failed: ' . $e->getMessage());

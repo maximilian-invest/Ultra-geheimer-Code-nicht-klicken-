@@ -648,6 +648,7 @@ class AdminApiController extends Controller
             'mark_handled'              => app(EmailController::class)->markHandled($request),
             'send_email'                => app(EmailController::class)->send($request),
             'email_history'             => app(EmailController::class)->history($request),
+            'mark_read'                 => app(EmailController::class)->markRead($request),
             'trash_emails'              => app(EmailController::class)->trash($request),
             'restore_emails'            => app(EmailController::class)->restore($request),
             'download_attachment'       => app(EmailController::class)->downloadAttachment($request),
@@ -900,7 +901,7 @@ class AdminApiController extends Controller
                 'available' => [
                     'briefing','followups','performance','conversations',
                     'property_health','email_context','ai_reply','mark_handled',
-                    'send_email','email_history','create_portal_access','check_portal_access','toggle_auto_reply','trash_emails','restore_emails','pending_viewings','dismiss_viewing_alert',
+                    'send_email','email_history','mark_read','create_portal_access','check_portal_access','toggle_auto_reply','trash_emails','restore_emails','pending_viewings','dismiss_viewing_alert',
                     'download_attachment','save_attachment_to_property','unmatched_emails','assign_email','property_contacts',
                     'save_draft','list_drafts','delete_draft',
                     'contacts','contact_search','contact_update','contact_delete','contact_add_alias',

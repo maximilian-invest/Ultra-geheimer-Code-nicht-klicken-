@@ -859,7 +859,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 pe.subject, pe.body_text, pe.body_html, pe.email_date,
                 pe.category, pe.stakeholder, pe.ai_summary, pe.has_attachment,
                 pe.attachment_names, pe.property_id, pe.matched_ref_id,
-                pe.is_deleted, pe.deleted_at,
+                pe.is_deleted, pe.is_read, pe.has_reply, pe.deleted_at,
                 p.address as property_address, p.ref_id as property_ref_id, p.city as property_city,
                 conv.thread_count
             FROM portal_emails pe
@@ -907,6 +907,23 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 'categories'   => $categories,
             ],
         ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Mark emails as read.
+     */
+    public function markRead(Request $request): JsonResponse
+    {
+        $id = $request->json('id');
+        $ids = $request->json('ids', []);
+        if ($id) $ids[] = $id;
+        $ids = array_filter(array_map('intval', $ids));
+        if (empty($ids)) {
+            return response()->json(['error' => 'id or ids required'], 400);
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        DB::update("UPDATE portal_emails SET is_read = 1 WHERE id IN ({$placeholders}) AND is_read = 0", $ids);
+        return response()->json(['success' => true, 'marked' => count($ids)]);
     }
 
     /**

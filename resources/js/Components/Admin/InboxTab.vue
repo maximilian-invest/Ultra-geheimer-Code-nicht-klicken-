@@ -646,6 +646,16 @@ function openDetail(item, mode) {
   selectedMode.value = mode;
   composing.value = false;
   detailOpen.value = true;
+
+  // Mark as read if unread
+  if (!item.is_read && item.id) {
+    fetch(API.value + "&action=mark_read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: item.id }),
+    }).catch(() => {});
+    item.is_read = 1;
+  }
   expandedDetail.value = null;
   expandedAiDraft.value = null;
   expandedFiles.value = [];

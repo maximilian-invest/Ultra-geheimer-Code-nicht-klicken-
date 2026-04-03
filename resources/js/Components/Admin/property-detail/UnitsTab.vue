@@ -237,7 +237,8 @@ async function syncUnitToImmoji() {
     const d = await r.json();
     if (d.success) {
       toast("Einheiten synchronisiert");
-      loadUnits();
+      // Reload and WAIT for completion so unit objects have fresh immoji_ids
+      await loadUnits();
     } else {
       toast("Sync-Fehler: " + (d.message || "Unbekannt"));
     }
@@ -250,7 +251,6 @@ async function syncUnitToImmoji() {
 // Sync only portal flags (willhaben, immowelt etc.) without re-pushing the unit
 async function syncPortalFlags(unit) {
   const exports = typeof unit.portal_exports === "string" ? JSON.parse(unit.portal_exports) : (unit.portal_exports || {});
-  // Map our keys to immoji portal field names
   const portalMap = {
     willhaben: "willhabenExportEnabled",
     immowelt: "immoweltExportEnabled",
@@ -262,13 +262,33 @@ async function syncPortalFlags(unit) {
   for (const [key, immojiKey] of Object.entries(portalMap)) {
     if (key in exports) flags[immojiKey] = !!exports[key];
   }
-  // We need the unit's immoji_id — get it from the unit object or reload
-  const immojiId = unit.immoji_id;
-  if (!immojiId) {
-    // Unit not yet on immoji, need full push first
-    await syncUnitToImmoji();
-    return;
+
+  // Get fresh immoji_id from DB (don't trust stale frontend object)
+  let immojiId = unit.immoji_id;
+  if (!immojiId && unit.id) {
+    try {
+      const r = await fetch(API.value + "&action=get_units&property_id=" + props.property.id);
+      const d = await r.json();
+      const freshUnit = (d.units || []).find(u => u.id === unit.id);
+      if (freshUnit?.immoji_id) {
+        immojiId = freshUnit.immoji_id;
+        unit.immoji_id = immojiId; // update local ref
+      }
+    } catch (e) { /* ignore */ }
   }
+
+  if (!immojiId) {
+    // Unit not yet on immoji — full push first, then set flags
+    await syncUnitToImmoji();
+    // After push, reload to get immoji_id and retry
+    await loadUnits();
+    const freshUnit = units.value.find(u => u.id === unit.id);
+    if (freshUnit?.immoji_id) {
+      immojiId = freshUnit.immoji_id;
+    }
+    if (!immojiId) return; // still no ID, give up
+  }
+
   try {
     const r = await fetch(API.value + "&action=immoji_set_unit_portals&immoji_id=" + immojiId, {
       method: "POST",

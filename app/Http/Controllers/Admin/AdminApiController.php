@@ -365,27 +365,22 @@ class AdminApiController extends Controller
                     $token = \App\Services\ImmojiUploadService::signIn($email, $password);
                     $service = new \App\Services\ImmojiUploadService($token);
 
-                    // Ensure master has openimmo_id
                     $propArr = (array) $property;
-                    if (empty($propArr['openimmo_id'])) {
-                        $masterResult = $service->pushProperty($propArr);
-                        if (!empty($masterResult['immoji_id'])) {
-                            \DB::table('properties')->where('id', $propertyId)->update(['openimmo_id' => $masterResult['immoji_id']]);
-                        }
-                    }
 
-                    // Push the single unit
+                    // Push the single unit (pushUnit handles create vs update based on unit.immoji_id)
                     $unitArr = (array) $unit;
                     $result = $service->pushUnit($propArr, $unitArr);
 
-                    // Save immoji_id back
+                    // Save immoji_id back (for both created and updated)
                     if (!empty($result['immoji_id'])) {
                         \DB::table('property_units')->where('id', $unitId)->update(['immoji_id' => $result['immoji_id']]);
                     }
 
-                    // Set portal flags
-                    $exports = json_decode($unit->portal_exports ?? '{}', true);
-                    if (!empty($result['immoji_id']) && !empty($exports)) {
+                    // Set portal flags — handle double-encoded JSON
+                    $exportsRaw = $unit->portal_exports ?? '{}';
+                    $exports = json_decode($exportsRaw, true);
+                    if (is_string($exports)) $exports = json_decode($exports, true); // double-encoded
+                    if (!empty($result['immoji_id']) && is_array($exports)) {
                         $portalMap = \App\Services\ImmojiUploadService::portalFieldMap();
                         $portalFlags = [];
                         foreach ($exports as $key => $enabled) {

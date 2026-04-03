@@ -574,7 +574,7 @@ class PropertySettingsController extends Controller
             'garden_m2'          => isset($data['garden_m2']) ? floatval($data['garden_m2']) : null,
             'parking'            => trim($data['parking'] ?? '') ?: null,
             'notes'              => trim($data['notes'] ?? '') ?: null,
-            'portal_exports'     => isset($data['portal_exports']) ? json_encode($data['portal_exports']) : null,
+            'portal_exports'     => isset($data['portal_exports']) ? (is_string($data['portal_exports']) ? $data['portal_exports'] : json_encode($data['portal_exports'])) : null,
             'immoji_id'          => trim($data['immoji_id'] ?? '') ?: null,
             'assigned_parking'   => isset($data['assigned_parking']) ? $data['assigned_parking'] : null,
             'images'             => isset($data['images']) ? json_encode($data['images']) : null,

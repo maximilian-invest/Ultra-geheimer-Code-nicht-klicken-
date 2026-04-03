@@ -72,14 +72,12 @@ class ImmojiUploadService
                 $this->updateRealty($immojiId, $property);
                 return ['action' => 'updated', 'immoji_id' => $immojiId];
             } catch (\RuntimeException $e) {
-                // If entity was deleted on immoji, clear the stale ID and log — do NOT auto-create
                 if (str_contains($e->getMessage(), 'Entity not found for ID')) {
-                    Log::warning("Immoji entity {$immojiId} was deleted on immoji. Clearing stale ID. Re-sync from Portale tab to re-create.");
-                    // Clear the stale openimmo_id
-                    \DB::table('properties')->where('openimmo_id', $immojiId)->update(['openimmo_id' => null]);
-                    return ['action' => 'stale_cleared', 'immoji_id' => null, 'message' => 'Objekt wurde auf immoji geloescht. Bitte im Portale-Tab neu synchronisieren.'];
+                    Log::warning("Immoji entity {$immojiId} was deleted. Re-creating.");
+                    // Fall through to createRealty below
+                } else {
+                    throw $e;
                 }
-                throw $e;
             }
         }
 
@@ -115,11 +113,11 @@ class ImmojiUploadService
                 return ['action' => 'updated', 'immoji_id' => $immojiId];
             } catch (\RuntimeException $e) {
                 if (str_contains($e->getMessage(), 'Entity not found for ID')) {
-                    Log::warning("Immoji unit entity {$immojiId} was deleted on immoji. Clearing stale ID.");
-                    \DB::table('property_units')->where('immoji_id', $immojiId)->update(['immoji_id' => null]);
-                    return ['action' => 'stale_cleared', 'immoji_id' => null];
+                    Log::warning("Immoji unit entity {$immojiId} was deleted. Re-creating.");
+                    // Fall through to createRealty below
+                } else {
+                    throw $e;
                 }
-                throw $e;
             }
         }
 

@@ -1882,7 +1882,7 @@ onMounted(() => {
           @select="(item) => openDetail(item, 'offen')"
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
-          @compose="startCompose()"
+          @compose="startCompose()" @delete="trashEmail($event.id)"
         />
 
         <!-- Nachfassen -->
@@ -1900,7 +1900,7 @@ onMounted(() => {
           @select="(item) => openDetail(item, 'nachfassen')"
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
-          @compose="startCompose()"
+          @compose="startCompose()" @delete="trashEmail($event.id)"
         />
 
         <!-- Posteingang -->
@@ -1917,7 +1917,7 @@ onMounted(() => {
           @select="(item) => openDetail(item, 'posteingang')"
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
-          @compose="startCompose()"
+          @compose="startCompose()" @delete="trashEmail($event.id)"
         />
 
         <!-- Gesendet -->
@@ -1934,7 +1934,7 @@ onMounted(() => {
           @select="(item) => openDetail(item, 'gesendet')"
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
-          @compose="startCompose()"
+          @compose="startCompose()" @delete="trashEmail($event.id)"
         />
 
         <!-- Entwuerfe -->
@@ -1950,7 +1950,7 @@ onMounted(() => {
           empty-message="Keine Entwuerfe"
           @select="(item) => loadDraftIntoCompose(item)"
           @update:search-query="searchQuery = $event"
-          @compose="startCompose()"
+          @compose="startCompose()" @delete="trashEmail($event.id)"
         />
 
         <!-- Templates -->

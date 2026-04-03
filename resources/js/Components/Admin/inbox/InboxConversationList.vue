@@ -18,7 +18,7 @@ const props = defineProps({
   groupedSections: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["select", "update:searchQuery", "update:objectFilter", "compose"]);
+const emit = defineEmits(["select", "update:searchQuery", "update:objectFilter", "compose", "delete"]);
 
 const isGrouped = computed(() => props.groupedSections && props.groupedSections.length > 0);
 </script>

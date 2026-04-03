@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle } from "lucide-vue-next";
+import { CheckCircle, Trash2 } from "lucide-vue-next";
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -10,7 +10,7 @@ const props = defineProps({
   subtab: { type: String, default: "offen" },
 });
 
-const emit = defineEmits(["click"]);
+const emit = defineEmits(["click", "delete"]);
 
 function getInitials(name) {
   if (!name) return "??";
@@ -82,7 +82,7 @@ function getAvatarColor(name) {
 <template>
   <div
     @click="emit('click', item)"
-    class="flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors hover:bg-accent/50"
+    class="group flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors hover:bg-accent/50 relative"
     :class="active
       ? 'bg-background border-l-2 border-l-foreground'
       : 'border-l-2 border-l-transparent'"
@@ -103,7 +103,16 @@ function getAvatarColor(name) {
           <span class="text-[13px] text-foreground truncate" :class="!item.is_read ? 'font-bold' : 'font-semibold'">{{ displayName }}</span>
           <CheckCircle v-if="item.has_reply && item.direction === 'inbound'" class="w-3 h-3 text-green-500 flex-shrink-0" title="Beantwortet" />
         </div>
-        <span class="text-[10px] text-muted-foreground whitespace-nowrap flex-shrink-0">{{ timestamp }}</span>
+        <div class="flex items-center gap-1 flex-shrink-0">
+          <button
+            @click.stop="emit(delete, item)"
+            class="hidden group-hover:flex items-center justify-center w-5 h-5 rounded hover:bg-red-100 text-zinc-400 hover:text-red-500 transition-colors"
+            title="Löschen"
+          >
+            <Trash2 class="w-3 h-3" />
+          </button>
+          <span class="text-[10px] text-muted-foreground whitespace-nowrap">{{ timestamp }}</span>
+        </div>
         </div>
 
       <!-- Row 2: Subject -->

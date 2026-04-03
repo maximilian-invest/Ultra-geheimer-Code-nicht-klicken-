@@ -104,14 +104,16 @@ function getAvatarColor(name) {
     <!-- Content -->
     <div class="flex-1 min-w-0">
       <!-- Row 1: Name + Time -->
-      <div class="flex items-baseline justify-between gap-2">
-        <template v-if="isEmailSubtab">
-          <Reply v-if="isInbound" class="w-3 h-3 text-blue-400 flex-shrink-0" />
-          <ArrowUpRight v-else class="w-3 h-3 text-green-500 flex-shrink-0" />
-        </template>
-        <span class="text-[13px] font-semibold text-foreground truncate">{{ displayName }}</span>
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1 min-w-0">
+          <template v-if="isEmailSubtab">
+            <ArrowUpRight v-if="!isInbound" class="w-3 h-3 text-green-500 flex-shrink-0" title="Gesendet" />
+            <ArrowUpRight v-else-if="item.has_reply || item.replied" class="w-3 h-3 text-blue-400 flex-shrink-0 -scale-x-100" title="Beantwortet" />
+          </template>
+          <span class="text-[13px] font-semibold text-foreground truncate">{{ displayName }}</span>
+        </div>
         <span class="text-[10px] text-muted-foreground whitespace-nowrap flex-shrink-0">{{ timestamp }}</span>
-      </div>
+        </div>
 
       <!-- Row 2: Subject -->
       <div class="text-[11px] text-muted-foreground truncate mt-0.5">{{ subject }}</div>

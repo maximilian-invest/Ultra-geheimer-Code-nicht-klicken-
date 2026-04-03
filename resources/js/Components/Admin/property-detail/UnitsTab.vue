@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, inject, onMounted } from "vue";
-import { Plus, Save, Search, ChevronDown, ChevronRight } from "lucide-vue-next";
+import { Plus, Save, Search, ChevronDown, ChevronRight, Upload, Loader2 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,6 +22,7 @@ const toast = inject("toast");
 const units = ref([]);
 const unitsLoading = ref(false);
 const unitSaving = ref({});
+const unitSyncing = ref({});
 const unitSearch = ref("");
 const expandedUnit = ref(null);
 const openGroups = ref({});
@@ -236,11 +237,60 @@ async function syncUnitToImmoji() {
     const d = await r.json();
     if (d.success) {
       toast("Immoji synchronisiert");
-      loadUnits(); // Reload to get updated immoji_ids
+      loadUnits();
     }
   } catch (e) {
     console.error("Immoji sync error:", e);
   }
+}
+
+// Quick export: enable immoji, save, sync — one click
+async function quickExport(unit, event) {
+  event.stopPropagation(); // don't toggle expand
+  const key = unitKey(unit);
+  unitSyncing.value[key] = true;
+
+  // 1. Enable immoji
+  let exports = unit.portal_exports;
+  if (!exports || typeof exports === "string") {
+    exports = exports ? JSON.parse(exports) : {};
+  }
+  exports.immoji = true;
+  unit.portal_exports = { ...exports };
+
+  // 2. Save unit
+  try {
+    const payload = {
+      property_id: props.property.id,
+      unit_id: unit.id || null,
+      unit_number: unit.unit_number,
+      unit_type: unit.unit_type,
+      floor: unit.floor,
+      area_m2: unit.area_m2,
+      rooms_amount: unit.rooms || unit.rooms_amount,
+      purchase_price: unit.price || unit.purchase_price,
+      status: unit.status || "frei",
+      portal_exports: unit.portal_exports,
+      is_parking: 0,
+    };
+    const r = await fetch(API.value + "&action=save_property_unit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (d.success) {
+      if (d.unit?.id) unit.id = d.unit.id;
+      // 3. Sync to immoji
+      await syncUnitToImmoji();
+      toast("Einheit auf immoji exportiert");
+    } else {
+      toast("Fehler: " + (d.error || "Unbekannt"));
+    }
+  } catch (e) {
+    toast("Fehler: " + e.message);
+  }
+  unitSyncing.value[key] = false;
 }
 
 async function deleteUnit(unit) {
@@ -418,6 +468,19 @@ onMounted(() => {
                     :title="p.label"
                   >{{ p.short }}</span>
                 </div>
+
+                <!-- Quick export button -->
+                <button
+                  v-if="unit.id && unit.status !== 'verkauft' && !isPortalActive(unit, 'immoji')"
+                  @click="quickExport(unit, $event)"
+                  :disabled="unitSyncing[unitKey(unit)]"
+                  class="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50"
+                  title="Auf immoji exportieren"
+                >
+                  <Loader2 v-if="unitSyncing[unitKey(unit)]" class="w-3 h-3 animate-spin" />
+                  <Upload v-else class="w-3 h-3" />
+                  <span class="hidden lg:inline">Export</span>
+                </button>
 
                 <ChevronRight v-if="!isExpanded(unit)" class="w-3.5 h-3.5 text-zinc-500" />
                 <ChevronDown  v-else                   class="w-3.5 h-3.5 text-zinc-800" />

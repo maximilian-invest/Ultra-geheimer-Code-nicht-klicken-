@@ -763,37 +763,10 @@ class PropertySettingsController extends Controller
 
             $property = DB::table('properties')->where('id', $propId)->first();
 
-            // Auto-sync to Immoji in background (non-blocking)
-            $immojiWillSync = false;
-            if ($property && !empty($property->openimmo_id)) {
-                $settings = DB::table('admin_settings')->where('user_id', \Illuminate\Support\Facades\Auth::id())->first();
-                $encEmail = $settings->immoji_email ?? null;
-                $encPassword = $settings->immoji_password ?? null;
-                if ($encEmail && $encPassword) {
-                    $immojiWillSync = true;
-                    $immojiPropId = $propId;
-                    $immojiOpenId = $property->openimmo_id;
-                    $immojiEncE = $encEmail;
-                    $immojiEncP = $encPassword;
+            // Immoji auto-sync is handled by the frontend (EditTab.vue sends immoji_push after save)
+            // No backend auto-sync needed — removed to prevent duplicate pushes
 
-                    // Run sync after response is sent to browser
-                    app()->terminating(function () use ($immojiPropId, $immojiOpenId, $immojiEncE, $immojiEncP) {
-                        try {
-                            $prop = DB::table('properties')->where('id', $immojiPropId)->first();
-                            $email = \Illuminate\Support\Facades\Crypt::decryptString($immojiEncE);
-                            $password = \Illuminate\Support\Facades\Crypt::decryptString($immojiEncP);
-                            $token = \App\Services\ImmojiUploadService::signIn($email, $password);
-                            $service = new \App\Services\ImmojiUploadService($token);
-                            $service->updateRealty($immojiOpenId, (array) $prop);
-                            Log::info("Immoji auto-sync completed for property $immojiPropId");
-                        } catch (\Exception $e) {
-                            Log::warning("Immoji auto-sync failed for property $immojiPropId: " . $e->getMessage());
-                        }
-                    });
-                }
-            }
-
-            return response()->json(['success' => true, 'property' => $property, 'immoji_synced' => $immojiWillSync]);
+            return response()->json(['success' => true, 'property' => $property]);
         } catch (\Throwable $e) {
             Log::error("saveFullProperty: " . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);

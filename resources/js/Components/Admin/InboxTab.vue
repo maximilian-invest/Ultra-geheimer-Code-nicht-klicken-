@@ -5,7 +5,7 @@ import {
   Mail, Clock, Send, CheckCircle, X, ChevronDown, ChevronUp, CalendarDays,
   Paperclip, Loader2, Search, Sparkles, ArrowUp, ArrowDown,
   PenSquare, History, FileEdit, Trash2, Inbox, LayoutTemplate, Plus, Pencil,
-  ChevronLeft, ChevronRight, Reply, Save, MailQuestion, Settings2
+  ChevronLeft, ChevronRight, Reply, Save, MailQuestion, Settings2, ImageIcon
 } from "lucide-vue-next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -52,6 +52,7 @@ provide("inboxAPI", API);
 provide("inboxToast", toast);
 provide("inboxProperties", properties);
 provide("inboxCalendarUrl", calendarEmbedUrl);
+provide("inboxBgImage", bgImage);
 
 // ============================================================
 // SELECTED CONVERSATION (from Task 1 shell)
@@ -149,6 +150,24 @@ const autoReplyEnabled = ref(false);
 const autoReplyText = ref('');
 const autoReplySaving = ref(false);
 const autoReplyPropertyIds = ref([]);
+
+// Background image
+const bgImage = ref(localStorage.getItem('sr-inbox-bg') || '');
+const showBgPicker = ref(false);
+
+const defaultBgs = [
+  { label: 'Keine', url: '' },
+  { label: 'Berge', url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80' },
+  { label: 'Meer', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80' },
+  { label: 'Stadt', url: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=1920&q=80' },
+  { label: 'Wald', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&q=80' },
+];
+
+function setBg(url) {
+  bgImage.value = url;
+  localStorage.setItem('sr-inbox-bg', url);
+  showBgPicker.value = false;
+}
 
 // Broker filter
 const maklerFilter = ref('all');
@@ -620,13 +639,13 @@ async function saveAutoReplySettings() {
     const r = await fetch(API.value + "&action=toggle_auto_reply", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        enabled: autoReplyEnabled.value,
+        enabled: autoReplyPropertyIds.value.length > 0 ? 1 : 0,
         auto_reply_text: autoReplyText.value || null,
         auto_reply_property_ids: autoReplyPropertyIds.value.join(','),
       }),
     });
     const d = await r.json();
-    if (d.success) toast("Auto-Reply gespeichert!");
+    if (d.success) toast("Auto-Reply Einstellungen gespeichert!");
     else toast("Fehler: " + (d.error || "Unbekannt"));
   } catch (e) { toast("Fehler: " + e.message); }
   autoReplySaving.value = false;
@@ -1911,13 +1930,31 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full" style="min-height:0">
+  <div class="flex flex-col h-full relative" style="min-height:0">
 
+    <!-- Background image -->
+    <div v-if="bgImage" class="absolute inset-0 z-0">
+      <img :src="bgImage" class="w-full h-full object-cover" />
+      <div class="absolute inset-0 bg-white/70 backdrop-blur-sm"></div>
+    </div>
 
-    <!-- Content Area: Split Panel -->
-    <div class="flex flex-1 min-h-0 overflow-hidden">
+    <!-- BG picker button -->
+    <button @click="showBgPicker = !showBgPicker" class="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-white/80 hover:bg-white shadow-sm flex items-center justify-center" title="Hintergrund wählen">
+      <ImageIcon class="w-3 h-3 text-muted-foreground" />
+    </button>
+    <div v-if="showBgPicker" class="absolute top-10 right-2 z-30 bg-white rounded-lg shadow-lg border border-zinc-100 p-2 space-y-1 w-48">
+      <button v-for="bg in defaultBgs" :key="bg.label" @click="setBg(bg.url)"
+        class="w-full text-left px-2 py-1.5 text-[11px] rounded hover:bg-zinc-50 flex items-center gap-2"
+        :class="bgImage === bg.url ? 'bg-orange-50 text-orange-700' : ''"
+      >
+        {{ bg.label }}
+      </button>
+    </div>
+
+    <!-- Content (z-10 above background) -->
+    <div class="relative z-10 flex flex-1 min-h-0 overflow-hidden">
       <!-- Left: Conversation List -->
-      <div class="w-[400px] flex-shrink-0 border-r border-zinc-100 flex flex-col h-full overflow-hidden bg-white">
+      <div class="w-[400px] flex-shrink-0 border-r border-zinc-100 flex flex-col h-full overflow-hidden" :class="bgImage ? 'bg-white/80 backdrop-blur-md' : 'bg-white'">
 
         <!-- Panel Header with Pill Tabs -->
         <div class="px-4 pt-3 pb-2 flex-shrink-0">
@@ -1978,37 +2015,30 @@ onMounted(() => {
         <!-- Auto-Reply Info + Settings -->
         <div v-if="activeSubtab === 'offen'" class="px-4 pb-1 flex items-center gap-2">
           <span v-if="autoReplyLogs.length" class="text-[10px] text-emerald-600">✓ {{ autoReplyLogs.length }} Auto-Replies (24h)</span>
+          <span v-else-if="autoReplyPropertyIds.length" class="text-[10px] text-muted-foreground">Auto-Reply aktiv für {{ autoReplyPropertyIds.length }} {{ autoReplyPropertyIds.length === 1 ? 'Objekt' : 'Objekte' }}</span>
           <div class="flex-1"></div>
           <Button variant="ghost" size="sm" class="h-6 w-6 p-0" @click="showAutoReplySettings = !showAutoReplySettings; if (showAutoReplySettings && !autoReplyText) loadAutoReplySettings()" title="Auto-Reply Einstellungen">
             <Settings2 class="w-3 h-3 text-muted-foreground" />
           </Button>
         </div>
-        <div v-if="showAutoReplySettings && activeSubtab === 'offen'" class="mx-4 mb-2 rounded-lg border border-zinc-100 bg-white p-3 space-y-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-[12px] font-semibold">Auto-Reply aktiviert</div>
-              <div class="text-[10px] text-muted-foreground">Automatische Antwort bei neuen Anfragen</div>
-            </div>
-            <Switch v-model:checked="autoReplyEnabled" />
+        <div v-if="showAutoReplySettings && activeSubtab === 'offen'" class="mx-4 mb-2 rounded-lg border border-zinc-100 bg-white/90 backdrop-blur-sm p-3 space-y-3">
+          <div class="text-[12px] font-semibold">Auto-Reply Einstellungen</div>
+          <div class="text-[10px] text-muted-foreground">Wähle Objekte für automatische Antworten:</div>
+          <div class="space-y-1 max-h-40 overflow-y-auto">
+            <label v-for="p in (properties || [])" :key="p.id" class="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-zinc-50 px-2 py-1.5 rounded">
+              <input type="checkbox" :value="p.id" v-model="autoReplyPropertyIds" class="rounded border-zinc-300" />
+              <span class="flex-1">{{ p.ref_id }} — {{ p.address }}</span>
+            </label>
           </div>
-          <div v-if="autoReplyEnabled" class="space-y-2">
-            <div class="text-[11px] font-medium mb-1.5">Fuer welche Objekte?</div>
-            <div class="space-y-1 max-h-32 overflow-y-auto">
-              <label v-for="p in (properties || [])" :key="p.id" class="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-zinc-50 px-2 py-1 rounded">
-                <input type="checkbox" :value="p.id" v-model="autoReplyPropertyIds" class="rounded border-zinc-300" />
-                {{ p.ref_id }} — {{ p.address }}
-              </label>
-            </div>
-            <div class="mt-2">
-              <div class="text-[11px] font-medium mb-1">Antwort-Text</div>
-              <Textarea v-model="autoReplyText" class="text-[11px] min-h-[60px]" placeholder="Vielen Dank fuer Ihre Anfrage..." />
-              <div v-if="autoReplyEnabled && !autoReplyText" class="text-[10px] text-amber-600 bg-amber-50 rounded px-2 py-1 mt-1">
-                Kein Text hinterlegt — es wird automatisch ein KI-Entwurf als Antwort generiert.
-              </div>
-            </div>
-            <div class="flex justify-end mt-2">
-              <Button size="sm" class="h-7 text-[11px]" :disabled="autoReplySaving" @click="saveAutoReplySettings">Speichern</Button>
-            </div>
+          <div>
+            <div class="text-[11px] font-medium mb-1">Antwort-Text (leer = KI generiert automatisch)</div>
+            <Textarea v-model="autoReplyText" class="text-[11px] min-h-[60px]" placeholder="Vielen Dank für Ihre Anfrage..." />
+          </div>
+          <div v-if="!autoReplyText" class="text-[10px] text-amber-600 bg-amber-50 rounded px-2 py-1">
+            Kein Text hinterlegt — es wird automatisch ein KI-Entwurf als Antwort generiert.
+          </div>
+          <div class="flex justify-end">
+            <Button size="sm" class="h-7 text-[11px]" :disabled="autoReplySaving" @click="saveAutoReplySettings">Speichern</Button>
           </div>
         </div>
         <div v-if="isAssistenz && brokerList.length" class="px-3 pb-1 flex-shrink-0">
@@ -2270,7 +2300,7 @@ onMounted(() => {
           />
         </template>
       </InboxChatView>
-      <div v-else class="flex-1 flex items-center justify-center text-sm text-muted-foreground bg-white">
+      <div v-else class="flex-1 flex items-center justify-center text-sm text-muted-foreground" :class="bgImage ? 'bg-white/80 backdrop-blur-md' : 'bg-white'">
         Konversation auswählen
       </div>
     </div>

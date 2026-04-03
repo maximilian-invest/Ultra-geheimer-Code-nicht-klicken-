@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -14,6 +14,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close'])
+const bgImage = inject("inboxBgImage", ref(""));
 
 // ── Header badges ──
 const contactBadge = computed(() => {
@@ -89,7 +90,7 @@ function formatDateLabel(raw) {
 </script>
 
 <template>
-  <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-white">
+  <div class="flex-1 min-w-0 flex flex-col h-full overflow-hidden" :class="bgImage ? 'bg-white/80 backdrop-blur-md' : 'bg-white'">
     <!-- Header -->
     <div class="flex-shrink-0 border-b border-zinc-100 px-5 py-3">
       <div class="flex items-start justify-between gap-3">
@@ -132,7 +133,7 @@ function formatDateLabel(raw) {
     </div>
 
     <!-- Chat area -->
-    <div class="flex-1 overflow-y-auto bg-white px-5 py-4">
+    <div class="flex-1 overflow-y-auto px-5 py-4" :class="bgImage ? 'bg-white/60' : 'bg-white'">
       <!-- Loading -->
       <div v-if="loading" class="flex items-center justify-center h-full">
         <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />

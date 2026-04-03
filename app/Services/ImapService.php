@@ -1185,19 +1185,24 @@ $system = 'Du analysierst Kaufanbot-Aktivitäten einer Immobilie und erstellst e
      */
     private function autoReplyToErstanfrage($email, $activity, string $stakeholder, $account): void
     {
-        // Check if auto-reply is enabled
+        // Check if auto-reply is configured for any properties
         $settings = \Illuminate\Support\Facades\DB::table('admin_settings')->first();
-        if (!$settings || !$settings->auto_reply_enabled) {
-            Log::info("autoReply: disabled, skipping email {$email->id}");
+        if (!$settings) {
+            Log::info("autoReply: no settings found, skipping");
             return;
         }
 
-        // Check property whitelist (if set, only reply for whitelisted properties)
+        // Auto-reply is active if ANY property IDs are whitelisted
         $allowedIds = [];
         if (!empty($settings->auto_reply_property_ids)) {
             $allowedIds = array_map('intval', array_filter(explode(',', $settings->auto_reply_property_ids)));
         }
-        if (!empty($allowedIds) && !in_array((int)$email->property_id, $allowedIds)) {
+        if (empty($allowedIds)) {
+            Log::info("autoReply: no properties configured, skipping");
+            return;
+        }
+
+        if (!in_array((int)$email->property_id, $allowedIds)) {
             Log::info("autoReply: property {$email->property_id} not in whitelist, skipping");
             \Illuminate\Support\Facades\DB::table('auto_reply_log')->insert([
                 'activity_id' => $activity->id ?? null,

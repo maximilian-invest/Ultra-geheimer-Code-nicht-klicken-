@@ -113,7 +113,7 @@ class ImmojiUploadService
                 return ['action' => 'updated', 'immoji_id' => $immojiId];
             } catch (\RuntimeException $e) {
                 if (str_contains($e->getMessage(), 'Entity not found for ID')) {
-                    Log::warning("Immoji unit entity {$immojiId} was deleted. Re-creating.");
+                    Log::warning("Immoji unit {$immojiId} deleted, re-creating.");
                     // Fall through to createRealty below
                 } else {
                     throw $e;

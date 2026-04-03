@@ -644,6 +644,7 @@ function openDetail(item, mode) {
   selectedItem.value = item;
   sheetMode.value = mode;
   selectedMode.value = mode;
+  composing.value = false;
   detailOpen.value = true;
   expandedDetail.value = null;
   expandedAiDraft.value = null;
@@ -668,6 +669,8 @@ function openDetail(item, mode) {
     expandedAiLoading.value = false;
   } else if (mode === 'nachfassen' && item._prefetchedDraft) {
     expandedAiDraft.value = item._prefetchedDraft;
+    expandedAiLoading.value = false;
+  } else if (mode === "posteingang" || mode === "gesendet") {
     expandedAiLoading.value = false;
   }
 
@@ -1109,7 +1112,7 @@ async function loadEmailHistory() {
     if (ehShowUnmatched.value && !inboxProps.value.length) loadInbox();
     const r = await fetch(url);
     const d = await r.json();
-    ehData.value = (d.emails || []).map(e => ({ ...e, _assignTo: e._assignTo || "" }));
+    ehData.value = (d.emails || []).map(e => ({ ...e, _assignTo: e._assignTo || "", ref_id: e.property_ref_id || e.matched_ref_id || "" }));
     ehTotal.value = d.total || 0;
     ehTotalPages.value = d.total_pages || 0;
   } catch (e) { toast("Fehler: " + e.message); }
@@ -1765,7 +1768,6 @@ onMounted(() => {
 
         <!-- Panel Header with Pill Tabs -->
         <div class="px-4 pt-3 pb-2 flex-shrink-0">
-          <div class="text-[15px] font-bold tracking-tight text-foreground mb-2">Inbox</div>
 
           <!-- Primary Pills: Offen / Nachfassen / Alle -->
           <div class="flex gap-0.5 p-[3px] bg-[#f4f4f5] rounded-lg mb-2">
@@ -1890,7 +1892,7 @@ onMounted(() => {
           :object-filter="objectFilter"
           :properties="properties || []"
           empty-message="Keine E-Mails im Posteingang"
-          @select="(item) => { selectedItem = item; selectedMode = 'posteingang'; composing = false; }"
+          @select="(item) => openDetail(item, 'posteingang')"
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
           @compose="startCompose()"
@@ -1907,7 +1909,7 @@ onMounted(() => {
           :object-filter="objectFilter"
           :properties="properties || []"
           empty-message="Keine gesendeten E-Mails"
-          @select="(item) => { selectedItem = item; selectedMode = 'gesendet'; composing = false; }"
+          @select="(item) => openDetail(item, 'gesendet')"
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
           @compose="startCompose()"

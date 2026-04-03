@@ -45,6 +45,24 @@ const isAssistenz = computed(() => ['assistenz', 'backoffice'].includes(userType
 const activeSubtab = ref(localStorage.getItem("sr-admin-inboxview") || "offen");
 watch(activeSubtab, (v) => localStorage.setItem("sr-admin-inboxview", v));
 
+// Background image
+const bgImage = ref(localStorage.getItem('sr-inbox-bg') || '');
+const showBgPicker = ref(false);
+
+const defaultBgs = [
+  { label: 'Keine', url: '' },
+  { label: 'Berge', url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80' },
+  { label: 'Meer', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80' },
+  { label: 'Stadt', url: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=1920&q=80' },
+  { label: 'Wald', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&q=80' },
+];
+
+function setBg(url) {
+  bgImage.value = url;
+  localStorage.setItem('sr-inbox-bg', url);
+  showBgPicker.value = false;
+}
+
 // ============================================================
 // PROVIDE TO CHILDREN (from Task 1 shell)
 // ============================================================
@@ -150,24 +168,6 @@ const autoReplyEnabled = ref(false);
 const autoReplyText = ref('');
 const autoReplySaving = ref(false);
 const autoReplyPropertyIds = ref([]);
-
-// Background image
-const bgImage = ref(localStorage.getItem('sr-inbox-bg') || '');
-const showBgPicker = ref(false);
-
-const defaultBgs = [
-  { label: 'Keine', url: '' },
-  { label: 'Berge', url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80' },
-  { label: 'Meer', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80' },
-  { label: 'Stadt', url: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=1920&q=80' },
-  { label: 'Wald', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&q=80' },
-];
-
-function setBg(url) {
-  bgImage.value = url;
-  localStorage.setItem('sr-inbox-bg', url);
-  showBgPicker.value = false;
-}
 
 // Broker filter
 const maklerFilter = ref('all');

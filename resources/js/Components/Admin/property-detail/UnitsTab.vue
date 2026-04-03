@@ -161,6 +161,15 @@ function togglePortal(unit, key) {
   unit.portal_exports = { ...exports };
 }
 
+function portalLink(unit, key) {
+  const immojiId = unit.immoji_id;
+  if (!immojiId) return null;
+  // Only immoji has a direct link to the listing
+  if (key === "immoji") return "https://www.immoji.org/dashboard/realty/" + immojiId + "/edit/";
+  // Other portals: link to immoji export page where portal status is visible
+  return "https://www.immoji.org/dashboard/realty/" + immojiId + "/edit/?tab=export";
+}
+
 function activePortals(unit) {
   const exports = unit.portal_exports;
   if (!exports) return [];
@@ -525,20 +534,25 @@ onMounted(() => {
 
                 <!-- Inline portal checkboxes -->
                 <div v-if="unit.id && unit.status !== 'verkauft'" class="flex items-center gap-2" @click.stop>
-                  <label v-for="p in portalOptions" :key="p.key"
-                    class="flex items-center gap-1 cursor-pointer select-none"
-                    :class="p.key !== 'immoji' && !isPortalActive(unit, 'immoji') ? 'opacity-30' : ''"
-                    :title="p.label">
+                  <div v-for="p in portalOptions" :key="p.key"
+                    class="flex items-center gap-1 select-none"
+                    :class="p.key !== 'immoji' && !isPortalActive(unit, 'immoji') ? 'opacity-30' : ''">
                     <input type="checkbox"
                       :checked="isPortalActive(unit, p.key)"
                       @change="inlineTogglePortal(unit, p.key)"
                       :disabled="p.key !== 'immoji' && !isPortalActive(unit, 'immoji')"
                       class="w-3.5 h-3.5 rounded border-zinc-300 accent-orange-500 cursor-pointer disabled:cursor-not-allowed"
                     />
-                    <span class="text-[10px] font-medium"
+                    <a v-if="isPortalActive(unit, p.key) && portalLink(unit, p.key)"
+                      :href="portalLink(unit, p.key)" target="_blank"
+                      class="text-[10px] font-medium text-orange-600 hover:text-orange-700 underline underline-offset-2 decoration-orange-300"
+                      @click.stop
+                    >{{ p.label }}</a>
+                    <span v-else class="text-[10px] font-medium cursor-pointer"
                       :class="isPortalActive(unit, p.key) ? 'text-foreground' : 'text-muted-foreground'"
+                      @click="!isPortalActive(unit, p.key) ? null : undefined"
                     >{{ p.label }}</span>
-                  </label>
+                  </div>
                   <Loader2 v-if="unitSyncing[unitKey(unit)]" class="w-3.5 h-3.5 animate-spin text-orange-500" />
                 </div>
 

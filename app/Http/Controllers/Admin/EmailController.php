@@ -621,6 +621,18 @@ class EmailController extends Controller
             'created_at'    => now(),
         ]);
 
+        // Sync conversation status
+        try {
+            $conv = \App\Models\Conversation::where('stakeholder', 'LIKE', '%' . mb_substr($stakeholder, 0, 30) . '%')
+                ->where('property_id', $propertyId)
+                ->first();
+            if ($conv) {
+                app(\App\Services\ConversationService::class)->markDone($conv);
+            }
+        } catch (\Throwable $e) {
+            \Log::warning("Conversation sync after markHandled failed: " . $e->getMessage());
+        }
+
         return response()->json([
             'success'     => true,
             'message'     => "Konversation mit '{$stakeholder}' als erledigt markiert",
@@ -716,6 +728,30 @@ class EmailController extends Controller
                 $outCategory,
                 $followupStage
             );
+
+            // Sync conversation status
+            try {
+                $toEmailLower = strtolower($toEmail);
+                // Parse "Name <email>" format
+                if (preg_match('/<([^>]+)>/', $toEmailLower, $m)) $toEmailLower = $m[1];
+
+                $conv = \App\Models\Conversation::where('contact_email', $toEmailLower)
+                    ->where('property_id', $propertyId)
+                    ->first();
+                if ($conv) {
+                    $conv->update([
+                        'status' => 'beantwortet',
+                        'last_outbound_at' => now(),
+                        'outbound_count' => $conv->outbound_count + 1,
+                        'draft_body' => null,
+                        'draft_subject' => null,
+                        'draft_to' => null,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                \Log::warning("Conversation sync after send failed: " . $e->getMessage());
+            }
+
             return response()->json($result, 200, [], JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Send failed: ' . $e->getMessage()], 500);

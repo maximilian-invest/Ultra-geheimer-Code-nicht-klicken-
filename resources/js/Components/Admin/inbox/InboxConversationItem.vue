@@ -108,7 +108,7 @@ function getAvatarColor(name) {
         <div class="flex items-center gap-1 min-w-0">
           <template v-if="isEmailSubtab">
             <ArrowUpRight v-if="!isInbound" class="w-3 h-3 text-green-500 flex-shrink-0" title="Gesendet" />
-            <ArrowUpRight v-else-if="item.has_reply || item.replied" class="w-3 h-3 text-blue-400 flex-shrink-0 -scale-x-100" title="Beantwortet" />
+            <Reply v-else class="w-3 h-3 text-blue-400 flex-shrink-0" title="Eingehend" />
           </template>
           <span class="text-[13px] font-semibold text-foreground truncate">{{ displayName }}</span>
         </div>

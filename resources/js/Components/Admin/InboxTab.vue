@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import InboxConversationList from "./inbox/InboxConversationList.vue";
 import InboxChatView from "./inbox/InboxChatView.vue";
 import InboxAiDraft from "./inbox/InboxAiDraft.vue";
+import InboxComposeView from "./inbox/InboxComposeView.vue";
 import InboxBottomBar from "./inbox/InboxBottomBar.vue";
 
 // ============================================================
@@ -56,6 +57,7 @@ provide("inboxCalendarUrl", calendarEmbedUrl);
 // ============================================================
 const selectedItem = ref(null);
 const selectedMode = ref("offen");
+const composing = ref(false);
 
 // ============================================================
 // PRIORITIES STATE (from PrioritiesTab.vue)
@@ -1391,7 +1393,7 @@ async function loadDrafts() {
   draftsLoading.value = false;
 }
 
-function loadDraftIntoComposer(dr) {
+function _oldLoadDraftIntoComposer(dr) {
   activeSubtab.value = "compose";
   currentDraftId.value = dr.id;
   composeTo.value = dr.to_email || "";
@@ -1519,12 +1521,141 @@ async function deleteTemplate(id) {
 }
 
 // ============================================================
+// COMPOSE FUNCTIONS
+// ============================================================
+function startCompose() {
+  composing.value = true;
+  composeTo.value = '';
+  composeCc.value = '';
+  composeBcc.value = '';
+  showCcBcc.value = false;
+  composeSubject.value = '';
+  composeBody.value = buildSignature ? buildSignature() : '';
+  composeAttachments.value = [];
+  composePropertyId.value = null;
+  composeStakeholder.value = '';
+  emailSourceId.value = '';
+  currentDraftId.value = null;
+  replyContext.value = null;
+  selectedItem.value = null;
+}
+
+function closeCompose() {
+  composing.value = false;
+}
+
+function onComposeSend() {
+  sendEmail().then(() => {
+    composing.value = false;
+  });
+}
+
+function onComposeSaveDraft() {
+  saveDraft();
+}
+
+function onComposeAddAttachments(e) {
+  addAttachments(e);
+}
+
+function onComposeRemoveAttachment(idx) {
+  composeAttachments.value.splice(idx, 1);
+}
+
+function loadDraftIntoCompose(dr) {
+  composing.value = true;
+  currentDraftId.value = dr.id;
+  composeTo.value = dr.to_email || "";
+  composeSubject.value = dr.subject || "";
+  composeBody.value = dr.body || "";
+  composePropertyId.value = dr.property_id || null;
+  composeStakeholder.value = dr.stakeholder || "";
+  selectedAccountId.value = dr.account_id || null;
+  composeTone.value = dr.tone || "professional";
+  emailSourceId.value = dr.source_email_id ? String(dr.source_email_id) : "";
+  composeAttachments.value = [];
+  selectedItem.value = null;
+
+  if (dr.source_email_id) {
+    replyContext.value = { stakeholder: dr.stakeholder || '', ref_id: '', address: '', originalSubject: '', originalDate: '', originalFrom: '', originalBody: '', messages: null };
+    replyContextLoading.value = true;
+    fetch(API.value + "&action=email_context&email_id=" + dr.source_email_id).then(r => r.json()).then(d => {
+      replyContext.value.ref_id = (d.email && d.email.ref_id) || '';
+      replyContext.value.address = (d.email ? (d.email.address || '') + (d.email.city ? ', ' + d.email.city : '') : '');
+      if (d.email) {
+        replyContext.value.originalSubject = d.email.subject || '';
+        replyContext.value.originalDate = d.email.email_date || '';
+        replyContext.value.originalFrom = (d.email.from_name || '') + (d.email.from_email ? ' <' + d.email.from_email + '>' : '');
+        replyContext.value.originalBody = d.email.body_text || d.email.ai_summary || '';
+      }
+      if (d.thread && d.thread.length) replyContext.value.messages = d.thread;
+      replyContextLoading.value = false;
+    }).catch(() => { replyContextLoading.value = false; });
+  } else {
+    replyContext.value = null;
+  }
+
+  if (dr.property_id) loadPropertyFiles(dr.property_id);
+}
+
+// Filtered/computed for subtabs
+const filteredEhData = computed(() => {
+  let list = ehData.value;
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    list = list.filter(i =>
+      (i.from_name || '').toLowerCase().includes(q) ||
+      (i.subject || '').toLowerCase().includes(q) ||
+      (i.from_email || '').toLowerCase().includes(q) ||
+      (i.stakeholder || '').toLowerCase().includes(q)
+    );
+  }
+  if (objectFilter.value !== 'all') {
+    list = list.filter(i => String(i.property_id) === objectFilter.value);
+  }
+  return list;
+});
+
+const filteredDrafts = computed(() => {
+  let list = draftsData.value;
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    list = list.filter(i =>
+      (i.to_email || '').toLowerCase().includes(q) ||
+      (i.subject || '').toLowerCase().includes(q) ||
+      (i.stakeholder || '').toLowerCase().includes(q)
+    );
+  }
+  return list;
+});
+
+const filteredTemplates = computed(() => {
+  let list = templates.value;
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    list = list.filter(i =>
+      (i.name || '').toLowerCase().includes(q) ||
+      (i.subject || '').toLowerCase().includes(q) ||
+      (i.category || '').toLowerCase().includes(q)
+    );
+  }
+  return list;
+});
+
+// ============================================================
 // WATCHERS (from PrioritiesTab.vue)
 // ============================================================
 watch(maklerFilter, () => {
   loadUnanswered(unansweredFilter.value);
   loadFollowups(followupFilter.value);
   loadStage1();
+});
+
+watch(activeSubtab, (v) => {
+  if (v === 'posteingang') { ehDirection.value = 'inbound'; ehShowUnmatched.value = false; ehPage.value = 1; loadEmailHistory(); }
+  if (v === 'gesendet') { ehDirection.value = 'outbound'; ehPage.value = 1; loadEmailHistory(); }
+  if (v === 'entwuerfe') loadDrafts();
+  if (v === 'templates' && !templates.value?.length) loadTemplates();
 });
 
 // ============================================================
@@ -1633,7 +1764,7 @@ onMounted(() => {
       <div class="w-[400px] flex-shrink-0 border-r border-border flex flex-col h-full overflow-hidden">
         <!-- Offen -->
         <InboxConversationList
-          v-if="activeSubtab === offen"
+          v-if="activeSubtab === 'offen'"
           :items="filteredUnanswered"
           :loading="unansweredLoading"
           subtab="offen"
@@ -1642,15 +1773,15 @@ onMounted(() => {
           :object-filter="objectFilter"
           :properties="availableProperties"
           empty-message="Keine offenen Konversationen"
-          @select="(item) => openDetail(item, offen)"
+          @select="(item) => openDetail(item, 'offen')"
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
-          @compose="activeSubtab = compose"
+          @compose="startCompose()"
         />
 
         <!-- Nachfassen -->
         <InboxConversationList
-          v-else-if="activeSubtab === nachfassen"
+          v-else-if="activeSubtab === 'nachfassen'"
           :items="filteredFollowups"
           :loading="followupLoading || stage1Loading"
           subtab="nachfassen"
@@ -1660,21 +1791,151 @@ onMounted(() => {
           :properties="availableProperties"
           :grouped-sections="nachfassenSections"
           empty-message="Keine Nachfass-Konversationen"
-          @select="(item) => openDetail(item, nachfassen)"
+          @select="(item) => openDetail(item, 'nachfassen')"
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
-          @compose="activeSubtab = compose"
+          @compose="startCompose()"
         />
 
-        <!-- Other subtabs placeholder -->
-        <div v-else class="p-4 text-sm text-muted-foreground">
-          Wird in einem spaeteren Task implementiert.
+        <!-- Posteingang -->
+        <InboxConversationList
+          v-else-if="activeSubtab === 'posteingang'"
+          :items="filteredEhData"
+          :loading="ehLoading"
+          subtab="posteingang"
+          :selected-id="selectedItem?.id"
+          :search-query="searchQuery"
+          :object-filter="objectFilter"
+          :properties="properties || []"
+          empty-message="Keine E-Mails im Posteingang"
+          @select="(item) => { selectedItem = item; selectedMode = 'posteingang'; composing = false; }"
+          @update:search-query="searchQuery = $event"
+          @update:object-filter="objectFilter = $event"
+          @compose="startCompose()"
+        />
+
+        <!-- Gesendet -->
+        <InboxConversationList
+          v-else-if="activeSubtab === 'gesendet'"
+          :items="filteredEhData"
+          :loading="ehLoading"
+          subtab="gesendet"
+          :selected-id="selectedItem?.id"
+          :search-query="searchQuery"
+          :object-filter="objectFilter"
+          :properties="properties || []"
+          empty-message="Keine gesendeten E-Mails"
+          @select="(item) => { selectedItem = item; selectedMode = 'gesendet'; composing = false; }"
+          @update:search-query="searchQuery = $event"
+          @update:object-filter="objectFilter = $event"
+          @compose="startCompose()"
+        />
+
+        <!-- Entwuerfe -->
+        <InboxConversationList
+          v-else-if="activeSubtab === 'entwuerfe'"
+          :items="filteredDrafts"
+          :loading="draftsLoading"
+          subtab="entwuerfe"
+          :selected-id="null"
+          :search-query="searchQuery"
+          :object-filter="'all'"
+          :properties="[]"
+          empty-message="Keine Entwuerfe"
+          @select="(item) => loadDraftIntoCompose(item)"
+          @update:search-query="searchQuery = $event"
+          @compose="startCompose()"
+        />
+
+        <!-- Templates -->
+        <div v-else-if="activeSubtab === 'templates'" class="flex flex-col h-full overflow-hidden">
+          <!-- Toolbar -->
+          <div class="flex items-center gap-1.5 px-3 py-2 border-b border-border flex-shrink-0">
+            <div class="relative flex-1 min-w-0">
+              <Search class="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                v-model="searchQuery"
+                placeholder="Template suchen..."
+                class="pl-7 h-8 text-[12px]"
+              />
+            </div>
+            <Button variant="ghost" size="icon" class="h-8 w-8 flex-shrink-0" @click="startNewTemplate()">
+              <Plus class="h-4 w-4" />
+            </Button>
+          </div>
+
+          <!-- Template List -->
+          <div class="flex-1 overflow-y-auto min-h-0">
+            <div v-if="templatesLoading" class="flex items-center justify-center py-12">
+              <Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+            <div v-else-if="!filteredTemplates.length" class="flex items-center justify-center py-12">
+              <span class="text-[12px] text-muted-foreground">Keine Templates</span>
+            </div>
+            <div v-else class="divide-y divide-border">
+              <div
+                v-for="tpl in filteredTemplates"
+                :key="tpl.id"
+                class="px-3 py-2.5 cursor-pointer hover:bg-accent/50 transition-colors"
+                @click="editTemplate(tpl)"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[13px] font-medium text-foreground truncate">{{ tpl.name }}</span>
+                  <Badge v-if="tpl.category" variant="outline" class="text-[9px] px-1.5 py-0 h-4 font-normal">
+                    {{ tpl.category }}
+                  </Badge>
+                </div>
+                <div class="text-[11px] text-muted-foreground truncate mt-0.5">{{ tpl.subject || 'Kein Betreff' }}</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-<!-- Right: Chat View -->
+<!-- Right: Compose View or Chat View -->
+      <InboxComposeView
+        v-if="composing"
+        :compose-to="composeTo"
+        :compose-subject="composeSubject"
+        :compose-body="composeBody"
+        :compose-tone="composeTone"
+        :selected-account-id="selectedAccountId"
+        :email-accounts="emailAccountsSelect"
+        :compose-attachments="composeAttachments"
+        :sending="emailSending"
+        :ai-loading="aiLoading"
+        :contact-search-results="contactSearchResults"
+        :contact-search-loading="contactSearchLoading"
+        :show-contact-search="showContactSearch"
+        :properties="properties || []"
+        :compose-property-id="composePropertyId"
+        :templates="templates"
+        :compose-cc="composeCc"
+        :compose-bcc="composeBcc"
+        :show-cc-bcc="showCcBcc"
+        :reply-context="replyContext"
+        @update:compose-to="composeTo = $event"
+        @update:compose-subject="composeSubject = $event"
+        @update:compose-body="composeBody = $event"
+        @update:compose-tone="composeTone = $event"
+        @update:selected-account-id="selectedAccountId = $event"
+        @update:compose-property-id="composePropertyId = $event"
+        @update:compose-cc="composeCc = $event"
+        @update:compose-bcc="composeBcc = $event"
+        @update:show-cc-bcc="showCcBcc = $event"
+        @send="onComposeSend"
+        @save-draft="onComposeSaveDraft"
+        @close="closeCompose"
+        @search-contacts="searchContacts($event)"
+        @select-contact="selectContact($event)"
+        @blur-contact-search="onComposeToBlur"
+        @generate-ai-reply="generateAiReply"
+        @apply-template="applyTemplate($event)"
+        @add-attachments="onComposeAddAttachments"
+        @remove-attachment="onComposeRemoveAttachment"
+      />
       <InboxChatView
-        v-if="selectedItem"
+        v-else-if="selectedItem"
         :item="selectedItem"
         :messages="expandedDetail?.thread || expandedDetail?.messages || []"
         :loading="expandedLoading"

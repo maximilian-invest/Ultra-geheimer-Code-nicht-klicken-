@@ -339,6 +339,33 @@ class AdminApiController extends Controller
                 }
             })(),
 
+            'immoji_set_unit_portals' => (function() use ($request) {
+                $userId = \Auth::id();
+                $settings = \DB::table('admin_settings')->where('user_id', $userId)->first();
+                $encEmail = $settings->immoji_email ?? null;
+                $encPassword = $settings->immoji_password ?? null;
+                if (!$encEmail || !$encPassword) {
+                    return response()->json(['success' => false, 'message' => 'Nicht mit Immoji verbunden'], 422);
+                }
+
+                $immojiId = $request->input('immoji_id');
+                if (!$immojiId) return response()->json(['success' => false, 'message' => 'immoji_id fehlt'], 400);
+
+                $portalFlags = $request->input('portals', []);
+                if (empty($portalFlags)) return response()->json(['success' => false, 'message' => 'Keine Portal-Daten'], 400);
+
+                try {
+                    $email = \Illuminate\Support\Facades\Crypt::decryptString($encEmail);
+                    $password = \Illuminate\Support\Facades\Crypt::decryptString($encPassword);
+                    $token = \App\Services\ImmojiUploadService::signIn($email, $password);
+                    $service = new \App\Services\ImmojiUploadService($token);
+                    $service->setPortalExports($immojiId, $portalFlags);
+                    return response()->json(['success' => true]);
+                } catch (\Exception $e) {
+                    return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+                }
+            })(),
+
             'immoji_portal_status' => (function() use ($request) {
                 $userId = \Auth::id();
                 $settings = \DB::table('admin_settings')->where('user_id', $userId)->first();
@@ -820,7 +847,7 @@ class AdminApiController extends Controller
                     'create_contact','snooze_followup',
                     'kaufanbote_stats','add_kaufanbot','delete_kaufanbot',
                     'list_property_kaufanbote','upload_property_kaufanbot','delete_property_kaufanbot','update_property_kaufanbot_status',
-                    'immoji_connect','immoji_disconnect','immoji_status','immoji_push','immoji_push_units','immoji_portal_status','immoji_set_portals','immoji_capacity','bulk_sync_immoji','immoji_bulk_portal_status',
+                    'immoji_connect','immoji_disconnect','immoji_status','immoji_push','immoji_push_units','immoji_set_unit_portals','immoji_portal_status','immoji_set_portals','immoji_capacity','bulk_sync_immoji','immoji_bulk_portal_status',
                     'email_accounts','get_email_accounts_select','save_email_account',
                     'delete_email_account','test_email_account',
                     'list_templates','save_template','delete_template',

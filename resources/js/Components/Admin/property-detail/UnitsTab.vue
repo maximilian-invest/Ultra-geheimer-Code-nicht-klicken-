@@ -247,7 +247,41 @@ async function syncUnitToImmoji() {
   }
 }
 
-// Quick export: enable immoji, save, sync — one click
+// Sync only portal flags (willhaben, immowelt etc.) without re-pushing the unit
+async function syncPortalFlags(unit) {
+  const exports = typeof unit.portal_exports === "string" ? JSON.parse(unit.portal_exports) : (unit.portal_exports || {});
+  // Map our keys to immoji portal field names
+  const portalMap = {
+    willhaben: "willhabenExportEnabled",
+    immowelt: "immoweltExportEnabled",
+    immoscout24: "immoscoutExportEnabled",
+    dibeo: "dibeoExportEnabled",
+    allesKralle: "allesKralleExportEnabled",
+  };
+  const flags = {};
+  for (const [key, immojiKey] of Object.entries(portalMap)) {
+    if (key in exports) flags[immojiKey] = !!exports[key];
+  }
+  // We need the unit's immoji_id — get it from the unit object or reload
+  const immojiId = unit.immoji_id;
+  if (!immojiId) {
+    // Unit not yet on immoji, need full push first
+    await syncUnitToImmoji();
+    return;
+  }
+  try {
+    const r = await fetch(API.value + "&action=immoji_set_unit_portals&immoji_id=" + immojiId, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ portals: flags }),
+    });
+    const d = await r.json();
+    if (!d.success) toast("Portal-Sync Fehler: " + (d.message || "Unbekannt"));
+  } catch (e) {
+    console.error("Portal flags sync error:", e);
+  }
+}
+
 // Inline toggle: check/uncheck a portal, auto-save + auto-sync
 async function inlineTogglePortal(unit, portalKey) {
   const key = unitKey(unit);
@@ -292,9 +326,13 @@ async function inlineTogglePortal(unit, portalKey) {
     const d = await r.json();
     if (d.success) {
       if (d.unit?.id) unit.id = d.unit.id;
-      // Auto-sync to immoji if any portal is active
-      if (exports.immoji) {
+      // Sync to immoji
+      if (portalKey === "immoji" && exports.immoji) {
+        // First time enabling immoji → full push (create unit on immoji)
         await syncUnitToImmoji();
+      } else if (portalKey !== "immoji" && exports.immoji) {
+        // Toggling willhaben/immowelt etc → only update portal flags on immoji (no re-push)
+        await syncPortalFlags(unit);
       }
     } else {
       toast("Fehler: " + (d.error || "Unbekannt"));

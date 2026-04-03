@@ -509,11 +509,27 @@ class ImmojiUploadService
     public static function mapPropertyToImmojiDescriptions(array $prop): array
     {
         return array_filter([
-            'realtyDescription' => $prop['realty_description'] ?? null,
-            'locationDescription' => $prop['location_description'] ?? null,
-            'equipmentDescription' => $prop['equipment_description'] ?? null,
-            'otherDescription' => $prop['other_description'] ?? null,
+            'realtyDescription' => self::textToHtml($prop['realty_description'] ?? null),
+            'locationDescription' => self::textToHtml($prop['location_description'] ?? null),
+            'equipmentDescription' => self::textToHtml($prop['equipment_description'] ?? null),
+            'otherDescription' => self::textToHtml($prop['other_description'] ?? null),
         ], fn($v) => $v !== null);
+    }
+
+    /**
+     * Convert plain text with newlines to HTML paragraphs for immoji rich-text fields.
+     */
+    private static function textToHtml(?string $text): ?string
+    {
+        if (empty($text)) return null;
+        // If already contains HTML tags, return as-is
+        if (preg_match('/<[a-z][\s\S]*>/i', $text)) return $text;
+        // Convert double newlines to paragraphs, single newlines to <br>
+        $paragraphs = preg_split('/\n\s*\n/', trim($text));
+        if (count($paragraphs) <= 1) {
+            return '<p>' . nl2br(e(trim($text))) . '</p>';
+        }
+        return implode('', array_map(fn($p) => '<p>' . nl2br(e(trim($p))) . '</p>', $paragraphs));
     }
 
     /**

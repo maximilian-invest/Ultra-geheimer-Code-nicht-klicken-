@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import InboxConversationList from "./inbox/InboxConversationList.vue";
 
 // ============================================================
 // INJECTIONS (merged from PrioritiesTab + CommsTab)
@@ -266,6 +267,31 @@ const availableCategories = computed(() => {
   const all = [...unansweredList.value, ...allFollowups.value];
   all.forEach(i => { if (i.category) cats.add(i.category); });
   return [...cats].sort();
+});
+
+const nachfassenSections = computed(() => {
+  const list = filteredFollowups.value;
+  const kaufanbot = [];
+  const s3 = [];
+  const s2 = [];
+  const s1 = [];
+  const other = [];
+  for (const item of list) {
+    const cat = (item.category || "").toLowerCase();
+    if (cat === "kaufanbot" || cat === "anbot") { kaufanbot.push(item); continue; }
+    const stage = item._stage || item.stage;
+    if (stage === 3) s3.push(item);
+    else if (stage === 2) s2.push(item);
+    else if (stage === 1) s1.push(item);
+    else other.push(item);
+  }
+  return [
+    { label: "Kaufanbot", items: kaufanbot },
+    { label: "NF3 - Dringend", items: s3 },
+    { label: "NF2 - Nachfassen", items: s2 },
+    { label: "NF1 - Erstmalig", items: s1 },
+    { label: "Sonstige", items: other },
+  ];
 });
 
 // ============================================================
@@ -1575,9 +1601,47 @@ onMounted(() => {
 
     <!-- Content Area: Split Panel -->
     <div class="flex flex-1 min-h-0">
-      <!-- Left: Conversation List (placeholder) -->
+      <!-- Left: Conversation List -->
       <div class="w-[400px] flex-shrink-0 border-r border-border flex flex-col h-full overflow-hidden">
-        <div class="p-4 text-sm text-muted-foreground">Konversationsliste wird geladen...</div>
+        <!-- Offen -->
+        <InboxConversationList
+          v-if="activeSubtab === offen"
+          :items="filteredUnanswered"
+          :loading="unansweredLoading"
+          subtab="offen"
+          :selected-id="selectedItem?.id"
+          :search-query="searchQuery"
+          :object-filter="objectFilter"
+          :properties="availableProperties"
+          empty-message="Keine offenen Konversationen"
+          @select="(item) => openDetail(item, offen)"
+          @update:search-query="searchQuery = $event"
+          @update:object-filter="objectFilter = $event"
+          @compose="activeSubtab = compose"
+        />
+
+        <!-- Nachfassen -->
+        <InboxConversationList
+          v-else-if="activeSubtab === nachfassen"
+          :items="filteredFollowups"
+          :loading="followupLoading || stage1Loading"
+          subtab="nachfassen"
+          :selected-id="selectedItem?.id"
+          :search-query="searchQuery"
+          :object-filter="objectFilter"
+          :properties="availableProperties"
+          :grouped-sections="nachfassenSections"
+          empty-message="Keine Nachfass-Konversationen"
+          @select="(item) => openDetail(item, nachfassen)"
+          @update:search-query="searchQuery = $event"
+          @update:object-filter="objectFilter = $event"
+          @compose="activeSubtab = compose"
+        />
+
+        <!-- Other subtabs placeholder -->
+        <div v-else class="p-4 text-sm text-muted-foreground">
+          Wird in einem spaeteren Task implementiert.
+        </div>
       </div>
 
       <!-- Right: Chat View (placeholder) -->

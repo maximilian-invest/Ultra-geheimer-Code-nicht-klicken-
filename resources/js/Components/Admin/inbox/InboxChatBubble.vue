@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Paperclip } from 'lucide-vue-next'
 
@@ -7,6 +7,8 @@ const props = defineProps({
   message: { type: Object, required: true },
   senderName: { type: String, default: '' },
 })
+
+const expanded = ref(false)
 
 const isOutbound = computed(() => {
   const d = props.message.direction
@@ -16,6 +18,10 @@ const isOutbound = computed(() => {
 
 const isAutoReply = computed(() => {
   return props.message.category === 'auto-reply' || props.message.is_auto_reply
+})
+
+const isNachfassen = computed(() => {
+  return props.message.category === 'nachfassen'
 })
 
 const typeBadge = computed(() => {
@@ -43,9 +49,37 @@ const displayBody = computed(() => {
   return m.body_text || m.body || m.full_body || m.ai_summary || m.result || ''
 })
 
+const isTruncatable = computed(() => {
+  return displayBody.value.length > 150
+})
+
+const truncatedBody = computed(() => {
+  if (!isTruncatable.value) return displayBody.value
+  return displayBody.value.slice(0, 150).trimEnd()
+})
+
 const attachments = computed(() => {
   return props.message.attachments || []
 })
+
+/* Bubble style classes based on message type */
+const bubbleClasses = computed(() => {
+  if (isAutoReply.value) {
+    return 'bg-emerald-50 border border-emerald-100 text-zinc-800 rounded-xl rounded-bl-sm'
+  }
+  if (isNachfassen.value) {
+    return 'bg-amber-50 border border-amber-100 text-zinc-800 rounded-xl rounded-bl-sm'
+  }
+  if (isOutbound.value) {
+    return 'bg-zinc-100 border border-zinc-200 text-zinc-800 rounded-xl rounded-br-sm'
+  }
+  /* Inbound */
+  return 'bg-blue-50 border border-blue-100 text-zinc-800 rounded-xl rounded-bl-sm'
+})
+
+function toggleExpand() {
+  if (isTruncatable.value) expanded.value = !expanded.value
+}
 
 function formatDate(d) {
   if (!d) return ''
@@ -60,10 +94,10 @@ function formatDate(d) {
     <div
       class="max-w-[80%] px-4 py-3"
       :class="[
-        isOutbound
-          ? 'bg-foreground text-zinc-200 rounded-xl rounded-br-sm'
-          : 'bg-background border border-border text-foreground rounded-xl rounded-bl-sm',
+        bubbleClasses,
+        isTruncatable && !expanded ? 'cursor-pointer' : '',
       ]"
+      @click="toggleExpand"
     >
       <!-- Meta line -->
       <div class="flex items-center gap-2 mb-1 flex-wrap">
@@ -79,7 +113,22 @@ function formatDate(d) {
       </div>
 
       <!-- Body -->
-      <div class="text-[13px] leading-relaxed whitespace-pre-wrap">{{ displayBody }}</div>
+      <div class="text-[13px] leading-relaxed whitespace-pre-wrap">
+        <template v-if="!isTruncatable || expanded">{{ displayBody }}</template>
+        <template v-else>
+          <span class="line-clamp-3">{{ truncatedBody }}...</span>
+          <span class="text-[11px] text-blue-600 hover:text-blue-800 font-medium mt-1 inline-block">Mehr anzeigen</span>
+        </template>
+      </div>
+
+      <!-- Collapse link when expanded -->
+      <button
+        v-if="isTruncatable && expanded"
+        class="text-[11px] text-blue-600 hover:text-blue-800 font-medium mt-1"
+        @click.stop="expanded = false"
+      >
+        Weniger anzeigen
+      </button>
 
       <!-- Attachments -->
       <div v-if="attachments.length" class="mt-2 space-y-1">
@@ -88,8 +137,8 @@ function formatDate(d) {
           :key="i"
           :href="att.url || att.path || '#'"
           target="_blank"
-          class="flex items-center gap-1.5 text-[11px] opacity-70 hover:opacity-100 transition-opacity"
-          :class="isOutbound ? 'text-zinc-300' : 'text-foreground'"
+          class="flex items-center gap-1.5 text-[11px] text-zinc-600 opacity-70 hover:opacity-100 transition-opacity"
+          @click.stop
         >
           <Paperclip class="w-3 h-3 shrink-0" />
           <span class="truncate">{{ att.name || att.filename || 'Anhang' }}</span>

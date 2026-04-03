@@ -1756,60 +1756,94 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-col h-full" style="min-height:0">
-    <!-- Subtab Navigation -->
-    <div class="flex items-center gap-1 px-4 pt-3 pb-0 border-b border-zinc-100">
-      <button
-        v-for="st in [
-          { key: 'offen', label: 'Offen', count: unansweredCount, color: 'bg-red-50 text-red-600' },
-          { key: 'nachfassen', label: 'Nachfassen', count: (followupCount || 0), color: 'bg-amber-50 text-amber-700' },
-          { key: 'posteingang', label: 'Posteingang', count: null, color: '' },
-          { key: 'gesendet', label: 'Gesendet', count: null, color: '' },
-          { key: 'entwuerfe', label: 'Entwuerfe', count: null, color: '' },
-          { key: 'templates', label: 'Templates', count: null, color: '' },
-        ]"
-        :key="st.key"
-        @click="activeSubtab = st.key"
-        class="px-3 py-2 text-[12px] font-medium transition-colors border-b-2 -mb-px whitespace-nowrap"
-        :class="activeSubtab === st.key
-          ? 'border-foreground text-foreground'
-          : 'border-transparent text-muted-foreground hover:text-foreground'"
-      >
-        {{ st.label }}
-        <span v-if="st.count" class="ml-1 text-[10px] font-bold px-1.5 py-0 rounded-full" :class="st.color">{{ st.count }}</span>
-      </button>
-    </div>
 
-    <!-- Auto-Reply Banner + Broker Filter -->
-    <div v-if="autoReplyLogs.length || isAssistenz" class="flex items-center gap-2 px-4 py-2 flex-wrap">
-      <!-- Auto-Reply Banner -->
-      <Collapsible v-if="autoReplyLogs.length" v-model:open="autoReplyBannerOpen" class="flex-1 min-w-[200px]">
-        <CollapsibleTrigger class="flex items-center gap-2 w-full px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style="background:rgba(16,185,129,0.08);color:#059669">
-          <Send class="w-3 h-3" />
-          <span>{{ autoReplyLogs.length }} Auto-Replies (24h)</span>
-          <ChevronDown class="w-3 h-3 ml-auto transition-transform" :class="autoReplyBannerOpen ? 'rotate-180' : ''" />
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div class="mt-1 rounded-lg border border-zinc-100 p-2 space-y-1 max-h-36 overflow-y-auto" style="background:rgba(16,185,129,0.03)">
-            <div v-for="log in autoReplyLogs" :key="log.id" class="flex items-center gap-2 text-xs text-muted-foreground">
-              <Send class="w-3 h-3 text-emerald-500 flex-shrink-0" />
-              <span class="font-medium text-foreground">{{ log.to_name || log.to_email }}</span>
-              <span class="text-muted-foreground truncate">{{ log.subject }}</span>
-              <span class="ml-auto text-[10px] whitespace-nowrap">{{ timeAgo(log.sent_at || log.created_at) }}</span>
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-      <!-- Broker Filter (Assistenz only) -->
-      <select v-if="isAssistenz && brokerList.length" v-model="maklerFilter" class="h-7 rounded-md border border-zinc-100 bg-background px-2 text-xs">
-        <option value="all">Alle Makler</option>
-        <option v-for="b in brokerList" :key="b.id" :value="b.id">{{ b.name }}</option>
-      </select>
-    </div>
 
     <!-- Content Area: Split Panel -->
     <div class="flex flex-1 min-h-0 overflow-hidden">
       <!-- Left: Conversation List -->
       <div class="w-[400px] flex-shrink-0 border-r border-zinc-100 flex flex-col h-full overflow-hidden bg-[#fafafa]">
+
+        <!-- Panel Header with Pill Tabs -->
+        <div class="px-4 pt-3 pb-2 flex-shrink-0">
+          <div class="text-[15px] font-bold tracking-tight text-foreground mb-2">Inbox</div>
+
+          <!-- Primary Pills: Offen / Nachfassen / Alle -->
+          <div class="flex gap-0.5 p-[3px] bg-[#f4f4f5] rounded-lg mb-2">
+            <button
+              @click="activeSubtab = 'offen'"
+              class="flex-1 flex items-center justify-center gap-1.5 px-3 py-[5px] text-[12px] rounded-md transition-all"
+              :class="activeSubtab === 'offen'
+                ? 'bg-white text-foreground font-semibold shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'"
+            >
+              Offen
+              <span v-if="unansweredCount" class="text-[9px] font-bold px-1.5 py-0 rounded-md bg-red-50 text-red-600">{{ unansweredCount }}</span>
+            </button>
+            <button
+              @click="activeSubtab = 'nachfassen'"
+              class="flex-1 flex items-center justify-center gap-1.5 px-3 py-[5px] text-[12px] rounded-md transition-all"
+              :class="activeSubtab === 'nachfassen'
+                ? 'bg-white text-foreground font-semibold shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'"
+            >
+              Nachfassen
+              <span v-if="followupCount" class="text-[9px] font-bold px-1.5 py-0 rounded-md bg-zinc-200 text-zinc-600">{{ followupCount }}</span>
+            </button>
+            <button
+              @click="activeSubtab = 'posteingang'"
+              class="flex-1 flex items-center justify-center gap-1.5 px-3 py-[5px] text-[12px] rounded-md transition-all"
+              :class="['posteingang','gesendet','entwuerfe','templates'].includes(activeSubtab)
+                ? 'bg-white text-foreground font-semibold shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'"
+            >
+              Alle
+            </button>
+          </div>
+
+          <!-- Secondary tabs (only visible when "Alle" is active) -->
+          <div v-if="['posteingang','gesendet','entwuerfe','templates'].includes(activeSubtab)" class="flex gap-1 mb-1">
+            <button v-for="st in [
+              { key: 'posteingang', label: 'Posteingang' },
+              { key: 'gesendet', label: 'Gesendet' },
+              { key: 'entwuerfe', label: 'Entw\u00fcrfe' },
+              { key: 'templates', label: 'Templates' },
+            ]" :key="st.key"
+              @click="activeSubtab = st.key"
+              class="px-2.5 py-1 text-[11px] rounded-md transition-colors"
+              :class="activeSubtab === st.key
+                ? 'bg-zinc-200 text-foreground font-medium'
+                : 'text-muted-foreground hover:text-foreground hover:bg-zinc-100'"
+            >
+              {{ st.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Auto-Reply Banner + Broker Filter -->
+        <div v-if="autoReplyLogs.length || isAssistenz" class="flex items-center gap-2 px-3 py-1.5 flex-wrap flex-shrink-0">
+          <Collapsible v-if="autoReplyLogs.length" v-model:open="autoReplyBannerOpen" class="flex-1 min-w-[150px]">
+            <CollapsibleTrigger class="flex items-center gap-2 w-full px-2.5 py-1 rounded-lg text-[11px] font-medium cursor-pointer" style="background:rgba(16,185,129,0.08);color:#059669">
+              <Send class="w-3 h-3" />
+              <span>{{ autoReplyLogs.length }} Auto-Replies (24h)</span>
+              <ChevronDown class="w-3 h-3 ml-auto transition-transform" :class="autoReplyBannerOpen ? 'rotate-180' : ''" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div class="mt-1 rounded-lg border border-zinc-100 p-2 space-y-1 max-h-28 overflow-y-auto" style="background:rgba(16,185,129,0.03)">
+                <div v-for="log in autoReplyLogs" :key="log.id" class="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <Send class="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                  <span class="font-medium text-foreground">{{ log.to_name || log.to_email }}</span>
+                  <span class="text-muted-foreground truncate">{{ log.subject }}</span>
+                  <span class="ml-auto text-[10px] whitespace-nowrap">{{ timeAgo(log.sent_at || log.created_at) }}</span>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+          <select v-if="isAssistenz && brokerList.length" v-model="maklerFilter" class="h-6 rounded-md border border-zinc-100 bg-background px-2 text-[11px]">
+            <option value="all">Alle Makler</option>
+            <option v-for="b in brokerList" :key="b.id" :value="b.id">{{ b.name }}</option>
+          </select>
+        </div>
+
         <!-- Offen -->
         <InboxConversationList
           v-if="activeSubtab === 'offen'"

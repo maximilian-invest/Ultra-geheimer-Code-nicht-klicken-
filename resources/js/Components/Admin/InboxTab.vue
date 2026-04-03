@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import InboxConversationList from "./inbox/InboxConversationList.vue";
 import InboxChatView from "./inbox/InboxChatView.vue";
 import InboxAiDraft from "./inbox/InboxAiDraft.vue";
+import InboxBottomBar from "./inbox/InboxBottomBar.vue";
 
 // ============================================================
 // INJECTIONS (merged from PrioritiesTab + CommsTab)
@@ -1699,7 +1700,17 @@ onMounted(() => {
           />
         </template>
         <template #bottom-bar>
-          <!-- Task 7 placeholder -->
+          <InboxBottomBar
+            :mode="selectedMode"
+            :sending="emailSending"
+            :can-send="!!(expandedAiDraft?.to && expandedAiDraft?.body)"
+            :attachment-count="expandedSelectedFiles?.length || 0"
+            :show-calendar="showCalendar"
+            @send="sendDraft"
+            @mark-handled="markHandled(selectedItem?.from_name || selectedItem?.stakeholder, selectedItem?.property_id)"
+            @toggle-attach="showAttachPopup = !showAttachPopup"
+            @toggle-calendar="showCalendar = !showCalendar"
+          />
         </template>
       </InboxChatView>
       <div v-else class="flex-1 flex items-center justify-center text-sm text-muted-foreground">

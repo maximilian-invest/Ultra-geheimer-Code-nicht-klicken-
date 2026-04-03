@@ -47,7 +47,8 @@ class DashboardController extends Controller
             DB::raw('(SELECT COALESCE(SUM(price), 0) FROM property_units WHERE property_units.property_id = properties.id AND property_units.is_parking = 0) as total_volume'),
             DB::raw('(SELECT COUNT(*) FROM property_units WHERE property_units.property_id = properties.id AND property_units.is_parking = 0) as unit_count'),
             DB::raw('(SELECT name FROM users WHERE users.id = properties.broker_id LIMIT 1) as broker_name'))
-            // All users see all properties; makler gets readonly flag on non-owned ones
+            // Exclude child properties (parent_id set) — they are not shown in the list
+            ->whereNull('parent_id')
             ->orderBy('address')
             ->get()
             ->map(function($p) use ($userType, $brokerId) {
@@ -94,27 +95,6 @@ class DashboardController extends Controller
                 'enabled' => (bool) $row->sync_enabled,
             ])->values()->toArray();
         });
-
-        // Parent-Child hierarchy: attach children to parents, exclude children from top-level
-        $propertiesById = $properties->keyBy('id');
-        $childIds = [];
-        $childrenMap = [];
-        $properties->each(function($p) {
-            $p->setAttribute('children', []);
-        });
-        $properties->each(function($p) use ($propertiesById, &$childIds, &$childrenMap) {
-            if ($p->parent_id && $propertiesById->has($p->parent_id)) {
-                $childrenMap[$p->parent_id][] = $p;
-                $childIds[] = $p->id;
-            }
-        });
-        foreach ($childrenMap as $parentId => $kids) {
-            if ($propertiesById->has($parentId)) {
-                $propertiesById->get($parentId)->setAttribute('children', $kids);
-            }
-        }
-        // Remove children from top-level list (they are nested under their parent)
-        $properties = $properties->filter(fn($p) => !in_array($p->id, $childIds))->values();
 
         return Inertia::render('Admin/Dashboard', [
             'stats' => $stats,

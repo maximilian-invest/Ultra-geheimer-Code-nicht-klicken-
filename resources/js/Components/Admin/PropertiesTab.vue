@@ -111,13 +111,6 @@ function handlePropertySaved(p) {
   }
 }
 
-// Parent-Child Hierarchy
-const expandedParents = ref(new Set());
-function toggleParentExpand(propId) {
-    const s = new Set(expandedParents.value);
-    if (s.has(propId)) s.delete(propId); else s.add(propId);
-    expandedParents.value = s;
-}
 async function createProperty() {
     createLoading.value = true;
     try {
@@ -276,11 +269,7 @@ function formatPriceMobile(price, isNewbuild) {
     return (isNewbuild ? 'ab \u20ac ' : '\u20ac ') + short;
 }
 
-function getChildStatusCounts(children) {
-    const counts = { frei: 0, reserviert: 0, verkauft: 0 };
-    for (const c of (children || [])) { if (counts[c.status] !== undefined) counts[c.status]++; }
-    return counts;
-}
+
 const customersList = ref([]);
 const customersLoaded = ref(false);
 const adminUsers = ref([]);
@@ -627,7 +616,7 @@ const statusCounts = computed(() => {
 });
 
 const allFilteredProperties = computed(() => {
-    let list = (properties?.value ?? properties) || [];
+    let list = ((properties?.value ?? properties) || []).filter(p => !p.parent_id);
     if (statusFilter.value === 'inaktiv') list = list.filter(p => p.realty_status === 'inaktiv');
     else if (statusFilter.value === 'verkauft') list = list.filter(p => p.realty_status === 'verkauft');
     else list = list.filter(p => p.realty_status !== 'inaktiv' && p.realty_status !== 'verkauft');
@@ -1841,7 +1830,7 @@ async function toggleWebsiteDownload(f) {
               </TableCell>
               <TableCell>
                 <span class="font-semibold text-[13px]">{{ prop.project_name || prop.address }}</span>
-                <span v-if="prop.property_category === 'newbuild' && prop.children?.length" class="text-[10px] ml-1" style="color:hsl(240 3.8% 46.1%)">· {{ prop.children.length }} Einh.</span>
+                <span v-if="prop.property_category === 'newbuild' && prop.unit_count" class="text-[10px] ml-1" style="color:hsl(240 3.8% 46.1%)">· {{ prop.unit_count }} Einh.</span>
               </TableCell>
               <TableCell class="text-[13px]" style="color:hsl(240 3.8% 46.1%)">{{ prop.city }}</TableCell>
               <TableCell class="text-[13px]" style="color:hsl(240 3.8% 46.1%)">{{ getCategoryLabel(prop.property_category) }}</TableCell>
@@ -1855,30 +1844,7 @@ async function toggleWebsiteDownload(f) {
                   <span v-if="getPortalIcons(prop).length > 3" class="text-[10px] ml-0.5" style="color:hsl(240 3.8% 46.1%)">+{{ getPortalIcons(prop).length - 3 }}</span>
                 </div>
               </TableCell>
-              <TableCell>
-                <button v-if="prop.children?.length" class="text-sm" style="color:hsl(240 3.8% 46.1%)" @click.stop="toggleParentExpand(prop.id)">
-                  {{ expandedParents.has(prop.id) ? '▾' : '›' }}
-                </button>
-              </TableCell>
-            </TableRow>
-            <!-- Expanded children -->
-            <TableRow v-if="expandedParents.has(prop.id) && prop.children?.length" class="hover:bg-transparent">
-              <TableCell :colspan="8" class="p-0">
-                <div class="py-1.5 pl-20 pr-4" style="background:hsl(240 4.8% 97.5%)">
-                  <div v-for="(child, ci) in prop.children.slice(0, 4)" :key="child.id"
-                    class="flex items-center gap-4 py-1.5 px-3 rounded text-xs cursor-pointer hover:bg-white/60 transition-colors"
-                    @click="openDetail(child)">
-                    <span class="font-medium min-w-[150px]">{{ child.project_name || child.address }}</span>
-                    <span style="color:hsl(240 3.8% 46.1%);min-width:50px">{{ child.size_m2 ? child.size_m2 + ' m²' : '–' }}</span>
-                    <span style="color:hsl(240 3.8% 46.1%);min-width:40px">{{ child.floor || '' }}</span>
-                    <Badge v-if="child.status === 'frei'" class="text-[9px] px-1.5 py-0" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%)">frei</Badge>
-                    <Badge v-else-if="child.status === 'reserviert'" class="text-[9px] px-1.5 py-0" style="background:hsl(45 93% 94%);color:hsl(32 95% 30%)">reserviert</Badge>
-                    <Badge v-else-if="child.status === 'verkauft'" class="text-[9px] px-1.5 py-0" style="background:hsl(0 84% 96%);color:hsl(0 72% 51%)">verkauft</Badge>
-                    <span class="font-semibold tabular-nums ml-auto">{{ formatPrice(child.purchase_price || child.price, false) }}</span>
-                  </div>
-                  <div v-if="prop.children.length > 4" class="py-1 px-3 text-[11px]" style="color:hsl(240 3.8% 46.1%)">+ {{ prop.children.length - 4 }} weitere Einheiten</div>
-                </div>
-              </TableCell>
+              <TableCell></TableCell>
             </TableRow>
           </template>
         </TableBody>
@@ -1908,29 +1874,10 @@ async function toggleWebsiteDownload(f) {
             <div class="text-[13px] font-semibold">{{ prop.project_name || prop.address }}</div>
             <div class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">
               {{ prop.city }}
-              <template v-if="prop.property_category === 'newbuild' && prop.children?.length"> · {{ prop.children.length }} Einheiten</template>
+              <template v-if="prop.property_category === 'newbuild' && prop.unit_count"> · {{ prop.unit_count }} Einheiten</template>
               <template v-else-if="prop.size_m2"> · {{ prop.size_m2 }} m²</template>
             </div>
             <div class="mt-2.5 text-sm font-bold tabular-nums">{{ formatPrice(prop.purchase_price || prop.price, prop.property_category === 'newbuild') }}</div>
-          </div>
-          <div v-if="prop.property_category === 'newbuild' && prop.children?.length" class="px-3 py-2" style="border-top:1px solid hsl(240 5.9% 90%);background:hsl(240 4.8% 97.5%)">
-            <div class="flex justify-between items-center mb-1">
-              <span class="text-[10px] font-semibold uppercase tracking-wider" style="color:hsl(240 3.8% 46.1%)">Einheiten</span>
-              <div class="flex gap-1">
-                <span v-if="getChildStatusCounts(prop.children).frei" class="text-[9px] px-1.5 py-0 rounded-full" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%)">{{ getChildStatusCounts(prop.children).frei }} frei</span>
-                <span v-if="getChildStatusCounts(prop.children).verkauft" class="text-[9px] px-1.5 py-0 rounded-full" style="background:hsl(0 84% 96%);color:hsl(0 72% 51%)">{{ getChildStatusCounts(prop.children).verkauft }} verk.</span>
-              </div>
-            </div>
-            <div v-for="child in prop.children.slice(0, 2)" :key="child.id" class="flex justify-between items-center py-1 text-[11px]" style="border-top:1px solid hsl(240 5.9% 92%)">
-              <span>{{ child.project_name || child.address }} · {{ child.size_m2 ? child.size_m2 + ' m²' : '' }}</span>
-              <div class="flex items-center gap-1.5">
-                <Badge v-if="child.status === 'frei'" class="text-[9px] px-1.5 py-0" style="background:hsl(142 76% 96%);color:hsl(142 72% 29%)">frei</Badge>
-                <Badge v-else-if="child.status === 'reserviert'" class="text-[9px] px-1.5 py-0" style="background:hsl(45 93% 94%);color:hsl(32 95% 30%)">reserviert</Badge>
-                <Badge v-else-if="child.status === 'verkauft'" class="text-[9px] px-1.5 py-0" style="background:hsl(0 84% 96%);color:hsl(0 72% 51%)">verkauft</Badge>
-                <span class="font-semibold tabular-nums">{{ formatPrice(child.purchase_price || child.price, false) }}</span>
-              </div>
-            </div>
-            <div v-if="prop.children.length > 2" class="text-[10px] pt-1" style="color:hsl(240 3.8% 46.1%)">+ {{ prop.children.length - 2 }} weitere</div>
           </div>
         </div>
       </div>
@@ -1957,19 +1904,7 @@ async function toggleWebsiteDownload(f) {
           </div>
           <div class="text-right flex-shrink-0">
             <div class="text-[13px] font-bold tabular-nums">{{ formatPriceMobile(prop.purchase_price || prop.price, prop.property_category === 'newbuild') }}</div>
-            <button v-if="prop.children?.length" class="text-[9px] mt-1" style="color:hsl(240 3.8% 46.1%)" @click.stop="toggleParentExpand(prop.id)">▾ Einheiten</button>
           </div>
-        </div>
-        <div v-if="expandedParents.has(prop.id) && prop.children?.length" class="pl-[76px] pr-4 py-1" style="background:hsl(240 4.8% 97.5%);border-bottom:1px solid hsl(240 5.9% 90%)">
-          <div v-for="child in prop.children.slice(0, 4)" :key="child.id" class="flex justify-between items-center py-1.5 text-[11px]" style="border-top:1px solid hsl(240 5.9% 92%)">
-            <span>{{ child.project_name || child.address }}</span>
-            <div class="flex items-center gap-1">
-              <Badge v-if="child.status" class="text-[8px] px-1 py-0"
-                :style="child.status === 'frei' ? 'background:hsl(142 76% 96%);color:hsl(142 72% 29%)' : child.status === 'reserviert' ? 'background:hsl(45 93% 94%);color:hsl(32 95% 30%)' : 'background:hsl(0 84% 96%);color:hsl(0 72% 51%)'">{{ child.status }}</Badge>
-              <span class="font-semibold tabular-nums text-[10px]">{{ formatPriceMobile(child.purchase_price || child.price, false) }}</span>
-            </div>
-          </div>
-          <div v-if="prop.children.length > 4" class="text-[10px] py-1" style="color:hsl(240 3.8% 46.1%)">+ {{ prop.children.length - 4 }} weitere</div>
         </div>
       </template>
     </div>

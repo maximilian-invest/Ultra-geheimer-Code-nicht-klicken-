@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, inject } from "vue";
 import {
-  Users, Key, Link2, Plus, Check, UserPlus, Unlink, X
+  Users, Key, Check, UserPlus, Unlink
 } from "lucide-vue-next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,13 +40,6 @@ const portalCreating = ref(false);
 const portalError = ref("");
 const portalSuccess = ref("");
 
-// ─── Project group state ─────────────────────────────────
-const projectGroups = ref([]);
-const projectGroupPopup = ref(false);
-const newGroupName = ref("");
-const newGroupDesc = ref("");
-const showNewGroupForm = ref(false);
-
 
 // ─── Computed ────────────────────────────────────────────
 const isNewbuild = computed(() => props.property?.property_category === "newbuild");
@@ -66,7 +59,6 @@ function formatNum(val) {
 onMounted(() => {
   loadPortalAccess();
   loadCustomersList();
-  loadProjectGroups();
 });
 
 // ─── API: Customers ──────────────────────────────────────
@@ -220,50 +212,6 @@ async function createPortalAccess() {
     portalError.value = e.message;
   }
   portalCreating.value = false;
-}
-
-// ─── API: Project groups ─────────────────────────────────
-async function loadProjectGroups() {
-  try {
-    const res = await fetch(`${API.value}&action=list_project_groups`);
-    const data = await res.json();
-    if (data.success) projectGroups.value = data.groups || [];
-  } catch (e) {}
-}
-
-async function assignProjectGroup(groupId) {
-  const p = props.property;
-  if (!p) return;
-  try {
-    await fetch(`${API.value}&action=update_property`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ property_id: p.id, project_group_id: groupId || null }),
-    });
-    p.project_group_id = groupId;
-    toast("Projektgruppe " + (groupId ? "zugewiesen" : "entfernt"));
-  } catch (e) {}
-}
-
-async function createAndAssignGroup() {
-  if (!newGroupName.value.trim()) return;
-  const p = props.property;
-  try {
-    const fd = new FormData();
-    fd.append("name", newGroupName.value.trim());
-    if (newGroupDesc.value.trim()) fd.append("description", newGroupDesc.value.trim());
-    if (p?.customer_id) fd.append("customer_id", p.customer_id);
-    const res = await fetch(`${API.value}&action=create_project_group`, { method: "POST", body: fd });
-    const data = await res.json();
-    if (data.success && data.group) {
-      projectGroups.value.push(data.group);
-      await assignProjectGroup(data.group.id);
-      showNewGroupForm.value = false;
-      newGroupName.value = "";
-      newGroupDesc.value = "";
-      toast("Projektgruppe erstellt & zugewiesen");
-    }
-  } catch (e) {}
 }
 
 function ownerInitials(name) {
@@ -523,70 +471,5 @@ function ownerInitials(name) {
       </div>
     </div>
 
-    <!-- ── Projektgruppe ── -->
-    <div>
-      <div class="text-[13px] font-semibold mb-2.5 flex items-center gap-2" style="color:hsl(240 10% 3.9%)">
-        Projektgruppe
-      </div>
-      <div class="rounded-lg p-4 space-y-4" style="border:1px solid hsl(240 5.9% 90%)">
-
-        <!-- Project group -->
-        <div v-if="property.project_group_id" class="text-[12px]" style="color:hsl(240 3.8% 46.1%)">
-          Projektgruppe: <span class="font-medium" style="color:hsl(240 10% 3.9%)">{{ projectGroups.find(g => g.id == property.project_group_id)?.name || '#' + property.project_group_id }}</span>
-        </div>
-        <p v-else class="text-[12px]" style="color:hsl(240 3.8% 46.1%)">Keine Projektgruppe zugeordnet.</p>
-
-        <!-- Actions -->
-        <div class="flex flex-wrap gap-2 pt-1">
-          <Button variant="outline" size="sm" @click="projectGroupPopup = true">
-            <Link2 class="w-3.5 h-3.5 mr-1.5" /> Projektgruppe verwalten
-          </Button>
-        </div>
-
-      </div>
-    </div>
-
   </div>
-
-  <!-- ── Projektgruppe Popup ── -->
-  <Teleport to="body">
-    <div v-if="projectGroupPopup" class="fixed inset-0 z-[320] flex items-center justify-center bg-black/40" @click.self="projectGroupPopup = false">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden" style="border:1px solid hsl(240 5.9% 90%)">
-        <div class="px-6 py-4 flex items-center justify-between" style="border-bottom:1px solid hsl(240 5.9% 90%)">
-          <h3 class="text-[14px] font-semibold" style="color:hsl(240 10% 3.9%)">Projektgruppe</h3>
-          <button @click="projectGroupPopup = false" class="w-7 h-7 rounded-lg hover:bg-zinc-100 flex items-center justify-center">
-            <X class="w-4 h-4 text-zinc-400" />
-          </button>
-        </div>
-        <div class="px-6 py-5 space-y-4">
-          <p class="text-[12px]" style="color:hsl(240 3.8% 46.1%)">Mehrere Objekte im Kundenportal unter einem Projektnamen zusammenfassen.</p>
-          <div>
-            <label class="block text-[11px] font-medium mb-1.5" style="color:hsl(240 3.8% 46.1%)">Projektgruppe zuweisen</label>
-            <select :value="property.project_group_id || ''"
-              @change="assignProjectGroup($event.target.value ? Number($event.target.value) : null)"
-              class="w-full px-3 py-2.5 rounded-xl text-[13px] focus:outline-none focus:ring-2" style="background:hsl(240 4.8% 95.9% / 0.5);border:1px solid hsl(240 5.9% 90%);color:hsl(240 10% 3.9%)">
-              <option value="">– Keine Gruppe –</option>
-              <option v-for="g in projectGroups.filter(x => !property.customer_id || !x.customer_id || x.customer_id == property.customer_id)" :key="g.id" :value="g.id">{{ g.name }}</option>
-            </select>
-          </div>
-          <div v-if="!showNewGroupForm">
-            <button @click="showNewGroupForm = true"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-lg hover:bg-teal-100 transition-all"
-              style="color:hsl(168 72% 29%);background:hsl(168 72% 96%);border:1px solid hsl(168 72% 85%)">
-              <Plus class="w-3.5 h-3.5" /> Neue Gruppe erstellen
-            </button>
-          </div>
-          <div v-if="showNewGroupForm" class="rounded-xl p-4 space-y-3" style="border:1px solid hsl(168 72% 85%);background:hsl(168 72% 97%)">
-            <Input v-model="newGroupName" placeholder="Gruppenname (z.B. Eggelsberg Wohnkultur)" class="h-8 text-[12px]" />
-            <Input v-model="newGroupDesc" placeholder="Beschreibung (optional)" class="h-8 text-[12px]" />
-            <div class="flex gap-2">
-              <Button size="sm" @click="createAndAssignGroup">Erstellen & Zuweisen</Button>
-              <Button variant="outline" size="sm" @click="showNewGroupForm = false">Abbrechen</Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </Teleport>
 </template>

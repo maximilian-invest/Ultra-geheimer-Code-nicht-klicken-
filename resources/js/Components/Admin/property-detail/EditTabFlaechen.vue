@@ -7,7 +7,7 @@ defineProps({
   isNewbuild: { type: Boolean, default: false },
 });
 
-const inputCls = "h-9 text-[13px] border border-input rounded-lg bg-background";
+const inputCls = "h-9 text-[13px] border-0 rounded-lg bg-zinc-100/80";
 const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
 
 const areaFields = [

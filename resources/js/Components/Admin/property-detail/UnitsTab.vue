@@ -234,19 +234,18 @@ async function saveUnit(unit) {
 }
 
 // Global sync: push all units with immoji:true to immoji + set portal flags
+// Global sync: push ONLY master property to immoji (descriptions, address, etc.)
 const syncing = ref(false);
-async function syncAllUnits() {
+async function syncMaster() {
   syncing.value = true;
   try {
-    const r = await fetch(API.value + "&action=immoji_push_units&property_id=" + props.property.id, {
+    const r = await fetch(API.value + "&action=immoji_push&property_id=" + props.property.id + "&skip_units=1", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
     });
     const d = await r.json();
     if (d.success) {
-      const count = (d.units || []).filter(u => u.status === "ok").length;
-      toast(count + " Einheit(en) synchronisiert");
-      await loadUnits();
+      toast("Master-Objekt synchronisiert");
     } else {
       toast("Sync-Fehler: " + (d.message || "Unbekannt"));
     }
@@ -256,12 +255,30 @@ async function syncAllUnits() {
   syncing.value = false;
 }
 
-const hasUnsyncedUnits = computed(() => {
-  return realUnits.value.some(u => {
-    const ex = typeof u.portal_exports === "string" ? JSON.parse(u.portal_exports || "{}") : (u.portal_exports || {});
-    return ex.immoji && !u.immoji_id;
-  });
-});
+// Per-unit sync: push/update ONE unit on immoji
+const unitSyncingId = ref(null);
+async function syncSingleUnit(unit) {
+  if (!unit.id) return;
+  unitSyncingId.value = unit.id;
+  try {
+    const r = await fetch(API.value + "&action=immoji_push_single_unit&property_id=" + props.property.id + "&unit_id=" + unit.id, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+    });
+    const d = await r.json();
+    if (d.success) {
+      toast(unit.unit_number + " synchronisiert");
+      // Update immoji_id locally
+      if (d.immoji_id) unit.immoji_id = d.immoji_id;
+      await loadUnits();
+    } else {
+      toast("Sync-Fehler: " + (d.message || "Unbekannt"));
+    }
+  } catch (e) {
+    toast("Sync-Fehler: " + e.message);
+  }
+  unitSyncingId.value = null;
+}
 
 // Inline toggle: check/uncheck a portal, auto-save + auto-sync
 async function inlineTogglePortal(unit, portalKey) {
@@ -391,10 +408,10 @@ onMounted(() => {
             class="h-9 pl-9 w-44 text-[13px] border border-input rounded-lg"
           />
         </div>
-        <Button size="sm" @click="syncAllUnits" :disabled="syncing" class="h-9 text-[13px] bg-orange-500 hover:bg-orange-600 text-white">
+        <Button size="sm" @click="syncMaster" :disabled="syncing" class="h-9 text-[13px] bg-orange-500 hover:bg-orange-600 text-white" title="Master-Daten (Beschreibung, Adresse etc.) an immoji senden">
           <Loader2 v-if="syncing" class="w-3.5 h-3.5 mr-1.5 animate-spin" />
           <RefreshCw v-else class="w-3.5 h-3.5 mr-1.5" />
-          Sync
+          Master Sync
         </Button>
         <Button size="sm" variant="outline" @click="addUnitRow" class="h-9 text-[13px]">
           <Plus class="w-3.5 h-3.5 mr-1.5" /> Einheit
@@ -508,7 +525,15 @@ onMounted(() => {
                       @click="!isPortalActive(unit, p.key) ? null : undefined"
                     >{{ p.label }}</span>
                   </div>
-                  <!-- Sync indicator removed — global sync button instead -->
+                  <!-- Per-unit sync button -->
+                  <button v-if="isPortalActive(unit, 'immoji')"
+                    @click.stop="syncSingleUnit(unit)"
+                    :disabled="unitSyncingId === unit.id"
+                    class="p-1 rounded hover:bg-orange-100 text-orange-500 hover:text-orange-600 transition-colors disabled:opacity-50"
+                    title="Diese Einheit synchronisieren">
+                    <Loader2 v-if="unitSyncingId === unit.id" class="w-3.5 h-3.5 animate-spin" />
+                    <RefreshCw v-else class="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
                 <ChevronRight v-if="!isExpanded(unit)" class="w-3.5 h-3.5 text-zinc-500" />

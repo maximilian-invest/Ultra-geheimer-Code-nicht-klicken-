@@ -66,13 +66,14 @@ class AdminApiController extends Controller
         return match ($action) {
             // Briefing & Follow-ups
             'briefing'                  => app(BriefingController::class)->index($request),
-            'followups'                 => app(FollowupController::class)->index($request),
-            'followup_recommendation'   => app(FollowupController::class)->recommendation($request),
-            'followup_draft'            => app(FollowupController::class)->draft($request),
-            'followups_stage1'          => app(FollowupController::class)->index($request->merge(['mode' => 'stage1'])),
-            'followup_draft_staged'     => app(FollowupController::class)->draft($request),
-            'save_ai_feedback'          => app(FollowupController::class)->saveAiFeedback($request),
-            'mark_called'               => app(FollowupController::class)->markCalled($request),
+            // DEPRECATED: old followup actions replaced by conv_* actions (Task 10 cleanup)
+            // 'followups'                 => app(FollowupController::class)->index($request),
+            // 'followup_recommendation'   => app(FollowupController::class)->recommendation($request),
+            // 'followup_draft'            => app(FollowupController::class)->draft($request),
+            // 'followups_stage1'          => app(FollowupController::class)->index($request->merge(['mode' => 'stage1'])),
+            // 'followup_draft_staged'     => app(FollowupController::class)->draft($request),
+            // 'save_ai_feedback'          => app(FollowupController::class)->saveAiFeedback($request),
+            // 'mark_called'               => app(FollowupController::class)->markCalled($request),
 
             // Auto-Nachfassen Settings
             'get_auto_followup_settings'  => $this->getAutoFollowupSettings(),
@@ -912,7 +913,7 @@ class AdminApiController extends Controller
             default => response()->json([
                 'error'     => 'Unknown action',
                 'available' => [
-                    'briefing','followups','performance','conversations',
+                    'briefing','performance','conversations', // 'followups' removed - deprecated
                     'conv_list','conv_detail','conv_reply','conv_followup','conv_done','conv_read','conv_draft','conv_regenerate_draft','conv_improve_draft','conv_followup_all',
                     'property_health','email_context','ai_reply','improve_text','mark_handled',
                     'send_email','email_history','mark_read','create_portal_access','check_portal_access','toggle_auto_reply','trash_emails','restore_emails','pending_viewings','dismiss_viewing_alert',
@@ -933,7 +934,7 @@ class AdminApiController extends Controller
                     'list_knowledge','add_knowledge','update_knowledge','delete_knowledge',
                     'delete_knowledge_permanent','knowledge_summary','ai_categorize_knowledge','extract_file_text','ai_bulk_categorize','ai_extract_from_file','list_activities','update_activity','delete_activity',
                     'ingest_document','bulk_extract_knowledge','parse_property_fields','parse_units',
-                    'followup_recommendation',
+                    // 'followup_recommendation',  // deprecated
                     'cross_property_matches','proactive_alerts',
                     'upload_portal_document','list_portal_documents','delete_portal_document',
                     'list_portal_messages','send_portal_message','delete_portal_message','portal_message_count',

@@ -158,10 +158,6 @@ const aiDetailLevel = ref(localStorage.getItem("sr-ai-detail-level") || "standar
 const sendAccounts = ref([]);
 const sendAccountId = ref(null);
 
-// Recipient email
-const recipientEmailSaving = ref(false);
-const recipientEmailSaved = ref(false);
-
 // Auto-reply
 const autoReplyLogs = ref([]);
 const autoReplyLoading = ref(false);
@@ -709,8 +705,6 @@ async function loadSendAccounts(brokerId) {
   } catch {}
 }
 
-// prefetchDrafts and prefetchFollowupDrafts removed — drafts now come from conv_list response (item.draft_body)
-
 // ============================================================
 // DETAIL PANEL FUNCTIONS (from PrioritiesTab.vue, sheetOpen → detailOpen)
 // ============================================================
@@ -874,26 +868,6 @@ function toggleFileSelection(fileId) {
   const idx = expandedSelectedFiles.value.indexOf(fileId);
   if (idx >= 0) expandedSelectedFiles.value.splice(idx, 1);
   else expandedSelectedFiles.value.push(fileId);
-}
-
-async function saveRecipientEmail(stakeholder, propertyId, newEmail) {
-  if (!newEmail || !stakeholder) return;
-  recipientEmailSaving.value = true;
-  recipientEmailSaved.value = false;
-  try {
-    const fd = new FormData();
-    fd.append("stakeholder", stakeholder);
-    fd.append("property_id", propertyId || "");
-    fd.append("new_email", newEmail);
-    const r = await fetch(API.value + "&action=update_recipient_email", { method: "POST", body: fd });
-    const d = await r.json();
-    if (d.success) {
-      recipientEmailSaved.value = true;
-      toast("E-Mail-Adresse gespeichert: " + newEmail);
-      setTimeout(() => { recipientEmailSaved.value = false; }, 2500);
-    } else { toast("Fehler: " + (d.error || "Unbekannt")); }
-  } catch (e) { toast("Fehler: " + e.message); }
-  recipientEmailSaving.value = false;
 }
 
 async function markHandled(stakeholder, propertyId) {

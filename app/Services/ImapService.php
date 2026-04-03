@@ -926,20 +926,51 @@ class ImapService
     private function matchProperty(string $subject, string $body, array $properties): ?int
     {
         $text = $subject . ' ' . $body;
-        // Normalize: strip spaces/hyphens/underscores for fuzzy ref_id matching
-        $textNorm = preg_replace('/[\s\-_]+/', '', $text);
+        $textNorm = strtolower(preg_replace('/[\s\-_]+/', '', $text));
+
+        // Build lookup maps
+        $exactMap = [];
+        $normMap = [];
         foreach ($properties as $p) {
             if (empty($p['ref_id'])) continue;
-            // Exact match (case-insensitive)
-            if (stripos($text, $p['ref_id']) !== false) {
-                return $p['id'];
-            }
-            // Normalized match: "The37" matches "THE 37", "the-37", etc.
-            $refNorm = preg_replace('/[\s\-_]+/', '', $p['ref_id']);
-            if (stripos($textNorm, $refNorm) !== false) {
-                return $p['id'];
+            $ref = $p['ref_id'];
+            $exactMap[strtolower($ref)] = $p['id'];
+            $normMap[strtolower(preg_replace('/[\s\-_]+/', '', $ref))] = $p['id'];
+        }
+
+        // 1. Exact match (case-insensitive)
+        foreach ($exactMap as $ref => $id) {
+            if (stripos($text, $ref) !== false) return $id;
+        }
+
+        // 2. Normalized match (The37 = THE 37 = the-37)
+        foreach ($normMap as $refNorm => $id) {
+            if (str_contains($textNorm, $refNorm)) return $id;
+        }
+
+        // 3. Extract ref-id-like strings and try prefix/suffix matching
+        // Portal patterns: "Ref.-Nr. Kau-Neu-Hol-DHH1", "Referenznummer: The37-2zi"
+        preg_match_all('/Ref\.?-?(?:Nr\.?|erenz(?:nummer)?)\s*:?\s*([A-Za-z0-9\-_]+)/i', $text, $refMatches);
+        // General ref-id patterns: Kau-Xxx-Yyy-01, Neu-Xxx-Yyy
+        preg_match_all('/\b([A-Z][a-z]{2,3}(?:[-_][A-Za-z]{2,5}){1,4}(?:[-_]?\d{1,3})?)\b/', $text, $generalMatches);
+
+        $candidates = array_unique(array_merge($refMatches[1] ?? [], $generalMatches[1] ?? []));
+
+        foreach ($candidates as $candidate) {
+            $candNorm = strtolower(preg_replace('/[\s\-_]+/', '', $candidate));
+            if (strlen($candNorm) < 4) continue;
+
+            foreach ($normMap as $refNorm => $id) {
+                // Prefix: candidate starts with known ref (Kau-Neu-Hol-DHH1 starts with KauNeuHol)
+                if (str_starts_with($candNorm, $refNorm)) return $id;
+                // Suffix: known ref starts with candidate (KauNeuGraEFH starts with NeuGraEFH)
+                if (strlen($candNorm) >= 6 && str_starts_with($refNorm, $candNorm)) return $id;
+                // Contains: either contains the other
+                if (strlen($refNorm) >= 6 && (str_contains($candNorm, $refNorm) || str_contains($refNorm, $candNorm))) return $id;
             }
         }
+
+        // 4. AI fallback (unchanged)
         return $this->aiMatchProperty($subject, $body, $this->currentBrokerId ?? null);
     }
 

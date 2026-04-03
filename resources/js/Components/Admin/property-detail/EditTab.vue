@@ -504,7 +504,7 @@ defineExpose({ save, discard });
 <template>
   <Tabs v-model="activeSubTab" default-value="allgemeines">
     <!-- Subtab bar — flush under main tabs -->
-    <div class="-mx-6 -mt-6 mb-4">
+    <div class="-mx-6 -mt-6 mb-4 sticky top-0 z-10 sticky top-0 z-10">
       <TabsList class="flex w-full justify-start bg-gradient-to-b from-zinc-50 to-zinc-100/50 border-b border-zinc-200 rounded-none h-auto p-0 px-6 gap-0">
         <TabsTrigger value="allgemeines" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Allgemeines</TabsTrigger>
         <TabsTrigger value="kosten" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Kosten</TabsTrigger>

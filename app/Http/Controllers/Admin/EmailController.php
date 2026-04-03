@@ -122,10 +122,17 @@ class EmailController extends Controller
         }
 
         // Full conversation thread - prefer activity stakeholder to avoid name-order mismatches
+        // Uses surname + first-name-prefix matching to catch variants like "Laura Fenske" / "Laura-June Fenske"
         $stakeholder = $email['_activity_stakeholder'] ?? $email['from_name'] ?? $email['stakeholder'] ?? '';
         $norm      = StakeholderHelper::normSH('a.stakeholder');
         $normInput = StakeholderHelper::normSH("'" . addslashes($stakeholder) . "'");
+        $normSurname      = StakeholderHelper::normSHSurname('a.stakeholder');
+        $normSurnameInput = StakeholderHelper::normSHSurname("'" . addslashes($stakeholder) . "'");
         $pid       = intval($email['property_id']);
+
+        // Extract first name (first word before space/dash) for prefix matching
+        $cleanName = preg_replace('/\s*\(.*?\)\s*$/', '', $stakeholder); // strip "(willhaben)" etc
+        $firstName = strtolower(trim(preg_split('/[\s\-]+/', trim($cleanName))[0] ?? ''));
 
         $thread = DB::select("
             SELECT
@@ -141,9 +148,16 @@ class EmailController extends Controller
                 pe.subject as email_subject
             FROM activities a
             LEFT JOIN portal_emails pe ON pe.id = a.source_email_id
-            WHERE a.property_id = ? AND {$norm} = {$normInput}
+            WHERE a.property_id = ?
+              AND (
+                {$norm} = {$normInput}
+                OR (
+                  {$normSurname} = {$normSurnameInput}
+                  AND LOWER(SUBSTRING_INDEX(TRIM(a.stakeholder), ' ', 1)) LIKE ?
+                )
+              )
             ORDER BY a.activity_date ASC, a.id ASC
-        ", [$pid]);
+        ", [$pid, $firstName . '%']);
 
         $lastThread = !empty($thread) ? (array) end($thread) : [];
 
@@ -298,18 +312,30 @@ class EmailController extends Controller
             }
         }
 
-        // Build thread context
+        // Build thread context (surname + first-name-prefix matching for name variants)
         $stakeholder = $email['_activity_stakeholder'] ?? $email['from_name'] ?? $email['stakeholder'] ?? '';
         $norm      = StakeholderHelper::normSH('a.stakeholder');
         $normInput = StakeholderHelper::normSH("'" . addslashes($stakeholder) . "'");
+        $normSurname      = StakeholderHelper::normSHSurname('a.stakeholder');
+        $normSurnameInput = StakeholderHelper::normSHSurname("'" . addslashes($stakeholder) . "'");
         $pid       = intval($email['property_id']);
+
+        $cleanName = preg_replace('/\s*\(.*?\)\s*$/', '', $stakeholder);
+        $firstName = strtolower(trim(preg_split('/[\s\-]+/', trim($cleanName))[0] ?? ''));
 
         $thread = DB::select("
             SELECT a.activity_date, a.category, a.activity, a.result
             FROM activities a
-            WHERE a.property_id = ? AND {$norm} = {$normInput}
+            WHERE a.property_id = ?
+              AND (
+                {$norm} = {$normInput}
+                OR (
+                  {$normSurname} = {$normSurnameInput}
+                  AND LOWER(SUBSTRING_INDEX(TRIM(a.stakeholder), ' ', 1)) LIKE ?
+                )
+              )
             ORDER BY a.activity_date ASC, a.id ASC
-        ", [$pid]);
+        ", [$pid, $firstName . '%']);
 
         $threadContext = '';
         foreach ($thread as $msg) {

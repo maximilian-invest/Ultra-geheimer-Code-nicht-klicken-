@@ -89,19 +89,31 @@ const sheetMode = ref('offen'); // 'offen' | 'nachfassen'
 // Detail state
 const expandedDetail = ref(null);
 
-// Combine thread + current email into one messages array for chat view
+// Combine thread + current email into one messages array for chat view (deduped by ID)
 const allDetailMessages = computed(() => {
   if (!expandedDetail.value) return [];
   const thread = expandedDetail.value.thread || expandedDetail.value.messages || [];
-  const email = expandedDetail.value.email;
-  if (!email) return thread;
-  // Check if the current email is already in the thread (by id or message_id)
-  const isDuplicate = thread.some(m => 
-    (m.id && email.id && m.id === email.id) ||
-    (m.message_id && email.message_id && m.message_id === email.message_id)
-  );
-  if (isDuplicate) return thread;
-  return [...thread, email];
+  const current = expandedDetail.value.email;
+
+  // Build map by ID to deduplicate
+  const seen = new Map();
+  for (const msg of thread) {
+    const key = msg.id || msg.activity_id || JSON.stringify({ date: msg.date || msg.email_date, body: (msg.body_text || msg.body || '').substring(0, 50) });
+    if (!seen.has(key)) seen.set(key, msg);
+  }
+
+  // Add current email only if not already in thread
+  if (current) {
+    const key = current.id || current.activity_id || 'current';
+    if (!seen.has(key)) seen.set(key, current);
+  }
+
+  // Sort by date ascending (oldest first — chat view)
+  return Array.from(seen.values()).sort((a, b) => {
+    const da = new Date(a.date || a.activity_date || a.email_date || a.created_at || 0);
+    const db = new Date(b.date || b.activity_date || b.email_date || b.created_at || 0);
+    return da - db;
+  });
 });
 const expandedLoading = ref(false);
 const expandedAiDraft = ref(null);

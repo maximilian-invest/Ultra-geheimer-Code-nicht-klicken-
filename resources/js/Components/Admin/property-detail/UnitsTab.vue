@@ -361,12 +361,15 @@ onMounted(() => {
         </div>
 
         <!-- Units list -->
-        <div v-if="isGroupOpen(group.floor)" class="p-2 flex flex-col gap-1.5">
+        <div v-if="isGroupOpen(group.floor)" class="flex flex-col">
           <div
-            v-for="unit in group.units"
+            v-for="(unit, uidx) in group.units"
             :key="unitKey(unit)"
-            class="border border-border rounded-lg bg-background transition-opacity"
-            :class="unit.status === 'verkauft' ? 'opacity-55' : ''"
+            class="bg-zinc-50/60 transition-opacity"
+            :class="[
+              unit.status === 'verkauft' ? 'opacity-55' : '',
+              uidx < group.units.length - 1 ? 'border-b border-zinc-200/60' : ''
+            ]"
           >
             <!-- Collapsed summary row -->
             <div

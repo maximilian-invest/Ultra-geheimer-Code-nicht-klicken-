@@ -300,6 +300,45 @@ class AdminApiController extends Controller
                 }
             })(),
 
+            'immoji_push_units' => (function() use ($request) {
+                $userId = \Auth::id();
+                $settings = \DB::table('admin_settings')->where('user_id', $userId)->first();
+                $encEmail = $settings->immoji_email ?? null;
+                $encPassword = $settings->immoji_password ?? null;
+                if (!$encEmail || !$encPassword) {
+                    return response()->json(['success' => false, 'message' => 'Nicht mit Immoji verbunden'], 422);
+                }
+
+                $propertyId = intval($request->input('property_id', 0));
+                if (!$propertyId) return response()->json(['success' => false, 'message' => 'property_id fehlt'], 400);
+
+                $property = \DB::table('properties')->where('id', $propertyId)->first();
+                if (!$property) return response()->json(['success' => false, 'message' => 'Objekt nicht gefunden'], 404);
+
+                // Ensure master property has openimmo_id first
+                $propArr = (array) $property;
+                try {
+                    $email = \Illuminate\Support\Facades\Crypt::decryptString($encEmail);
+                    $password = \Illuminate\Support\Facades\Crypt::decryptString($encPassword);
+                    $token = \App\Services\ImmojiUploadService::signIn($email, $password);
+                    $service = new \App\Services\ImmojiUploadService($token);
+
+                    if (empty($propArr['openimmo_id'])) {
+                        $result = $service->pushProperty($propArr);
+                        if (!empty($result['immoji_id'])) {
+                            \DB::table('properties')->where('id', $propertyId)->update(['openimmo_id' => $result['immoji_id'], 'updated_at' => now()]);
+                            $propArr['openimmo_id'] = $result['immoji_id'];
+                        }
+                    }
+
+                    $unitResults = $service->pushPropertyUnits($propArr);
+                    return response()->json(['success' => true, 'units' => $unitResults]);
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Immoji push units failed', ['error' => $e->getMessage(), 'property_id' => $propertyId]);
+                    return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+                }
+            })(),
+
             'immoji_portal_status' => (function() use ($request) {
                 $userId = \Auth::id();
                 $settings = \DB::table('admin_settings')->where('user_id', $userId)->first();
@@ -781,7 +820,7 @@ class AdminApiController extends Controller
                     'create_contact','snooze_followup',
                     'kaufanbote_stats','add_kaufanbot','delete_kaufanbot',
                     'list_property_kaufanbote','upload_property_kaufanbot','delete_property_kaufanbot','update_property_kaufanbot_status',
-                    'immoji_connect','immoji_disconnect','immoji_status','immoji_push','immoji_portal_status','immoji_set_portals','immoji_capacity','bulk_sync_immoji','immoji_bulk_portal_status',
+                    'immoji_connect','immoji_disconnect','immoji_status','immoji_push','immoji_push_units','immoji_portal_status','immoji_set_portals','immoji_capacity','bulk_sync_immoji','immoji_bulk_portal_status',
                     'email_accounts','get_email_accounts_select','save_email_account',
                     'delete_email_account','test_email_account',
                     'list_templates','save_template','delete_template',

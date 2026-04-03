@@ -230,17 +230,20 @@ async function saveUnit(unit) {
 
 async function syncUnitToImmoji() {
   try {
-    const r = await fetch(API.value + "&action=immoji_push&property_id=" + props.property.id, {
+    const r = await fetch(API.value + "&action=immoji_push_units&property_id=" + props.property.id, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
     });
     const d = await r.json();
     if (d.success) {
-      toast("Immoji synchronisiert");
+      toast("Einheiten synchronisiert");
       loadUnits();
+    } else {
+      toast("Sync-Fehler: " + (d.message || "Unbekannt"));
     }
   } catch (e) {
     console.error("Immoji sync error:", e);
+    toast("Sync-Fehler: " + e.message);
   }
 }
 

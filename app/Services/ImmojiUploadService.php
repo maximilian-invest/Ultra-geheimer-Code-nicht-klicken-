@@ -92,8 +92,10 @@ class ImmojiUploadService
     public function pushUnit(array $masterProperty, array $unit): array
     {
         // Merge: start with master, override with unit fields
-        // Keep master id so uploadAndMapImages uses master's images for this unit
+        // Keep master id so uploadAndMapImages uses master's images
+        // But set _forceUpload flag so images are re-uploaded (tmp refs are per-realty)
         $merged = $masterProperty;
+        $merged['_forceUploadImages'] = true;
         $merged['title'] = ($masterProperty['project_name'] ?? $masterProperty['title'] ?? '') . ' - ' . ($unit['unit_number'] ?? '');
         $merged['living_area'] = $unit['area_m2'] ?? null;
         $merged['purchase_price'] = $unit['price'] ?? $unit['purchase_price'] ?? null;
@@ -640,6 +642,8 @@ class ImmojiUploadService
         $propertyId = $prop['id'] ?? null;
         if (!$propertyId) return null;
 
+        $forceUpload = !empty($prop['_forceUploadImages']);
+
         $images = \Illuminate\Support\Facades\DB::table('property_images')
             ->where('property_id', $propertyId)
             ->orderBy('sort_order')
@@ -655,8 +659,8 @@ class ImmojiUploadService
             $title = $img->title ?: $img->original_name ?: ('Bild ' . ($index + 1));
             $order = (float) ($img->sort_order ?? $index);
 
-            // Skip upload if already synced to Immoji — reuse existing source
-            if (!empty($img->immoji_source)) {
+            // Skip upload if already synced — unless force flag is set (for units)
+            if (!$forceUpload && !empty($img->immoji_source)) {
                 $source = $img->immoji_source;
                 if ($img->is_title_image) {
                     $coverImage = ['source' => $source, 'title' => $title, 'order' => 0.0];

@@ -2,8 +2,9 @@
 import { ref, onMounted, computed, watch, provide } from "vue";
 import { useForm, usePage } from "@inertiajs/vue3";
 import TodayTab from "@/Components/Admin/TodayTab.vue";
-import PrioritiesTab from "@/Components/Admin/PrioritiesTab.vue";
-import CommsTab from "@/Components/Admin/CommsTab.vue";
+// import PrioritiesTab from "@/Components/Admin/PrioritiesTab.vue";
+// import CommsTab from "@/Components/Admin/CommsTab.vue";
+import InboxTab from "@/Components/Admin/InboxTab.vue";
 import EmailAccountsTab from "@/Components/Admin/EmailAccountsTab.vue";
 import PropertiesTab from "@/Components/Admin/PropertiesTab.vue";
 import ReportsTab from "@/Components/Admin/ReportsTab.vue";
@@ -151,7 +152,7 @@ async function loadNotifications() {
             items.push({ id: 'followup', icon: 'clock', color: '#ee7606', text: followupCount.value + ' Kontakte zum Nachfassen', tab: 'priorities' });
         }
         if (unmatchedCount.value > 0) {
-            items.push({ id: 'unmatched', icon: 'inbox', color: '#3b82f6', text: unmatchedCount.value + ' nicht zugeordnete E-Mail' + (unmatchedCount.value > 1 ? 's' : ''), tab: 'comms' });
+            items.push({ id: 'unmatched', icon: 'inbox', color: '#3b82f6', text: unmatchedCount.value + ' nicht zugeordnete E-Mail' + (unmatchedCount.value > 1 ? 's' : ''), tab: 'inbox' });
         }
         try {
             const r = await fetch(API.value + "&action=proactive_alerts");
@@ -257,9 +258,10 @@ function closeBell(e) {
 const navGroups = [
     { label: "Hauptnavigation", items: [
         { key: "today", label: "Dashboard", icon: LayoutDashboard },
-        { key: "priorities", label: "Aktionen", icon: Zap },
+        // { key: "priorities", label: "Aktionen", icon: Zap },
+        { key: "inbox", label: "Inbox", icon: Mail },
         { key: "tasks", label: "Aufgaben", icon: ListTodo },
-        { key: "comms", label: "Kommunikation", icon: MessageSquare },
+        // { key: "comms", label: "Kommunikation", icon: MessageSquare },
         { key: "properties", label: "Objekte", icon: Home },
     ]},
     { label: "Auswertungen", items: [
@@ -296,8 +298,8 @@ const pageBadge = computed(() => navBadge(tab.value));
 
 function navBadge(key) {
     if (key === "today" && props.stats.new_24h > 0) return props.stats.new_24h;
-    if (key === "priorities") { const total = (unansweredCount.value || 0) + (followupCount.value || 0); return total > 0 ? total : null; }
-    if (key === "comms" && unmatchedCount.value > 0) return unmatchedCount.value;
+    if (key === "inbox") { const total = (unansweredCount.value || 0) + (followupCount.value || 0); return total > 0 ? total : null; }
+    // if (key === "comms" && unmatchedCount.value > 0) return unmatchedCount.value;
     if (key === "tasks" && taskCount.value > 0) return taskCount.value;
     if (key === "properties") return props.stats.properties || null;
     return null;
@@ -484,10 +486,11 @@ function navBadge(key) {
                     </div>
                 </div>
             </div>
-            <div class="flex-1 overflow-x-hidden" :class="tab === 'priorities' ? 'overflow-hidden h-full' : 'overflow-y-auto'">
+            <div class="flex-1 overflow-x-hidden" :class="tab === 'inbox' ? 'overflow-hidden h-full' : 'overflow-y-auto'">
                 <TodayTab v-if="tab === 'today'" :stats="stats" :dark-mode="darkMode" />
-                <PrioritiesTab v-if="tab === 'priorities'" />
-                <CommsTab v-if="tab === 'comms'" />
+                <!-- <PrioritiesTab v-if="tab === 'priorities'" /> -->
+                <InboxTab v-if="tab === 'inbox'" />
+                <!-- <CommsTab v-if="tab === 'comms'" /> -->
                 <EmailAccountsTab v-if="tab === 'email_accounts'" />
                 <PropertiesTab v-if="tab === 'properties'" />
                 <ReportsTab v-if="tab === 'reports'" />

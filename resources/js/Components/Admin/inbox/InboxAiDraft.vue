@@ -213,18 +213,6 @@ function onToneChange(val) {
 
           <!-- Actions bar -->
           <div class="flex items-center gap-2 px-4 py-2 bg-zinc-50/80 border-t border-zinc-100 rounded-b-2xl">
-            <!-- Tone select -->
-            <Select :model-value="toneModel" @update:model-value="onToneChange">
-              <SelectTrigger class="w-[110px] h-7 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="brief">Kurz</SelectItem>
-                <SelectItem value="standard">Standard</SelectItem>
-                <SelectItem value="ausfuehrlich">Ausfuehrlich</SelectItem>
-              </SelectContent>
-            </Select>
-
             <!-- Regenerate -->
             <Button
               variant="outline"
@@ -234,7 +222,7 @@ function onToneChange(val) {
               @click="emit('regenerate')"
             >
               <RefreshCw class="w-3 h-3" :class="loading ? 'animate-spin' : ''" />
-              Neu generieren
+              KI-Entwurf erstellen
             </Button>
 
             <!-- Improve with AI -->
@@ -246,7 +234,7 @@ function onToneChange(val) {
               @click="emit('improve')"
             >
               <Sparkles class="w-3 h-3" />
-              Mit KI verbessern
+              Wording verbessern
             </Button>
 
             <div class="flex-1" />
@@ -255,6 +243,11 @@ function onToneChange(val) {
             <span v-if="draft.subject" class="text-[10px] text-muted-foreground truncate max-w-[200px]">
               {{ draft.subject }}
             </span>
+          </div>
+          <!-- Help text -->
+          <div class="flex gap-4 px-4 py-1.5 bg-zinc-50/50 border-t border-zinc-50 text-[9px] text-muted-foreground/70">
+            <span>KI-Entwurf erstellen = Neuer Entwurf aus Gespraechsverlauf</span>
+            <span>Wording verbessern = Text polieren, Inhalt bleibt gleich</span>
           </div>
         </div>
       </div>

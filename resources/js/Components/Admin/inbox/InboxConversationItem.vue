@@ -82,7 +82,7 @@ function getAvatarColor(name) {
 <template>
   <div
     @click="emit('click', item)"
-    class="group flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors hover:bg-accent/50 relative"
+    class="group flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors hover:bg-gradient-to-r hover:from-orange-100/70 hover:to-transparent relative"
     :class="active
       ? 'bg-background border-l-2 border-l-foreground'
       : 'border-l-2 border-l-transparent'"

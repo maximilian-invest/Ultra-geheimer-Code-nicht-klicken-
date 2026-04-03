@@ -132,7 +132,7 @@ function formatDateLabel(raw) {
     </div>
 
     <!-- Chat area -->
-    <div class="flex-1 overflow-y-auto bg-[#fafafa] px-5 py-4">
+    <div class="flex-1 overflow-y-auto bg-white px-5 py-4">
       <!-- Loading -->
       <div v-if="loading" class="flex items-center justify-center h-full">
         <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />

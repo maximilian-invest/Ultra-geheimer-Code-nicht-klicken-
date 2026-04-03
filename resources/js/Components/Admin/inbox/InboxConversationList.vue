@@ -104,7 +104,7 @@ const isGrouped = computed(() => props.groupedSections && props.groupedSections.
             v-if="section.items && section.items.length"
           >
             <!-- Section Header -->
-            <div class="sticky top-0 z-10 px-3 py-1.5 bg-muted/50 backdrop-blur-sm border-b border-zinc-100">
+            <div class="sticky top-0 z-10 px-3 py-1.5 bg-zinc-50 backdrop-blur-sm border-b border-zinc-100">
               <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {{ section.label }}
                 <span class="ml-1 font-normal">({{ section.items.length }})</span>

@@ -136,6 +136,7 @@ const showAutoReplySettings = ref(false);
 const autoReplyEnabled = ref(false);
 const autoReplyText = ref('');
 const autoReplySaving = ref(false);
+const autoReplyPropertyIds = ref([]);
 
 // Broker filter
 const maklerFilter = ref('all');
@@ -182,7 +183,7 @@ const ehData = ref([]);
 const ehLoading = ref(false);
 const ehTotal = ref(0);
 const ehPage = ref(1);
-const ehPerPage = ref(30);
+const ehPerPage = ref(100);
 const ehTotalPages = ref(0);
 const ehSearch = ref("");
 const ehPropertyId = ref("0");
@@ -579,6 +580,7 @@ async function loadAutoReplySettings() {
     const d = await r.json();
     autoReplyEnabled.value = !!d.auto_reply_enabled;
     autoReplyText.value = d.auto_reply_text || '';
+    autoReplyPropertyIds.value = d.auto_reply_property_ids ? d.auto_reply_property_ids.split(',').map(Number).filter(Boolean) : [];
   } catch (e) { console.error(e); }
 }
 
@@ -607,6 +609,7 @@ async function saveAutoReplySettings() {
       body: JSON.stringify({
         enabled: autoReplyEnabled.value,
         auto_reply_text: autoReplyText.value || null,
+        auto_reply_property_ids: autoReplyPropertyIds.value.join(','),
       }),
     });
     const d = await r.json();
@@ -858,7 +861,6 @@ function openDetail(item, mode) {
 function setAiDetailLevel(level) {
   aiDetailLevel.value = level;
   localStorage.setItem("sr-ai-detail-level", level);
-  if (selectedItem.value) regenerateAiDraft();
 }
 
 async function regenerateAiDraft() {
@@ -1230,7 +1232,8 @@ async function loadEmailHistory() {
     if (ehShowUnmatched.value && !inboxProps.value.length) loadInbox();
     const r = await fetch(url);
     const d = await r.json();
-    ehData.value = (d.emails || []).map(e => ({ ...e, _assignTo: e._assignTo || "", ref_id: e.property_ref_id || e.matched_ref_id || "" }));
+    const newItems = (d.emails || []).map(e => ({ ...e, _assignTo: e._assignTo || "", ref_id: e.property_ref_id || e.matched_ref_id || "" }));
+    if (ehPage.value > 1) { ehData.value = [...ehData.value, ...newItems]; } else { ehData.value = newItems; }
     ehTotal.value = d.total || 0;
     ehTotalPages.value = d.total_pages || 0;
   } catch (e) { toast("Fehler: " + e.message); }
@@ -1801,6 +1804,9 @@ watch(maklerFilter, () => {
 watch(activeSubtab, (v) => {
   if (v === 'posteingang') { ehDirection.value = 'inbound'; ehShowUnmatched.value = false; ehPage.value = 1; loadEmailHistory(); }
   if (v === 'gesendet') { ehDirection.value = 'outbound'; ehPage.value = 1; loadEmailHistory(); }
+  if (v === 'nachfassen') { loadFollowups(followupFilter.value); loadStage1(); }
+  if (v === 'papierkorb') loadTrash();
+  if (v === 'offen') { loadUnanswered(unansweredFilter.value); }
   if (v === 'entwuerfe') loadDrafts();
   if (v === 'templates' && !templates.value?.length) loadTemplates();
 });
@@ -1894,7 +1900,7 @@ onMounted(() => {
     <!-- Content Area: Split Panel -->
     <div class="flex flex-1 min-h-0 overflow-hidden">
       <!-- Left: Conversation List -->
-      <div class="w-[400px] flex-shrink-0 border-r border-zinc-100 flex flex-col h-full overflow-hidden bg-[#fafafa]">
+      <div class="w-[400px] flex-shrink-0 border-r border-zinc-100 flex flex-col h-full overflow-hidden bg-white">
 
         <!-- Panel Header with Pill Tabs -->
         <div class="px-4 pt-3 pb-2 flex-shrink-0">
@@ -1924,7 +1930,7 @@ onMounted(() => {
             <button
               @click="activeSubtab = 'posteingang'"
               class="flex-1 flex items-center justify-center gap-1.5 px-3 py-[5px] text-[12px] rounded-md transition-all"
-              :class="['posteingang','gesendet','entwuerfe','templates'].includes(activeSubtab)
+              :class="['posteingang','gesendet','entwuerfe','templates','papierkorb'].includes(activeSubtab)
                 ? 'bg-white text-foreground font-semibold shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'"
             >
@@ -1933,12 +1939,13 @@ onMounted(() => {
           </div>
 
           <!-- Secondary tabs (only visible when "Alle" is active) -->
-          <div v-if="['posteingang','gesendet','entwuerfe','templates'].includes(activeSubtab)" class="flex gap-1 mb-1">
+          <div v-if="['posteingang','gesendet','entwuerfe','templates','papierkorb'].includes(activeSubtab)" class="flex gap-1 mb-1">
             <button v-for="st in [
               { key: 'posteingang', label: 'Posteingang' },
               { key: 'gesendet', label: 'Gesendet' },
               { key: 'entwuerfe', label: 'Entw\u00fcrfe' },
               { key: 'templates', label: 'Templates' },
+              { key: 'papierkorb', label: 'Papierkorb' },
             ]" :key="st.key"
               @click="activeSubtab = st.key"
               class="px-2.5 py-1 text-[11px] rounded-md transition-colors"
@@ -1962,15 +1969,24 @@ onMounted(() => {
         <div v-if="showAutoReplySettings && activeSubtab === 'offen'" class="mx-4 mb-2 rounded-lg border border-zinc-100 bg-white p-3 space-y-3">
           <div class="flex items-center justify-between">
             <div>
-              <div class="text-[12px] font-semibold">Auto-Reply</div>
+              <div class="text-[12px] font-semibold">Auto-Reply aktiviert</div>
               <div class="text-[10px] text-muted-foreground">Automatische Antwort bei neuen Anfragen</div>
             </div>
-            <Switch :checked="autoReplyEnabled" @update:checked="toggleAutoReply" />
+            <Switch v-model:checked="autoReplyEnabled" />
           </div>
           <div v-if="autoReplyEnabled" class="space-y-2">
-            <div class="text-[11px] font-medium text-muted-foreground">Antwort-Text</div>
-            <Textarea v-model="autoReplyText" class="text-[12px] min-h-[80px]" placeholder="Vielen Dank für Ihre Anfrage..." />
-            <div class="flex justify-end">
+            <div class="text-[11px] font-medium mb-1.5">Fuer welche Objekte?</div>
+            <div class="space-y-1 max-h-32 overflow-y-auto">
+              <label v-for="p in (properties || [])" :key="p.id" class="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-zinc-50 px-2 py-1 rounded">
+                <input type="checkbox" :value="p.id" v-model="autoReplyPropertyIds" class="rounded border-zinc-300" />
+                {{ p.ref_id }} — {{ p.address }}
+              </label>
+            </div>
+            <div class="mt-2">
+              <div class="text-[11px] font-medium mb-1">Antwort-Text</div>
+              <Textarea v-model="autoReplyText" class="text-[11px] min-h-[60px]" placeholder="Vielen Dank fuer Ihre Anfrage..." />
+            </div>
+            <div class="flex justify-end mt-2">
               <Button size="sm" class="h-7 text-[11px]" :disabled="autoReplySaving" @click="saveAutoReplySettings">Speichern</Button>
             </div>
           </div>
@@ -2047,6 +2063,11 @@ onMounted(() => {
           @compose="startCompose()" @delete="trashEmail($event.id)"
         />
 
+        <div v-if="activeSubtab === 'posteingang'  && ehTotal > ehData.length" class="p-3 border-t border-zinc-100 flex-shrink-0">
+          <button @click="ehPage++; loadEmailHistory()" class="w-full h-8 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+            Mehr laden ({{ ehData.length }}/{{ ehTotal }})
+          </button>
+        </div>
         <!-- Gesendet -->
         <InboxConversationList
           v-else-if="activeSubtab === 'gesendet'"
@@ -2062,6 +2083,27 @@ onMounted(() => {
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
           @compose="startCompose()" @delete="trashEmail($event.id)"
+        />
+
+        <div v-if="activeSubtab === 'gesendet'  && ehTotal > ehData.length" class="p-3 border-t border-zinc-100 flex-shrink-0">
+          <button @click="ehPage++; loadEmailHistory()" class="w-full h-8 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+            Mehr laden ({{ ehData.length }}/{{ ehTotal }})
+          </button>
+        </div>
+        <!-- Papierkorb -->
+        <InboxConversationList
+          v-else-if="activeSubtab === 'papierkorb'"
+          :items="trashData"
+          :loading="trashLoading"
+          subtab="papierkorb"
+          :selected-id="selectedItem?.id"
+          :search-query="searchQuery"
+          :object-filter="'all'"
+          :properties="[]"
+          empty-message="Papierkorb ist leer"
+          @select="(item) => openDetail(item, 'papierkorb')"
+          @update:search-query="searchQuery = $event"
+          @compose="startCompose()"
         />
 
         <!-- Entwuerfe -->

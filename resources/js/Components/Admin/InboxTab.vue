@@ -2038,7 +2038,7 @@ onMounted(() => {
 
         <!-- Nachfassen -->
         <InboxConversationList
-          v-else-if="activeSubtab === 'nachfassen'"
+          v-if="activeSubtab === 'nachfassen'"
           :items="filteredFollowups"
           :loading="followupLoading || stage1Loading"
           subtab="nachfassen"

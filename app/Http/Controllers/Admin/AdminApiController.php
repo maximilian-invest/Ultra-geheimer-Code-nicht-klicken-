@@ -164,7 +164,19 @@ class AdminApiController extends Controller
             'refresh_market'            => app(MarketIntelligenceController::class)->refresh($request),
 
             // Conversations
-            'conversations'             => app(ConversationController::class)->index($request),
+            'conversations'             => app(ConversationController::class)->legacyIndex($request),
+
+            // Conversation (new status-based API)
+            'conv_list'                 => app(ConversationController::class)->list($request),
+            'conv_detail'               => app(ConversationController::class)->detail($request),
+            'conv_reply'                => app(ConversationController::class)->reply($request),
+            'conv_followup'             => app(ConversationController::class)->followup($request),
+            'conv_done'                 => app(ConversationController::class)->done($request),
+            'conv_read'                 => app(ConversationController::class)->read($request),
+            'conv_draft'                => app(ConversationController::class)->updateDraft($request),
+            'conv_regenerate_draft'     => app(ConversationController::class)->regenerateDraft($request),
+            'conv_improve_draft'        => app(ConversationController::class)->improveDraft($request),
+            'conv_followup_all'         => app(ConversationController::class)->followupAll($request),
 
             // Property
             'property_health'           => app(PropertyController::class)->health($request),
@@ -901,6 +913,7 @@ class AdminApiController extends Controller
                 'error'     => 'Unknown action',
                 'available' => [
                     'briefing','followups','performance','conversations',
+                    'conv_list','conv_detail','conv_reply','conv_followup','conv_done','conv_read','conv_draft','conv_regenerate_draft','conv_improve_draft','conv_followup_all',
                     'property_health','email_context','ai_reply','improve_text','mark_handled',
                     'send_email','email_history','mark_read','create_portal_access','check_portal_access','toggle_auto_reply','trash_emails','restore_emails','pending_viewings','dismiss_viewing_alert',
                     'download_attachment','save_attachment_to_property','unmatched_emails','assign_email','property_contacts',

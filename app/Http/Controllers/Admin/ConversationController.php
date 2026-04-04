@@ -24,7 +24,7 @@ class ConversationController extends Controller
         $propertyId = intval($request->query('property_id', 0));
         $search     = $request->query('search', '');
         $page       = max(1, intval($request->query('page', 1)));
-        $perPage    = min(50, max(1, intval($request->query('per_page', 20))));
+        $perPage    = min(200, max(1, intval($request->query('per_page', 20))));
 
         $brokerId = Auth::id();
         $userType = Auth::user()->user_type ?? 'makler';
@@ -594,7 +594,7 @@ class ConversationController extends Controller
         $brokerConvFilter = ($brokerId && $userType !== 'assistenz') ? "AND a.property_id IN (SELECT id FROM properties WHERE broker_id = {$brokerId})" : '';
         $stakeholder = $request->query('stakeholder', '');
         $page    = max(1, intval($request->query('page', 1)));
-        $perPage = min(50, max(1, intval($request->query('per_page', 20))));
+        $perPage = min(200, max(1, intval($request->query('per_page', 20))));
         $norm    = StakeholderHelper::normSH('a.stakeholder');
 
         // Single conversation

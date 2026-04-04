@@ -228,10 +228,12 @@ class ConversationService
             if (!$this->isNoReplyEmail($candidate)) return $candidate;
         }
 
-        // Pattern 3: Find first real email in body (not platform/system)
-        if (preg_match_all('/([\w.+\-]+@[\w.\-]+\.[a-z]{2,})/i', $body, $matches)) {
+        // Pattern 3: Find first real email in body — must start with a letter and be bounded by whitespace/punctuation
+        if (preg_match_all('/(?<=\s|^|[,;:<>("\x27])([a-zA-Z][\w.+\-]*@[\w.\-]+\.[a-z]{2,6})(?=\s|$|[,;:>)"\x27\]])/m', $body, $matches)) {
             foreach ($matches[1] as $candidate) {
-                $candidate = strtolower($candidate);
+                $candidate = strtolower(trim($candidate));
+                if (substr_count($candidate, '@') !== 1) continue;
+                if (strlen($candidate) > 80) continue;
                 if (!$this->isNoReplyEmail($candidate) &&
                     !str_contains($candidate, 'sr-homes') &&
                     !str_contains($candidate, 'hoelzl')) {

@@ -64,7 +64,7 @@ class ConversationController extends Controller
 
         $conversations = collect($paginated->items())->map(function (Conversation $conv) {
             $prop = $conv->property;
-            return [
+            $item = [
                 'id'               => $conv->id,
                 'contact_email'    => $conv->contact_email,
                 'stakeholder'      => $conv->stakeholder,
@@ -86,7 +86,16 @@ class ConversationController extends Controller
                 'ref_id'           => $prop?->ref_id,
                 'address'          => $prop?->address,
                 'from_name'        => $conv->stakeholder,
+                'subject'          => '',
             ];
+
+            // Get subject from last email
+            if ($conv->last_email_id) {
+                $lastEmail = DB::selectOne("SELECT subject FROM portal_emails WHERE id = ?", [$conv->last_email_id]);
+                if ($lastEmail) $item['subject'] = $lastEmail->subject;
+            }
+
+            return $item;
         });
 
         // For nachfassen, group by status in response
@@ -144,9 +153,10 @@ class ConversationController extends Controller
               AND (
                   LOWER(pe.from_email) = LOWER(?)
                   OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')
+                  OR LOWER(pe.stakeholder) = LOWER(?)
               )
             ORDER BY pe.email_date ASC
-        ", [$conv->property_id, $conv->contact_email, $conv->contact_email]);
+        ", [$conv->property_id, $conv->contact_email, $conv->contact_email, $conv->stakeholder]);
 
         $prop = $conv->property;
         $convData = [
@@ -172,6 +182,10 @@ class ConversationController extends Controller
             'address'          => $prop?->address,
             'from_name'        => $conv->stakeholder,
         ];
+
+        // Add subject from latest message
+        $convData['subject'] = !empty($messages) ? ($messages[count($messages) - 1]->subject ?? '') : '';
+        $convData['from_name'] = $conv->stakeholder;
 
         return response()->json([
             'conversation' => $convData,

@@ -162,25 +162,6 @@ function getAvatarColor(name) {
           {{ sourcePlatform }}
         </Badge>
 
-        <!-- Offen subtab badges -->
-        <template v-if="subtab === 'offen'">
-          <Badge
-            v-if="daysWaiting !== null"
-            variant="secondary"
-            class="text-[9px] px-1.5 py-0 h-4 font-medium"
-            :class="daysWaiting >= 3 ? 'bg-red-100 text-red-700 border-red-200' : 'bg-zinc-100 text-zinc-600'"
-          >
-            {{ daysWaiting }}d
-          </Badge>
-          <Badge
-            v-if="hasDraft"
-            variant="secondary"
-            class="text-[9px] px-1.5 py-0 h-4 font-medium bg-emerald-100 text-emerald-700 border-emerald-200"
-          >
-            KI bereit
-          </Badge>
-        </template>
-
         <!-- Nachfassen subtab badges -->
         <template v-if="subtab === 'nachfassen'">
           <Badge

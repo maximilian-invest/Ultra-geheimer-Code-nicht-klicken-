@@ -168,39 +168,79 @@ class ConversationService
 
     /**
      * Resolve the contact email address from a PortalEmail.
-     * Inbound: use from_email (skip noreply addresses).
+     * Inbound: use from_email if real, otherwise extract from body, check contacts, or placeholder.
      * Outbound: parse to_email (handle "Name <email>" format).
      */
     public function resolveContactEmail(PortalEmail $email): ?string
     {
-        $isInbound = strtolower($email->direction ?? '') === 'inbound';
+        if ($email->direction === 'inbound') {
+            $fromEmail = strtolower(trim($email->from_email ?? ''));
 
-        if ($isInbound) {
-            $candidate = $email->from_email;
-
-            if ($candidate && $this->isNoReplyEmail($candidate)) {
-                // Generate a placeholder from the stakeholder name
-                $name = $email->stakeholder ?? 'unknown';
-                $slug = Str::slug($name, '_');
-                return "noreply_{$slug}@placeholder.local";
+            // Direct email (not a platform noreply)
+            if ($fromEmail && !$this->isNoReplyEmail($fromEmail)) {
+                return $fromEmail;
             }
 
-            return $candidate ? strtolower(trim($candidate)) : null;
+            // Extract real email from body (willhaben, immoscout, immowelt embed real email in body)
+            $body = $email->body_text ?? '';
+            $realEmail = $this->extractRealEmailFromBody($body, $fromEmail);
+            if ($realEmail) {
+                return strtolower($realEmail);
+            }
+
+            // Check contacts table
+            if ($email->stakeholder && $email->property_id) {
+                $contact = \DB::table('contacts')
+                    ->where('full_name', 'LIKE', '%' . mb_substr($email->stakeholder, 0, 30) . '%')
+                    ->whereNotNull('email')
+                    ->where('email', '!=', '')
+                    ->first();
+                if ($contact && !$this->isNoReplyEmail($contact->email)) {
+                    return strtolower($contact->email);
+                }
+            }
+
+            // Last resort: placeholder
+            if (empty($email->stakeholder)) return null;
+            return 'noreply_' . \Illuminate\Support\Str::slug($email->stakeholder) . '@placeholder.local';
         }
 
         // Outbound: parse to_email
-        $toRaw = $email->to_email;
+        $to = $email->to_email ?? '';
+        if (preg_match('/<([^>]+)>/', $to, $m)) $to = $m[1];
+        return strtolower(trim($to));
+    }
 
-        if (!$toRaw) {
-            return null;
+    /**
+     * Extract a real customer email embedded in portal email body text.
+     */
+    private function extractRealEmailFromBody(string $body, string $senderEmail): ?string
+    {
+        // Pattern 1: "E-Mail: xxx@yyy.zz" (willhaben format)
+        if (preg_match('/(E-Mail|Email)[:\s]+([\w.+\-]+@[\w.\-]+\.[a-z]{2,})/i', $body, $m)) {
+            $candidate = strtolower($m[2]);
+            if (!$this->isNoReplyEmail($candidate)) return $candidate;
         }
 
-        // Handle "Name <email>" format
-        if (preg_match('/<([^>]+)>/', $toRaw, $matches)) {
-            return strtolower(trim($matches[1]));
+        // Pattern 2: "mailto:xxx@yyy.zz"
+        if (preg_match('/mailto:([\w.+\-]+@[\w.\-]+\.[a-z]{2,})/i', $body, $m)) {
+            $candidate = strtolower($m[1]);
+            if (!$this->isNoReplyEmail($candidate)) return $candidate;
         }
 
-        return strtolower(trim($toRaw));
+        // Pattern 3: Find first real email in body (not platform/system)
+        if (preg_match_all('/([\w.+\-]+@[\w.\-]+\.[a-z]{2,})/i', $body, $matches)) {
+            foreach ($matches[1] as $candidate) {
+                $candidate = strtolower($candidate);
+                if (!$this->isNoReplyEmail($candidate) &&
+                    !str_contains($candidate, 'sr-homes') &&
+                    !str_contains($candidate, 'hoelzl')) {
+                    return $candidate;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -211,11 +251,12 @@ class ConversationService
         $fromEmail = strtolower($fromEmail);
 
         $platforms = [
-            'willhaben'  => 'willhaben',
-            'immoscout'  => 'immoscout',
-            'immowelt'   => 'immowelt',
-            'typeform'   => 'typeform',
-            'calendly'   => 'calendly',
+            'willhaben'        => 'willhaben',
+            'immoscout'        => 'immoscout',
+            'immobilienscout'  => 'immoscout',
+            'immowelt'         => 'immowelt',
+            'typeform'         => 'typeform',
+            'calendly'         => 'calendly',
         ];
 
         foreach ($platforms as $pattern => $platform) {
@@ -246,6 +287,7 @@ class ConversationService
             'postmaster',
             'willhaben',
             'immoscout',
+            'immobilienscout',
             'immowelt',
             'typeform',
             'calendly',

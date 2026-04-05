@@ -800,7 +800,7 @@ class ConversationController extends Controller
 
         // Build thread context for draft generation
         $emailQuery = DB::table('portal_emails')
-            ->where('contact_email', $conv->contact_email)
+            ->where(function ($q) use ($conv) { $q->whereRaw("LOWER(from_email) = LOWER(?)", [$conv->contact_email])->orWhereRaw("LOWER(to_email) LIKE CONCAT('%', LOWER(?), '%')", [$conv->contact_email]); })
             ->orderByDesc("email_date")
             ->limit(5);
 

@@ -131,7 +131,7 @@ class PropertyMatcherService
     protected function buildThreadContext(Conversation $conv, PortalEmail $latestEmail): string
     {
         $query = DB::table('portal_emails')
-            ->where('contact_email', $conv->contact_email)
+            ->where(function ($q) use ($conv) { $q->whereRaw("LOWER(from_email) = LOWER(?)", [$conv->contact_email])->orWhereRaw("LOWER(to_email) LIKE CONCAT('%', LOWER(?), '%')", [$conv->contact_email]); })
             ->orderByDesc("email_date")
             ->limit(3);
 
@@ -180,6 +180,8 @@ Intent-Regeln:
 - "none": Interne Mail, Spam, Eigentümer-Kommunikation, oder keine verwertbaren Kriterien
 
 Extrahiere so viele Kriterien wie möglich aus dem Kontext. Bei Erstanfragen: leite Kriterien aus dem angefragten Objekt ab (Typ, Lage, Preisklasse).
+
+WICHTIG für locations: Nenne KONKRETE Ortsnamen (Grödig, Hallein, Anif, etc.), KEINE vagen Beschreibungen wie "Salzburg-Süd" oder "Umland". Wenn der Kunde "südlich von Salzburg" sagt, liste die konkreten Orte auf: Grödig, Anif, Hallein, Elsbethen, Kuchl etc.
 PROMPT;
 
         return $this->ai->chatJson($systemPrompt, $threadContext, 500);
@@ -208,19 +210,30 @@ PROMPT;
         }
 
         // Location match (25 points)
-        $locations = array_map('mb_strtolower', $criteria['locations'] ?? []);
+        $locations = array_map("mb_strtolower", $criteria["locations"] ?? []);
         if (!empty($locations)) {
-            $propCity = mb_strtolower($prop->city ?? '');
-            $propAddr = mb_strtolower($prop->address ?? '');
+            $propCity = mb_strtolower($prop->city ?? "");
+            $propAddr = mb_strtolower($prop->address ?? "");
+            $propZip = $prop->zip ?? "";
+            $locMatched = false;
             foreach ($locations as $loc) {
                 if (str_contains($propCity, $loc) || str_contains($propAddr, $loc)
                     || str_contains($loc, $propCity)) {
                     $score += 25;
+                    $locMatched = true;
                     break;
                 }
             }
+            // Regional match: same zip prefix = same region (50xx = Salzburg area)
+            if (!$locMatched && $propZip) {
+                foreach ($locations as $loc) {
+                    if (str_contains($loc, "salzburg") && str_starts_with($propZip, "50")) {
+                        $score += 15;
+                        break;
+                    }
+                }
+            }
         }
-
         // Price within range (20 points)
         $maxPrice = $criteria['max_price'] ?? null;
         if ($maxPrice && $prop->purchase_price) {

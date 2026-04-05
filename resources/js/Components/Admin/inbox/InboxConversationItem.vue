@@ -233,14 +233,12 @@ function getAvatarColor(name) {
 
 <style scoped>
 .ai-match-border {
-  background: linear-gradient(270deg, hsl(263 70% 58%), hsl(187 72% 53%), hsl(292 84% 60%), hsl(263 70% 58%));
-  background-size: 600% 600%;
-  animation: aiGlow 4s ease infinite;
+  background: linear-gradient(135deg, hsl(263 70% 58%), hsl(187 72% 53%));
+  animation: aiGlow 6s ease infinite;
 }
 
 @keyframes aiGlow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 </style>

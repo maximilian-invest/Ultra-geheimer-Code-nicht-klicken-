@@ -202,11 +202,16 @@ PROMPT;
             $propCategory = mb_strtolower($prop->property_category ?? '');
             foreach ($types as $t) {
                 if (str_contains($propType, $t) || str_contains($propSubtype, $t) || str_contains($propCategory, $t)
-                    || str_contains($t, $propType) || str_contains($t, $propSubtype)) {
+                    || ($propType !== '' && str_contains($t, $propType)) || ($propSubtype !== '' && str_contains($t, $propSubtype))) {
                     $score += 30;
                     break;
                 }
             }
+        }
+
+        // Hard filter: if type was specified but didn't match, exclude entirely
+        if (!empty($types) && $score === 0) {
+            return 0;
         }
 
         // Location match (25 points)

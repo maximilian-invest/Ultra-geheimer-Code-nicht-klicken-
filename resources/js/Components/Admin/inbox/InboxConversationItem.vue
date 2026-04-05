@@ -125,18 +125,14 @@ function getAvatarColor(name) {
 </script>
 
 <template>
-  <div
-    class="relative rounded-lg"
-    :class="hasMatches ? 'p-[2px] ai-match-border' : ''"
-  >
     <div
       @click="emit('click', item)"
-      class="group flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors hover:bg-gradient-to-r hover:from-orange-100/70 hover:to-transparent relative overflow-hidden bg-background"
+      class="group flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors hover:bg-gradient-to-r hover:from-orange-100/70 hover:to-transparent relative overflow-hidden rounded-lg"
       :class="[
         active
           ? 'border-l-2 border-l-foreground'
           : 'border-l-2 border-l-transparent',
-        hasMatches ? 'rounded-[6px]' : ''
+        hasMatches ? 'ai-match-border' : ''
       ]"
     >
       <!-- Avatar -->
@@ -228,14 +224,21 @@ function getAvatarColor(name) {
         </div>
       </div>
     </div>
-  </div>
 </template>
 
 <style scoped>
 .ai-match-border {
+  position: relative;
+}
+.ai-match-border::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 10px;
   background: linear-gradient(270deg, hsl(263 70% 58%), hsl(187 72% 53%), hsl(263 70% 58%));
   background-size: 200% 200%;
   animation: aiBorderShift 6s ease infinite;
+  z-index: -1;
 }
 
 @keyframes aiBorderShift {

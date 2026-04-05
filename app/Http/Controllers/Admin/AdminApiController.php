@@ -147,14 +147,15 @@ class AdminApiController extends Controller
                         ->first();
                     if ($img) {
                         $p->thumbnail_url = url('/storage/' . $img->path);
-                    } else {
-                        $fileImg = DB::table('property_files')
-                            ->where('property_id', $p->id)
-                            ->where('mime_type', 'LIKE', 'image/%')
-                            ->orderBy('sort_order')
-                            ->first();
-                        $p->thumbnail_url = $fileImg ? url('/storage/' . $fileImg->path) : null;
-                    }
+                    } else { $p->thumbnail_url = null; }
+
+
+
+
+
+
+
+
                     return $p;
                 })
             ], 200, [], JSON_UNESCAPED_UNICODE),
@@ -172,12 +173,30 @@ class AdminApiController extends Controller
             'conv_detail'               => app(ConversationController::class)->detail($request),
             'conv_reply'                => app(ConversationController::class)->reply($request),
             'conv_followup'             => app(ConversationController::class)->followup($request),
+            'conv_reply_all'              => app(ConversationController::class)->replyAll($request),
+            'conv_done_batch'            => app(ConversationController::class)->doneBatch($request),
             'conv_done'                 => app(ConversationController::class)->done($request),
             'conv_read'                 => app(ConversationController::class)->read($request),
             'conv_draft'                => app(ConversationController::class)->updateDraft($request),
             'conv_regenerate_draft'     => app(ConversationController::class)->regenerateDraft($request),
             'conv_improve_draft'        => app(ConversationController::class)->improveDraft($request),
             'conv_followup_all'         => app(ConversationController::class)->followupAll($request),
+
+            // AI Cross-Match
+            'match_list'           => app(ConversationController::class)->matchList($request),
+            'match_dismiss'        => app(ConversationController::class)->matchDismiss($request),
+            'match_generate_draft' => app(ConversationController::class)->matchGenerateDraft($request),
+
+            // Blog management
+            'blog_list'             => app(BlogController::class)->list($request),
+            'blog_get'              => app(BlogController::class)->get($request),
+            'blog_save'             => app(BlogController::class)->save($request),
+            'blog_delete'           => app(BlogController::class)->delete($request),
+            'blog_publish'          => app(BlogController::class)->publish($request),
+            'blog_unpublish'        => app(BlogController::class)->unpublish($request),
+            'blog_generate_article' => app(BlogController::class)->generateArticle($request),
+            'blog_generate_image'   => app(BlogController::class)->generateImage($request),
+            'blog_upload_image'     => app(BlogController::class)->uploadImage($request),
 
             // Property
             'property_health'           => app(PropertyController::class)->health($request),
@@ -914,7 +933,9 @@ class AdminApiController extends Controller
                 'error'     => 'Unknown action',
                 'available' => [
                     'briefing','performance','conversations', // 'followups' removed - deprecated
-                    'conv_list','conv_detail','conv_reply','conv_followup','conv_done','conv_read','conv_draft','conv_regenerate_draft','conv_improve_draft','conv_followup_all',
+                    'conv_list','conv_detail','conv_reply','conv_followup','conv_reply_all'              => app(ConversationController::class)->replyAll($request),
+            'conv_done_batch'            => app(ConversationController::class)->doneBatch($request),
+            'conv_done','conv_read','conv_draft','conv_regenerate_draft','conv_improve_draft','conv_followup_all',
                     'property_health','email_context','ai_reply','improve_text','mark_handled',
                     'send_email','email_history','mark_read','create_portal_access','check_portal_access','toggle_auto_reply','trash_emails','restore_emails','pending_viewings','dismiss_viewing_alert',
                     'download_attachment','save_attachment_to_property','unmatched_emails','assign_email','property_contacts',

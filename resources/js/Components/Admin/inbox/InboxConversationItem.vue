@@ -51,11 +51,16 @@ function formatDateTime(dateStr) {
   return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + " " + time;
 }
 
-const displayName = computed(() => props.item.from_name || props.item.stakeholder || props.item.from_email || "Unbekannt");
+const displayName = computed(() => props.item.stakeholder || props.item.from_name || props.item.from_email || "Unbekannt");
 const initials = computed(() => getInitials(displayName.value));
 
 const timestamp = computed(() => {
-  const dateStr = props.item.last_inbound_at || props.item.email_date || props.item.last_activity_at;
+  let dateStr;
+  if (props.subtab === "nachfassen") {
+    dateStr = props.item.last_outbound_at || props.item.last_activity_at;
+  } else {
+    dateStr = props.item.last_inbound_at || props.item.email_date || props.item.last_activity_at;
+  }
   return formatDateTime(dateStr);
 });
 
@@ -66,11 +71,20 @@ const subject = computed(() => {
 });
 
 const refId = computed(() => props.item.ref_id || "");
+const isUnmatched = computed(() => !props.item.property_id && !refId.value);
 
 const sourcePlatform = computed(() => {
+  // From conversations table
   const p = props.item.source_platform || "";
-  if (!p || p.toLowerCase() === "direkt") return null;
-  return p;
+  if (p && p.toLowerCase() !== "direkt") return p;
+  // Derive from from_email for posteingang/gesendet
+  const from = (props.item.from_email || "").toLowerCase();
+  if (from.includes("willhaben")) return "willhaben";
+  if (from.includes("typeform") || from.includes("followups.typeform")) return "typeform";
+  if (from.includes("immoscout") || from.includes("immobilienscout")) return "ImmoScout";
+  if (from.includes("immowelt")) return "immowelt";
+  if (from.includes("calendly")) return "calendly";
+  return null;
 });
 
 const daysWaiting = computed(() => {
@@ -101,6 +115,8 @@ const isKaufanbot = computed(() => {
   return cat === "kaufanbot" || cat === "anbot";
 });
 
+const hasMatches = computed(() => props.item.match_count > 0 && !props.item.match_dismissed);
+
 function getAvatarColor(name) {
   const colors = ["bg-zinc-800", "bg-zinc-700", "bg-zinc-600", "bg-zinc-500", "bg-zinc-400"];
   const idx = (name || "").length % colors.length;
@@ -110,77 +126,121 @@ function getAvatarColor(name) {
 
 <template>
   <div
-    @click="emit('click', item)"
-    class="group flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors hover:bg-gradient-to-r hover:from-orange-100/70 hover:to-transparent relative"
-    :class="active
-      ? 'bg-background border-l-2 border-l-foreground'
-      : 'border-l-2 border-l-transparent'"
+    class="relative rounded-lg"
+    :class="hasMatches ? 'p-[2px] ai-match-border' : ''"
   >
-    <!-- Avatar -->
-    <Avatar class="h-[34px] w-[34px] rounded-lg flex-shrink-0 mt-0.5">
-      <AvatarFallback :class="['rounded-lg text-white text-[11px] font-semibold', getAvatarColor(displayName)]">
-        {{ initials }}
-      </AvatarFallback>
-    </Avatar>
+    <div
+      @click="emit('click', item)"
+      class="group flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors hover:bg-gradient-to-r hover:from-orange-100/70 hover:to-transparent relative overflow-hidden bg-background"
+      :class="[
+        active
+          ? 'border-l-2 border-l-foreground'
+          : 'border-l-2 border-l-transparent',
+        hasMatches ? 'rounded-[6px]' : ''
+      ]"
+    >
+      <!-- Avatar -->
+      <Avatar class="h-[34px] w-[34px] rounded-lg flex-shrink-0 mt-0.5">
+        <AvatarFallback :class="['rounded-lg text-white text-[11px] font-semibold', getAvatarColor(displayName)]">
+          {{ initials }}
+        </AvatarFallback>
+      </Avatar>
 
-    <!-- Content -->
-    <div class="flex-1 min-w-0">
-      <!-- Row 1: Name + DateTime -->
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-1 min-w-0">
-          <span v-if="subtab === 'posteingang' && !item.is_read" class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
-          <span
-            class="text-[13px] text-foreground truncate"
-            :class="(subtab === 'posteingang' && !item.is_read) ? 'font-bold' : 'font-semibold'"
-          >{{ displayName }}</span>
-          <CheckCircle v-if="item.has_reply && item.direction === 'inbound'" class="w-3 h-3 text-green-500 flex-shrink-0" title="Beantwortet" />
+      <!-- Content -->
+      <div class="flex-1 min-w-0">
+        <!-- Row 1: Name + DateTime -->
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1 min-w-0">
+            <span v-if="subtab === 'posteingang' && !item.is_read" class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+            <span
+              class="text-[13px] text-foreground truncate"
+              :class="(subtab === 'posteingang' && !item.is_read) ? 'font-bold' : 'font-semibold'"
+            >{{ displayName }}</span>
+            <CheckCircle v-if="item.has_reply && item.direction === 'inbound'" class="w-3 h-3 text-green-500 flex-shrink-0" title="Beantwortet" />
+          </div>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <span class="text-[10px] text-muted-foreground whitespace-nowrap">{{ timestamp }}</span>
+          </div>
         </div>
-        <div class="flex items-center gap-1 flex-shrink-0">
+
+        <!-- Row 2: Subject (only if exists and not "Kein Betreff") -->
+        <div v-if="subject" class="text-[11px] text-muted-foreground truncate mt-0.5">{{ subject }}</div>
+
+        <!-- Row 3: Badges -->
+        <div class="flex items-center gap-1 mt-1 flex-wrap">
+          <!-- Erledigt/Delete overlay button -->
           <button
+            v-if="subtab === 'offen' || subtab === 'nachfassen'"
             @click.stop="emit('delete', item)"
-            class="hidden group-hover:flex items-center justify-center w-5 h-5 rounded hover:bg-red-100 text-zinc-400 hover:text-red-500 transition-colors"
-            title="Löschen"
+            class="hidden group-hover:flex absolute right-2 top-2 items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-all text-[10px] font-medium shadow-sm z-10"
+          >
+            <CheckCircle class="w-3 h-3" />
+            Erledigt
+          </button>
+          <button
+            v-else-if="subtab === 'posteingang' || subtab === 'gesendet' || subtab === 'papierkorb'"
+            @click.stop="emit('delete', item)"
+            class="hidden group-hover:flex absolute right-2 top-2 items-center gap-1 px-2 py-1 rounded-md bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-all text-[10px] font-medium shadow-sm z-10"
           >
             <Trash2 class="w-3 h-3" />
           </button>
-          <span class="text-[10px] text-muted-foreground whitespace-nowrap">{{ timestamp }}</span>
+          <!-- Ref ID -->
+          <Badge v-if="refId" variant="outline" class="text-[9px] px-1.5 py-0 h-4 font-normal border-zinc-200 text-zinc-500">
+            {{ refId }}
+          </Badge>
+
+          <!-- Nicht zugeordnet -->
+          <Badge v-if="isUnmatched" variant="outline" class="text-[9px] px-1.5 py-0 h-4 font-normal border-red-200 text-red-600 bg-red-50">
+            Nicht zugeordnet
+          </Badge>
+
+          <!-- Platform (amber, hidden for direkt) -->
+          <Badge v-if="sourcePlatform" variant="outline" class="text-[9px] px-1.5 py-0 h-4 font-normal border-amber-200 text-amber-700 bg-amber-50">
+            {{ sourcePlatform }}
+          </Badge>
+
+          <!-- Nachfassen subtab badges -->
+          <template v-if="subtab === 'nachfassen'">
+            <Badge
+              v-if="stageLabel"
+              variant="secondary"
+              class="text-[9px] px-1.5 py-0 h-4 font-medium border"
+              :class="stageColor"
+            >
+              {{ stageLabel }}
+            </Badge>
+            <Badge
+              v-if="isKaufanbot"
+              variant="secondary"
+              class="text-[9px] px-1.5 py-0 h-4 font-medium bg-purple-100 text-purple-700 border-purple-200"
+            >
+              Kaufanbot
+            </Badge>
+          </template>
+
+          <!-- AI Match badge -->
+          <Badge
+            v-if="hasMatches"
+            class="bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-[10px] px-1.5 py-0 border-0"
+          >
+            ✦ {{ item.match_count }} {{ item.match_count === 1 ? 'Match' : 'Matches' }}
+          </Badge>
         </div>
-      </div>
-
-      <!-- Row 2: Subject (only if exists and not "Kein Betreff") -->
-      <div v-if="subject" class="text-[11px] text-muted-foreground truncate mt-0.5">{{ subject }}</div>
-
-      <!-- Row 3: Badges -->
-      <div class="flex items-center gap-1 mt-1 flex-wrap">
-        <!-- Ref ID -->
-        <Badge v-if="refId" variant="outline" class="text-[9px] px-1.5 py-0 h-4 font-normal border-zinc-200 text-zinc-500">
-          {{ refId }}
-        </Badge>
-
-        <!-- Platform (amber, hidden for direkt) -->
-        <Badge v-if="sourcePlatform" variant="outline" class="text-[9px] px-1.5 py-0 h-4 font-normal border-amber-200 text-amber-700 bg-amber-50">
-          {{ sourcePlatform }}
-        </Badge>
-
-        <!-- Nachfassen subtab badges -->
-        <template v-if="subtab === 'nachfassen'">
-          <Badge
-            v-if="stageLabel"
-            variant="secondary"
-            class="text-[9px] px-1.5 py-0 h-4 font-medium border"
-            :class="stageColor"
-          >
-            {{ stageLabel }}
-          </Badge>
-          <Badge
-            v-if="isKaufanbot"
-            variant="secondary"
-            class="text-[9px] px-1.5 py-0 h-4 font-medium bg-purple-100 text-purple-700 border-purple-200"
-          >
-            Kaufanbot
-          </Badge>
-        </template>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.ai-match-border {
+  background: linear-gradient(270deg, hsl(263 70% 58%), hsl(187 72% 53%), hsl(292 84% 60%), hsl(263 70% 58%));
+  background-size: 600% 600%;
+  animation: aiGlow 4s ease infinite;
+}
+
+@keyframes aiGlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+</style>

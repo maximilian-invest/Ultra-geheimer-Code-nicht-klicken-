@@ -5,7 +5,7 @@ import {
   Mail, Clock, Send, CheckCircle, X, ChevronDown, ChevronUp, CalendarDays,
   Paperclip, Loader2, Search, Sparkles, ArrowUp, ArrowDown,
   PenSquare, History, FileEdit, Trash2, Inbox, LayoutTemplate, Plus, Pencil,
-  ChevronLeft, ChevronRight, Reply, Save, MailQuestion, Settings2, ImageIcon
+  ChevronLeft, ChevronRight, Reply, Save, MailQuestion, Settings2
 } from "lucide-vue-next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -22,7 +22,7 @@ import InboxConversationList from "./inbox/InboxConversationList.vue";
 import InboxChatView from "./inbox/InboxChatView.vue";
 import InboxAiDraft from "./inbox/InboxAiDraft.vue";
 import InboxComposeView from "./inbox/InboxComposeView.vue";
-import InboxBottomBar from "./inbox/InboxBottomBar.vue";
+import InboxMatchView from "./inbox/InboxMatchView.vue";
 
 // ============================================================
 // INJECTIONS (merged from PrioritiesTab + CommsTab)
@@ -81,6 +81,8 @@ provide("inboxBgOpacity", bgOpacity);
 const selectedItem = ref(null);
 const selectedMode = ref("offen");
 const composing = ref(false);
+const matchMode = ref(false);
+const matchItems = ref([]);
 
 // ============================================================
 // PRIORITIES STATE (from PrioritiesTab.vue)
@@ -160,6 +162,22 @@ const sendAccountId = ref(null);
 
 // Auto-reply
 const autoReplyLogs = ref([]);
+const showAutoFollowupSettings = ref(false);
+const showNfStagePicker = ref(false);
+const bulkSending = ref(false);
+const showSaveAttachDialog = ref(false);
+const saveAttachData = ref(null);
+const saveAttachPropertyId = ref(null);
+const saveAttachLabel = ref("");
+const saveAttachSaving = ref(false);
+const bulkSendTotal = ref(0);
+const bulkSendDone = ref(0);
+const bulkSendLabel = ref("");
+const nfStageSelection = ref({ nf1: true, nf2: true, nf3: true });
+const autoFollowupStage1 = ref(false);
+const autoFollowupStage2 = ref(false);
+const autoFollowupStage3 = ref(false);
+const autoFollowupSaving = ref(false);
 const autoReplyLoading = ref(false);
 const autoReplyBannerOpen = ref(false);
 const showAutoReplySettings = ref(false);
@@ -306,6 +324,19 @@ const filteredFollowups = computed(() => {
   }
   if (categoryFilter.value !== 'all') {
     list = list.filter(i => i.category === categoryFilter.value);
+  }
+  return list;
+});
+
+const filteredTrash = computed(() => {
+  let list = trashData.value;
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    list = list.filter(i =>
+      (i.from_name || i.stakeholder || '').toLowerCase().includes(q) ||
+      (i.subject || '').toLowerCase().includes(q) ||
+      (i.from_email || i.to_email || '').toLowerCase().includes(q)
+    );
   }
   return list;
 });
@@ -568,6 +599,7 @@ async function loadUnanswered(filter) {
       from_email: c.from_email || c.contact_email || '',
     }));
     unansweredCount.value = d.total || 0;
+    matchItems.value = (d.conversations || []).filter(c => c.match_count > 0 && !c.match_dismissed);
   } catch (e) { toast("Fehler: " + e.message); }
   unansweredLoading.value = false;
 }
@@ -578,10 +610,14 @@ async function loadFollowups(filter) {
   stage1Loading.value = true;
   try {
     const brokerParam = (maklerFilter.value && maklerFilter.value !== 'all') ? "&broker_filter=" + maklerFilter.value : "";
-    const r = await fetch(API.value + "&action=conv_list&status=nachfassen" + brokerParam);
+    const r = await fetch(API.value + "&action=conv_list&status=nachfassen&per_page=200" + brokerParam);
     const d = await r.json();
     const all = (d.conversations || []).map(c => {
-      const stageMap = { beantwortet: 0, nachfassen_1: 1, nachfassen_2: 2, nachfassen_3: 3 };
+      // Status = what was sent. Display stage = what's NEXT (fällig)
+              // beantwortet = answered, NF1 fällig → stage 1
+              // nachfassen_1 = NF1 sent, NF2 fällig → stage 2
+              // nachfassen_2 = NF2 sent, NF3 fällig → stage 3
+              const stageMap = { beantwortet: 1, nachfassen_1: 2, nachfassen_2: 3 };
       return {
         ...c,
         from_name: c.from_name || c.stakeholder || '',
@@ -590,9 +626,9 @@ async function loadFollowups(filter) {
       };
     });
     // Stage 0 (beantwortet) goes to stage1Followups, rest to followupData
-    stage1Followups.value = all.filter(c => c._stage === 0).map(c => ({ ...c, _stage: 1 }));
+    stage1Followups.value = []; // All items now in followupData with correct stages
     stage1Count.value = stage1Followups.value.length;
-    const followups = all.filter(c => c._stage > 0);
+    const followups = all;
     followupData.value = { followups };
     followupCount.value = d.total || all.length;
   } catch (e) { toast("Fehler: " + e.message); }
@@ -603,6 +639,42 @@ async function loadFollowups(filter) {
 async function loadStage1() {
   // Now handled by loadFollowups() via conv_list&status=nachfassen
   // Kept as no-op for call-site compatibility
+}
+
+async function loadMatchesTab() {
+  try {
+    const r = await fetch(API.value + '&action=conv_list&status=offen&has_matches=1')
+    const d = await r.json()
+    matchItems.value = (d.conversations || d.data || d).filter(c => c.match_count > 0 && !c.match_dismissed)
+  } catch (e) {
+    console.error('Failed to load matches', e)
+  }
+}
+
+async function handleMatchDismiss() {
+  if (!selectedItem.value) return
+  await fetch(API.value + '&action=match_dismiss', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ conversation_id: selectedItem.value.id }),
+  })
+  selectedItem.value.match_count = 0
+  selectedItem.value.match_dismissed = true
+  matchMode.value = false
+  matchItems.value = matchItems.value.filter(m => m.id !== selectedItem.value.id)
+}
+
+function handleMatchDraft(draftData) {
+  matchMode.value = false
+  if (selectedItem.value) {
+    selectedItem.value.draft_body = draftData.draft_body
+    selectedItem.value.draft_subject = draftData.draft_subject
+    selectedItem.value.draft_to = draftData.draft_to
+    selectedItem.value.match_count = 0
+    if (draftData.file_ids && draftData.file_ids.length) {
+      selectedItem.value._matchFileIds = draftData.file_ids
+    }
+  }
 }
 
 async function loadAutoReplyLogs() {
@@ -623,6 +695,32 @@ async function loadAutoReplySettings() {
     autoReplyText.value = d.auto_reply_text || '';
     autoReplyPropertyIds.value = d.auto_reply_property_ids ? d.auto_reply_property_ids.split(',').map(Number).filter(Boolean) : [];
   } catch (e) { console.error(e); }
+}
+
+async function loadAutoFollowupSettings() {
+  try {
+    const r = await fetch(API.value + "&action=get_auto_followup_settings");
+    const d = await r.json();
+    autoFollowupStage1.value = !!d.stage1_enabled;
+    autoFollowupStage2.value = !!d.stage2_enabled;
+    autoFollowupStage3.value = !!d.stage3_enabled;
+  } catch (e) {}
+}
+
+async function saveAutoFollowupSettings() {
+  autoFollowupSaving.value = true;
+  try {
+    await fetch(API.value + "&action=save_auto_followup_settings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        stage1_enabled: autoFollowupStage1.value ? 1 : 0,
+        stage2_enabled: autoFollowupStage2.value ? 1 : 0,
+        stage3_enabled: autoFollowupStage3.value ? 1 : 0,
+      }),
+    });
+    toast("Auto-Nachfassen gespeichert!");
+  } catch (e) { toast("Fehler: " + e.message); }
+  autoFollowupSaving.value = false;
 }
 
 async function toggleAutoReply() {
@@ -648,7 +746,7 @@ async function saveAutoReplySettings() {
     const r = await fetch(API.value + "&action=toggle_auto_reply", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        enabled: autoReplyPropertyIds.value.length > 0 ? 1 : 0,
+        enabled: autoReplyEnabled.value ? 1 : 0,
         auto_reply_text: autoReplyText.value || null,
         auto_reply_property_ids: autoReplyPropertyIds.value.join(','),
       }),
@@ -659,26 +757,51 @@ async function saveAutoReplySettings() {
   } catch (e) { toast("Fehler: " + e.message); }
   autoReplySaving.value = false;
 }
+function nachfassenAlle() {
+  showNfStagePicker.value = !showNfStagePicker.value;
+}
 
-async function nachfassenAlle() {
-  const items = filteredFollowups.value.filter(f => f.draft_body);
-  if (!items.length) return;
-  if (!confirm("Alle " + items.length + " Nachfass-Entw\u00fcrfe jetzt senden?")) return;
+function nfStageCount(stage) {
+  return filteredFollowups.value.filter(f => f.draft_body && f._stage === stage).length;
+}
+
+async function sendNachfassenSelected() {
+  const sel = nfStageSelection.value;
+  const stages = [];
+  if (sel.nf1) stages.push(1);
+  if (sel.nf2) stages.push(2);
+  if (sel.nf3) stages.push(3);
+  if (!stages.length) { toast("Bitte mindestens eine Stufe wählen"); return; }
+
+  const items = filteredFollowups.value.filter(f => f.draft_body && stages.includes(f._stage));
+  if (!items.length) { toast("Keine Entwürfe für die gewählten Stufen"); return; }
+  
+
+  showNfStagePicker.value = false;
+  const allForStages = filteredFollowups.value.filter(f => stages.includes(f._stage));
+  bulkSending.value = true;
+  bulkSendTotal.value = allForStages.length;
+  bulkSendDone.value = 0;
+  bulkSendLabel.value = "KI generiert & sendet " + allForStages.length + " Nachfass-Mails...";
 
   try {
     const r = await fetch(API.value + "&action=conv_followup_all", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ account_id: sendAccountId.value || 1 }),
+      body: JSON.stringify({ account_id: sendAccountId.value || 1, stages }),
     });
     const d = await r.json();
+    bulkSendDone.value = d.sent || 0;
+    bulkSendTotal.value = d.sent || allForStages.length;
     if (d.success) {
-      toast((d.sent_count || items.length) + " Nachfass-Emails gesendet!");
+      bulkSendLabel.value = (d.sent || 0) + " Nachfass-Mails gesendet!";
+      if (d.errors?.length) bulkSendLabel.value += " (" + d.errors.length + " Fehler)";
     } else {
-      toast("Fehler: " + (d.error || "Unbekannt"));
+      bulkSendLabel.value = "Fehler: " + (d.error || "Unbekannt");
     }
-  } catch (e) { toast("Fehler: " + e.message); }
+  } catch (e) { bulkSendLabel.value = "Fehler: " + e.message; }
 
+  setTimeout(() => { bulkSending.value = false; }, 3000);
   loadFollowups(followupFilter.value);
   loadUnanswered(unansweredFilter.value);
   refreshCounts();
@@ -709,6 +832,19 @@ async function loadSendAccounts(brokerId) {
 // DETAIL PANEL FUNCTIONS (from PrioritiesTab.vue, sheetOpen → detailOpen)
 // ============================================================
 function openDetail(item, mode) {
+  // Match mode: if conversation has unacknowledged matches, show match view
+  if (item.match_count > 0 && !item.match_dismissed) {
+    matchMode.value = true;
+    selectedItem.value = item;
+    selectedMode.value = mode;
+    if (!item.is_read) {
+      fetch(API.value + '&action=conv_read&id=' + item.id, { method: 'POST' }).catch(() => {})
+      item.is_read = true;
+    }
+    detailOpen.value = true;
+    return;
+  }
+  matchMode.value = false;
   selectedItem.value = item;
   sheetMode.value = mode;
   selectedMode.value = mode;
@@ -747,7 +883,15 @@ function openDetail(item, mode) {
       to: item.draft_to || item.contact_email || '',
     };
     expandedAiLoading.value = false;
-  } else if (mode === "posteingang" || mode === "gesendet") {
+  } else if (mode === "posteingang") {
+    // Allow replying to posteingang emails - show empty draft
+    expandedAiDraft.value = {
+      body: "",
+      subject: "Re: " + (item.subject || ""),
+      to: item.from_email || item.contact_email || "",
+    };
+    expandedAiLoading.value = false;
+  } else if (mode === "gesendet") {
     expandedAiLoading.value = false;
   }
 
@@ -768,14 +912,30 @@ function openDetail(item, mode) {
   const isEmailHistory = mode === "posteingang" || mode === "gesendet";
   let contextPromise;
   if (isEmailHistory) {
+    // Load full conversation thread by finding matching conversation
     contextPromise = fetch(API.value + "&action=email_context&email_id=" + item.id)
       .then(r => r.json())
-      .then(d => {
-        if (d.email && !d.thread?.length) {
-          expandedDetail.value = { email: d.email, thread: d.thread || [] };
-        } else {
-          expandedDetail.value = { email: d.email || null, thread: d.thread || [] };
+      .then(async d => {
+        // Try to load full conversation thread if property_id exists
+        if (d.email?.property_id && (d.email?.from_email || d.email?.to_email || d.email?.stakeholder)) {
+          try {
+            // Find conversation for this email
+            const searchEmail = d.email.direction === "inbound" ? d.email.from_email : d.email.to_email;
+            const stakeholder = d.email.stakeholder || d.email.from_name || "";
+            const convListR = await fetch(API.value + "&action=conv_list&search=" + encodeURIComponent(stakeholder) + "&property_id=" + d.email.property_id + "&per_page=1");
+            const convListD = await convListR.json();
+            const conv = (convListD.conversations || [])[0];
+            if (conv) {
+              const detailR = await fetch(API.value + "&action=conv_detail&id=" + conv.id);
+              const detailD = await detailR.json();
+              if (detailD.messages?.length) {
+                expandedDetail.value = { email: detailD.conversation || d.email, thread: detailD.messages || [] };
+                return;
+              }
+            }
+          } catch (e) { /* fallback to single email */ }
         }
+        expandedDetail.value = { email: d.email || null, thread: d.thread || [] };
       })
       .catch(e => { toast("Fehler: " + e.message); })
       .finally(() => { expandedLoading.value = false; });
@@ -791,7 +951,7 @@ function openDetail(item, mode) {
 
   // Generate draft if not available from conv_list
   const promises = [contextPromise];
-  if ((mode === 'offen' || mode === 'nachfassen') && !item.draft_body) {
+  if ((mode === 'offen' || mode === 'nachfassen') && !item.draft_body && !item.draft_dismissed) {
     const aiPromise = fetch(API.value + "&action=conv_regenerate_draft&id=" + item.id, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -804,9 +964,13 @@ function openDetail(item, mode) {
             subject: d.draft_subject || item.subject || '',
             to: d.draft_to || item.contact_email || '',
           };
+        } else {
+          expandedAiDraft.value = { body: '', subject: item.subject || '', to: item.contact_email || '' };
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        expandedAiDraft.value = { body: '', subject: item.subject || '', to: item.contact_email || '' };
+      })
       .finally(() => { expandedAiLoading.value = false; });
     promises.push(aiPromise);
   }
@@ -820,14 +984,19 @@ function setAiDetailLevel(level) {
 }
 
 async function regenerateAiDraft() {
-  expandedAiDraft.value = null;
-  expandedAiLoading.value = true;
   const item = selectedItem.value;
+  if (!item) return;
+  // Keep existing draft visible during loading (don't null it)
+  expandedAiLoading.value = true;
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
     const r = await fetch(API.value + "&action=conv_regenerate_draft&id=" + item.id, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     const d = await r.json();
     if (d.draft_body) {
       expandedAiDraft.value = {
@@ -835,8 +1004,19 @@ async function regenerateAiDraft() {
         subject: d.draft_subject || item.subject || '',
         to: d.draft_to || item.contact_email || '',
       };
+    } else {
+      toast("KI-Entwurf konnte nicht generiert werden: " + (d.error || "Unbekannter Fehler"));
+      // Keep draft area visible with empty body so user can retry
+      if (!expandedAiDraft.value) {
+        expandedAiDraft.value = { body: '', subject: item.subject || '', to: item.contact_email || '' };
+      }
     }
-  } catch (e) { toast("KI-Fehler: " + e.message); }
+  } catch (e) {
+    toast("KI-Fehler: " + e.message);
+    if (!expandedAiDraft.value) {
+      expandedAiDraft.value = { body: '', subject: item.subject || '', to: item.contact_email || '' };
+    }
+  }
   expandedAiLoading.value = false;
 }
 
@@ -848,7 +1028,7 @@ async function improveWithAi() {
   expandedAiLoading.value = true;
   const item = selectedItem.value;
   try {
-    const r = await fetch(API.value + "&action=conv_improve_draft&id=" + item.id, {
+    const r = await fetch(API.value + "&action=improve_text", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: expandedAiDraft.value.body }),
@@ -868,6 +1048,86 @@ function toggleFileSelection(fileId) {
   const idx = expandedSelectedFiles.value.indexOf(fileId);
   if (idx >= 0) expandedSelectedFiles.value.splice(idx, 1);
   else expandedSelectedFiles.value.push(fileId);
+}
+
+async function batchMarkDone(ids) {
+  try {
+    const r = await fetch(API.value + "&action=conv_done_batch", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+    const d = await r.json();
+    if (d.success) {
+      toast(d.done + " als erledigt markiert!");
+      loadUnanswered(unansweredFilter.value);
+      loadFollowups(followupFilter.value);
+      refreshCounts();
+    } else { toast("Fehler: " + (d.error || "Unbekannt")); }
+  } catch (e) { toast("Fehler: " + e.message); }
+}
+
+async function onSaveAttachment(data) {
+  saveAttachData.value = data;
+  saveAttachPropertyId.value = data.propertyId ? String(data.propertyId) : (selectedItem.value?.property_id ? String(selectedItem.value.property_id) : null);
+  saveAttachLabel.value = data.filename?.replace(/\.[^.]+$/, "") || "";
+  showSaveAttachDialog.value = true;
+}
+
+async function confirmSaveAttachment() {
+  if (!saveAttachData.value || !saveAttachPropertyId.value) { toast("Bitte Objekt auswählen"); return; }
+  saveAttachSaving.value = true;
+  try {
+    const r = await fetch(API.value + "&action=save_attachment_to_property", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email_id: saveAttachData.value.emailId,
+        file_index: saveAttachData.value.fileIndex,
+        property_id: parseInt(saveAttachPropertyId.value),
+        label: saveAttachLabel.value,
+      }),
+    });
+    const d = await r.json();
+    if (d.success) {
+      toast("Anhang zum Objekt gespeichert!");
+      showSaveAttachDialog.value = false;
+    } else {
+      toast("Fehler: " + (d.error || "Unbekannt"));
+    }
+  } catch (e) { toast("Fehler: " + e.message); }
+  saveAttachSaving.value = false;
+}
+
+async function batchTrash(ids) {
+  if (!ids.length) return;
+  try {
+    const r = await fetch(API.value + "&action=trash_emails", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+    const d = await r.json();
+    if (d.success !== false) {
+      toast(ids.length + " in Papierkorb verschoben");
+      loadEmailHistory();
+    }
+  } catch (e) { toast("Fehler: " + e.message); }
+}
+
+async function markConvDone(convId) {
+  if (!convId) return;
+  try {
+    const r = await fetch(API.value + "&action=conv_done&id=" + convId, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const d = await r.json();
+    if (d.success) {
+      toast("Erledigt!");
+      loadUnanswered(unansweredFilter.value);
+      loadFollowups(followupFilter.value);
+      refreshCounts();
+    }
+  } catch (e) { toast("Fehler: " + e.message); }
 }
 
 async function markHandled(stakeholder, propertyId) {
@@ -932,6 +1192,7 @@ async function sendDraft() {
         subject: draft.subject || '',
         to: draft.to || item.from_email || item.contact_email || '',
         account_id: sendAccountId.value || 1,
+        file_ids: expandedSelectedFiles.value || [],
       }),
     });
     const result = await r.json();
@@ -1690,6 +1951,7 @@ watch(activeSubtab, (v) => {
   if (v === 'offen') { loadUnanswered(unansweredFilter.value); }
   if (v === 'entwuerfe') loadDrafts();
   if (v === 'templates' && !templates.value?.length) loadTemplates();
+  if (v === 'matches') loadMatchesTab();
 });
 
 // ============================================================
@@ -1776,44 +2038,31 @@ onMounted(() => {
 <template>
   <div class="flex flex-col h-full relative" style="min-height:0">
 
-    <!-- Background gradient -->
-    <div v-if="bgGradient" class="absolute inset-0 z-0" :style="{ background: bgGradient, opacity: bgOpacity }"></div>
 
-    <!-- BG picker button -->
-    <button @click="showBgPicker = !showBgPicker" class="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-white/80 hover:bg-white shadow-sm flex items-center justify-center" title="Hintergrund wählen">
-      <ImageIcon class="w-3 h-3 text-muted-foreground" />
-    </button>
-    <div v-if="showBgPicker" class="absolute top-10 right-2 z-30 bg-white rounded-lg shadow-lg border border-zinc-100 p-2 w-52">
-      <div class="space-y-0.5">
-        <button v-for="bg in defaultBgs" :key="bg.label" @click="setBg(bg.value)"
-          class="w-full text-left px-2 py-1.5 text-[11px] rounded flex items-center gap-2 hover:bg-zinc-50"
-          :class="bgGradient === bg.value ? 'bg-orange-50 text-orange-700' : ''"
-        >
-          <div v-if="bg.value" class="w-4 h-4 rounded-full flex-shrink-0 border border-zinc-200" :style="{ background: bg.value }"></div>
-          <div v-else class="w-4 h-4 rounded-full flex-shrink-0 border border-zinc-200 bg-white"></div>
-          {{ bg.label }}
-        </button>
-      </div>
-      <div v-if="bgGradient" class="pt-2 mt-2 border-t border-zinc-100">
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-[10px] text-muted-foreground">Intensität</span>
-          <span class="text-[10px] text-muted-foreground">{{ Math.round(bgOpacity * 100) }}%</span>
+    
+
+    <!-- Bulk sending progress -->
+    <div v-if="bulkSending" class="absolute inset-x-0 top-0 z-50 flex items-center justify-center px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg">
+      <div class="flex items-center gap-3 w-full max-w-md">
+        <div class="flex-1">
+          <div class="text-[12px] font-medium">{{ bulkSendLabel }}</div>
+          <div class="mt-1.5 h-1.5 bg-white/30 rounded-full overflow-hidden">
+            <div class="h-full bg-white rounded-full transition-all duration-500" :style="{ width: bulkSendTotal ? ((bulkSendDone / bulkSendTotal) * 100) + '%' : '100%' }" :class="bulkSendDone >= bulkSendTotal ? '' : 'animate-pulse'"></div>
+          </div>
+          <div class="text-[10px] text-white/80 mt-0.5">{{ bulkSendDone }} / {{ bulkSendTotal }}</div>
         </div>
-        <input type="range" min="0.05" max="0.5" step="0.05" v-model.number="bgOpacity"
-          @input="localStorage.setItem('sr-inbox-bg-opacity', String(bgOpacity))"
-          class="w-full h-1 accent-orange-500 cursor-pointer" />
       </div>
     </div>
 
     <!-- Content (z-10 above background) -->
     <div class="relative z-10 flex flex-1 min-h-0 overflow-hidden">
       <!-- Left: Conversation List -->
-      <div class="w-[400px] flex-shrink-0 border-r border-zinc-100 flex flex-col h-full overflow-hidden" :style="bgGradient ? { background: 'rgba(255,255,255,0.92)' } : {}">
+      <div class="w-full md:w-[400px] flex-shrink-0 md:border-r border-zinc-100 flex flex-col h-full overflow-hidden" :class="{ 'hidden md:flex': detailOpen || composing }">
 
         <!-- Panel Header with Pill Tabs -->
         <div class="px-4 pt-3 pb-2 flex-shrink-0">
 
-          <!-- Primary Pills: Offen / Nachfassen / Alle -->
+          <!-- Primary Pills: Anfragen / Nachfassen / Alle -->
           <div class="flex gap-0.5 p-[3px] bg-[#f4f4f5] rounded-lg mb-2">
             <button
               @click="activeSubtab = 'offen'"
@@ -1821,8 +2070,7 @@ onMounted(() => {
               :class="activeSubtab === 'offen'
                 ? 'bg-white text-foreground font-semibold shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'"
-            >
-              Offen
+            >Anfragen
               <span v-if="unansweredCount" class="text-[9px] font-bold px-1.5 py-0 rounded-md bg-red-50 text-red-600">{{ unansweredCount }}</span>
             </button>
             <button
@@ -1843,6 +2091,19 @@ onMounted(() => {
                 : 'text-muted-foreground hover:text-foreground'"
             >
               Alle
+            </button>
+            <button
+              @click="activeSubtab = 'matches'; loadMatchesTab()"
+              class="flex-1 flex items-center justify-center gap-1.5 px-3 py-[5px] text-[12px] rounded-md transition-all"
+              :class="activeSubtab === 'matches'
+                ? 'bg-white text-foreground font-semibold shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'"
+            >
+              Matches
+              <span
+                v-if="matchItems.length"
+                class="text-[9px] font-bold px-1.5 py-0 rounded-md bg-violet-100 text-violet-700"
+              >{{ matchItems.length }}</span>
             </button>
           </div>
 
@@ -1868,15 +2129,43 @@ onMounted(() => {
 
         <!-- Auto-Reply Info + Settings -->
         <div v-if="activeSubtab === 'offen'" class="px-4 pb-1 flex items-center gap-2">
-          <span v-if="autoReplyLogs.length" class="text-[10px] text-emerald-600">✓ {{ autoReplyLogs.length }} Auto-Replies (24h)</span>
-          <span v-else-if="autoReplyPropertyIds.length" class="text-[10px] text-muted-foreground">Auto-Reply aktiv für {{ autoReplyPropertyIds.length }} {{ autoReplyPropertyIds.length === 1 ? 'Objekt' : 'Objekte' }}</span>
+          <button v-if="autoReplyLogs.length" class="text-[10px] text-emerald-600 hover:text-emerald-800 hover:underline transition-colors cursor-pointer" @click="autoReplyBannerOpen = !autoReplyBannerOpen">✓ {{ autoReplyLogs.length }} Auto-Replies (24h)</button>
+
+          <!-- Auto-Reply Log Panel -->
+          <div v-if="autoReplyBannerOpen && autoReplyLogs.length" class="mx-4 mb-2 rounded-xl border border-emerald-200 bg-emerald-50/50 overflow-hidden">
+            <div class="px-3 py-2 border-b border-emerald-100 flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-emerald-800">Auto-Replies der letzten 24h</span>
+              <button class="text-[10px] text-emerald-600 hover:text-emerald-800" @click="autoReplyBannerOpen = false">Schließen</button>
+            </div>
+            <div class="max-h-[200px] overflow-y-auto divide-y divide-emerald-100">
+              <div v-for="log in autoReplyLogs" :key="log.id" class="px-3 py-2 hover:bg-emerald-50 cursor-pointer" @click="() => { const conv = [...(unansweredList || []), ...(allFollowups || [])].find(c => c.stakeholder === log.stakeholder && c.property_id === log.property_id); if (conv) openDetail(conv, 'offen'); else { ehSearch = log.to_email || log.stakeholder; ehPage = 1; activeSubtab = 'gesendet'; loadEmailHistory(); } }">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[12px] font-medium text-zinc-800 truncate">{{ log.stakeholder || log.to_email }}</span>
+                  <span class="text-[10px] text-muted-foreground flex-shrink-0">{{ log.created_at?.substring(11, 16) }}</span>
+                </div>
+                <div class="text-[11px] text-muted-foreground truncate mt-0.5">{{ log.subject }}</div>
+              </div>
+            </div>
+          </div>
+          <span v-else-if="autoReplyEnabled && autoReplyPropertyIds.length" class="text-[10px] text-emerald-600">Auto-Reply aktiv für {{ autoReplyPropertyIds.length }} {{ autoReplyPropertyIds.length === 1 ? 'Objekt' : 'Objekte' }}</span>
           <div class="flex-1"></div>
           <Button variant="ghost" size="sm" class="h-6 w-6 p-0" @click="showAutoReplySettings = !showAutoReplySettings; if (showAutoReplySettings && !autoReplyText) loadAutoReplySettings()" title="Auto-Reply Einstellungen">
             <Settings2 class="w-3 h-3 text-muted-foreground" />
           </Button>
         </div>
         <div v-if="showAutoReplySettings && activeSubtab === 'offen'" class="mx-4 mb-2 rounded-lg border border-zinc-100 bg-white/80 backdrop-blur-sm p-3 space-y-3">
-          <div class="text-[12px] font-semibold">Auto-Reply Einstellungen</div>
+          <div class="flex items-center justify-between">
+            <div class="text-[12px] font-semibold">Auto-Reply</div>
+            <button
+              @click="autoReplyEnabled = !autoReplyEnabled"
+              class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+              :class="autoReplyEnabled ? 'bg-emerald-500' : 'bg-zinc-300'"
+            >
+              <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform" :class="autoReplyEnabled ? 'translate-x-4.5' : 'translate-x-0.5'" :style="{ transform: autoReplyEnabled ? 'translateX(18px)' : 'translateX(2px)' }" />
+            </button>
+          </div>
+          <div v-if="!autoReplyEnabled" class="text-[10px] text-red-600 bg-red-50 rounded px-2 py-1.5">Auto-Reply ist deaktiviert. Keine automatischen Antworten werden gesendet.</div>
+          <template v-if="autoReplyEnabled">
           <div class="text-[10px] text-muted-foreground">Wähle Objekte für automatische Antworten:</div>
           <div class="space-y-1 max-h-40 overflow-y-auto">
             <label v-for="p in (properties || [])" :key="p.id" class="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-zinc-50 px-2 py-1.5 rounded">
@@ -1891,6 +2180,7 @@ onMounted(() => {
           <div v-if="!autoReplyText" class="text-[10px] text-amber-600 bg-amber-50 rounded px-2 py-1">
             Kein Text hinterlegt — es wird automatisch ein KI-Entwurf als Antwort generiert.
           </div>
+          </template>
           <div class="flex justify-end">
             <Button size="sm" class="h-7 text-[11px]" :disabled="autoReplySaving" @click="saveAutoReplySettings">Speichern</Button>
           </div>
@@ -1902,7 +2192,7 @@ onMounted(() => {
           </select>
         </div>
 
-        <!-- Offen -->
+        <!-- Anfragen -->
         <InboxConversationList
           v-if="activeSubtab === 'offen'"
           :items="filteredUnanswered"
@@ -1916,11 +2206,96 @@ onMounted(() => {
           @select="(item) => openDetail(item, 'offen')"
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
-          @compose="startCompose()" @delete="trashEmail($event.id)"
+          @compose="startCompose()" @delete="markConvDone($event.id)"
         />
 
-        <!-- Nachfassen Alle Button -->
-        <div v-if="activeSubtab === 'nachfassen' && filteredFollowups.filter(f => f.draft_body).length > 0" class="px-4 pb-2">
+        <!-- Nachfassen Settings + Alle Button -->
+        <div v-if="activeSubtab === 'nachfassen'" class="px-4 pb-2 space-y-2">
+          <div class="flex items-center gap-2">
+            <Button
+              v-if="filteredFollowups.filter(f => f.draft_body).length > 0"
+              variant="outline"
+              size="sm"
+              class="flex-1 h-8 text-[11px] gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50"
+              @click="nachfassenAlle"
+            >
+              <Send class="w-3 h-3" />
+              Alle nachfassen ({{ filteredFollowups.filter(f => f.draft_body).length }})
+            </Button>
+            <Button variant="ghost" size="sm" class="h-8 w-8 p-0 flex-shrink-0" @click="showAutoFollowupSettings = !showAutoFollowupSettings; if (showAutoFollowupSettings) loadAutoFollowupSettings()" title="Auto-Nachfassen Einstellungen">
+              <Settings2 class="w-3.5 h-3.5 text-muted-foreground" />
+            </Button>
+          </div>
+          <!-- NF Stage Picker Popup -->
+          <div v-if="showNfStagePicker" class="rounded-lg border border-orange-200 bg-white p-3 space-y-2">
+            <div class="text-[12px] font-semibold">Welche Stufen senden?</div>
+            <label class="flex items-center justify-between gap-2 text-[11px] cursor-pointer hover:bg-zinc-50 px-2 py-1.5 rounded">
+              <div class="flex items-center gap-2">
+                <input type="checkbox" v-model="nfStageSelection.nf1" class="rounded border-zinc-300" />
+                <span>NF1 — Erstmalig</span>
+              </div>
+              <span class="text-[10px] text-muted-foreground">{{ nfStageCount(1) }} Entwürfe</span>
+            </label>
+            <label class="flex items-center justify-between gap-2 text-[11px] cursor-pointer hover:bg-zinc-50 px-2 py-1.5 rounded">
+              <div class="flex items-center gap-2">
+                <input type="checkbox" v-model="nfStageSelection.nf2" class="rounded border-zinc-300" />
+                <span>NF2 — Nachfassen</span>
+              </div>
+              <span class="text-[10px] text-muted-foreground">{{ nfStageCount(2) }} Entwürfe</span>
+            </label>
+            <label class="flex items-center justify-between gap-2 text-[11px] cursor-pointer hover:bg-zinc-50 px-2 py-1.5 rounded">
+              <div class="flex items-center gap-2">
+                <input type="checkbox" v-model="nfStageSelection.nf3" class="rounded border-zinc-300" />
+                <span>NF3 — Dringend</span>
+              </div>
+              <span class="text-[10px] text-muted-foreground">{{ nfStageCount(3) }} Entwürfe</span>
+            </label>
+            <Button size="sm" class="w-full h-8 text-[11px] gap-1.5" @click="sendNachfassenSelected">
+              <Send class="w-3 h-3" />
+              Ausgewählte senden
+            </Button>
+          </div>
+
+          <div v-if="showAutoFollowupSettings" class="rounded-lg border border-zinc-100 bg-white p-3 space-y-2">
+            <div class="text-[12px] font-semibold">Auto-Nachfassen</div>
+            <div class="text-[10px] text-muted-foreground">Automatisch Nachfass-Mails senden (alle 2h geprüft)</div>
+            <label class="flex items-center gap-2 text-[11px] cursor-pointer">
+              <input type="checkbox" v-model="autoFollowupStage1" class="rounded border-zinc-300" />
+              NF1: Nach 24h automatisch nachfassen
+            </label>
+            <label class="flex items-center gap-2 text-[11px] cursor-pointer">
+              <input type="checkbox" v-model="autoFollowupStage2" class="rounded border-zinc-300" />
+              NF2: Nach weiteren 3 Tagen erneut nachfassen
+            </label>
+            <label class="flex items-center gap-2 text-[11px] cursor-pointer">
+              <input type="checkbox" v-model="autoFollowupStage3" class="rounded border-zinc-300" />
+              NF3: Nach weiteren 3 Tagen letzte Nachfrage (danach erledigt)
+            </label>
+            <div class="flex items-center justify-between">
+              <button v-if="autoReplyLogs.length" class="text-[10px] text-emerald-600 hover:underline" @click="autoReplyBannerOpen = !autoReplyBannerOpen">
+                ✓ {{ autoReplyLogs.length }} Auto-Mails (24h) anzeigen
+              </button>
+              <Button size="sm" class="h-7 text-[11px]" :disabled="autoFollowupSaving" @click="saveAutoFollowupSettings">Speichern</Button>
+            </div>
+          </div>
+          <!-- Auto-Reply Log (shared, shows for both tabs) -->
+          <div v-if="showAutoFollowupSettings && autoReplyBannerOpen && autoReplyLogs.length" class="rounded-lg border border-emerald-200 bg-emerald-50/50 overflow-hidden">
+            <div class="px-3 py-1.5 border-b border-emerald-100 flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-emerald-800">Auto-Mails der letzten 24h</span>
+              <button class="text-[10px] text-emerald-600 hover:text-emerald-800" @click="autoReplyBannerOpen = false">Schließen</button>
+            </div>
+            <div class="max-h-[160px] overflow-y-auto divide-y divide-emerald-100">
+              <div v-for="log in autoReplyLogs" :key="log.id" class="px-3 py-1.5">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[11px] font-medium text-zinc-800 truncate">{{ log.stakeholder || log.to_email }}</span>
+                  <span class="text-[10px] text-muted-foreground flex-shrink-0">{{ log.created_at?.substring(11, 16) }}</span>
+                </div>
+                <div class="text-[10px] text-muted-foreground truncate">{{ log.subject }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-if="false && activeSubtab === 'nachfassen' && filteredFollowups.filter(f => f.draft_body).length > 0" class="px-4 pb-2">
           <Button
             variant="outline"
             size="sm"
@@ -1947,7 +2322,8 @@ onMounted(() => {
           @select="(item) => openDetail(item, 'nachfassen')"
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
-          @compose="startCompose()" @delete="trashEmail($event.id)"
+          @compose="startCompose()" @delete="markConvDone($event.id)"
+          @batch-done="batchMarkDone($event)"
         />
 
         <!-- Posteingang -->
@@ -1962,9 +2338,10 @@ onMounted(() => {
           :properties="properties || []"
           empty-message="Keine E-Mails im Posteingang"
           @select="(item) => openDetail(item, 'posteingang')"
-          @update:search-query="searchQuery = $event"
+          @update:search-query="searchQuery = $event; ehSearch = $event; ehPage = 1; loadEmailHistory()"
           @update:object-filter="objectFilter = $event"
           @compose="startCompose()" @delete="trashEmail($event.id)"
+          @batch-trash="batchTrash($event)"
         />
 
         <div v-if="activeSubtab === 'posteingang'  && ehTotal > ehData.length" class="p-3 border-t border-zinc-100 flex-shrink-0">
@@ -1984,7 +2361,7 @@ onMounted(() => {
           :properties="properties || []"
           empty-message="Keine gesendeten E-Mails"
           @select="(item) => openDetail(item, 'gesendet')"
-          @update:search-query="searchQuery = $event"
+          @update:search-query="searchQuery = $event; ehSearch = $event; ehPage = 1; loadEmailHistory()"
           @update:object-filter="objectFilter = $event"
           @compose="startCompose()" @delete="trashEmail($event.id)"
         />
@@ -1997,7 +2374,7 @@ onMounted(() => {
         <!-- Papierkorb -->
         <InboxConversationList
           v-else-if="activeSubtab === 'papierkorb'"
-          :items="trashData"
+          :items="filteredTrash"
           :loading="trashLoading"
           subtab="papierkorb"
           :selected-id="selectedItem?.id"
@@ -2025,6 +2402,30 @@ onMounted(() => {
           @update:search-query="searchQuery = $event"
           @compose="startCompose()" @delete="trashEmail($event.id)"
         />
+
+        <!-- Matches -->
+        <div v-else-if="activeSubtab === 'matches'" class="flex flex-col h-full overflow-hidden">
+          <div v-if="!matchItems.length" class="flex items-center justify-center py-12">
+            <span class="text-[12px] text-muted-foreground">Keine Matches</span>
+          </div>
+          <div v-else class="flex-1 overflow-y-auto min-h-0 divide-y divide-zinc-100">
+            <div
+              v-for="item in matchItems"
+              :key="item.id"
+              class="px-3 py-2.5 cursor-pointer hover:bg-accent/50 transition-colors"
+              :class="selectedItem?.id === item.id ? 'bg-accent' : ''"
+              @click="openDetail(item, 'offen')"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[13px] font-medium text-foreground truncate">{{ item.from_name || item.stakeholder }}</span>
+                <span class="inline-flex items-center justify-center px-1.5 min-w-[18px] h-4 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-[10px] font-bold">
+                  {{ item.match_count }}
+                </span>
+              </div>
+              <div class="text-[11px] text-muted-foreground truncate mt-0.5">{{ item.subject }}</div>
+            </div>
+          </div>
+        </div>
 
         <!-- Templates -->
         <div v-else-if="activeSubtab === 'templates'" class="flex flex-col h-full overflow-hidden">
@@ -2074,6 +2475,7 @@ onMounted(() => {
 <!-- Right: Compose View or Chat View -->
       <InboxComposeView
         v-if="composing"
+        class="flex-1 min-w-0 w-full md:w-auto"
         :compose-to="composeTo"
         :compose-subject="composeSubject"
         :compose-body="composeBody"
@@ -2113,13 +2515,22 @@ onMounted(() => {
         @add-attachments="onComposeAddAttachments"
         @remove-attachment="onComposeRemoveAttachment"
       />
+      <InboxMatchView
+        v-else-if="matchMode && selectedItem"
+        class="flex-1 min-w-0 w-full md:w-auto"
+        :item="selectedItem"
+        @dismiss="handleMatchDismiss"
+        @generate-draft="handleMatchDraft"
+      />
       <InboxChatView
         v-else-if="selectedItem"
+        class="flex-1 min-w-0 w-full md:w-auto"
         :item="selectedItem"
         :messages="allDetailMessages"
         :loading="expandedLoading"
         :mode="selectedMode"
         @close="selectedItem = null; detailOpen = false"
+        @save-attachment="onSaveAttachment($event)"
       >
         <template #ai-draft>
           <InboxAiDraft
@@ -2137,25 +2548,59 @@ onMounted(() => {
             @regenerate="regenerateAiDraft"
             @improve="improveWithAi"
             @update:tone="setAiDetailLevel($event)"
-          />
-        </template>
-        <template #bottom-bar>
-          <InboxBottomBar
-            :mode="selectedMode"
+            @send="sendDraft"
+            @mark-handled="markHandled(selectedItem?.from_name || selectedItem?.stakeholder, selectedItem?.property_id)"
+            @toggle-attach="showAttachPopup = !showAttachPopup"
+            @toggle-file="toggleFileSelection($event)"
+            :files="expandedFiles"
+            :files-loading="expandedFilesLoading"
+            :selected-file-ids="expandedSelectedFiles"
+            @toggle-calendar="showCalendar = !showCalendar"
             :sending="emailSending"
             :can-send="!!(expandedAiDraft?.to && expandedAiDraft?.body)"
             :attachment-count="expandedSelectedFiles?.length || 0"
             :show-calendar="showCalendar"
-            @send="sendDraft"
-            @delete="trashEmail(selectedItem?.id)"
-            @mark-handled="markHandled(selectedItem?.from_name || selectedItem?.stakeholder, selectedItem?.property_id)"
-            @toggle-attach="showAttachPopup = !showAttachPopup"
-            @toggle-calendar="showCalendar = !showCalendar"
           />
         </template>
+
       </InboxChatView>
-      <div v-else class="flex-1 flex items-center justify-center text-sm text-muted-foreground" :style="bgGradient ? { background: 'rgba(255,255,255,0.92)' } : {}">
+      <div v-else class="hidden md:flex flex-1 items-center justify-center text-sm text-muted-foreground">
         Konversation auswählen
+      </div>
+    </div>
+
+    <!-- Save Attachment Dialog -->
+    <div v-if="showSaveAttachDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/30" @click.self="showSaveAttachDialog = false">
+      <div class="bg-white rounded-xl shadow-xl border border-zinc-200 w-[calc(100vw-2rem)] max-w-[380px] overflow-hidden">
+        <div class="px-5 py-3 border-b border-zinc-100 flex items-center justify-between">
+          <span class="text-[14px] font-semibold">Anhang speichern</span>
+          <button class="text-muted-foreground hover:text-foreground" @click="showSaveAttachDialog = false"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+        </div>
+        <div class="px-5 py-4 space-y-3">
+          <div class="flex items-center gap-2 text-[12px] bg-zinc-50 rounded-lg px-3 py-2">
+            <svg class="w-4 h-4 text-zinc-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+            <span class="truncate font-medium">{{ saveAttachData?.filename }}</span>
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground font-medium mb-1 block">Objekt</label>
+            <select v-model="saveAttachPropertyId" class="w-full h-9 rounded-md border border-zinc-200 bg-white px-3 text-[12px]">
+              <option :value="null" disabled>Objekt auswählen...</option>
+              <option v-for="p in (properties || [])" :key="p.id" :value="String(p.id)">{{ p.ref_id || p.address || ("Obj " + p.id) }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[11px] text-muted-foreground font-medium mb-1 block">Bezeichnung</label>
+            <input v-model="saveAttachLabel" class="w-full h-9 rounded-md border border-zinc-200 bg-white px-3 text-[12px]" placeholder="z.B. Grundbuchauszug, Expose..." />
+          </div>
+        </div>
+        <div class="px-5 py-3 border-t border-zinc-100 flex justify-end gap-2">
+          <Button variant="outline" size="sm" class="h-8 text-[12px]" @click="showSaveAttachDialog = false">Abbrechen</Button>
+          <Button size="sm" class="h-8 text-[12px] gap-1.5" :disabled="saveAttachSaving || !saveAttachPropertyId" @click="confirmSaveAttachment">
+            <svg v-if="saveAttachSaving" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+            Speichern
+          </Button>
+        </div>
       </div>
     </div>
   </div>

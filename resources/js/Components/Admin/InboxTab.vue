@@ -2560,6 +2560,7 @@ onMounted(() => {
             :can-send="!!(expandedAiDraft?.to && expandedAiDraft?.body)"
             :attachment-count="expandedSelectedFiles?.length || 0"
             :show-calendar="showCalendar"
+            :match-property-count="selectedItem?._matchFileIds?.length || 0"
           />
         </template>
 

@@ -113,6 +113,8 @@ class ConversationController extends Controller
                 'draft_subject'    => $conv->draft_subject,
                 'draft_to'         => $conv->draft_to,
                 'is_read'          => $conv->is_read,
+                'match_count'      => $conv->match_count,
+                'match_dismissed'  => $conv->match_dismissed,
                 'ref_id'           => $prop?->ref_id,
                 'address'          => $prop?->address,
                 'from_name'        => $conv->stakeholder,

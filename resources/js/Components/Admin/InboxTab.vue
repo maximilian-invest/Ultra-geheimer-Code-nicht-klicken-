@@ -832,18 +832,6 @@ async function loadSendAccounts(brokerId) {
 // DETAIL PANEL FUNCTIONS (from PrioritiesTab.vue, sheetOpen → detailOpen)
 // ============================================================
 function openDetail(item, mode) {
-  // Match mode: if conversation has unacknowledged matches, show match view
-  if (item.match_count > 0 && !item.match_dismissed) {
-    matchMode.value = true;
-    selectedItem.value = item;
-    selectedMode.value = mode;
-    if (!item.is_read) {
-      fetch(API.value + '&action=conv_read&id=' + item.id, { method: 'POST' }).catch(() => {})
-      item.is_read = true;
-    }
-    detailOpen.value = true;
-    return;
-  }
   matchMode.value = false;
   selectedItem.value = item;
   sheetMode.value = mode;
@@ -2515,13 +2503,6 @@ onMounted(() => {
         @add-attachments="onComposeAddAttachments"
         @remove-attachment="onComposeRemoveAttachment"
       />
-      <InboxMatchView
-        v-else-if="matchMode && selectedItem"
-        class="flex-1 min-w-0 w-full md:w-auto"
-        :item="selectedItem"
-        @dismiss="handleMatchDismiss"
-        @generate-draft="handleMatchDraft"
-      />
       <InboxChatView
         v-else-if="selectedItem"
         class="flex-1 min-w-0 w-full md:w-auto"
@@ -2531,6 +2512,8 @@ onMounted(() => {
         :mode="selectedMode"
         @close="selectedItem = null; detailOpen = false"
         @save-attachment="onSaveAttachment($event)"
+        @match-draft="handleMatchDraft"
+        @match-dismiss="handleMatchDismiss"
       >
         <template #ai-draft>
           <InboxAiDraft

@@ -132,7 +132,7 @@ class PropertyMatcherService
     {
         $query = DB::table('portal_emails')
             ->where('contact_email', $conv->contact_email)
-            ->orderByDesc('date')
+            ->orderByDesc("email_date")
             ->limit(3);
 
         if ($conv->property_id) {

@@ -799,7 +799,7 @@ class ConversationController extends Controller
         // Build thread context for draft generation
         $emailQuery = DB::table('portal_emails')
             ->where('contact_email', $conv->contact_email)
-            ->orderByDesc('date')
+            ->orderByDesc("email_date")
             ->limit(5);
 
         if ($conv->property_id) {

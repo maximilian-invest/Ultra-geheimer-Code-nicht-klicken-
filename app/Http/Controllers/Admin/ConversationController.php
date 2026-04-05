@@ -818,59 +818,96 @@ class ConversationController extends Controller
             $threadLines[] = "[{$dir}] {$e->subject}\n" . mb_substr($e->body_text ?? '', 0, 400);
         }
 
+        // Load original property for context
+        $originalProp = $conv->property_id ? Property::find($conv->property_id) : null;
+        $originalDesc = '';
+        if ($originalProp) {
+            $oArea = $originalProp->living_area ?: $originalProp->total_area;
+            $originalDesc = "{$originalProp->title} ({$originalProp->address}, {$originalProp->city})"
+                . ($oArea ? ", {$oArea} m²" : '')
+                . ($originalProp->purchase_price ? ", € " . number_format($originalProp->purchase_price, 0, ',', '.') : '');
+        }
+
         // Build property descriptions for the AI
         $propDescriptions = [];
         foreach ($properties as $i => $p) {
             $area = $p->living_area ?: $p->total_area;
-            $propDescriptions[] = ($i + 1) . ". {$p->title} ({$p->address}, {$p->city}) — "
-                . ($area ? $area . 'm\xc2\xb2, ' : '')
-                . ($p->rooms_amount ? $p->rooms_amount . ' Zimmer, ' : '')
-                . ($p->purchase_price ? '\xe2\x82\xac' . number_format($p->purchase_price, 0, ',', '.') : 'Preis auf Anfrage');
+            $propDescriptions[] = ($i + 1) . ". {$p->title} ({$p->address}, {$p->city})"
+                . ($area ? " — {$area} m²" : '')
+                . ($p->rooms_amount ? ", {$p->rooms_amount} Zimmer" : '')
+                . ($p->purchase_price ? ", € " . number_format($p->purchase_price, 0, ',', '.') : ', Preis auf Anfrage');
         }
 
         // Get broker name
         $brokerId = $conv->property_id ? Property::where('id', $conv->property_id)->value('broker_id') : null;
         $brokerName = $brokerId ? DB::table('users')->where('id', $brokerId)->value('name') : 'SR Homes';
 
-        // AI draft generation
+        // AI draft generation with full conversation context
         $systemPrompt = <<<'PROMPT'
-Du bist ein Immobilienmakler-Assistent. Schreibe eine professionelle Email an den Kunden.
-Der Kunde hat sich ursprünglich für ein anderes Objekt interessiert. Du schlägst ihm jetzt zusätzliche passende Objekte vor.
+Du bist ein erfahrener Immobilienmakler. Schreibe eine professionelle, persönliche Email an den Kunden.
 
-Regeln:
-- Formelle Anrede (Sehr geehrte/r)
-- Beziehe dich auf den bisherigen Kontext (Anfrage/Absage)
-- Stelle die Objekte als natürliche Empfehlungen vor, nicht als Werbung
-- Erwähne dass Exposés beigefügt sind
-- Kurz und professionell, max 150 Wörter
-- Schließe mit "Mit freundlichen Grüßen" und dem Maklernamen
+AUFBAU DER EMAIL:
+1. Formelle Anrede (Sehr geehrte/r Herr/Frau [Nachname])
+2. Beziehe dich KONKRET auf den bisherigen Email-Verlauf:
+   - Nenne das ORIGINAL-OBJEKT beim Namen
+   - Zeige Verständnis für die Situation (z.B. Absage, Bedenken, Preisvorstellung)
+   - Verweise auf konkrete Details aus der Konversation
+3. Natürliche Überleitung: "Bei der Durchsicht unseres Portfolios ist mir aufgefallen, dass wir ein Objekt haben, das Ihren Vorstellungen entsprechen könnte"
+4. Stelle jedes vorgeschlagene Objekt EINZELN vor mit den wichtigsten Eckdaten
+5. Erwähne dass du das Exposé zu jedem Objekt beigelegt hast
+6. Biete ein unverbindliches Gespräch oder eine Besichtigung an
+7. Schließe mit "Mit freundlichen Grüßen" und dem Maklernamen
+
+REGELN:
+- KEIN generischer Werbetext — die Mail soll sich lesen als hätte der Makler persönlich nachgedacht
+- Verwende "ich" nicht "wir" — persönlicher Ton
+- Max 200 Wörter
+- Keine Aufzählungszeichen oder Nummerierungen für die Objekte — fließender Text
 
 Antworte als JSON:
 {"email_subject": "...", "email_body": "..."}
 PROMPT;
 
-        $userMessage = "Thread:\n" . implode("\n---\n", $threadLines)
-            . "\n\nKunde: {$conv->stakeholder}\n\nVorzuschlagende Objekte:\n" . implode("\n", $propDescriptions)
-            . "\n\nMaklername: {$brokerName}";
+        $userMessage = "KONVERSATIONSVERLAUF:\n" . implode("\n---\n", $threadLines)
+            . "\n\nKUNDE: {$conv->stakeholder}"
+            . ($originalDesc ? "\nORIGINAL-OBJEKT: {$originalDesc}" : '')
+            . "\n\nVORZUSCHLAGENDE OBJEKTE:\n" . implode("\n", $propDescriptions)
+            . "\n\nMAKLERNAME: {$brokerName}";
 
         $ai = app(AnthropicService::class);
-        $draft = $ai->chatJson($systemPrompt, $userMessage, 800);
+        $draft = $ai->chatJson($systemPrompt, $userMessage, 1000);
 
         if (!$draft) {
             return response()->json(['error' => 'AI draft generation failed'], 500);
         }
 
-        // Collect expose file IDs for attachments
+        // Collect expose files with property mapping
         $fileIds = [];
+        $fileMap = [];
         foreach ($properties as $p) {
-            if ($p->expose_path) {
-                $file = DB::table('property_files')
+            $exposeFiles = DB::table('property_files')
+                ->where('property_id', $p->id)
+                ->where('path', 'LIKE', '%expose%')
+                ->orderByDesc('created_at')
+                ->limit(1)
+                ->get();
+
+            if ($exposeFiles->isEmpty() && $p->expose_path) {
+                $exposeFiles = DB::table('property_files')
                     ->where('property_id', $p->id)
                     ->where('path', $p->expose_path)
-                    ->first();
-                if ($file) {
-                    $fileIds[] = $file->id;
-                }
+                    ->limit(1)
+                    ->get();
+            }
+
+            foreach ($exposeFiles as $file) {
+                $fileIds[] = $file->id;
+                $fileMap[] = [
+                    'file_id' => $file->id,
+                    'property_id' => $p->id,
+                    'property_title' => $p->title ?: ($p->address . ', ' . $p->city),
+                    'filename' => basename($file->path),
+                ];
             }
         }
 
@@ -879,15 +916,16 @@ PROMPT;
         $convService->saveDraft(
             $conv,
             $draft['email_body'] ?? '',
-            $draft['email_subject'] ?? 'Objektvorschl\xc3\xa4ge',
+            $draft['email_subject'] ?? 'Objektvorschläge',
             $conv->contact_email
         );
 
         return response()->json([
             'draft_body' => $draft['email_body'] ?? '',
-            'draft_subject' => $draft['email_subject'] ?? 'Objektvorschl\xc3\xa4ge',
+            'draft_subject' => $draft['email_subject'] ?? 'Objektvorschläge',
             'draft_to' => $conv->contact_email,
             'file_ids' => $fileIds,
+            'file_map' => $fileMap,
             'matched_property_ids' => $selectedIds,
         ]);
     }

@@ -122,6 +122,7 @@ async function generateDraft() {
         draft_subject: d.draft_subject,
         draft_to: d.draft_to,
         file_ids: d.file_ids || [],
+        file_map: d.file_map || [],
       })
     }
   } catch (e) {

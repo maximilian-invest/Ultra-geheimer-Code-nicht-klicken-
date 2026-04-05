@@ -667,13 +667,43 @@ async function handleMatchDismiss() {
 function handleMatchDraft(draftData) {
   matchMode.value = false
   if (selectedItem.value) {
-    selectedItem.value.draft_body = draftData.draft_body
-    selectedItem.value.draft_subject = draftData.draft_subject
-    selectedItem.value.draft_to = draftData.draft_to
-    selectedItem.value.match_count = 0
-    if (draftData.file_ids && draftData.file_ids.length) {
-      selectedItem.value._matchFileIds = draftData.file_ids
+    // Set draft in the AI draft panel
+    expandedAiDraft.value = {
+      body: draftData.draft_body || '',
+      subject: draftData.draft_subject || '',
+      to: draftData.draft_to || selectedItem.value.contact_email || '',
     }
+    expandedAiLoading.value = false
+
+    // Auto-select matched expose files
+    if (draftData.file_ids && draftData.file_ids.length) {
+      // Add matched files to the file list if not already there
+      const existingIds = new Set(expandedFiles.value.map(f => f.id))
+      if (draftData.file_map) {
+        for (const fm of draftData.file_map) {
+          if (!existingIds.has(fm.file_id)) {
+            expandedFiles.value.push({
+              id: fm.file_id,
+              filename: fm.filename,
+              label: fm.property_title + ' — ' + fm.filename,
+              _matchProperty: fm.property_title,
+            })
+          } else {
+            // Update label of existing file to show property name
+            const existing = expandedFiles.value.find(f => f.id === fm.file_id)
+            if (existing) existing._matchProperty = fm.property_title
+          }
+        }
+      }
+      // Select the matched files
+      expandedSelectedFiles.value = [
+        ...new Set([...expandedSelectedFiles.value, ...draftData.file_ids])
+      ]
+      selectedItem.value._matchFileIds = draftData.file_ids
+      selectedItem.value._fileMap = draftData.file_map || []
+    }
+
+    selectedItem.value.match_count = 0
   }
 }
 

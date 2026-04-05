@@ -3,7 +3,7 @@ import { ref, inject, onMounted, computed } from "vue";
 import {
   FileText, Plus, Edit3, Trash2, Eye, EyeOff, Globe, Image,
   Sparkles, Wand2, Save, ArrowLeft, ExternalLink, Loader2,
-  Clock, Search, Upload
+  Clock, Search, Upload, User
 } from "lucide-vue-next";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,21 @@ import { Textarea } from '@/components/ui/textarea';
 
 const API = inject("API");
 const toast = inject("toast");
+
+// ── Team members (for author selection) ──────────────
+const teamMembers = ref([]);
+async function loadTeam() {
+  try {
+    const r = await fetch(API.value + "&action=list_brokers");
+    const d = await r.json();
+    teamMembers.value = (d.brokers || []).filter(u => ['admin', 'makler'].includes(u.user_type));
+  } catch {}
+}
+
+const selectedAuthor = computed(() => {
+  if (!form.value.author) return null;
+  return teamMembers.value.find(u => u.name === form.value.author);
+});
 
 // ── Mode ──────────────────────────────────────────────
 const mode = ref("list"); // 'list' | 'edit'
@@ -73,7 +88,7 @@ const filteredPosts = computed(() => {
 const isNew = computed(() => !form.value.id);
 
 // ── Load ──────────────────────────────────────────────
-onMounted(loadPosts);
+onMounted(() => { loadPosts(); loadTeam(); });
 
 async function loadPosts() {
   loading.value = true;
@@ -325,7 +340,7 @@ async function generateImage() {
     });
     const d = await r.json();
     if (d.success && d.url) {
-      form.value.featured_image = d.url;
+      form.value.featured_image = d.path || d.url;
       toast("Bild generiert!");
     } else {
       toast("Fehler: " + (d.error || "Bildgenerierung fehlgeschlagen"));
@@ -357,7 +372,7 @@ async function onImageUpload(event) {
     });
     const d = await r.json();
     if (d.success && d.url) {
-      form.value.featured_image = d.url;
+      form.value.featured_image = d.path || d.url;
       toast("Bild hochgeladen!");
     } else {
       toast("Fehler: " + (d.error || "Upload fehlgeschlagen"));
@@ -389,20 +404,12 @@ function postExternalUrl(post) {
     <template v-if="mode === 'list'">
 
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center">
-            <FileText class="w-4 h-4 text-orange-500" />
-          </div>
-          <div>
-            <h1 class="text-[13px] font-semibold text-foreground">Blog</h1>
-            <p class="text-[12px] text-muted-foreground mt-0.5">
-              <span class="text-emerald-600 font-medium">{{ publishedCount }} veröffentlicht</span>
-              <span class="mx-1.5 text-zinc-300">·</span>
-              <span>{{ draftCount }} Entwürfe</span>
-            </p>
-          </div>
-        </div>
+      <div class="flex items-center justify-between gap-3 mb-5">
+        <p class="text-[12px] text-muted-foreground">
+          <span class="text-emerald-600 font-medium">{{ publishedCount }} veröffentlicht</span>
+          <span class="mx-1.5 text-zinc-300">·</span>
+          <span>{{ draftCount }} Entwürfe</span>
+        </p>
         <Button @click="openNew" size="sm" class="gap-2 bg-orange-500 hover:bg-orange-600 text-white border-0">
           <Plus class="w-3.5 h-3.5" />
           Neuer Artikel
@@ -523,8 +530,13 @@ function postExternalUrl(post) {
               </Badge>
             </div>
             <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span v-if="post.author" class="flex items-center gap-1">
+                <User class="w-2.5 h-2.5" />
+                {{ post.author }}
+              </span>
+              <span v-if="post.author && post.category" class="text-zinc-300">·</span>
               <span v-if="post.category" class="capitalize">{{ post.category }}</span>
-              <span v-if="post.category && (post.reading_time_min || post.published_at)" class="text-zinc-300">·</span>
+              <span v-if="(post.category || post.author) && (post.reading_time_min || post.published_at)" class="text-zinc-300">·</span>
               <span v-if="post.reading_time_min" class="flex items-center gap-0.5">
                 <Clock class="w-2.5 h-2.5" />
                 {{ post.reading_time_min }} Min
@@ -819,12 +831,27 @@ function postExternalUrl(post) {
               </div>
               <div class="space-y-1.5">
                 <label class="text-[12px] text-muted-foreground font-normal">Autor</label>
-                <Input
-                  v-model="form.author"
-                  type="text"
-                  placeholder="Name des Autors..."
-                  class="text-[13px] border-zinc-200 bg-white focus-visible:ring-orange-400/30 focus-visible:border-orange-300"
-                />
+                <select
+                  :value="form.author"
+                  @change="form.author = $event.target.value"
+                  class="w-full px-3 py-2 rounded-md border border-zinc-200 bg-white text-[13px] focus:outline-none focus:ring-2 focus:ring-orange-400/30 focus:border-orange-300"
+                >
+                  <option value="">— Autor wählen —</option>
+                  <option v-for="u in teamMembers" :key="u.id" :value="u.name">{{ u.name }}</option>
+                </select>
+                <!-- Author preview card -->
+                <div v-if="selectedAuthor" class="flex items-center gap-2.5 mt-2 px-3 py-2 rounded-lg bg-zinc-50 border border-zinc-100">
+                  <div class="w-8 h-8 rounded-full overflow-hidden bg-zinc-200 flex-shrink-0">
+                    <img v-if="selectedAuthor.profile_image" :src="'/storage/' + selectedAuthor.profile_image" class="w-full h-full object-cover" />
+                    <div v-else class="w-full h-full flex items-center justify-center">
+                      <User class="w-4 h-4 text-zinc-400" />
+                    </div>
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-[12px] font-medium text-foreground truncate">{{ selectedAuthor.name }}</p>
+                    <p class="text-[10px] text-muted-foreground truncate">{{ selectedAuthor.signature_title || selectedAuthor.user_type }}</p>
+                  </div>
+                </div>
               </div>
               <div class="space-y-1.5">
                 <label class="text-[12px] text-muted-foreground font-normal">Tags (kommagetrennt)</label>

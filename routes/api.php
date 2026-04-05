@@ -34,3 +34,88 @@ Route::prefix('website')->middleware('throttle:60,1')->group(function () {
 });
 Route::get('/openimmo/willhaben.xml', [\App\Http\Controllers\OpenImmoController::class, 'willhabenFeed']);
 Route::get('/openimmo/status', [\App\Http\Controllers\OpenImmoController::class, 'feedStatus']);
+
+// Blog public API
+Route::prefix('website/blog')->group(function () {
+    Route::get('/posts', function (\Illuminate\Http\Request $request) {
+        $posts = \DB::table('blog_posts')
+            ->where('status', 'published')
+            ->whereNotNull('published_at')
+            ->select('id', 'title', 'slug', 'seo_title', 'meta_description', 'excerpt',
+                     'featured_image', 'featured_image_alt', 'author', 'author_id', 'category',
+                     'tags', 'published_at', 'reading_time_min')
+            ->orderByDesc('published_at')
+            ->get()
+            ->map(function ($p) {
+                $p->tags = json_decode($p->tags, true) ?? [];
+                if ($p->featured_image) {
+                    $p->featured_image_url = url('/storage/' . $p->featured_image);
+                }
+                if ($p->author) {
+                    $au = \DB::table('users')->where('name', $p->author)->select('profile_image', 'signature_title')->first();
+                    if ($au && $au->profile_image) $p->author_image = url('/storage/' . $au->profile_image);
+                    if ($au) $p->author_title = $au->signature_title;
+                }
+                return $p;
+            });
+        return response()->json(['success' => true, 'posts' => $posts]);
+    });
+
+    Route::get('/post/{slug}', function (string $slug) {
+        $post = \DB::table('blog_posts')
+            ->where('slug', $slug)
+            ->where('status', 'published')
+            ->first();
+        if (!$post) return response()->json(['error' => 'Not found'], 404);
+        $post->tags = json_decode($post->tags, true) ?? [];
+        $post->internal_links = json_decode($post->internal_links, true) ?? [];
+        if ($post->featured_image) {
+            $post->featured_image_url = url('/storage/' . $post->featured_image);
+        }
+        // Author data
+        if ($post->author_id) {
+            $author = \DB::table('users')->where('id', $post->author_id)
+                ->select('name', 'signature_title', 'profile_image')->first();
+            if ($author) {
+                $post->author_name = $author->name;
+                $post->author_title = $author->signature_title;
+                $post->author_image = $author->profile_image ? url('/storage/' . $author->profile_image) : null;
+            }
+        } elseif ($post->author) {
+            $author = \DB::table('users')->where('name', $post->author)
+                ->select('name', 'signature_title', 'profile_image')->first();
+            if ($author) {
+                $post->author_name = $author->name;
+                $post->author_title = $author->signature_title;
+                $post->author_image = $author->profile_image ? url('/storage/' . $author->profile_image) : null;
+            }
+        }
+        $related = \DB::table('blog_posts')
+            ->where('status', 'published')
+            ->where('id', '!=', $post->id)
+            ->when($post->category, fn($q) => $q->where('category', $post->category))
+            ->select('id', 'title', 'slug', 'excerpt', 'featured_image', 'published_at', 'reading_time_min')
+            ->orderByDesc('published_at')
+            ->limit(3)
+            ->get()
+            ->map(function ($p) {
+                if ($p->featured_image) $p->featured_image_url = url('/storage/' . $p->featured_image);
+                return $p;
+            });
+        return response()->json(['success' => true, 'post' => $post, 'related' => $related]);
+    });
+
+    Route::get('/sitemap.xml', function () {
+        $posts = \DB::table('blog_posts')->where('status', 'published')->select('slug', 'updated_at')->get();
+        $xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+        foreach (['', 'immobilien', 'verkaufen', 'bewerten', 'kontakt', 'ueber-uns', 'portal', 'blog'] as $p) {
+            $xml .= "<url><loc>https://www.sr-homes.at/{$p}</loc><changefreq>weekly</changefreq><priority>" . ($p === '' ? '1.0' : '0.8') . "</priority></url>";
+        }
+        foreach ($posts as $post) {
+            $lastmod = $post->updated_at ? date('Y-m-d', strtotime($post->updated_at)) : date('Y-m-d');
+            $xml .= "<url><loc>https://www.sr-homes.at/{$post->slug}</loc><lastmod>{$lastmod}</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>";
+        }
+        $xml .= '</urlset>';
+        return response($xml, 200, ['Content-Type' => 'application/xml']);
+    });
+});

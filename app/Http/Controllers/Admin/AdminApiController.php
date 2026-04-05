@@ -2696,7 +2696,7 @@ PY;
     private function listBrokers(Request $request): \Illuminate\Http\JsonResponse
     {
         $brokers = DB::select("
-            SELECT u.id, u.name, u.email, u.phone, u.user_type, u.created_at,
+            SELECT u.id, u.name, u.email, u.phone, u.user_type, u.profile_image, u.signature_title, u.created_at,
                    (SELECT COUNT(*) FROM properties p WHERE p.broker_id = u.id) as property_count,
                    (SELECT GROUP_CONCAT(ea.email_address) FROM email_accounts ea WHERE ea.user_id = u.id) as email_accounts
             FROM users u

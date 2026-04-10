@@ -59,6 +59,16 @@ class AutoFollowupCommand extends Command
 
         foreach ($leads as $lead) {
             try {
+                // Skip if conversation is marked as erledigt
+                $convStatus = DB::table('conversations')
+                    ->where('property_id', $lead['property_id'] ?? 0)
+                    ->where('stakeholder', $lead['stakeholder'] ?? '')
+                    ->value('status');
+                if ($convStatus === 'erledigt') {
+                    $this->line('  [SKIP] Erledigt: ' . ($lead['stakeholder'] ?? '?'));
+                    continue;
+                }
+
                 if (empty($lead['email'])) {
                     $this->line("  [SKIP] Keine Email fuer: " . ($lead['stakeholder'] ?? '?'));
                     Log::info('AutoFollowup: Kein Email-Empfaenger', ['stakeholder' => $lead['stakeholder'] ?? '?', 'property_id' => $lead['property_id'] ?? 0]);

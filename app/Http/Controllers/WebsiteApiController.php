@@ -29,10 +29,12 @@ class WebsiteApiController extends Controller
                             ->whereColumn('property_portals.property_id', 'properties.id')
                             ->where('property_portals.portal_name', 'sr-homes')
                             ->where('property_portals.sync_enabled', 1);
-                    });
+                    })
+                    // Also show sold properties (for Referenzen page)
+                    ->orWhere('realty_status', 'verkauft');
                 })
                 ->select([
-                    'id', 'ref_id', 'project_name', 'address', 'city', 'zip',
+                    'id', 'ref_id', 'title', 'project_name', 'address', 'city', 'zip',
                     'object_type as type', 'property_category', 'realty_status', 'purchase_price as price',
                     'living_area as area_living', 'free_area', 'total_area', 'rooms_amount as rooms', 'bathrooms',
                     'construction_year as year_built', 'year_renovated', 'realty_description as description', 'highlights',
@@ -40,7 +42,10 @@ class WebsiteApiController extends Controller
                     'total_units', 'energy_certificate', 'heating_demand_value',
                     'garage_spaces', 'parking_spaces', 'has_basement',
                     'has_garden', 'has_elevator', 'has_balcony', 'has_terrace',
-                    'has_loggia', 'condition_note'
+                    'has_loggia', 'condition_note',
+                    'sold_at', 'broker_id', 'broker_name_override',
+                    'purchase_price', 'rental_price',
+                    'external_image_url'
                 ])
                 ->orderBy('id', 'desc')
                 ->get();
@@ -59,16 +64,25 @@ class WebsiteApiController extends Controller
                         ->first();
                     if ($firstImg) {
                         $p->main_image_url = url('/storage/' . $firstImg->path);
+                    } else if (!empty($p->external_image_url)) {
+                        // Fallback: external image URL (e.g. from immoji)
+                        $p->main_image_url = $p->external_image_url;
                     } else {
-                        // Final fallback: property_files
-                        $firstFile = DB::table('property_files')
-                            ->where('property_id', $p->id)
-                            ->where('mime_type', 'like', 'image/%')
-                            ->orderBy('sort_order')
-                            ->first();
-                        $p->main_image_url = $firstFile
-                            ? url("/api/website/image/{$firstFile->id}")
-                            : null;
+                        $p->main_image_url = null;
+                    }
+                }
+
+                // Broker info: override takes priority (for brokers not yet in users table)
+                if (!empty($p->broker_name_override)) {
+                    $p->broker_name = $p->broker_name_override;
+                    $p->broker_title = 'Immobilienmakler/in';
+                    $p->broker_image = null;
+                } elseif ($p->broker_id) {
+                    $broker = DB::table('users')->where('id', $p->broker_id)->first(['name', 'profile_image', 'signature_title']);
+                    if ($broker) {
+                        $p->broker_name = $broker->name;
+                        $p->broker_title = $broker->signature_title;
+                        $p->broker_image = $broker->profile_image ? url('/storage/' . $broker->profile_image) : null;
                     }
                 }
 
@@ -155,6 +169,123 @@ class WebsiteApiController extends Controller
                 unset($p->main_image_id, $p->website_gallery_ids);
                 unset($p->has_garden, $p->has_balcony, $p->has_terrace, $p->has_loggia);
                 unset($p->has_elevator, $p->has_basement, $p->garage_spaces, $p->parking_spaces);
+            }
+
+            // Add sold property_units as individual entries (e.g. Neubauprojekt units)
+            $soldUnits = DB::table('property_units')
+                ->join('properties', 'properties.id', '=', 'property_units.property_id')
+                ->where('property_units.status', 'verkauft')
+                ->where(function($q) {
+                    $q->where('property_units.is_parking', false)
+                       ->orWhereNull('property_units.is_parking');
+                })
+                ->whereNotIn('property_units.unit_type', ['Stellplatz', 'Tiefgarage', 'Carportplatz'])
+                ->select([
+                    'property_units.id as unit_id',
+                    'property_units.unit_number',
+                    'property_units.unit_type',
+                    'property_units.area_m2',
+                    'property_units.rooms',
+                    'property_units.price',
+                    'property_units.images as unit_images',
+                    'property_units.updated_at as unit_updated_at',
+                    'properties.id as parent_property_id',
+                    'properties.title as parent_title',
+                    'properties.project_name',
+                    'properties.address',
+                    'properties.city',
+                    'properties.zip',
+                    'properties.broker_id',
+                    'properties.broker_name_override',
+                    'properties.main_image_id',
+                    'properties.external_image_url',
+                ])
+                ->get();
+
+            foreach ($soldUnits as $u) {
+                $unitTitle = $u->project_name ?: $u->parent_title;
+                $unitTitle .= ' | ' . $u->unit_number;
+
+                // Resolve broker
+                $brokerName = null;
+                $brokerTitle = null;
+                $brokerImage = null;
+                if (!empty($u->broker_name_override)) {
+                    $brokerName = $u->broker_name_override;
+                    $brokerTitle = 'Immobilienmakler/in';
+                } elseif ($u->broker_id) {
+                    $broker = DB::table('users')->where('id', $u->broker_id)->first(['name', 'profile_image', 'signature_title']);
+                    if ($broker) {
+                        $brokerName = $broker->name;
+                        $brokerTitle = $broker->signature_title;
+                        $brokerImage = $broker->profile_image ? url('/storage/' . $broker->profile_image) : null;
+                    }
+                }
+
+                // Resolve image - try unit images first, then parent
+                $mainImageUrl = null;
+                if (!empty($u->unit_images)) {
+                    $imgs = json_decode($u->unit_images, true);
+                    if (!empty($imgs) && isset($imgs[0])) {
+                        $imgVal = is_string($imgs[0]) ? $imgs[0] : ($imgs[0]['url'] ?? null);
+                        if ($imgVal && !str_starts_with($imgVal, 'http')) {
+                            $mainImageUrl = url('/storage/' . $imgVal);
+                        } else {
+                            $mainImageUrl = $imgVal;
+                        }
+                    }
+                }
+                if (!$mainImageUrl && $u->main_image_id) {
+                    $mainImageUrl = url("/api/website/image/{$u->main_image_id}");
+                }
+                if (!$mainImageUrl && !empty($u->external_image_url)) {
+                    $mainImageUrl = $u->external_image_url;
+                }
+                // Fallback: title image from parent property
+                if (!$mainImageUrl) {
+                    $titleImg = DB::table('property_images')
+                        ->where('property_id', $u->parent_property_id)
+                        ->where('is_public', 1)
+                        ->orderByDesc('is_title_image')
+                        ->orderBy('sort_order')
+                        ->first();
+                    if ($titleImg) {
+                        $mainImageUrl = url('/storage/' . $titleImg->path);
+                    }
+                }
+
+                $properties->push((object) [
+                    'id' => 'unit_' . $u->unit_id,
+                    'ref_id' => null,
+                    'title' => $unitTitle,
+                    'project_name' => $u->project_name,
+                    'address' => $u->address,
+                    'city' => $u->city,
+                    'zip' => $u->zip,
+                    'type' => $u->unit_type,
+                    'property_category' => 'newbuild',
+                    'realty_status' => 'verkauft',
+                    'price' => $u->price,
+                    'area_living' => $u->area_m2,
+                    'free_area' => null,
+                    'total_area' => null,
+                    'rooms' => $u->rooms,
+                    'bathrooms' => null,
+                    'year_built' => null,
+                    'year_renovated' => null,
+                    'description' => null,
+                    'highlights' => null,
+                    'main_image_url' => $mainImageUrl,
+                    'gallery_urls' => [],
+                    'total_units' => null,
+                    'purchase_price' => $u->price,
+                    'rental_price' => null,
+                    'sold_at' => $u->unit_updated_at,
+                    'broker_name' => $brokerName,
+                    'broker_title' => $brokerTitle,
+                    'broker_image' => $brokerImage,
+                    'features' => (object) [],
+                ]);
             }
 
             return $properties;

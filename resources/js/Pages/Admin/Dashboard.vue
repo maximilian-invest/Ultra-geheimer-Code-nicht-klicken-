@@ -12,6 +12,7 @@ import AnalyticsTab from "@/Components/Admin/AnalyticsTab.vue";
 import AdminTab from "@/Components/Admin/AdminTab.vue";
 import SettingsTab from "@/Components/Admin/SettingsTab.vue";
 import WebsiteTab from "@/Components/Admin/WebsiteTab.vue";
+import BlogTab from "@/Components/Admin/BlogTab.vue";
 import CalendarTab from "@/Components/Admin/CalendarTab.vue";
 import AssistenzTasksTab from "@/Components/Admin/AssistenzTasksTab.vue";
 import AiChatWidget from "../../Components/Admin/AiChatWidget.vue";
@@ -44,6 +45,8 @@ provide("kbCounts", props.kbCounts);
 
 const tab = ref(localStorage.getItem("sr-admin-tab") || "today");
 const sidebarCollapsed = ref(localStorage.getItem("sr-sidebar-collapsed") === "1");
+const sidebarHovered = ref(false);
+const sidebarEffective = computed(() => sidebarCollapsed.value && !sidebarHovered.value);
 const mobileOpen = ref(false);
 const darkMode = ref(localStorage.getItem("sr-dark") === "1");
 
@@ -90,6 +93,16 @@ function switchTab(t) {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 provide("switchTab", switchTab);
+
+const openContactSearch = ref("");
+provide("openContactSearch", openContactSearch);
+
+function openContact(name) {
+    openContactSearch.value = name;
+    tab.value = "admin";
+    mobileOpen.value = false;
+}
+provide("openContact", openContact);
 
 const userType = computed(() => page.props.auth?.user?.user_type || 'makler');
 const isAdmin = computed(() => userType.value === 'admin');
@@ -272,6 +285,7 @@ const navGroups = [
         { key: "calendar", label: "Kalender", icon: Calendar },
         { key: "admin", label: "Kontakte", icon: Users },
         { key: "website", label: "Website", icon: Globe, adminOnly: true },
+        { key: "blog", label: "Blog", icon: FileText, adminOnly: true },
         { key: "settings", label: "Einstellungen", icon: Settings, adminOnly: true },
     ]},
 ];
@@ -361,21 +375,24 @@ function navBadge(key) {
         <!-- Desktop Sidebar -->
         <TooltipProvider :delay-duration="0">
         <aside class="hidden md:flex flex-col h-screen sticky top-0 border-r border-gray-200 bg-background transition-all duration-200"
-            :style="{ width: sidebarCollapsed ? '48px' : '200px' }">
-            <div class="px-3 pt-4 pb-6 flex items-center" :class="sidebarCollapsed ? 'justify-center' : 'gap-2'">
-                <img v-if="sidebarCollapsed && !darkMode" src="/assets/logo-icon-orange.svg" alt="SR" class="shrink-0 cursor-pointer" style="width:28px" @click="toggleSidebar()" />
-                <img v-if="sidebarCollapsed && darkMode" src="/assets/logo-icon-white.svg" alt="SR" class="shrink-0 cursor-pointer" style="width:28px" @click="toggleSidebar()" />
-                <img v-if="!sidebarCollapsed && !darkMode" src="/assets/logo-full-orange.svg" alt="SR-Homes" class="shrink-0" style="height:24px" />
-                <img v-if="!sidebarCollapsed && darkMode" src="/assets/logo-full-white.svg" alt="SR-Homes" class="shrink-0" style="height:24px" />
-                <span v-if="!sidebarCollapsed" class="text-[10px] font-semibold px-1.5 py-0.5 rounded text-white bg-[#EE7600]">Cockpit</span>
+            :class="sidebarCollapsed && sidebarHovered ? 'z-50 shadow-xl absolute left-0' : ''"
+            :style="{ width: sidebarEffective ? '48px' : '200px' }"
+            @mouseenter="sidebarHovered = true"
+            @mouseleave="sidebarHovered = false">
+            <div class="px-3 pt-4 pb-6 flex items-center" :class="sidebarEffective ? 'justify-center' : 'gap-2'">
+                <img v-if="sidebarEffective && !darkMode" src="/assets/logo-icon-orange.svg" alt="SR" class="shrink-0 cursor-pointer" style="width:28px" @click="toggleSidebar()" />
+                <img v-if="sidebarEffective && darkMode" src="/assets/logo-icon-white.svg" alt="SR" class="shrink-0 cursor-pointer" style="width:28px" @click="toggleSidebar()" />
+                <img v-if="!sidebarEffective && !darkMode" src="/assets/logo-full-orange.svg" alt="SR-Homes" class="shrink-0" style="height:24px" />
+                <img v-if="!sidebarEffective && darkMode" src="/assets/logo-full-white.svg" alt="SR-Homes" class="shrink-0" style="height:24px" />
+                <span v-if="!sidebarEffective" class="text-[10px] font-semibold px-1.5 py-0.5 rounded text-white bg-[#EE7600]">Cockpit</span>
             </div>
             <nav class="flex-1 overflow-y-auto px-1.5 pb-2">
                 <template v-for="(group, gi) in filteredGroups" :key="gi">
                     <Separator v-if="gi > 0" class="my-1.5 mx-2" />
-                    <p v-if="!sidebarCollapsed" class="px-2.5 pt-3 pb-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">{{ group.label }}</p>
-                    <div class="flex flex-col gap-0.5" :class="sidebarCollapsed ? 'items-center' : ''">
+                    <p v-if="!sidebarEffective" class="px-2.5 pt-3 pb-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">{{ group.label }}</p>
+                    <div class="flex flex-col gap-0.5" :class="sidebarEffective ? 'items-center' : ''">
                         <template v-for="item in group.items" :key="item.key">
-                            <Tooltip v-if="sidebarCollapsed">
+                            <Tooltip v-if="sidebarEffective">
                                 <TooltipTrigger asChild>
                                     <button @click="switchTab(item.key)"
                                         class="relative flex items-center justify-center w-9 h-9 rounded-md transition-colors"
@@ -405,7 +422,7 @@ function navBadge(key) {
                 </template>
             </nav>
             <div class="border-t border-gray-200 p-2 space-y-1">
-                <div v-if="!sidebarCollapsed" class="flex items-center gap-2.5 px-2 py-1">
+                <div v-if="!sidebarEffective" class="flex items-center gap-2.5 px-2 py-1">
                     <Avatar class="h-7 w-7 rounded-md">
                         <AvatarFallback class="rounded-md bg-[#fff7ed] text-[#ea580c] text-[10px] font-semibold">{{ userInitials }}</AvatarFallback>
                     </Avatar>
@@ -415,7 +432,7 @@ function navBadge(key) {
                     <Button v-if="isAdmin" variant="ghost" size="sm" class="h-7 w-7 p-0" @click="switchTab('settings')" title="Einstellungen"><Settings class="w-3.5 h-3.5" /></Button>
                     <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click.prevent="useForm({}).post(route('logout'))" title="Abmelden"><LogOut class="w-3.5 h-3.5" /></Button>
                 </div>
-                <div v-if="sidebarCollapsed" class="flex flex-col items-center gap-1">
+                <div v-if="sidebarEffective" class="flex flex-col items-center gap-1">
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Avatar class="h-7 w-7 rounded-md cursor-default">
@@ -431,7 +448,7 @@ function navBadge(key) {
                         <TooltipContent side="right">Einstellungen</TooltipContent>
                     </Tooltip>
                 </div>
-                <button v-if="!sidebarCollapsed" @click="toggleDarkMode()" class="flex items-center gap-2 px-2 py-1 w-full text-left rounded-md hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors">
+                <button v-if="!sidebarEffective" @click="toggleDarkMode()" class="flex items-center gap-2 px-2 py-1 w-full text-left rounded-md hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors">
                     <Moon v-if="!darkMode" class="w-3.5 h-3.5 text-muted-foreground" />
                     <Sun v-else class="w-3.5 h-3.5 text-muted-foreground" />
                     <span class="text-[10px] font-medium text-muted-foreground">{{ darkMode ? 'Light Mode' : 'Dark Mode' }}</span>
@@ -501,6 +518,7 @@ function navBadge(key) {
                 <AssistenzTasksTab v-if="tab === 'tasks'" />
                 <SettingsTab v-if="tab === 'settings'" />
                 <WebsiteTab v-if="tab === 'website'" />
+                <BlogTab v-else-if="tab === 'blog'" />
             </div>
         </div>
 

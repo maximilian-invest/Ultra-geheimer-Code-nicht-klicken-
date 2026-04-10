@@ -30,11 +30,25 @@ class EmailService
             $domain = substr($account->email_address, strpos($account->email_address, '@') + 1);
             $messageId = uniqid('srh-') . '@' . $domain;
 
+                        // Format body: convert plain text newlines to HTML + append signature
+            $formattedBody = $body;
+
+            // If body doesn't contain HTML tags, convert newlines to <br>
+            if (strip_tags($formattedBody) === $formattedBody || !preg_match('/<(br|p|div|table|td|tr)[\s>]/i', $formattedBody)) {
+                $formattedBody = nl2br(htmlspecialchars($formattedBody, ENT_QUOTES, 'UTF-8'));
+            }
+
+            // Append HTML signature if not already present
+            if (!str_contains($formattedBody, 'SR-Homes Immobilien') && !str_contains($formattedBody, 'signature')) {
+                $sig = $this->buildHtmlSignature($accountId);
+                $formattedBody .= $sig;
+            }
+
             $email = (new Email())
                 ->from("{$account->from_name} <{$account->email_address}>")
                 ->to($to)
                 ->subject($subject)
-                ->html($body);
+                ->html($formattedBody);
 
             // Set Message-ID
             $email->getHeaders()->addIdHeader('Message-ID', $messageId);
@@ -114,7 +128,7 @@ class EmailService
                 'from_name' => $account->from_name,
                 'to_email' => $to,
                 'subject' => $subject,
-                'body_html' => $body,
+                'body_html' => $formattedBody,
                 'body_text' => strip_tags($body),
                 'email_date' => now(),
                 'property_id' => $propertyId,
@@ -354,5 +368,49 @@ class EmailService
             imap_close($mailbox);
             throw $e;
         }
+    
+    }
+
+    private function buildHtmlSignature(int $accountId): string
+    {
+        $userId = \DB::table('email_accounts')->where('id', $accountId)->value('user_id');
+        if (!$userId) return '';
+
+        $s = \DB::table('admin_settings')->where('user_id', $userId)->first();
+        if (!$s) return '<br><br><span style="color:#999">--</span><br>SR-Homes Immobilien GmbH<br>www.sr-homes.at';
+
+        $baseUrl = rtrim(config('app.url', 'https://kundenportal.sr-homes.at'), '/');
+        $logoUrl = $s->signature_logo_path ? $baseUrl . '/storage/' . $s->signature_logo_path : null;
+        $bannerUrl = $s->signature_banner_path ? $baseUrl . '/storage/' . $s->signature_banner_path : null;
+        $photoUrl = $s->signature_photo_path ? $baseUrl . '/storage/' . $s->signature_photo_path : null;
+
+        $name = $s->signature_name ?? '';
+        $title = $s->signature_title ?? '';
+        $company = $s->signature_company ?? 'SR-Homes Immobilien GmbH';
+        $phone = $s->signature_phone ?? '+43 664 2600 930';
+        $website = $s->signature_website ?? 'www.sr-homes.at';
+
+        $cs = $photoUrl ? 2 : 1;
+        $html = '<br><br><table cellpadding="0" cellspacing="0" style="font-family:Arial,sans-serif;font-size:13px;color:#333">';
+        if ($logoUrl) {
+            $html .= '<tr><td colspan="' . $cs . '" style="padding-bottom:8px"><img src="' . $logoUrl . '" alt="Logo" style="max-height:60px;max-width:200px"></td></tr>';
+        }
+        $html .= '<tr>';
+        if ($photoUrl) {
+            $html .= '<td style="border-top:2px solid #ee7606;padding-top:8px;padding-right:12px;vertical-align:top"><img src="' . $photoUrl . '" alt="" style="width:70px;height:90px;object-fit:cover;border-radius:4px"></td>';
+        }
+        $html .= '<td style="border-top:2px solid #ee7606;padding-top:8px">';
+        $html .= '<strong style="font-size:14px;color:#222">' . htmlspecialchars($name) . '</strong>';
+        if ($title) $html .= '<br><span style="color:#666">' . htmlspecialchars($title) . '</span>';
+        $html .= '<br><span style="color:#666">' . htmlspecialchars($company) . '</span>';
+        $html .= '<br>Tel: <a href="tel:' . preg_replace('/\s/', '', $phone) . '" style="color:#ee7606;text-decoration:none">' . htmlspecialchars($phone) . '</a>';
+        $html .= '<br><a href="https://' . htmlspecialchars($website) . '" style="color:#ee7606;text-decoration:none">' . htmlspecialchars($website) . '</a>';
+        $html .= '</td></tr>';
+        if ($bannerUrl) {
+            $html .= '<tr><td colspan="' . $cs . '" style="padding-top:8px"><img src="' . $bannerUrl . '" alt="" style="max-width:400px;width:100%;border-radius:4px"></td></tr>';
+        }
+        $html .= '</table>';
+        return $html;
     }
 }
+

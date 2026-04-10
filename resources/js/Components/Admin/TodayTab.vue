@@ -7,7 +7,6 @@ import {
     TrendingUp, Timer
 } from "lucide-vue-next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
 const props = defineProps({
@@ -194,21 +193,7 @@ function buildChartData() {
     chartsReady.value = true;
 }
 
-// Ranking
-const rankingData = ref([]);
-const rankingPeriod = ref("30");
-const rankingSort = ref("anfragen");
-async function loadRanking() {
-    try {
-        const r = await fetch(API.value + "&action=broker_ranking&period=" + rankingPeriod.value);
-        const d = await r.json();
-        rankingData.value = d.ranking || [];
-    } catch {}
-}
-const sortedRanking = computed(() => {
-    const key = rankingSort.value;
-    return [...rankingData.value].sort((a, b) => (Number(b[key]) || 0) - (Number(a[key]) || 0));
-});
+// Ranking removed
 
 // Upcoming events
 const upcomingEvents = ref([]);
@@ -317,7 +302,6 @@ async function loadPerformance() {
 
 onMounted(async () => {
     if (userType.value !== "assistenz") loadSalesAndCommissions();
-    loadRanking();
     await Promise.all([loadTasks(), loadKaufanboteStats(), loadPerformance(), loadUpcoming()]);
 });
 </script>
@@ -611,75 +595,6 @@ onMounted(async () => {
             </CardContent>
         </Card>
 
-        <!-- Section 5: Makler-Ranking -->
-        <Card v-if="rankingData.length > 1">
-            <CardHeader class="flex flex-row items-center justify-between">
-                <CardTitle class="text-sm">Makler-Ranking</CardTitle>
-                <div class="flex items-center gap-2">
-                    <select v-model="rankingPeriod" @change="loadRanking()" class="h-8 rounded-md border border-input bg-background px-2 text-xs">
-                        <option value="7">7 Tage</option>
-                        <option value="30">30 Tage</option>
-                        <option value="90">90 Tage</option>
-                        <option value="365">1 Jahr</option>
-                    </select>
-                    <select v-model="rankingSort" class="h-8 rounded-md border border-input bg-background px-2 text-xs">
-                        <option value="anfragen">Anfragen</option>
-                        <option value="kaufanbote">Kaufanbote</option>
-                        <option value="besichtigungen">Besichtigungen</option>
-                        <option value="verkaufsvolumen">Verkaufsvolumen</option>
-                        <option value="gesendet">Gesendete Mails</option>
-                    </select>
-                </div>
-            </CardHeader>
-            <CardContent class="pt-0 px-0">
-                <div class="overflow-x-auto">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead class="w-10 pl-4">#</TableHead>
-                            <TableHead class="text-xs">Makler</TableHead>
-                            <TableHead class="text-right text-xs cursor-pointer" @click="rankingSort = 'anfragen'"
-                                :class="rankingSort === 'anfragen' ? 'text-orange-600 font-semibold' : ''">Anfr.</TableHead>
-                            <TableHead class="text-right text-xs cursor-pointer" @click="rankingSort = 'besichtigungen'"
-                                :class="rankingSort === 'besichtigungen' ? 'text-orange-600 font-semibold' : ''">Bes.</TableHead>
-                            <TableHead class="text-right text-xs cursor-pointer" @click="rankingSort = 'kaufanbote'"
-                                :class="rankingSort === 'kaufanbote' ? 'text-orange-600 font-semibold' : ''">Anb.</TableHead>
-                            <TableHead class="text-right text-xs cursor-pointer hidden sm:table-cell" @click="rankingSort = 'verkaufsvolumen'"
-                                :class="rankingSort === 'verkaufsvolumen' ? 'text-orange-600 font-semibold' : ''">Vol.</TableHead>
-                            <TableHead class="text-right text-xs cursor-pointer hidden md:table-cell" @click="rankingSort = 'gesendet'"
-                                :class="rankingSort === 'gesendet' ? 'text-orange-600 font-semibold' : ''">Ges.</TableHead>
-                            <TableHead class="text-right text-xs hidden md:table-cell">Antw.</TableHead>
-                            <TableHead class="text-right text-xs pr-4 hidden lg:table-cell">Obj.</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        <TableRow v-for="(b, i) in sortedRanking" :key="b.id">
-                            <TableCell class="pl-4 py-2">
-                                <span class="w-5 h-5 rounded-full inline-flex items-center justify-center text-[9px] font-bold"
-                                    :class="i === 0 ? 'bg-amber-400 text-amber-900' : i === 1 ? 'bg-gray-300 text-gray-700' : i === 2 ? 'bg-amber-600 text-white' : 'bg-muted text-muted-foreground'">
-                                    {{ i + 1 }}
-                                </span>
-                            </TableCell>
-                            <TableCell class="font-medium text-xs py-2">{{ b.name }}</TableCell>
-                            <TableCell class="text-right text-xs tabular-nums py-2" :class="rankingSort === 'anfragen' ? 'text-orange-600 font-bold' : ''">{{ b.anfragen || 0 }}</TableCell>
-                            <TableCell class="text-right text-xs tabular-nums py-2" :class="rankingSort === 'besichtigungen' ? 'text-orange-600 font-bold' : ''">{{ b.besichtigungen || 0 }}</TableCell>
-                            <TableCell class="text-right text-xs tabular-nums py-2" :class="rankingSort === 'kaufanbote' ? 'text-orange-600 font-bold' : ''">{{ b.kaufanbote || 0 }}</TableCell>
-                            <TableCell class="text-right text-xs tabular-nums py-2 hidden sm:table-cell" :class="rankingSort === 'verkaufsvolumen' ? 'text-orange-600 font-bold' : ''">&euro; {{ Number(b.verkaufsvolumen || 0).toLocaleString('de-DE') }}</TableCell>
-                            <TableCell class="text-right text-xs tabular-nums py-2 hidden md:table-cell" :class="rankingSort === 'gesendet' ? 'text-orange-600 font-bold' : ''">{{ b.gesendet || 0 }}</TableCell>
-                            <TableCell class="text-right text-xs tabular-nums py-2 hidden md:table-cell">
-                                <span v-if="b.avg_antwortzeit_h != null"
-                                    :class="Number(b.avg_antwortzeit_h) <= 4 ? 'text-emerald-600' : Number(b.avg_antwortzeit_h) <= 24 ? 'text-amber-600' : 'text-red-600'">
-                                    {{ b.avg_antwortzeit_h }}h
-                                </span>
-                                <span v-else class="text-muted-foreground">–</span>
-                            </TableCell>
-                            <TableCell class="text-right text-xs pr-4 tabular-nums py-2 hidden lg:table-cell">{{ b.objekte || 0 }}</TableCell>
-                        </TableRow>
-                    </TableBody>
-                </Table>
-                </div>
-            </CardContent>
-        </Card>
 
     </div>
 

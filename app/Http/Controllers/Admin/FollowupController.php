@@ -801,9 +801,12 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         // Knowledge base context
         $kbContext = '';
         try {
+            // Exclude person-specific feedback to prevent AI from attributing
+            // one person's viewing/absage feedback to a different stakeholder
             $kbItems = DB::select("
                 SELECT category, title, content FROM property_knowledge
                 WHERE property_id = ? AND is_active = 1
+                  AND category NOT IN ('feedback_besichtigung', 'feedback_negativ', 'feedback_positiv')
                 ORDER BY confidence DESC LIMIT 10
             ", [$propertyId]);
         } catch (\Exception $e) {
@@ -820,6 +823,27 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 $kbContext .= $line;
                 $chars += strlen($line);
             }
+        }
+
+        // Explicit viewing status — prevents AI from hallucinating viewings
+        $hasViewing = DB::selectOne("
+            SELECT COUNT(*) as cnt FROM activities
+            WHERE property_id = ? AND category = 'besichtigung'
+              AND stakeholder LIKE ?
+        ", [$propertyId, '%' . mb_substr($stakeholder, 0, 20) . '%']);
+        $viewingCount = $hasViewing->cnt ?? 0;
+
+        $hasViewingEvent = DB::selectOne("
+            SELECT COUNT(*) as cnt FROM viewings
+            WHERE property_id = ?
+              AND (person_email LIKE ? OR person_name LIKE ?)
+        ", [$propertyId, '%' . mb_substr($email ?? '', 0, 15) . '%', '%' . mb_substr($stakeholder, 0, 20) . '%']);
+        $viewingEventCount = $hasViewingEvent->cnt ?? 0;
+
+        if ($viewingCount === 0 && $viewingEventCount === 0) {
+            $threadContext .= "\n--- WICHTIG ---\nEs hat KEINE Besichtigung mit diesem Interessenten stattgefunden. Erwähne KEINE Besichtigung in der Nachfass-Mail.\n--- ENDE WICHTIG ---\n";
+        } else {
+            $threadContext .= "\n--- BESICHTIGUNGSSTATUS ---\nEs gab {$viewingCount} Besichtigung(en) mit diesem Interessenten.\n--- ENDE BESICHTIGUNGSSTATUS ---\n";
         }
 
         // Stufen-spezifische KI-Anweisung (Stage 1 oder 2)
@@ -1098,13 +1122,20 @@ private static function findEmailInText(string $text, array $excludePatterns = [
 
         if ($mode === 'stage1') {
             $items = $this->getStage1Followups($norm, $sysFilter, '');
-            return array_map(fn($f) => [
+            return array_values(array_filter(array_map(fn($f) => [
                 'property_id'      => $f['property_id'],
                 'stakeholder'      => $f['from_name'],
                 'email'            => $f['contact_email'] ?? $f['from_email'] ?? '',
                 'property_ref'     => $f['ref_id'] ?? '',
                 'property_address' => ($f['address'] ?? '') . ($f['city'] ? ', ' . $f['city'] : ''),
-            ], $items);
+            ], $items), function($lead) {
+                // Skip leads where conversation is marked erledigt
+                $status = DB::table('conversations')
+                    ->where('property_id', $lead['property_id'])
+                    ->where('stakeholder', $lead['stakeholder'])
+                    ->value('status');
+                return $status !== 'erledigt';
+            }));
         }
 
         // mode=followup: Stage-2-Kandidaten

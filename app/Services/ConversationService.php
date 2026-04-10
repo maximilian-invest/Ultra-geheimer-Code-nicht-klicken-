@@ -16,9 +16,6 @@ class ConversationService
      */
     public function updateFromEmail(PortalEmail $email, ?Activity $activity = null): ?Conversation
     {
-        if (!$email->property_id) {
-            return null;
-        }
 
         $contactEmail = $this->resolveContactEmail($email);
 
@@ -60,8 +57,12 @@ class ConversationService
                     $conv->last_inbound_at = $email->email_date ?? now();
                     $conv->is_read = false;
 
+                    // Absage → auto-archive, nicht ins Nachfassen
+                    if (strtolower($email->category ?? '') === 'absage') {
+                        $conv->status = 'archiviert';
+                    }
                     // Customer replied -> reopen if we were waiting
-                    if (in_array($conv->status, ['beantwortet', 'nachfassen_1', 'nachfassen_2', 'nachfassen_3'])) {
+                    elseif (in_array($conv->status, ['beantwortet', 'nachfassen_1', 'nachfassen_2', 'nachfassen_3', 'erledigt'])) {
                         $conv->status = 'offen';
                     }
                 } else {
@@ -82,9 +83,27 @@ class ConversationService
                     $conv->last_activity_id = $activity->id;
                 }
 
-                // Update stakeholder name if new one is longer (more complete)
-                if ($email->stakeholder && Str::length($email->stakeholder) > Str::length($conv->stakeholder ?? '')) {
-                    $conv->stakeholder = $email->stakeholder;
+                // Update stakeholder name: prefer clean, longer names
+                if ($email->stakeholder) {
+                    $candidateName = trim(preg_replace('/\s+/', ' ', $email->stakeholder));
+                    // Skip junk names (contain newlines, "Kontaktdaten", too short, or noreply-style)
+                    $isClean = !str_contains($email->stakeholder, "
+")
+                        && !str_contains(strtolower($candidateName), 'kontaktdaten')
+                        && Str::length($candidateName) >= 3;
+
+                    if ($isClean) {
+                        $currentName = $conv->stakeholder ?? '';
+                        $currentIsJunk = str_contains($currentName, "
+")
+                            || str_contains(strtolower($currentName), 'kontaktdaten')
+                            || Str::length(trim($currentName)) < 3;
+
+                        // Replace if current is junk OR new name is longer (more complete)
+                        if ($currentIsJunk || Str::length($candidateName) > Str::length(trim($currentName))) {
+                            $conv->stakeholder = $candidateName;
+                        }
+                    }
                 }
 
                 // Update category if more specific

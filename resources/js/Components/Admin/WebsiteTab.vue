@@ -862,7 +862,7 @@ async function deleteEntry(section, key) {
             </button>
           </nav>
           <a href="https://sr-homes.at" target="_blank"
-            class="flex items-center gap-2 px-3 py-2 mt-3 rounded-xl text-[13px] font-medium text-[var(--accent)] hover:bg-zinc-100 transition-all border border-[var(--border)]">
+            class="flex items-center gap-2 px-3 py-2 mt-3 rounded-xl text-[13px] font-medium text-[#D4622B] hover:bg-orange-50 transition-all border border-[var(--border)]">
             <ExternalLink class="w-3.5 h-3.5 shrink-0" /> Website öffnen
           </a>
         </div>

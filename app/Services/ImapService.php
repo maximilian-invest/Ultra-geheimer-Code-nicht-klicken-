@@ -644,9 +644,11 @@ class ImapService
                     'subject' => $subject,
                     'body_text' => $body,
                     'email_date' => $date,
-                    'property_id' => $propertyId ?? ($analysis['suggested_property_ref_id']
-                        ? Property::where('ref_id', $analysis['suggested_property_ref_id'])->value('id')
-                        : null),
+                    'property_id' => $propertyId ?? (
+                        !empty($analysis['suggested_property_ref_id'])
+                            ? Property::where('ref_id', $analysis['suggested_property_ref_id'])->value('id')
+                            : null
+                    ),
                     'stakeholder' => $stakeholder,
                     'category' => $isOwnerEmail ? ($analysis['category'] ?? 'eigentuemer') : ($isInternalEmail ? 'intern' : ($direction === 'outbound' ? 'email-out' : ($analysis['category'] ?? 'sonstiges'))),
                     'ai_summary' => $analysis['summary'] ?? null,

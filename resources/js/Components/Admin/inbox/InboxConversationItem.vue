@@ -115,6 +115,16 @@ const isKaufanbot = computed(() => {
   return cat === "kaufanbot" || cat === "anbot";
 });
 
+const isAbsage = computed(() => {
+  const cat = (props.item.category || "").toLowerCase();
+  return cat === "absage";
+});
+
+const isBesichtigung = computed(() => {
+  const cat = (props.item.category || "").toLowerCase();
+  return cat === "besichtigung";
+});
+
 const hasMatches = computed(() => props.item.match_count > 0 && !props.item.match_dismissed);
 
 function getAvatarColor(name) {
@@ -195,6 +205,29 @@ function getAvatarColor(name) {
             {{ sourcePlatform }}
           </Badge>
 
+          <!-- Category badges (visible everywhere) -->
+          <Badge
+            v-if="isAbsage"
+            variant="secondary"
+            class="text-[9px] px-1.5 py-0 h-4 font-medium bg-red-100 text-red-700 border border-red-300"
+          >
+            Absage
+          </Badge>
+          <Badge
+            v-if="isBesichtigung"
+            variant="secondary"
+            class="text-[9px] px-1.5 py-0 h-4 font-medium bg-teal-100 text-teal-700 border border-teal-200"
+          >
+            Besichtigung
+          </Badge>
+          <Badge
+            v-if="isKaufanbot"
+            variant="secondary"
+            class="text-[9px] px-1.5 py-0 h-4 font-medium bg-purple-100 text-purple-700 border-purple-200"
+          >
+            Kaufanbot
+          </Badge>
+
           <!-- Nachfassen subtab badges -->
           <template v-if="subtab === 'nachfassen'">
             <Badge
@@ -204,13 +237,6 @@ function getAvatarColor(name) {
               :class="stageColor"
             >
               {{ stageLabel }}
-            </Badge>
-            <Badge
-              v-if="isKaufanbot"
-              variant="secondary"
-              class="text-[9px] px-1.5 py-0 h-4 font-medium bg-purple-100 text-purple-700 border-purple-200"
-            >
-              Kaufanbot
             </Badge>
           </template>
 

@@ -1393,10 +1393,11 @@ private static function findEmailInText(string $text, array $excludePatterns = [
 
         try {
             $anthropic = app(\App\Services\AnthropicService::class);
-            $systemPrompt = 'Du bist ein professioneller deutschsprachiger Lektor fuer geschaeftliche E-Mails im Immobilienbereich. Verbessere NUR das Wording, die Grammatik und den Stil des folgenden Textes. Aendere NICHT den Inhalt, die Fakten oder die Aussage. Fuege KEINE neuen Informationen hinzu. Behalte die Laenge bei. Antworte NUR mit dem verbesserten Text, ohne Erklaerungen.';
+            $systemPrompt = 'Du bist Maximilian Hoelzl, konzessionierter Immobilientreuhaender bei SR-Homes Immobilien GmbH. Verwandle den folgenden Entwurf in eine professionelle, saubere E-Mail. Der Entwurf kann Stichpunkte, Umgangssprache, Tippfehler oder unvollstaendige Saetze enthalten — mache daraus eine fertige, versandfertige E-Mail. Behalte die KERNAUSSAGE und alle Fakten bei. Schreibe in gehobenem, professionellem Deutsch (Sie-Form). Fuege passende Zeilenumbrueche ein (nach Begruessung, zwischen Absaetzen, vor Grussformel). Korrigiere Grammatik, Rechtschreibung und Interpunktion. Wenn der Text sehr kurz oder stichpunktartig ist, erweitere ihn zu einer vollstaendigen, hoeflichen E-Mail mit Anrede und Grussformel. Wenn der Text schon gut ist, poliere nur Wording und Formatierung. KEINE neuen Fakten erfinden. KEIN Markdown. KEINE Signatur (wird automatisch hinzugefuegt). Antworte NUR mit dem fertigen E-Mail-Text.';
             $improved = $anthropic->chat($systemPrompt, $text, 2048);
 
             if ($improved) {
+                $improved = \App\Services\AnthropicService::stripSignature($improved);
                 return response()->json(['improved_text' => $improved]);
             }
 

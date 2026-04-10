@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { Search, Loader2, Plus } from "lucide-vue-next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,37 @@ const props = defineProps({
   groupedSections: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["select", "update:searchQuery", "update:objectFilter", "compose", "delete"]);
+const emit = defineEmits(["select", "update:searchQuery", "update:objectFilter", "compose", "delete", "batchDone", "batchTrash"]);
+
+const selectedIds = ref(new Set());
+const selectMode = ref(false);
+
+function toggleSelect(id) {
+  if (selectedIds.value.has(id)) selectedIds.value.delete(id);
+  else selectedIds.value.add(id);
+  selectedIds.value = new Set(selectedIds.value); // trigger reactivity
+}
+
+function selectAll(items) {
+  if (selectedIds.value.size === items.length) {
+    selectedIds.value = new Set();
+  } else {
+    selectedIds.value = new Set(items.map(i => i.id));
+  }
+}
+
+function batchDone() {
+  emit("batchDone", [...selectedIds.value]);
+  selectedIds.value = new Set();
+  selectMode.value = false;
+}
 
 const isGrouped = computed(() => props.groupedSections && props.groupedSections.length > 0);
+
+const collapsedSections = ref({});
+function toggleSection(label) {
+  collapsedSections.value[label] = !collapsedSections.value[label];
+}
 </script>
 
 <template>
@@ -59,6 +87,19 @@ const isGrouped = computed(() => props.groupedSections && props.groupedSections.
         </SelectContent>
       </Select>
 
+      <!-- Select Mode Toggle -->
+      <Button
+        
+        variant="ghost"
+        size="icon"
+        class="h-8 w-8 flex-shrink-0"
+        :class="selectMode ? 'bg-accent' : ''"
+        @click="selectMode = !selectMode; if (!selectMode) selectedIds = new Set()"
+        title="Mehrfachauswahl"
+      >
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+      </Button>
+
       <!-- Compose Button -->
       <Button
         variant="ghost"
@@ -87,14 +128,22 @@ const isGrouped = computed(() => props.groupedSections && props.groupedSections.
 
       <!-- Flat List -->
       <div v-else-if="!isGrouped" class="divide-y divide-zinc-100">
-        <InboxConversationItem
-          v-for="item in items"
-          :key="item.id"
-          :item="item"
-          :active="selectedId != null && String(item.id) === String(selectedId)"
-          :subtab="subtab"
-          @click="emit('select', item)" @delete="emit('delete', $event)"
-        />
+        <div v-for="item in items" :key="item.id" class="flex items-center min-w-0">
+          <input
+            v-if="selectMode"
+            type="checkbox"
+            :checked="selectedIds.has(item.id)"
+            @change="toggleSelect(item.id)"
+            class="ml-2 mr-1 rounded border-zinc-300 text-primary w-4 h-4 flex-shrink-0 cursor-pointer"
+          />
+          <InboxConversationItem
+            class="flex-1"
+            :item="item"
+            :active="selectedId != null && String(item.id) === String(selectedId)"
+            :subtab="subtab"
+            @click="selectMode ? toggleSelect(item.id) : emit('select', item)" @delete="emit('delete', $event)"
+          />
+        </div>
       </div>
 
       <!-- Grouped List (nachfassen) -->
@@ -103,24 +152,42 @@ const isGrouped = computed(() => props.groupedSections && props.groupedSections.
           <div
             v-if="section.items && section.items.length"
           >
-            <!-- Section Header -->
-            <div class="sticky top-0 z-10 px-3 py-1.5 bg-zinc-50 backdrop-blur-sm border-b border-zinc-100">
+            <!-- Section Header (clickable to collapse) -->
+            <div
+              class="sticky top-0 z-10 px-3 py-1.5 bg-zinc-50 backdrop-blur-sm border-b border-zinc-100 cursor-pointer select-none flex items-center justify-between hover:bg-zinc-100/80 transition-colors"
+              @click="toggleSection(section.label)"
+            >
               <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {{ section.label }}
                 <span class="ml-1 font-normal">({{ section.items.length }})</span>
               </span>
+              <svg
+                class="w-3 h-3 text-muted-foreground transition-transform"
+                :class="collapsedSections[section.label] ? '-rotate-90' : ''"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
             </div>
 
             <!-- Section Items -->
-            <div class="divide-y divide-zinc-100">
-              <InboxConversationItem
-                v-for="item in section.items"
-                :key="item.id"
-                :item="item"
-                :active="selectedId != null && String(item.id) === String(selectedId)"
-                :subtab="subtab"
-                @click="emit('select', item)" @delete="emit('delete', $event)"
-              />
+            <div v-show="!collapsedSections[section.label]" class="divide-y divide-zinc-100">
+              <div v-for="item in section.items" :key="item.id" class="flex items-center min-w-0">
+                <input
+                  v-if="selectMode"
+                  type="checkbox"
+                  :checked="selectedIds.has(item.id)"
+                  @change="toggleSelect(item.id)"
+                  class="ml-2 mr-1 rounded border-zinc-300 text-primary w-4 h-4 flex-shrink-0 cursor-pointer"
+                />
+                <InboxConversationItem
+                  class="flex-1"
+                  :item="item"
+                  :active="selectedId != null && String(item.id) === String(selectedId)"
+                  :subtab="subtab"
+                  @click="selectMode ? toggleSelect(item.id) : emit('select', item)" @delete="emit('delete', $event)"
+                />
+              </div>
             </div>
           </div>
         </template>
@@ -134,9 +201,20 @@ const isGrouped = computed(() => props.groupedSections && props.groupedSections.
         </div>
       </div>
     </div>
-    <!-- Neue Nachricht Button -->
+    <!-- Bottom Bar -->
     <div class="p-3 border-t border-zinc-100 flex-shrink-0">
-      <button @click="emit('compose')" class="w-full h-9 flex items-center justify-center gap-2 text-[12px] font-medium text-zinc-600 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
+      <div v-if="selectMode && selectedIds.size > 0" class="flex items-center gap-2">
+        <span class="text-[11px] text-muted-foreground flex-1">{{ selectedIds.size }} ausgewählt</span>
+        <button v-if="subtab === 'offen' || subtab === 'nachfassen'" @click="batchDone()" class="h-8 px-3 flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+          Alle erledigt
+        </button>
+        <button v-else @click="emit('batchTrash', [...selectedIds]); selectedIds = new Set(); selectMode = false;" class="h-8 px-3 flex items-center gap-1.5 text-[11px] font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          Papierkorb
+        </button>
+      </div>
+      <button v-else @click="emit('compose')" class="w-full h-9 flex items-center justify-center gap-2 text-[12px] font-medium text-zinc-600 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors">
         <Plus class="w-3.5 h-3.5" />
         Neue Nachricht
       </button>

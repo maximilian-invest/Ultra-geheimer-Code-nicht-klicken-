@@ -17,6 +17,17 @@ const contactsLoading = ref(false);
 const contactSearch = ref("");
 const editingContact = ref(null);
 
+// Listen for openContact from Dashboard
+const openContactSearch = inject("openContactSearch", ref(""));
+watch(openContactSearch, (name) => {
+    if (name) {
+        adminSubTab.value = "contacts";
+        contactSearch.value = name;
+        loadContacts();
+        openContactSearch.value = "";
+    }
+});
+
 // Timeline
 const timelineContact = ref(null);
 const timelineData = ref([]);

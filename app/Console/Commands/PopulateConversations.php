@@ -96,7 +96,69 @@ class PopulateConversations extends Command
             }
         }
 
-        // Step 4: Summary
+        // Step 4: Fix status — conversations where we replied to an inquiry but customer hasn't responded = nachfassen
+        $this->info('Fixing statuses: nachfassen = we replied but customer never responded directly...');
+        // Step 1: Set all conversations with outbound to beantwortet (candidate for nachfassen)
+        $candidates = DB::table('conversations')
+            ->where('outbound_count', '>=', 1)
+            ->whereNotNull('last_outbound_at')
+            ->whereNotIn('status', ['beantwortet', 'nachfassen_1', 'nachfassen_2', 'nachfassen_3'])
+            ->update(['status' => 'beantwortet']);
+        $this->info("Candidates: {$candidates} conversations set to beantwortet");
+
+        // Step 2: Revert those where customer actually replied directly (not via platform)
+        $platformPatterns = ['%typeform%', '%willhaben%', '%immoscout%', '%immowelt%', '%noreply%', '%notification%'];
+        $convs = Conversation::where('status', 'beantwortet')->get();
+        $revertCount = 0;
+        foreach ($convs as $conv) {
+            $directInbound = DB::table('portal_emails')
+                ->where('property_id', $conv->property_id)
+                ->where('direction', 'inbound')
+                ->where(function ($q) use ($conv) {
+                    $q->where('from_email', $conv->contact_email)
+                       ->orWhere('stakeholder', $conv->stakeholder);
+                });
+            foreach ($platformPatterns as $p) {
+                $directInbound->where('from_email', 'NOT LIKE', $p);
+            }
+            if ($directInbound->exists()) {
+                $conv->status = 'erledigt';
+                $conv->save();
+                $revertCount++;
+            }
+        }
+        $this->info("Reverted {$revertCount} conversations -> erledigt (customer replied directly)");
+        $this->info("Net nachfassen: " . ($candidates - $revertCount));
+
+        // Step 4b: Correct nachfass stages based on actual nachfass email count
+        $this->info('Correcting nachfass stages based on actual email counts...');
+        $beantwortetConvs = Conversation::where('status', 'beantwortet')->get();
+        $stageFixed = 0;
+        foreach ($beantwortetConvs as $conv) {
+            $nachfassCount = DB::table('portal_emails')
+                ->where('property_id', $conv->property_id)
+                ->where('direction', 'outbound')
+                ->where('category', 'nachfassen')
+                ->where(function ($q) use ($conv) {
+                    $q->where('stakeholder', $conv->stakeholder);
+                })
+                ->count();
+
+            $newStatus = 'beantwortet';
+            if ($nachfassCount >= 3) $newStatus = 'erledigt';
+            elseif ($nachfassCount >= 2) $newStatus = 'nachfassen_2';
+            elseif ($nachfassCount >= 1) $newStatus = 'nachfassen_1';
+
+            if ($newStatus !== 'beantwortet') {
+                $conv->status = $newStatus;
+                $conv->followup_count = $nachfassCount;
+                $conv->save();
+                $stageFixed++;
+            }
+        }
+        $this->info("Stage-corrected: {$stageFixed} conversations");
+
+        // Step 5: Summary
         $this->newLine();
         $totalConversations = Conversation::count();
         $this->info("=== Summary ===");
@@ -112,7 +174,7 @@ class PopulateConversations extends Command
             ]
         );
 
-        // Status distribution
+        // Status distribution (after fix)
         $this->newLine();
         $this->info('Status distribution:');
         $statusCounts = Conversation::select('status', DB::raw('COUNT(*) as cnt'))

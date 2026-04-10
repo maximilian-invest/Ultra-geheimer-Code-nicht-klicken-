@@ -61,7 +61,7 @@ Route::prefix('website/blog')->group(function () {
         return response()->json(['success' => true, 'posts' => $posts]);
     });
 
-    Route::get('/post/{slug}', function (string $slug) {
+Route::get('/post/{slug}', function (string $slug) {
         $post = \DB::table('blog_posts')
             ->where('slug', $slug)
             ->where('status', 'published')
@@ -72,6 +72,63 @@ Route::prefix('website/blog')->group(function () {
         if ($post->featured_image) {
             $post->featured_image_url = url('/storage/' . $post->featured_image);
         }
+
+        // Generate TOC from headings and add anchor IDs
+        $toc = [];
+        $content = $post->content;
+
+        // Handle HTML headings (h2, h3, h4)
+        $content = preg_replace_callback(
+            '/<(h[234])([^>]*)>(.*?)<\/\1>/si',
+            function ($m) use (&$toc) {
+                $tag = $m[1];
+                $attrs = $m[2];
+                $text = strip_tags($m[3]);
+                $level = (int) substr($tag, 1);
+                $anchor = \Illuminate\Support\Str::slug($text);
+                // Ensure unique anchors
+                static $used = [];
+                $base = $anchor;
+                $i = 1;
+                while (isset($used[$anchor])) {
+                    $anchor = $base . '-' . $i++;
+                }
+                $used[$anchor] = true;
+                $toc[] = ['level' => $level, 'text' => $text, 'anchor' => $anchor];
+                // Add id attribute if not already present
+                if (stripos($attrs, 'id=') === false) {
+                    return "<{$tag}{$attrs} id=\"{$anchor}\">{$m[3]}</{$tag}>";
+                }
+                return $m[0];
+            },
+            $content
+        );
+
+        // Handle markdown headings (##, ###, ####)
+        $content = preg_replace_callback(
+            '/^(#{2,4})\s+(.+)$/m',
+            function ($m) use (&$toc) {
+                $level = strlen($m[1]);
+                $text = trim($m[2]);
+                $anchor = \Illuminate\Support\Str::slug($text);
+                static $used_md = [];
+                $base = $anchor;
+                $i = 1;
+                while (isset($used_md[$anchor])) {
+                    $anchor = $base . '-' . $i++;
+                }
+                $used_md[$anchor] = true;
+                $toc[] = ['level' => $level, 'text' => $text, 'anchor' => $anchor];
+                $tag = 'h' . $level;
+                return "<{$tag} id=\"{$anchor}\">{$text}</{$tag}>";
+            },
+            $content
+        );
+
+        $post->toc = $toc;
+
+        $post->content = $content;
+
         // Author data
         if ($post->author_id) {
             $author = \DB::table('users')->where('id', $post->author_id)
@@ -104,6 +161,7 @@ Route::prefix('website/blog')->group(function () {
             });
         return response()->json(['success' => true, 'post' => $post, 'related' => $related]);
     });
+
 
     Route::get('/sitemap.xml', function () {
         $posts = \DB::table('blog_posts')->where('status', 'published')->select('slug', 'updated_at')->get();

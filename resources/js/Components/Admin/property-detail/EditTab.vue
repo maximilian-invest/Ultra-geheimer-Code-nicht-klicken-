@@ -183,6 +183,7 @@ const form = reactive({
   furnishing: "", orientation: "", noise_level: "",
   has_basement: false, has_garden: false, has_elevator: false,
   has_balcony: false, has_terrace: false, has_loggia: false,
+  balcony_count: null, terrace_count: null, loggia_count: null, garden_count: null,
   has_fitted_kitchen: false, has_air_conditioning: false,
   has_pool: false, has_sauna: false, has_fireplace: false,
   has_alarm: false, has_barrier_free: false, has_guest_wc: false,
@@ -504,7 +505,7 @@ defineExpose({ save, discard });
 <template>
   <Tabs v-model="activeSubTab" default-value="allgemeines">
     <!-- Subtab bar — flush under main tabs -->
-    <div class="-mx-6 -mt-6 mb-4 sticky top-0 z-10 sticky top-0 z-10">
+    <div class="-mx-6 mb-6 sticky top-0 z-10 bg-white">
       <TabsList class="flex w-full justify-start bg-gradient-to-b from-zinc-50 to-zinc-100/50 border-b border-zinc-200 rounded-none h-auto p-0 px-6 gap-0">
         <TabsTrigger value="allgemeines" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Allgemeines</TabsTrigger>
         <TabsTrigger value="kosten" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Kosten</TabsTrigger>

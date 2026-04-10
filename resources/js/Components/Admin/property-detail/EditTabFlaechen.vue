@@ -14,10 +14,10 @@ const areaFields = [
   { key: "living_area", label: "Wohnfläche" },
   { key: "realty_area", label: "Nutzfläche" },
   { key: "free_area", label: "Grundstück" },
-  { key: "area_balcony", label: "Balkon" },
-  { key: "area_terrace", label: "Terrasse" },
-  { key: "area_garden", label: "Garten" },
-  { key: "area_loggia", label: "Loggia" },
+  { key: "area_balcony", label: "Balkon", countKey: "balcony_count" },
+  { key: "area_terrace", label: "Terrasse", countKey: "terrace_count" },
+  { key: "area_garden", label: "Garten", countKey: "garden_count" },
+  { key: "area_loggia", label: "Loggia", countKey: "loggia_count" },
   { key: "area_basement", label: "Keller" },
   { key: "area_garage", label: "Garage" },
   { key: "office_space", label: "Büro" },
@@ -31,7 +31,7 @@ const areaFields = [
       <!-- Flächen -->
       <AccordionSection title="Flächen (m²)" color="#ea580c" :default-open="true">
         <div v-for="field in areaFields" :key="field.key">
-          <label :class="labelCls">{{ field.label }}</label>
+          <label :class="labelCls">{{ field.label }} <span v-if="field.countKey" class="text-[10px] text-muted-foreground font-normal">(m² | Anzahl)</span></label>
           <div v-if="field.key === 'living_area' && isNewbuild" class="relative">
             <Input
               v-model="form[field.key]"
@@ -40,6 +40,14 @@ const areaFields = [
               :class="inputCls + ' pr-12 opacity-60'"
             />
             <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground font-medium bg-zinc-100 px-1.5 py-0.5 rounded">auto</span>
+          </div>
+          <div v-else-if="field.countKey" class="flex gap-2">
+            <div class="flex-1">
+              <Input v-model="form[field.key]" type="number" placeholder="m²" :class="inputCls" />
+            </div>
+            <div class="w-20">
+              <Input v-model="form[field.countKey]" type="number" placeholder="Anz." :class="inputCls" />
+            </div>
           </div>
           <Input
             v-else

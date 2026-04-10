@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -48,6 +48,14 @@ const emit = defineEmits([
 const toneModel = ref('standard')
 const collapsed = ref(true)
 const showFiles = ref(false)
+
+// Auto-open file panel and expand draft when match files arrive
+watch(() => props.selectedFileIds, (newIds, oldIds) => {
+  if (newIds.length > 0 && (!oldIds || oldIds.length === 0)) {
+    showFiles.value = true
+    collapsed.value = false
+  }
+})
 
 const isNachfassen = computed(() => props.mode === 'nachfassen')
 const sendLabel = computed(() => isNachfassen.value ? 'Nachfassen' : 'Senden')

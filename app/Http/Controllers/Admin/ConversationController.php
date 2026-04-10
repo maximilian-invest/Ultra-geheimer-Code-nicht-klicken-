@@ -43,29 +43,28 @@ class ConversationController extends Controller
             ->forBroker($brokerId, $userType);
 
         if ($status === 'offen') {
-            $query->offen()->orderBy('last_inbound_at', 'desc');
+            $query->where('status', '!=', 'erledigt')->where(function($q) { $q->where(function($q2) { $q2->whereColumn('last_inbound_at', '>', 'last_outbound_at'); })->orWhereNull('last_outbound_at'); })->orderBy('last_inbound_at', 'desc');
         } elseif ($status === 'nachfassen') {
-            // Nachfassen-Stufen:
-            // beantwortet (= erste Antwort gesendet) → nach 24h zeigen
-            // nachfassen_1 (= 1. Nachfass gesendet) → nach 3 Tagen zeigen
-            // nachfassen_2 (= 2. Nachfass gesendet) → nach 3 Tagen zeigen
-            // nachfassen_3 → auto-erledigt (nicht mehr zeigen)
-            $query->where(function ($q) {
-                $q->where(function ($q2) {
-                    // Stufe 1: beantwortet + 24h vergangen
-                    $q2->where('status', 'beantwortet')
-                        ->where('last_outbound_at', '<=', now()->subHours(24));
-                })->orWhere(function ($q2) {
-                    // Stufe 2: nachfassen_1 + 3 Tage vergangen
-                    $q2->where('status', 'nachfassen_1')
-                        ->where('last_outbound_at', '<=', now()->subDays(3));
-                })->orWhere(function ($q2) {
-                    // Stufe 3: nachfassen_2 + 3 Tage vergangen
-                    $q2->where('status', 'nachfassen_2')
-                        ->where('last_outbound_at', '<=', now()->subDays(3));
-                });
-            })
-            ->orderBy('last_outbound_at', 'asc');
+            // Nachfassen-Stufe basiert auf followup_count (nicht status),
+            // weil status auf 'beantwortet' zurueckgesetzt wird wenn Kunde antwortet.
+            // followup_count=0 → NF1 faellig (24h warten)
+            // followup_count=1 → NF2 faellig (3 Tage warten)
+            // followup_count>=2 → NF3 faellig (3 Tage warten)
+            // followup_count>=3 → auto-erledigt (nicht mehr zeigen)
+            $query->whereIn('status', ['beantwortet', 'nachfassen_1', 'nachfassen_2'])
+                ->where('followup_count', '<', 3)
+                ->where(function ($q) {
+                    $q->where(function ($q2) {
+                        // Noch kein Nachfassen gesendet: nach 24h zeigen
+                        $q2->where('followup_count', 0)
+                            ->where('last_outbound_at', '<=', now()->subHours(24));
+                    })->orWhere(function ($q2) {
+                        // 1+ Nachfassen gesendet: nach 3 Tagen zeigen
+                        $q2->where('followup_count', '>=', 1)
+                            ->where('last_outbound_at', '<=', now()->subDays(3));
+                    });
+                })
+                ->orderBy('last_outbound_at', 'asc');
         } elseif ($status === 'erledigt') {
             $query->erledigt()->orderBy('last_activity_at', 'desc');
         } else {
@@ -254,13 +253,28 @@ class ConversationController extends Controller
             return response()->json(['error' => 'body, subject, account_id required'], 400);
         }
 
-        // Resolve file_ids to file paths for attachments
+        // Resolve file_ids to file paths for attachments (supports property_files, portal_documents, global_files)
         $attachments = [];
         if (!empty($fileIds) && is_array($fileIds)) {
             foreach ($fileIds as $fid) {
-                $file = DB::table('property_files')->where('id', intval($fid))->first(['path', 'filename']);
-                if ($file && $file->path) {
-                    $fullPath = storage_path('app/public/' . $file->path);
+                $path = null;
+                if (is_string($fid) && str_starts_with($fid, 'global_')) {
+                    // Global file (Allgemeine Dokumente)
+                    $gid = intval(str_replace('global_', '', $fid));
+                    $file = DB::table('global_files')->where('id', $gid)->first(['path']);
+                    if ($file) $path = $file->path;
+                } elseif (is_string($fid) && str_starts_with($fid, 'doc_')) {
+                    // Portal document
+                    $did = intval(str_replace('doc_', '', $fid));
+                    $doc = DB::table('portal_documents')->where('id', $did)->first(['property_id', 'filename']);
+                    if ($doc) $path = 'documents/' . $doc->property_id . '/' . $doc->filename;
+                } else {
+                    // Property file
+                    $file = DB::table('property_files')->where('id', intval($fid))->first(['path']);
+                    if ($file) $path = $file->path;
+                }
+                if ($path) {
+                    $fullPath = storage_path('app/public/' . $path);
                     if (file_exists($fullPath)) {
                         $attachments[] = $fullPath;
                     }
@@ -290,13 +304,47 @@ class ConversationController extends Controller
             // Update conversation: status -> beantwortet, clear draft
             $conv->status = 'beantwortet';
             $conv->draft_body = null;
-        $conv->draft_generated_at = null;
+            $conv->draft_generated_at = null;
             $conv->draft_subject = null;
             $conv->draft_to = null;
-            $conv->draft_generated_at = null;
             $conv->last_outbound_at = now();
             $conv->outbound_count = ($conv->outbound_count ?? 0) + 1;
             $conv->save();
+
+            // Auto-remove answered inbound emails from Posteingang
+            // (they move to Papierkorb, reply is visible in Gesendet)
+            $inboundIds = DB::table('portal_emails')
+                ->where('property_id', $conv->property_id)
+                ->where('direction', 'inbound')
+                ->where(function ($q) use ($conv) {
+                    $q->whereRaw('LOWER(from_email) = ?', [strtolower($conv->contact_email)])
+                       ->orWhere(function ($q2) use ($conv) {
+                           $q2->where('stakeholder', $conv->stakeholder)
+                               ->where('stakeholder', '!=', '')
+                               ->where('stakeholder', '!=', null);
+                       });
+                })
+                ->where(function ($q) {
+                    $q->where('is_deleted', 0)->orWhereNull('is_deleted');
+                })
+                ->pluck('id');
+
+            if ($inboundIds->isNotEmpty()) {
+                DB::table('portal_emails')
+                    ->whereIn('id', $inboundIds)
+                    ->update(['is_deleted' => 1, 'deleted_at' => now()]);
+
+                // Update related activities so they don't appear in Unbeantwortet
+                DB::table('activities')
+                    ->whereIn('source_email_id', $inboundIds)
+                    ->whereNotIn('category', ['update', 'email-out', 'nachfassen', 'expose'])
+                    ->update(['category' => 'update']);
+
+                Log::info('Auto-trashed inbound emails after conv reply', [
+                    'conv_id' => $conv->id,
+                    'trashed_count' => $inboundIds->count(),
+                ]);
+            }
 
             // Create activities on cross-matched properties if any were selected
             $selectedMatches = PropertyMatch::where('conversation_id', $conv->id)
@@ -527,7 +575,7 @@ class ConversationController extends Controller
         // Build thread context from portal_emails (more reliable than activities)
         $thread = DB::select("
             SELECT pe.email_date as activity_date, pe.direction, pe.category, pe.subject,
-                   SUBSTRING(pe.body_text, 1, 500) as body_snippet,
+                   SUBSTRING(pe.body_text, 1, 2000) as body_snippet,
                    pe.from_name
             FROM portal_emails pe
             WHERE pe.property_id = ?
@@ -578,7 +626,7 @@ class ConversationController extends Controller
             SELECT body_text, subject, email_date FROM portal_emails
             WHERE property_id = ? AND direction = 'outbound'
               AND (LOWER(to_email) = LOWER(?) OR stakeholder = ?)
-              AND DATE(email_date) < CURDATE()
+              
             ORDER BY email_date DESC LIMIT 1
         ", [$propertyId, $conv->contact_email, $stakeholder]);
 
@@ -586,7 +634,7 @@ class ConversationController extends Controller
             SELECT body_text, subject, from_name, email_date FROM portal_emails
             WHERE property_id = ? AND direction = 'inbound'
               AND (LOWER(from_email) = LOWER(?) OR stakeholder = ?)
-              AND DATE(email_date) < CURDATE()
+              
             ORDER BY email_date DESC LIMIT 1
         ", [$propertyId, $conv->contact_email, $stakeholder]);
 
@@ -654,6 +702,17 @@ class ConversationController extends Controller
         $followupCount = $conv->followup_count ?? 0;
         $isSecondFollowup = $followupCount >= 1 || in_array($conv->status, ['nachfassen_2', 'nachfassen_3']);
 
+        // Explicit followup hints
+        $outboundCount = $conv->outbound_count ?? 0;
+        $lastInbound = $conv->last_inbound_at ? strtotime($conv->last_inbound_at) : 0;
+        $lastOutbound = $conv->last_outbound_at ? strtotime($conv->last_outbound_at) : 0;
+
+        if ($outboundCount > 0 && $lastOutbound > $lastInbound && $followupCount === 0) {
+            $threadContext .= "\n--- NACHFASSEN (STUFE 1) ---\nSR-HOMES hat bereits geantwortet (am " . date('d.m.Y', $lastOutbound) . "). Der Kunde hat NICHT reagiert.\nDies ist ein NACHFASSEN — KEINE Erstantwort. Du darfst NICHT nochmal das Expose anbieten, NICHT nochmal die Anfrage beantworten.\nSchreibe eine kurze Nachfass-Mail: Bezug auf die letzte Nachricht, kurze Frage ob Interesse besteht, konkreten naechsten Schritt anbieten.\nMaximal 3-4 Saetze.\n--- ENDE NACHFASSEN ---\n";
+        } elseif ($outboundCount > 0 && $lastOutbound > $lastInbound && $isSecondFollowup) {
+            $threadContext .= "\n--- NACHFASSEN (STUFE 2+) ---\nSR-HOMES hat bereits " . ($followupCount + 1) . " Mal geschrieben. Der Kunde hat NICHT reagiert.\nDies ist das " . ($followupCount + 1) . ". Nachfassen. Ton muss DIREKTER und ABSCHLIESSENDER sein.\n--- ENDE NACHFASSEN ---\n";
+        }
+
         // Contact phone
         $contact = DB::selectOne("SELECT phone, email FROM contacts WHERE full_name COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci LIMIT 1", [$stakeholder]);
         $hasPhone = !empty($contact->phone ?? null);
@@ -691,6 +750,7 @@ class ConversationController extends Controller
             ]);
         }
 
+        \Log::error("conv_regenerate_draft: draft result was empty or invalid", ["conv_id" => $id, "draft" => $draft]);
         return response()->json(['error' => 'KI-Entwurf konnte nicht generiert werden'], 500);
     }
 
@@ -790,10 +850,12 @@ class ConversationController extends Controller
         $conv = Conversation::find($convId);
         if (!$conv) return response()->json(['error' => 'Conversation not found'], 404);
 
-        // Mark selected matches
+        // Mark selected matches (only if AI-matched, skip for manual offers)
         PropertyMatch::where('conversation_id', $convId)
             ->whereIn('property_id', $selectedIds)
             ->update(['status' => 'selected']);
+
+        $isManualOffer = !PropertyMatch::where('conversation_id', $convId)->exists();
 
         // Load selected properties
         $properties = Property::whereIn('id', $selectedIds)->get();
@@ -838,41 +900,44 @@ class ConversationController extends Controller
                 . ($p->purchase_price ? ", € " . number_format($p->purchase_price, 0, ',', '.') : ', Preis auf Anfrage');
         }
 
-        // Get broker name
+        // Get broker ID for scoping
         $brokerId = $conv->property_id ? Property::where('id', $conv->property_id)->value('broker_id') : null;
-        $brokerName = $brokerId ? DB::table('users')->where('id', $brokerId)->value('name') : 'SR Homes';
 
         // AI draft generation with full conversation context
-        $systemPrompt = <<<'PROMPT'
-Du bist ein erfahrener Immobilienmakler. Schreibe eine professionelle, persönliche Email an den Kunden.
+        $promptContext = $originalProp
+            ? 'KONTEXT: Der Kunde hat ursprünglich eine Anfrage zum Objekt ORIGINAL-OBJEKT gestellt. Du bietest ihm nun ZUSÄTZLICHE passende Immobilien an.'
+            : 'KONTEXT: Du kontaktierst den Kunden proaktiv mit passenden Immobilien-Vorschlägen basierend auf dem bisherigen Kontakt.';
+
+        $systemPrompt = <<<PROMPT
+Du bist ein erfahrener Immobilienmakler bei SR-Homes. Schreibe eine professionelle, persönliche Email an den Kunden.
+
+{$promptContext}
 
 AUFBAU DER EMAIL:
 1. Formelle Anrede (Sehr geehrte/r Herr/Frau [Nachname])
-2. Beziehe dich KONKRET auf den bisherigen Email-Verlauf:
-   - Nenne das ORIGINAL-OBJEKT beim Namen
-   - Zeige Verständnis für die Situation (z.B. Absage, Bedenken, Preisvorstellung)
-   - Verweise auf konkrete Details aus der Konversation
-3. Natürliche Überleitung: "Bei der Durchsicht unseres Portfolios ist mir aufgefallen, dass wir ein Objekt haben, das Ihren Vorstellungen entsprechen könnte"
-4. Stelle jedes vorgeschlagene Objekt EINZELN vor mit den wichtigsten Eckdaten
-5. Erwähne dass du das Exposé zu jedem Objekt beigelegt hast
+2. Beziehe dich auf den bisherigen Email-Verlauf — zeige dass du die Situation des Kunden verstehst
+3. Falls ein Original-Objekt existiert: Beziehe dich kurz darauf und leite dann natürlich über zu den neuen Vorschlägen
+   Falls KEIN Original-Objekt: Beginne mit einer passenden Einleitung wie "Bei der Durchsicht unseres Portfolios bin ich auf Immobilien gestossen, die für Sie interessant sein könnten"
+4. Stelle jedes vorgeschlagene Objekt mit den wichtigsten Eckdaten vor
+5. Erwähne dass du das Exposé zu jedem Objekt beigelegt hast (falls vorhanden)
 6. Biete ein unverbindliches Gespräch oder eine Besichtigung an
-7. Schließe mit "Mit freundlichen Grüßen" und dem Maklernamen
+7. Schliesse mit "Mit freundlichen Grüssen" — KEINEN Namen dahinter, die Signatur wird automatisch angehängt
 
 REGELN:
 - KEIN generischer Werbetext — die Mail soll sich lesen als hätte der Makler persönlich nachgedacht
 - Verwende "ich" nicht "wir" — persönlicher Ton
 - Max 200 Wörter
-- Keine Aufzählungszeichen oder Nummerierungen für die Objekte — fließender Text
+- Keine Aufzählungszeichen oder Nummerierungen für die Objekte — fliessender Text
+- WICHTIG: Antworte NUR mit dem JSON, kein anderer Text
 
 Antworte als JSON:
 {"email_subject": "...", "email_body": "..."}
 PROMPT;
 
-        $userMessage = "KONVERSATIONSVERLAUF:\n" . implode("\n---\n", $threadLines)
+        $userMessage = "KONVERSATIONSVERLAUF:\n" . ($threadLines ? implode("\n---\n", $threadLines) : '(Kein bisheriger Verlauf vorhanden)')
             . "\n\nKUNDE: {$conv->stakeholder}"
-            . ($originalDesc ? "\nORIGINAL-OBJEKT: {$originalDesc}" : '')
-            . "\n\nVORZUSCHLAGENDE OBJEKTE:\n" . implode("\n", $propDescriptions)
-            . "\n\nMAKLERNAME: {$brokerName}";
+            . ($originalDesc ? "\nORIGINAL-OBJEKT: {$originalDesc}" : "\nORIGINAL-OBJEKT: (Keines — proaktives Angebot)")
+            . "\n\nVORZUSCHLAGENDE OBJEKTE:\n" . implode("\n", $propDescriptions);
 
         $ai = app(AnthropicService::class);
         $draft = $ai->chatJson($systemPrompt, $userMessage, 1000);
@@ -885,9 +950,14 @@ PROMPT;
         $fileIds = [];
         $fileMap = [];
         foreach ($properties as $p) {
+            // Search by path OR label -- many exposes have descriptive filenames
+            // but are labeled "Exposé" / "Expose" in the database
             $exposeFiles = DB::table('property_files')
                 ->where('property_id', $p->id)
-                ->where('path', 'LIKE', '%expose%')
+                ->where(function ($q) {
+                    $q->where('path', 'LIKE', '%expose%')
+                      ->orWhere('label', 'LIKE', '%expos%');
+                })
                 ->orderByDesc('created_at')
                 ->limit(1)
                 ->get();
@@ -902,11 +972,13 @@ PROMPT;
 
             foreach ($exposeFiles as $file) {
                 $fileIds[] = $file->id;
+                $propTitle = $p->title ?: ($p->address . ', ' . $p->city);
+                $displayName = ($file->label ?: 'Exposé') . ' — ' . $propTitle . '.pdf';
                 $fileMap[] = [
                     'file_id' => $file->id,
                     'property_id' => $p->id,
-                    'property_title' => $p->title ?: ($p->address . ', ' . $p->city),
-                    'filename' => basename($file->path),
+                    'property_title' => $propTitle,
+                    'filename' => $displayName,
                 ];
             }
         }

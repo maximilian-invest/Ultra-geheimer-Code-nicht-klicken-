@@ -1878,6 +1878,18 @@ class AdminApiController extends Controller
             }
         }
         
+        // Auto-set sold_at when status changes to verkauft
+        if (isset($update['realty_status']) && strtolower($update['realty_status']) === 'verkauft') {
+            $current = DB::table('properties')->where('id', $id)->value('sold_at');
+            if (!$current) {
+                $update['sold_at'] = now();
+            }
+        }
+        // Clear sold_at if status changes away from verkauft
+        if (isset($update['realty_status']) && strtolower($update['realty_status']) !== 'verkauft') {
+            $update['sold_at'] = null;
+        }
+
         $update['updated_at'] = now();
         DB::table('properties')->where('id', $id)->update($update);
         return response()->json(['success' => true]);
@@ -1927,6 +1939,21 @@ class AdminApiController extends Controller
             ];
         }
 
+
+        // Global files (Allgemeine Dokumente - available for all properties)
+        $globalFiles = DB::table('global_files')->orderBy('id')->get();
+        foreach ($globalFiles as $g) {
+            $result[] = [
+                'id' => 'global_' . $g->id,
+                'label' => $g->label ?: ($g->original_name ?: $g->filename),
+                'filename' => $g->original_name ?: $g->filename,
+                'path' => $g->path,
+                'url' => '/storage/' . $g->path,
+                'mime_type' => $g->mime_type,
+                'file_size' => $g->file_size,
+                'source' => 'global_files',
+            ];
+        }
         return response()->json(['files' => $result]);
     }
 

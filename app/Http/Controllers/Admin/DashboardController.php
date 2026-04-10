@@ -62,12 +62,8 @@ class DashboardController extends Controller
                 if ($img) {
                     $p->thumbnail_url = url('/storage/' . $img->path);
                 } else {
-                    $fileImg = DB::table('property_files')
-                        ->where('property_id', $p->id)
-                        ->where('mime_type', 'LIKE', 'image/%')
-                        ->orderBy('sort_order')
-                        ->first();
-                    $p->thumbnail_url = $fileImg ? url('/storage/' . $fileImg->path) : null;
+                    // No fallback to property_files — only explicit media uploads count as thumbnails
+                    $p->thumbnail_url = null;
                 }
                 // Mark properties not owned by current user
                 $p->readonly = ($userType === 'makler' && $brokerId && $p->broker_id != $brokerId);

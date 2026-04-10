@@ -820,4 +820,6 @@ class PropertyController extends Controller
         return $pdf->download($filename);
     }
 
+
+
 }

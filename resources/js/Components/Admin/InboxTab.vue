@@ -613,16 +613,14 @@ async function loadFollowups(filter) {
     const r = await fetch(API.value + "&action=conv_list&status=nachfassen&per_page=200" + brokerParam);
     const d = await r.json();
     const all = (d.conversations || []).map(c => {
-      // Status = what was sent. Display stage = what's NEXT (fällig)
-              // beantwortet = answered, NF1 fällig → stage 1
-              // nachfassen_1 = NF1 sent, NF2 fällig → stage 2
-              // nachfassen_2 = NF2 sent, NF3 fällig → stage 3
-              const stageMap = { beantwortet: 1, nachfassen_1: 2, nachfassen_2: 3 };
+      // Stage basiert auf followup_count (nicht status),
+              // weil status zurueckgesetzt wird wenn Kunde antwortet
+              // followup_count=0 → NF1, =1 → NF2, >=2 → NF3
       return {
         ...c,
         from_name: c.from_name || c.stakeholder || '',
         from_email: c.from_email || c.contact_email || '',
-        _stage: stageMap[c.status] !== undefined ? stageMap[c.status] : 1,
+        _stage: Math.min(3, (c.followup_count || 0) + 1),
       };
     });
     // Stage 0 (beantwortet) goes to stage1Followups, rest to followupData
@@ -921,10 +919,17 @@ function openDetail(item, mode) {
   if (item.property_id) {
     fetch(API.value + "&action=get_property_files&property_id=" + item.property_id)
       .then(r => r.json())
-      .then(d => { expandedFiles.value = d.files || []; })
+      .then(d => { expandedFiles.value = (d.files || []).map(f => f.source === "global_files" ? { ...f, _matchProperty: "Allgemeine Dokumente" } : f); })
       .catch(() => {})
       .finally(() => { expandedFilesLoading.value = false; });
-  } else { expandedFilesLoading.value = false; }
+  } else { 
+    // No property - still load global files
+    fetch(API.value + "&action=list_global_files")
+      .then(r => r.json())
+      .then(d => { expandedFiles.value = (d.files || []).map(f => ({ ...f, id: "global_" + f.id, _matchProperty: "Allgemeine Dokumente" })); })
+      .catch(() => {})
+      .finally(() => { expandedFilesLoading.value = false; });
+  }
 
   // Load conversation detail — for offen/nachfassen use conv_detail, for posteingang/gesendet use email_context
   const isEmailHistory = mode === "posteingang" || mode === "gesendet";
@@ -1060,6 +1065,26 @@ async function improveWithAi() {
     }
   } catch (e) { toast("KI-Fehler: " + e.message); }
   expandedAiLoading.value = false;
+}
+
+async function improveComposeWording() {
+  if (!composeBody.value?.trim()) { toast("Bitte zuerst einen Text eingeben."); return; }
+  aiLoading.value = true;
+  try {
+    const r = await fetch(API.value + "&action=improve_text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: composeBody.value }),
+    });
+    const d = await r.json();
+    if (d.improved_text) {
+      composeBody.value = d.improved_text;
+      toast("Wording verbessert!");
+    } else {
+      toast("Fehler: " + (d.error || "Unbekannt"));
+    }
+  } catch (e) { toast("KI-Fehler: " + e.message); }
+  aiLoading.value = false;
 }
 
 function toggleFileSelection(fileId) {
@@ -2529,6 +2554,7 @@ onMounted(() => {
         @select-contact="selectContact($event)"
         @blur-contact-search="onComposeToBlur"
         @generate-ai-reply="generateAiReply"
+        @improve-wording="improveComposeWording"
         @apply-template="applyTemplate($event)"
         @add-attachments="onComposeAddAttachments"
         @remove-attachment="onComposeRemoveAttachment"

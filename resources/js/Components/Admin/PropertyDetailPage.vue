@@ -243,7 +243,7 @@ function handleExposeParsed(result) {
         </TabsTrigger>
       </TabsList>
 
-      <div class="flex-1 overflow-y-auto p-6">
+      <div class="flex-1 overflow-y-auto px-6 pb-6" :class="activeTab === 'bearbeiten' ? 'pt-0' : 'pt-6'">
         <TypeSelector v-if="showTypeSelector" @selected="handleTypeSelected" />
         <OverviewTab v-if="activeTab === 'uebersicht'" :property="property"
           @owner-changed="(data) => emit('ownerChanged', data)"

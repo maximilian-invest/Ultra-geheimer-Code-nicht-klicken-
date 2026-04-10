@@ -17,8 +17,92 @@ const emit = defineEmits(['close', 'saveAttachment', 'matchDraft', 'matchDismiss
 const bgGradient = inject("inboxBgGradient", ref(""));
 const bgOpacity = inject("inboxBgOpacity", ref(0.15));
 const API = inject('API')
+const toast = inject('inboxToast', (msg) => console.log(msg))
+const openContact = inject('openContact', () => {})
+const allProperties = inject('inboxProperties', ref([]))
+
+// -- Manual property offer panel --
+const offerOpen = ref(false)
+const offerSearch = ref('')
+const offerSelectedIds = ref(new Set())
+const offerGenerating = ref(false)
+
+const filteredProperties = computed(() => {
+  const q = offerSearch.value.toLowerCase().trim()
+  const list = Array.isArray(allProperties) ? allProperties : (allProperties?.value || [])
+  const active = list.filter(p => !p.realty_status || p.realty_status === 'auftrag' || p.realty_status === 'inserat')
+  if (!q) return active
+  return active.filter(p => {
+    const hay = [p.ref_id, p.address, p.city, p.title, p.object_type].filter(Boolean).join(' ').toLowerCase()
+    return hay.includes(q)
+  })
+})
+
+const offerSelectedCount = computed(() => offerSelectedIds.value.size)
+
+function toggleOfferPanel() {
+  offerOpen.value = !offerOpen.value
+  if (offerOpen.value) {
+    offerSearch.value = ''
+    offerSelectedIds.value = new Set()
+  }
+}
+
+function toggleOfferProperty(id) {
+  if (offerSelectedIds.value.has(id)) {
+    offerSelectedIds.value.delete(id)
+  } else {
+    offerSelectedIds.value.add(id)
+  }
+  offerSelectedIds.value = new Set(offerSelectedIds.value)
+}
+
+async function generateOfferDraft() {
+  if (offerSelectedCount.value === 0) return
+  offerGenerating.value = true
+  try {
+    const r = await fetch(API.value + '&action=match_generate_draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversation_id: props.item.id,
+        property_ids: [...offerSelectedIds.value],
+      }),
+    })
+    const d = await r.json()
+    if (d.error) {
+      toast('Fehler: ' + d.error)
+      return
+    }
+    if (!d.draft_body) {
+      toast('Kein Entwurf erhalten — bitte erneut versuchen')
+      return
+    }
+    offerOpen.value = false
+    toast('Entwurf generiert!')
+    emit('matchDraft', {
+      draft_body: d.draft_body,
+      draft_subject: d.draft_subject,
+      draft_to: d.draft_to,
+      file_ids: d.file_ids || [],
+      file_map: d.file_map || [],
+    })
+  } catch (e) {
+    console.error('Failed to generate offer draft', e)
+    toast('Netzwerkfehler beim Generieren des Entwurfs')
+  } finally {
+    offerGenerating.value = false
+  }
+}
+
+function formatOfferPrice(p) {
+  if (!p) return 'Preis a.A.'
+  return '\u20ac ' + Number(p).toLocaleString('de-AT')
+}
 
 // ── Header badges ──
+const contactName = computed(() => props.item.from_name || props.item.stakeholder || '')
+
 const contactBadge = computed(() => {
   const name = props.item.from_name || props.item.stakeholder || ''
   const email = props.item.from_email || props.item.contact_email || ''
@@ -70,6 +154,8 @@ watch(() => props.item.id, () => {
   matches.value = []
   criteria.value = null
   selectedIds.value = new Set()
+  offerOpen.value = false
+  offerSelectedIds.value = new Set()
 })
 
 async function toggleMatchPanel() {
@@ -190,7 +276,7 @@ function formatDateLabel(raw) {
             {{ item.subject || item.activity || 'Kein Betreff' }}
           </h2>
           <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            <Badge variant="outline" class="text-[10px] px-1.5 py-0 h-5 font-normal">
+            <Badge variant="outline" class="text-[10px] px-1.5 py-0 h-5 font-normal cursor-pointer hover:bg-zinc-100 transition-colors" @click="contactName && openContact(contactName)" :title="contactName ? 'Kontakt öffnen' : ''">
               {{ contactBadge }}
             </Badge>
             <Badge v-if="refId" variant="outline" class="text-[10px] px-1.5 py-0 h-5 font-normal bg-muted/50">
@@ -283,6 +369,87 @@ function formatDateLabel(raw) {
               {{ matchGenerating ? 'Generiere...' : '\u2726 Entwurf generieren' }}
             </Button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual property offer button (always visible) -->
+    <div v-if="!hasMatches || !matchOpen" class="flex-shrink-0 border-b border-zinc-100">
+      <button
+        @click="toggleOfferPanel"
+        class="w-full flex items-center justify-between px-5 py-2 hover:bg-zinc-50/50 transition-colors"
+      >
+        <div class="flex items-center gap-2.5">
+          <div class="w-6 h-6 rounded-md bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center flex-shrink-0">
+            <span class="text-white text-[11px] font-bold">+</span>
+          </div>
+          <span class="text-[13px] font-medium">Immobilien anbieten</span>
+          <span v-if="offerSelectedCount > 0" class="text-[11px] text-orange-600 font-semibold">({{ offerSelectedCount }} ausgewahlt)</span>
+        </div>
+        <component :is="offerOpen ? ChevronUp : ChevronDown" class="w-4 h-4 text-muted-foreground flex-shrink-0" />
+      </button>
+
+      <div v-if="offerOpen" class="border-t border-zinc-100">
+        <div class="px-5 py-2 bg-zinc-50/50">
+          <input
+            v-model="offerSearch"
+            type="text"
+            placeholder="Suche nach Adresse, Ref-ID, Ort..."
+            class="w-full h-8 rounded-md border border-zinc-200 bg-white px-3 text-[12px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orange-300"
+          />
+        </div>
+
+        <div class="px-5 py-2 space-y-1.5 max-h-[320px] overflow-y-auto">
+          <div v-if="!filteredProperties.length" class="text-center py-6 text-[12px] text-muted-foreground">
+            Keine Objekte gefunden
+          </div>
+          <div
+            v-for="p in filteredProperties"
+            :key="p.id"
+            @click="toggleOfferProperty(p.id)"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all hover:bg-zinc-50"
+            :class="offerSelectedIds.has(p.id) ? 'bg-orange-50 border border-orange-200 shadow-sm' : 'border border-transparent'"
+          >
+            <div class="w-14 h-11 rounded bg-muted flex-shrink-0 overflow-hidden flex items-center justify-center">
+              <img v-if="p.thumbnail_url || p.main_image_url || p.image_url" :src="p.thumbnail_url || p.main_image_url || p.image_url" class="w-full h-full object-cover" />
+              <span v-else class="text-lg text-muted-foreground/40">&#127968;</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[12px] font-semibold truncate">{{ p.title || p.address }}</span>
+                <Badge v-if="p.ref_id" variant="outline" class="text-[9px] px-1 py-0 h-3.5 font-normal flex-shrink-0">{{ p.ref_id }}</Badge>
+              </div>
+              <div class="text-[11px] text-muted-foreground truncate">
+                {{ p.address }}, {{ p.city }} &mdash; {{ formatOfferPrice(p.purchase_price || p.rent_price) }}
+                <span v-if="p.living_area || p.total_area"> &mdash; {{ p.living_area || p.total_area }} m&sup2;</span>
+                <span v-if="p.rooms_amount"> &mdash; {{ p.rooms_amount }} Zi.</span>
+              </div>
+            </div>
+            <div class="flex-shrink-0">
+              <div
+                class="w-5 h-5 rounded border-2 flex items-center justify-center transition-all"
+                :class="offerSelectedIds.has(p.id) ? 'bg-gradient-to-br from-orange-400 to-amber-500 border-orange-500' : 'border-muted-foreground/30'"
+              >
+                <svg v-if="offerSelectedIds.has(p.id)" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-5 py-2.5 border-t border-zinc-100 flex items-center justify-between bg-zinc-50/30">
+          <span class="text-[12px] text-muted-foreground">
+            <strong class="text-orange-600">{{ offerSelectedCount }}</strong> ausgewahlt
+          </span>
+          <Button
+            size="sm"
+            :disabled="offerSelectedCount === 0 || offerGenerating"
+            class="h-7 text-[11px] bg-gradient-to-r from-orange-400 to-amber-500 text-white hover:opacity-90 disabled:opacity-50"
+            @click="generateOfferDraft"
+          >
+            {{ offerGenerating ? 'Generiere...' : 'Entwurf generieren' }}
+          </Button>
         </div>
       </div>
     </div>

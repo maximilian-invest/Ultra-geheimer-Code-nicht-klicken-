@@ -244,6 +244,45 @@ async function saveUnit(unit) {
   unitSaving.value[key] = false;
 }
 
+async function inlineStatusChange(unit, newStatus) {
+  const oldStatus = unit.status;
+  unit.status = newStatus;
+  if (!unit.id) {
+    toast("Bitte Einheit zuerst speichern");
+    return;
+  }
+  try {
+    const r = await fetch(API.value + "&action=save_property_unit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        property_id: props.property.id,
+        unit_id: unit.id,
+        unit_number: unit.unit_number,
+        unit_type: unit.unit_type,
+        floor: unit.floor,
+        area_m2: unit.area_m2,
+        rooms_amount: unit.rooms || unit.rooms_amount,
+        purchase_price: unit.price || unit.purchase_price,
+        status: newStatus,
+        portal_exports: unit.portal_exports,
+        is_parking: unit.is_parking ? 1 : 0,
+      }),
+    });
+    const d = await r.json();
+    if (d.success) {
+      const label = newStatus === 'verkauft' ? 'VERKAUFT' : newStatus === 'reserviert' ? 'RESERVIERT' : 'FREI';
+      toast(unit.unit_number + " \u2192 " + label);
+    } else {
+      unit.status = oldStatus;
+      toast("Fehler: " + (d.error || "Unbekannt"));
+    }
+  } catch (e) {
+    unit.status = oldStatus;
+    toast("Fehler: " + e.message);
+  }
+}
+
 // Global sync: push all units with immoji:true to immoji + set portal flags
 // Sync ALL units with immoji:true (each gets fresh master data merged)
 const syncing = ref(false);
@@ -502,22 +541,22 @@ onMounted(() => {
                 </span>
               </div>
               <div class="flex items-center gap-2.5 shrink-0">
-                <!-- Status badge -->
-                <span
-                  class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide whitespace-nowrap"
+                <!-- Status dropdown (inline, auto-save) -->
+                <select
+                  :value="unit.status || 'frei'"
+                  @click.stop
+                  @change.stop="inlineStatusChange(unit, $event.target.value)"
+                  class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide whitespace-nowrap border-0 cursor-pointer"
                   :class="{
-                    'bg-green-100 text-green-800':   unit.status === 'frei',
+                    'bg-green-100 text-green-800':   (unit.status || 'frei') === 'frei',
                     'bg-amber-100 text-amber-800':   unit.status === 'reserviert',
                     'bg-red-100   text-red-800':     unit.status === 'verkauft',
                   }"
                 >
-                  {{
-                    unit.status === 'frei'       ? 'FREI'       :
-                    unit.status === 'reserviert' ? 'RESERVIERT' :
-                    unit.status === 'verkauft'   ? 'VERKAUFT'   :
-                    unit.status
-                  }}
-                </span>
+                  <option value="frei">FREI</option>
+                  <option value="reserviert">RESERVIERT</option>
+                  <option value="verkauft">VERKAUFT</option>
+                </select>
 
                 <!-- Inline portal checkboxes -->
                 <div v-if="unit.id && unit.status !== 'verkauft'" class="flex items-center gap-2" @click.stop>

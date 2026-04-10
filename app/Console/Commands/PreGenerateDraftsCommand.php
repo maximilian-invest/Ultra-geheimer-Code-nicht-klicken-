@@ -33,6 +33,12 @@ class PreGenerateDraftsCommand extends Command
         foreach ($items as $item) {
             if (count($needGeneration) >= $limit) break;
             if (!$this->hasCachedDraft($item['stakeholder'], $item['property_id'])) {
+                // Skip erledigt conversations
+                $convStatus = DB::table('conversations')
+                    ->where('property_id', $item['property_id'])
+                    ->where('stakeholder', $item['stakeholder'])
+                    ->value('status');
+                if ($convStatus === 'erledigt') continue;
                 $needGeneration[] = $item;
             }
         }

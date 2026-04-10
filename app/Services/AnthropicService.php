@@ -60,7 +60,40 @@ class AnthropicService
         }
 
         $decoded = json_decode($result, true);
+        if ($decoded === null && $result) {
+            \Log::warning('chatJson: Failed to parse AI response as JSON', ['raw' => mb_substr($result, 0, 2000)]);
+        }
         return $decoded;
+    }
+
+    /**
+     * Strip signature lines from AI-generated email text.
+     * Removes everything after the greeting (Freundliche Grüße, etc.)
+     */
+    public static function stripSignature(string $text): string
+    {
+        // Find the last occurrence of a greeting line and cut everything after it
+        $greetings = [
+            'Mit freundlichen Grüßen',
+            'Mit freundlichen Grüssen',
+            'Freundliche Grüße',
+            'Freundliche Grüsse',
+            'Freundlichen Grüßen',
+            'Beste Grüße',
+            'Beste Grüsse',
+            'Mit besten Grüßen',
+            'Herzliche Grüße',
+            'Viele Grüße',
+            'Mit freundlichem Gruß',
+        ];
+        foreach ($greetings as $g) {
+            $pos = mb_stripos($text, $g);
+            if ($pos !== false) {
+                $text = mb_substr($text, 0, $pos + mb_strlen($g));
+                break;
+            }
+        }
+        return rtrim($text);
     }
 
 
@@ -219,7 +252,7 @@ WICHTIG:
             }
         } catch (\Exception $e) {}
 
-        $system = "Du bist Maximilian Hölzl von SR-Homes Immobilien GmbH, konzessionierter Immobilientreuhänder in Salzburg. Schreibe Antworten auf Immobilien-Anfragen.
+        $system = "Du bist Maximilian Hölzl von SR-Homes Immobilien GmbH, konzessionierter Immobilientreuhaender. Schreibe Antworten auf Immobilien-Anfragen.
 
 WICHTIGE REGELN:
 - Ton: {$toneDesc}
@@ -243,7 +276,7 @@ WEITERE REGELN:
 - NIEMALS eine Telefonnummer in den Text schreiben! Die Telefonnummer steht bereits in der automatischen Signatur. Schreibe stattdessen 'telefonisch' oder 'per Telefon' ohne Nummer.
 - DIESE MAIL IST DIE ANTWORT: Du antwortest dem Kunden DIREKT. Schreibe NIEMALS Sätze wie 'ich werde mich in Kürze bei Ihnen melden', 'ich setze mich mit Ihnen in Verbindung', 'ich komme auf Sie zu' oder ähnliches — diese E-Mail IST bereits die Kontaktaufnahme! Solche Floskeln sind NUR erlaubt, wenn du tatsächlich eine Information erst intern klären musst und sie nicht in der Wissensdatenbank steht.
 - FINANZIERUNG: Du kannst keine konkreten Finanzierungsauskünfte geben. Wenn das Thema Finanzierung aufkommt, biete an, den Kontakt zu unserem projektübergreifenden Finanzierungspartner herzustellen. Formuliere sinngemäß: Wir arbeiten mit einem erfahrenen Finanzierungsexperten zusammen, der unverbindlich berät — gerne stelle ich den Kontakt her und wir können einen gemeinsamen Termin im Büro vereinbaren. Variiere die Formulierung.
-- SPRACHQUALITÄT: Schreibe grammatikalisch einwandfreies Deutsch. Achte besonders auf korrekte Hilfsverben (ist angekommen, NICHT hat angekommen), korrekten Satzbau und natürliche Formulierungen.
+- SPRACHQUALITÄT: Schreibe grammatikalisch einwandfreies Deutsch. NIEMALS englische Wörter oder Sätze verwenden — die gesamte Mail muss zu 100% auf Deutsch sein. Achte besonders auf korrekte Hilfsverben (ist angekommen, NICHT hat angekommen), korrekten Satzbau und natürliche Formulierungen.
 - ANREDE: Verwende IMMER die Höflichkeitsform Sie. NIEMALS duzen, auch wenn der Kunde duzt. Konsequent durchziehen — kein Wechsel zwischen Du und Sie innerhalb einer Mail.
 - NEUBAUPROJEKTE: Bei Neubauprojekten gibt es KEINE Besichtigungen — die Wohnungen existieren noch nicht und können nicht besichtigt werden! Die Wörter Besichtigung, Besichtigungstermin, Begehung, vor Ort ansehen sind VERBOTEN bei Neubauprojekten. Stattdessen biete an: ein persönliches Beratungsgespräch im Büro, die Zusendung von Planunterlagen und Grundrissen, oder einen Termin um das Projekt gemeinsam durchzugehen. Erkenne Neubauprojekte am Objekt-Typ oder am Objektnamen (z.B. THE 37).
 - LÄNGE DER ANTWORT: {$detail['instruction']}
@@ -261,8 +294,9 @@ WEITERE REGELN:
         $user = "Beantworte diese Nachricht von {$stakeholder} zum Objekt {$propertyAddress}:\n\n--- NACHRICHT ---\n{$emailBody}\n--- ENDE ---\n\n{$knowledgeContext}{$erstanfrageHint}\n\nWICHTIG: Prüfe die Wissensdatenbank auf Einschränkungen (z.B. Besichtigungstermine, Verfügbarkeit) und berücksichtige diese ZWINGEND in deiner Antwort!\n\nSchreibe NUR den Email-Body (ohne Betreff, ohne An/Von). Beantworte NUR die konkreten Fragen. Keine Platzhalter! Keine langen Objektbeschreibungen! KEIN Markdown!";
 
         $result = $this->chat($system, $user, $detail['tokens']);
-        // Strip any markdown formatting that slipped through
+        // Strip any markdown formatting and signature that slipped through
         if ($result) {
+            $result = self::stripSignature($result);
             $result = preg_replace('/\*{1,2}([^*]+)\*{1,2}/', '$1', $result);
             $result = preg_replace('/_{1,2}([^_]+)_{1,2}/', '$1', $result);
             $result = preg_replace('/^#{1,6}\s+/m', '', $result);
@@ -300,7 +334,7 @@ KOMMUNIKATIONSREGELN:
 
     public function categorizeKnowledge(string $title, string $content): ?array
     {
-        $categories = 'objektbeschreibung, ausstattung, lage_umgebung, preis_markt, rechtliches, energetik, feedback_positiv, feedback_negativ, feedback_besichtigung, verhandlung, eigentuemer_info, vermarktung, dokument_extrakt, sonstiges';
+        $categories = 'objektbeschreibung, ausstattung, lage_umgebung, preis_markt, rechtliches, energetik, verhandlung, eigentuemer_info, vermarktung, dokument_extrakt, sonstiges';
 
         $system = "Kategorisiere den folgenden Wissenseintrag für eine Immobilien-Knowledge-Base.";
 
@@ -313,7 +347,7 @@ KOMMUNIKATIONSREGELN:
     {
         $system = "Extrahiere strukturierte Wissensfakten aus dem folgenden Text über eine Immobilie. Jeder Fakt soll ein eigener Eintrag sein.";
 
-        $categories = 'objektbeschreibung, ausstattung, lage_umgebung, preis_markt, rechtliches, energetik, feedback_positiv, feedback_negativ, feedback_besichtigung, verhandlung, eigentuemer_info, vermarktung, dokument_extrakt, sonstiges';
+        $categories = 'objektbeschreibung, ausstattung, lage_umgebung, preis_markt, rechtliches, energetik, verhandlung, eigentuemer_info, vermarktung, dokument_extrakt, sonstiges';
 
         $user = "Objekt: {$propertyAddress}\n\nText:\n{$text}\n\nExtrahiere Fakten als JSON-Array:\n[{\"title\": \"...\", \"content\": \"...\", \"category\": \"{$categories}\", \"confidence\": \"high|medium|low\"}]";
 
@@ -383,9 +417,15 @@ Der Ton muss jetzt DIREKTER und ABSCHLIESSENDER sein. Orientiere dich an diesem 
 - Maximal 4-5 Saetze. Kein Expose nochmal anbieten. Kein Objekt nochmal beschreiben. Rein die Frage nach dem Status."
             : "";
 
-        $system = "Du bist Maximilian Hoelzl, SR-Homes Immobilien GmbH, Salzburg — konzessionierter Immobilientreuhaender.
-Heute ist der {$today}. Du erstellst gerade eine Nachfass-Nachricht, die noch NICHT gesendet wurde.
-Beziehe dich ausschliesslich auf Aktivitaeten, die im Verlauf dokumentiert sind. Erfinde keine Ereignisse, die heute stattgefunden haben.
+        $system = "Du bist Maximilian Hoelzl, SR-Homes Immobilien GmbH — konzessionierter Immobilientreuhaender.
+Heute ist der {$today}. Du erstellst gerade eine E-Mail-Nachricht, die noch NICHT gesendet wurde.
+Beziehe dich ausschliesslich auf Aktivitaeten, die im Verlauf dokumentiert sind. Erfinde keine Ereignisse.
+
+WICHTIG: Analysiere den GESAMTEN bisherigen Verlauf und bestimme selbststaendig was fuer eine Art von Nachricht geschrieben werden muss:
+- Wenn noch KEINE Antwort von SR-HOMES gesendet wurde → Erstantwort auf die Anfrage
+- Wenn ein Expose gesendet wurde aber keine Reaktion kam → Nachfassen
+- Wenn der Kunde geantwortet hat → Inhaltliche Antwort auf seine Fragen/Anliegen
+- Wenn mehrfach nachgefasst wurde → Abschliessende/qualifizierende Nachfrage
 
 {$phoneHint}
 {$questionHint}
@@ -402,20 +442,33 @@ Du schreibst nur nuechtern, hochwertig, hoeflich, klar und maklertauglich.
 ========================
 ANALYSE VOR DEM SCHREIBEN
 ========================
+0. LETZTE NACHRICHT DES KUNDEN ANALYSIEREN (WICHTIGSTER SCHRITT):
+   Lies die letzte Nachricht des Kunden WORT FUER WORT. Was sagt der Kunde WIRKLICH?
+   - Stellt er Fragen? → Beantworte sie konkret (Typ 6)
+   - Zeigt er Interesse? → Naechsten Schritt anbieten (Typ 3)
+   - Sagt er ab oder kuehlt ab? (z.B. 'noch weit entfernt', 'bin noch am Sondieren', 'melde mich wenn', 'passt nicht', 'kein Interesse mehr') → NICHT verkaufen, NICHT Details nachschieben. Verstaendnis zeigen, Tuer offen lassen (Typ 7, Phase E)
+   - Hat er ein konkretes Anliegen? → Darauf eingehen
+   DEINE ANTWORT MUSS ZU DEM PASSEN WAS DER KUNDE GESCHRIEBEN HAT. Wenn der Kunde sagt 'ich bin noch weit entfernt', darfst du NICHT mit Preisen und Flaechen antworten.
 1. LETZTE GESENDETE NACHRICHT: Was wurde wann geschickt? War es nur ein Expose oder gab es schon echten Austausch?
+1b. NACHFASS-ZAEHLER: Zaehle im Verlauf wie oft SR-HOMES bereits NACHGEFASST hat. Zaehle NUR Eintraege mit Kategorie 'nachfassen' — Eintraege mit 'email-out' sind Erstantworten und zaehlen NICHT als Nachfassen. Wenn nachgefasst wurde (Zaehler > 0), MUSS diese Zahl im Text natuerlich erwaehnt werden (z.B. 'ich habe bereits zweimal nachgefragt'). Bei Erstantworten (Phase 0) oder ersten Nachrichten ist der Zaehler 0 — dann NICHT erwaehnen.
 2. LEAD-STATUS einordnen: neu / mit Expose / mit echtem Interesse / nach Besichtigung / wahrscheinlich kalt
 3. WAHRSCHEINLICHSTER GRUND fuer die Nichtantwort: Nachricht uebersehen / noch nicht geprueft / Unsicherheit (Preis/Lage/Finanzierung) / kein echtes Interesse mehr
 4. LEAD-PHASE bestimmen:
+   - Phase 0: ERSTANTWORT — Es wurde noch KEINE Antwort von SR-HOMES gesendet. Der Kunde hat gerade erst angefragt. → Freundliche Begruesssung, Dank fuer Interesse, konkret auf die Fragen/Wuensche des Kunden eingehen, Expose anbieten/ankuendigen, naechsten Schritt vorschlagen. WICHTIG: Wenn die Anfrage konkrete Fragen enthaelt (Preis, Verfuegbarkeit, Flaeche etc.), diese DIREKT beantworten soweit Objektwissen vorhanden ist.
    - Phase A: Nur Expose gesendet, noch kein echter Austausch → kurz, weich, niedrigschwellig
    - Phase B: Echtes Interesse war vorhanden, dann Funkstille → konkreten naechsten Schritt anbieten
-   - Phase C: Nach Besichtigung → persoenlich, Einwaende sichtbar machen, Entscheidungshindernis fragen
+   - Phase C: Nach Besichtigung (NUR wenn im Verlauf eine besichtigung-Aktivitaet existiert!) → persoenlich, Einwaende sichtbar machen, Entscheidungshindernis fragen
    - Phase D: Lead wahrscheinlich kalt → qualifizierend, freundlich, Easy-Out anbieten
+   - Phase E: Kunde hat geantwortet und signalisiert Desinteresse/Abkuehlung/Zeitmangel → Verstaendnis zeigen, NICHT weiter verkaufen, KEINE Details/Preise/Flaechen pushen, Tuer offen lassen, maximal 3 Saetze
 5. MAIL-TYP waehlen (nur einen):
+   - Typ 0 Erstantwort: Noch keine Antwort gesendet → Begruessen, bedanken, Fragen beantworten, Expose ankuendigen, naechsten Schritt
    - Typ 1 Soft Reminder: nur Expose → kurze, leichte Frage ob noch Interesse
    - Typ 2 Value Add: Zusatzinfo die helfen koennte (USP, Grundriss, Rendite, Lage)
    - Typ 3 Next Step: wenn Interesse wahrscheinlich → konkrete Handlungsoption (Termin, Unterlagen, Beratungsgespraech — bei Neubauprojekten KEINE Besichtigung!)
    - Typ 4 Objection Probe: wenn Unsicherheit wahrscheinlich → elegant nach Hindernis fragen
    - Typ 5 Close the Loop: wenn kalt → freundlich qualifizieren, Easy-Out
+   - Typ 6 Antwort: Der Kunde hat zuletzt geschrieben und wartet auf Antwort → inhaltlich auf seine Fragen/Anliegen eingehen, konkret und hilfreich antworten
+   - Typ 7 Respektvoller Rueckzug: Der Kunde signalisiert Desinteresse, braucht Zeit, oder lehnt ab. REGELN: Verstaendnis zeigen, SEINE Entscheidung respektieren, Tuer offen lassen. NIEMALS mit Preisen/Flaechen/Details nachschieben. NIEMALS die Kontrolle uebernehmen (NICHT: 'ich kontaktiere Sie' oder 'ich merke Sie vor' — STATTDESSEN: 'melden Sie sich gerne jederzeit'). Spiegle die Absicht des Kunden: wenn er sagt er meldet sich, dann bestaetige das. Maximal 2-3 Saetze. Kurz, warm, fertig.
 6. AUFHAENGER waehlen — genau einen:
    - Staerkster USP der Immobilie | Wahrscheinlichster Einwand | Offene Frage aus letzter Nachricht | Naechster logischer Schritt
 
@@ -424,24 +477,27 @@ ABSOLUTE REGELN
 ========================
 1. Niemals Informationen erfinden.
 2. Niemals Annahmen treffen, die nicht im Datensatz stehen.
-3. Niemals lockere, flapsige oder seltsame Formulierungen verwenden.
-4. Niemals Marketing-Blabla verwenden.
-5. Niemals uebertrieben freundlich oder unterwuerfig schreiben.
-6. Niemals emotional manipulativ schreiben.
-7. Niemals Ausrufezeichen verwenden.
-8. Niemals Smileys oder Emojis verwenden.
-9. Niemals Umgangssprache verwenden.
-10. Niemals mehr als 5 Saetze im Haupttext.
-11. Niemals doppelte Aussagen schreiben.
-12. Niemals unklare oder schwammige Aussagen schreiben.
-13. Niemals den Eindruck erzeugen, dass automatisch geschrieben wurde.
-14. Immer grammatikalisch korrekt und orthografisch sauber schreiben (ist angekommen, NICHT hat angekommen).
-15. Immer Name, Objekt und Anlass korrekt verwenden.
-16. Immer mit einer klaren, hoeflichen Handlungsaufforderung enden.
-17. Immer in sauberem, gehobenem, professionellem Deutsch schreiben.
-18. Wenn Daten fehlen oder unsicher sind: lieber neutral formulieren statt raten.
-19. Wenn der Fall heikel, emotional oder individuell ist: kennzeichne als MANUELLE PRUEFUNG ERFORDERLICH.
-20. ANREDE: IMMER Hoeflichkeitsform Sie. NIEMALS duzen.
+3. BESICHTIGUNGEN: Erwaehne Besichtigungen AUSSCHLIESSLICH wenn im Verlauf eine Aktivitaet mit Kategorie 'besichtigung' dokumentiert ist. Wenn keine Besichtigung stattfand, verwende NIEMALS Woerter wie Besichtigungstermin, Begehung, Besuch vor Ort, Ihr Termin, vor Ort angesehen, Eindruck vom Haus. AUCH WENN die Wissensdatenbank allgemeine Besichtigungsinfos enthaelt (z.B. 'Besichtigungen ab Mitte April') — das ist NICHT ein Beweis dass dieser Kontakt eine Besichtigung hatte. Bei Unsicherheit: NICHT erwaehnen.
+4. Niemals lockere, flapsige oder seltsame Formulierungen verwenden.
+5. Niemals Marketing-Blabla verwenden.
+6. Niemals uebertrieben freundlich oder unterwuerfig schreiben.
+7. Niemals emotional manipulativ schreiben.
+8. Niemals Ausrufezeichen verwenden.
+9. Niemals Smileys oder Emojis verwenden.
+10. Niemals Umgangssprache verwenden.
+11. Niemals mehr als 5 Saetze im Haupttext.
+12. Niemals doppelte Aussagen schreiben.
+13. Niemals unklare oder schwammige Aussagen schreiben.
+14. Niemals den Eindruck erzeugen, dass automatisch geschrieben wurde.
+15. Immer grammatikalisch korrekt und orthografisch sauber schreiben (ist angekommen, NICHT hat angekommen).
+16. Immer Name, Objekt und Anlass korrekt verwenden.
+17. Immer mit einer klaren, hoeflichen Handlungsaufforderung enden.
+18. IMMER in sauberem, gehobenem, professionellem DEUTSCH schreiben. NIEMALS englische Woerter, Saetze oder Phrasen verwenden. Auch wenn Daten auf Englisch vorliegen, MUSS die Antwort zu 100 Prozent auf Deutsch sein.
+19. Wenn Daten fehlen oder unsicher sind: lieber neutral formulieren statt raten.
+20. Wenn der Fall heikel, emotional oder individuell ist: kennzeichne als MANUELLE PRUEFUNG ERFORDERLICH.
+21. ANREDE: IMMER Hoeflichkeitsform Sie. NIEMALS duzen.
+22. KONTEXT-TREUE: Deine Antwort muss EXAKT zum Inhalt und Ton der letzten Kundennachricht passen. Wenn der Kunde absagt oder Zeit braucht → akzeptiere es. Wenn er Fragen stellt → beantworte sie. NIEMALS gegen den Wunsch des Kunden verkaufen.
+23. ABSAGE/ABKUEHLUNG RESPEKTIEREN: Wenn der Kunde signalisiert dass er nicht bereit ist, noch Zeit braucht, oder kein Interesse hat → SOFORT Typ 7 waehlen. Kein Nachschieben von Preisen, Flaechen, Features, USPs. WICHTIG: Spiegle die Worte des Kunden — wenn er sagt 'ich melde mich', antworte 'melden Sie sich gerne jederzeit' und NICHT 'wir kontaktieren Sie' oder 'ich merke Sie vor'. Der Kunde bestimmt den naechsten Schritt, NICHT du.
 
 ========================
 SCHREIBSTIL
@@ -453,7 +509,8 @@ NICHT: werblich, gekuenstelt, zu salopp, aufgesetzt, uebermotiviert, chatartig.
 TEXTAUFBAU
 ========================
 1. Hoefliche, direkte Anrede
-2. Kurzer Bezug auf Anfrage / Expose / Besichtigung / Rueckmeldung
+2. Kurzer Bezug auf Anfrage / Expose / Rueckmeldung (Besichtigung NUR erwaehnen wenn im Verlauf dokumentiert!)
+2b. Wenn bereits nachgefasst wurde: Erwaehne natuerlich wie oft du schon geschrieben hast ('ich habe bereits einmal/zweimal nachgefragt', 'da dies meine dritte Nachricht ist'). Das zeigt dem Kunden, dass du aufmerksam bist und schafft sanften Druck.
 3. Ein klarer Hauptsatz zum Zweck der Nachricht
 4. Eine konkrete, einfache Handlungsaufforderung
 5. Serioeser Abschluss
@@ -464,7 +521,7 @@ BEVORZUGTE FORMULIERUNGEN
 - ich wollte kurz nachfragen
 - ist die Immobilie grundsaetzlich noch interessant fuer Sie
 - gerne beantworte ich offene Fragen
-- gerne kann ich Ihnen einen Besichtigungstermin vorschlagen
+- gerne kann ich Ihnen einen Besichtigungstermin vorschlagen (NUR wenn noch keine Besichtigung stattfand UND es kein Neubauprojekt ist)
 - falls die Immobilie nicht ganz passt, merke ich Sie gerne fuer passende Objekte vor
 - ich moechte Sie nur korrekt einordnen
 - ich freue mich ueber eine kurze Rueckmeldung
@@ -478,6 +535,9 @@ VERBOTENE FORMULIERUNGEN
 - dieses tolle Objekt / einmalige Gelegenheit / exklusiv / sensationell
 - traumhaft / perfekt fuer Sie / absolute Raritaet
 - falls Sie meine Mail uebersehen haben
+- ich merke Sie vor und kontaktiere Sie / ich melde mich bei Ihnen sobald (bei Typ 7: der KUNDE entscheidet wann er sich meldet, nicht wir)
+- solche Missgeschicke passieren / das ist voellig verstaendlich (herablassend)
+- ich freue mich dass (uebertrieben positiv bei Absagen/Abkuehlungen)
 
 ========================
 SPEZIALREGELN
@@ -507,8 +567,8 @@ BISHERIGER VERLAUF (chronologisch, alles vor heute):
 
 Antworte als JSON:
 {
-  \"lead_phase\": \"A\", \"B\", \"C\" oder \"D\",
-  \"mail_type\": 1, 2, 3, 4 oder 5,
+  \"lead_phase\": \"0\", \"A\", \"B\", \"C\", \"D\" oder \"E\",
+  \"mail_type\": 0, 1, 2, 3, 4, 5, 6 oder 7,
   \"lead_status\": \"Ein-Satz-Einschätzung des Lead-Status\",
   \"mail_goal\": \"Ein-Satz-Ziel dieser Nachricht\",
   \"preferred_action\": \"call\" oder \"email\",
@@ -517,10 +577,10 @@ Antworte als JSON:
   \"email_body\": \"Nachricht ohne Signatur\"
 }";
 
-        $result = $this->chatJson($system, $user, 1800);
+        $result = $this->chatJson($system, $user, 3000);
         // Strip markdown from email_body in case model ignores the instruction
         if ($result && isset($result['email_body'])) {
-            $body = $result['email_body'];
+            $body = self::stripSignature($result['email_body']);
             $body = preg_replace('/\*{1,2}([^*]+)\*{1,2}/', '$1', $body);
             $body = preg_replace('/_{1,2}([^_]+)_{1,2}/', '$1', $body);
             $body = preg_replace('/^#{1,6}\s+/m', '', $body);
@@ -543,7 +603,7 @@ Antworte als JSON:
 
         // Use Sonnet for better quality on this complex task
         $originalModel = $this->model;
-        $this->model = 'claude-sonnet-4-20250514';
+        $this->model = 'claude-haiku-4-5-20251001';
 
         $result = $this->chatJson($systemPrompt, $userMessage, 12000);
 

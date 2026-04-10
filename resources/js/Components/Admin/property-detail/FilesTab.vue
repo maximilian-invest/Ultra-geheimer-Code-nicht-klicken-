@@ -170,10 +170,10 @@ watch(() => props.property?.id, () => loadFiles());
         <!-- Icon -->
         <span class="text-lg shrink-0">{{ fileIcon(getExt(f.original_name || f.filename)) }}</span>
 
-        <!-- Name + ext -->
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-zinc-900 truncate">{{ f.label || f.original_name || f.filename }}</p>
-        </div>
+        <!-- Name + ext (clickable to view) -->
+        <a :href="'/storage/' + f.path" target="_blank" class="flex-1 min-w-0 hover:text-blue-600 transition-colors cursor-pointer">
+          <p class="text-sm font-medium text-zinc-900 truncate hover:underline">{{ f.label || f.original_name || f.filename }}</p>
+        </a>
 
         <!-- Extension badge -->
         <Badge variant="secondary" class="text-[10px] uppercase shrink-0">
@@ -188,6 +188,11 @@ watch(() => props.property?.id, () => loadFiles());
             @update:checked="toggleWebsiteDownload(f)"
           />
         </div>
+
+        <!-- Download -->
+        <a :href="'/storage/' + f.path" :download="f.original_name || f.filename" class="h-8 w-8 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 shrink-0">
+          <Download class="w-4 h-4" />
+        </a>
 
         <!-- Delete -->
         <Button

@@ -215,6 +215,11 @@ class Property extends Model
         return $this->hasMany(Task::class);
     }
 
+    public function propertyLinks(): HasMany
+    {
+        return $this->hasMany(PropertyLink::class);
+    }
+
     public function images(): HasMany
     {
         return $this->hasMany(PropertyImage::class)->orderBy('sort_order');

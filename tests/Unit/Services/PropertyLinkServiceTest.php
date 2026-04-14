@@ -31,4 +31,21 @@ class PropertyLinkServiceTest extends TestCase
 
         $this->assertNotSame('fixed-token-value-for-testing-collisions-XX', $token);
     }
+
+    public function test_mark_as_default_unsets_other_defaults_on_same_property(): void
+    {
+        $p1 = Property::factory()->create();
+        $p2 = Property::factory()->create();
+
+        $linkA = PropertyLink::factory()->create(['property_id' => $p1->id, 'is_default' => true]);
+        $linkB = PropertyLink::factory()->create(['property_id' => $p1->id, 'is_default' => false]);
+        $linkC = PropertyLink::factory()->create(['property_id' => $p2->id, 'is_default' => true]);
+
+        $svc = new PropertyLinkService();
+        $svc->markAsDefault($linkB);
+
+        $this->assertFalse($linkA->fresh()->is_default, 'linkA default should be unset');
+        $this->assertTrue($linkB->fresh()->is_default, 'linkB should now be default');
+        $this->assertTrue($linkC->fresh()->is_default, 'linkC on a DIFFERENT property stays default');
+    }
 }

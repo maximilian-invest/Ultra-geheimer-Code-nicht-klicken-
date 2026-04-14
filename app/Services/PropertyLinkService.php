@@ -15,4 +15,16 @@ class PropertyLinkService
 
         return $token;
     }
+
+    public function markAsDefault(\App\Models\PropertyLink $link): void
+    {
+        \DB::transaction(function () use ($link) {
+            \App\Models\PropertyLink::where('property_id', $link->property_id)
+                ->where('id', '!=', $link->id)
+                ->update(['is_default' => false]);
+
+            $link->is_default = true;
+            $link->save();
+        });
+    }
 }

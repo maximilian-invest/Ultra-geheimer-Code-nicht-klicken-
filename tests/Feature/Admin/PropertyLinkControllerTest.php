@@ -102,4 +102,32 @@ class PropertyLinkControllerTest extends TestCase
         $defaults = PropertyLink::where('property_id', $property->id)->where('is_default', true)->count();
         $this->assertSame(1, $defaults);
     }
+
+    public function test_show_returns_link_with_sessions_and_events(): void
+    {
+        $admin = $this->adminUser();
+        $property = Property::factory()->create();
+        $link = PropertyLink::factory()->create([
+            'property_id' => $property->id,
+            'created_by' => $admin->id,
+        ]);
+        $session = \App\Models\PropertyLinkSession::factory()->create([
+            'property_link_id' => $link->id,
+            'email' => 'bob@example.com',
+        ]);
+        \App\Models\PropertyLinkEvent::create([
+            'session_id' => $session->id,
+            'event_type' => 'link_opened',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->getJson("/admin/properties/{$property->id}/links/{$link->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('link.id', $link->id)
+            ->assertJsonCount(1, 'sessions')
+            ->assertJsonPath('sessions.0.email', 'bob@example.com')
+            ->assertJsonPath('sessions.0.events.0.event_type', 'link_opened');
+    }
 }

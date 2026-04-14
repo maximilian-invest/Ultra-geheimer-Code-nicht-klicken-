@@ -79,6 +79,33 @@ class PropertyLinkController extends Controller
         return response()->json(['link' => $this->serialize($link)]);
     }
 
+    public function show(Property $property, PropertyLink $link): JsonResponse
+    {
+        abort_unless($link->property_id === $property->id, 404);
+
+        $link->load('sessions.events');
+
+        $sessions = $link->sessions->map(fn ($s) => [
+            'id' => $s->id,
+            'email' => $s->email,
+            'first_seen_at' => $s->first_seen_at?->toIso8601String(),
+            'last_seen_at' => $s->last_seen_at?->toIso8601String(),
+            'dsgvo_accepted_at' => $s->dsgvo_accepted_at?->toIso8601String(),
+            'events' => $s->events->map(fn ($e) => [
+                'id' => $e->id,
+                'event_type' => $e->event_type,
+                'property_file_id' => $e->property_file_id,
+                'duration_s' => $e->duration_s,
+                'created_at' => $e->created_at,
+            ])->values(),
+        ])->values();
+
+        return response()->json([
+            'link' => $this->serialize($link),
+            'sessions' => $sessions,
+        ]);
+    }
+
     protected function serialize(PropertyLink $link): array
     {
         $docIds = $link->documentIds();

@@ -46,4 +46,60 @@ class PropertyLinkControllerTest extends TestCase
 
         $response->assertForbidden();
     }
+
+    public function test_store_creates_link_with_documents_and_returns_url(): void
+    {
+        $admin = $this->adminUser();
+        $property = Property::factory()->create();
+
+        \DB::table('property_files')->insert([
+            ['property_id' => $property->id, 'label' => 'Expose', 'filename' => 'expose.pdf', 'path' => 'p/expose.pdf', 'mime_type' => 'application/pdf', 'file_size' => 100000, 'sort_order' => 1, 'is_website_download' => 0],
+            ['property_id' => $property->id, 'label' => 'Grundriss', 'filename' => 'gr.pdf', 'path' => 'p/gr.pdf', 'mime_type' => 'application/pdf', 'file_size' => 50000, 'sort_order' => 2, 'is_website_download' => 0],
+        ]);
+        $fileIds = \DB::table('property_files')->where('property_id', $property->id)->pluck('id')->all();
+
+        $response = $this->actingAs($admin)
+            ->postJson("/admin/properties/{$property->id}/links", [
+                'name' => 'Erstanfrage',
+                'is_default' => true,
+                'expires_at' => now()->addDays(14)->toIso8601String(),
+                'file_ids' => $fileIds,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonStructure(['link' => ['id', 'token', 'url', 'is_default', 'document_ids']]);
+
+        $this->assertDatabaseCount('property_links', 1);
+        $link = PropertyLink::first();
+        $this->assertSame('Erstanfrage', $link->name);
+        $this->assertTrue((bool) $link->is_default);
+        $this->assertSame(43, strlen($link->token));
+
+        $this->assertDatabaseCount('property_link_documents', 2);
+    }
+
+    public function test_store_enforces_single_default_per_property(): void
+    {
+        $admin = $this->adminUser();
+        $property = Property::factory()->create();
+        PropertyLink::factory()->default()->create([
+            'property_id' => $property->id,
+            'created_by' => $admin->id,
+        ]);
+        \DB::table('property_files')->insert([
+            ['property_id' => $property->id, 'label' => 'Expose', 'filename' => 'e.pdf', 'path' => 'e.pdf', 'mime_type' => 'application/pdf', 'file_size' => 100, 'sort_order' => 1, 'is_website_download' => 0],
+        ]);
+        $fileId = \DB::table('property_files')->where('property_id', $property->id)->value('id');
+
+        $this->actingAs($admin)
+            ->postJson("/admin/properties/{$property->id}/links", [
+                'name' => 'Phase 2',
+                'is_default' => true,
+                'expires_at' => now()->addDays(7)->toIso8601String(),
+                'file_ids' => [$fileId],
+            ])->assertOk();
+
+        $defaults = PropertyLink::where('property_id', $property->id)->where('is_default', true)->count();
+        $this->assertSame(1, $defaults);
+    }
 }

@@ -29,6 +29,56 @@ class PropertyLinkController extends Controller
         return response()->json(['links' => $links]);
     }
 
+    public function store(Request $request, Property $property): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'is_default' => ['sometimes', 'boolean'],
+            'expires_at' => ['nullable', 'date'],
+            'file_ids' => ['required', 'array', 'min:1'],
+            'file_ids.*' => ['integer'],
+        ]);
+
+        $validFileIds = DB::table('property_files')
+            ->where('property_id', $property->id)
+            ->whereIn('id', $data['file_ids'])
+            ->pluck('id')
+            ->all();
+
+        if (count($validFileIds) !== count($data['file_ids'])) {
+            return response()->json(['error' => 'Ein oder mehrere Dokumente gehoeren nicht zu dieser Property'], 422);
+        }
+
+        $link = DB::transaction(function () use ($data, $property, $validFileIds) {
+            $link = PropertyLink::create([
+                'property_id' => $property->id,
+                'name' => $data['name'],
+                'token' => $this->service->generateUniqueToken(),
+                'is_default' => false,
+                'expires_at' => $data['expires_at'] ?? null,
+                'created_by' => auth()->id(),
+            ]);
+
+            foreach ($validFileIds as $sort => $fileId) {
+                DB::table('property_link_documents')->insert([
+                    'property_link_id' => $link->id,
+                    'property_file_id' => $fileId,
+                    'sort_order' => $sort,
+                    'created_at' => now(),
+                ]);
+            }
+
+            if (!empty($data['is_default'])) {
+                $this->service->markAsDefault($link);
+                $link->refresh();
+            }
+
+            return $link;
+        });
+
+        return response()->json(['link' => $this->serialize($link)]);
+    }
+
     protected function serialize(PropertyLink $link): array
     {
         $docIds = $link->documentIds();

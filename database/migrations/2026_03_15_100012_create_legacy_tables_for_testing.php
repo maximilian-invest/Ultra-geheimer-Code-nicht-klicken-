@@ -5,6 +5,16 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * LEGACY TEST COMPAT MIGRATION
+ *
+ * Despite the 2026_03_15 date prefix (which is necessary to run before the
+ * 2026_03_29 ALTER that adds is_website_download), this migration was
+ * retroactively added in April 2026 to unblock SQLite in-memory tests.
+ *
+ * All blocks are guarded by Schema::hasTable() — no-op on MySQL prod where
+ * these tables already exist (created via raw SQL outside Laravel migrations).
+ */
 return new class extends Migration
 {
     public function up(): void
@@ -63,28 +73,6 @@ return new class extends Migration
             });
         }
 
-        if (!Schema::hasTable('activities')) {
-            Schema::create('activities', function (Blueprint $table) {
-                $table->id();
-                $table->foreignId('property_id')->constrained()->onDelete('cascade');
-                $table->unsignedBigInteger('unit_id')->nullable();
-                $table->date('activity_date');
-                $table->string('stakeholder');
-                $table->text('activity');
-                $table->text('result')->nullable();
-                $table->integer('duration')->nullable();
-                $table->string('category', 40)->default('sonstiges');
-                $table->tinyInteger('followup_stage')->nullable();
-                $table->integer('source_email_id')->nullable();
-                $table->timestamp('created_at')->nullable();
-                $table->timestamp('updated_at')->nullable();
-                $table->dateTime('snooze_until')->nullable();
-                $table->boolean('viewing_alert_dismissed')->default(false);
-                $table->string('kaufanbot_status', 30)->nullable();
-                $table->index(['property_id', 'activity_date']);
-                $table->index('stakeholder');
-            });
-        }
     }
 
     public function down(): void

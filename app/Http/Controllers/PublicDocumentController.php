@@ -139,7 +139,10 @@ class PublicDocumentController extends Controller
             ->exists();
         abort_unless($allowed, 403);
 
-        $file = DB::table('property_files')->where('id', $fileId)->first();
+        $file = DB::table('property_files')
+            ->where('id', $fileId)
+            ->where('property_id', $link->property_id)
+            ->first();
         abort_unless($file, 404);
 
         $disk = \Storage::disk('local');
@@ -178,6 +181,17 @@ class PublicDocumentController extends Controller
             'file_id' => ['nullable', 'integer'],
             'duration_s' => ['nullable', 'integer', 'min:0', 'max:86400'],
         ]);
+
+        // Reject file_id that does not belong to this link's pivot set
+        if (!empty($data['file_id'])) {
+            $allowed = DB::table('property_link_documents')
+                ->where('property_link_id', $link->id)
+                ->where('property_file_id', $data['file_id'])
+                ->exists();
+            if (!$allowed) {
+                return response()->json(['error' => 'invalid_file'], 422);
+            }
+        }
 
         // Rate limit: 100 events/session/hour
         $key = "event:session:{$session->id}";

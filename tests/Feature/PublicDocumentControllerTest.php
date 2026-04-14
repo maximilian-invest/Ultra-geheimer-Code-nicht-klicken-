@@ -123,4 +123,51 @@ class PublicDocumentControllerTest extends TestCase
 
         $this->assertDatabaseCount('property_link_sessions', 1);
     }
+
+    public function test_file_requires_valid_session_cookie(): void
+    {
+        $link = $this->makeLink();
+        $fileId = \DB::table('property_files')->insertGetId([
+            'property_id' => $link->property_id, 'label' => 'Expose', 'filename' => 'expose.pdf',
+            'path' => 'test/expose.pdf', 'mime_type' => 'application/pdf', 'file_size' => 100,
+            'sort_order' => 1, 'is_website_download' => 0, 'created_at' => now(),
+        ]);
+        \DB::table('property_link_documents')->insert([
+            'property_link_id' => $link->id, 'property_file_id' => $fileId, 'sort_order' => 0, 'created_at' => now(),
+        ]);
+
+        // No cookie → rejected
+        $response = $this->get("/docs/{$link->token}/file/{$fileId}/view");
+        $response->assertStatus(403);
+    }
+
+    public function test_file_downloads_pdf_when_session_valid(): void
+    {
+        $link = $this->makeLink();
+        \Storage::fake('local');
+        \Storage::put('test/expose.pdf', 'fake pdf content');
+
+        $fileId = \DB::table('property_files')->insertGetId([
+            'property_id' => $link->property_id, 'label' => 'Expose', 'filename' => 'expose.pdf',
+            'path' => 'test/expose.pdf', 'mime_type' => 'application/pdf', 'file_size' => 16,
+            'sort_order' => 1, 'is_website_download' => 0, 'created_at' => now(),
+        ]);
+        \DB::table('property_link_documents')->insert([
+            'property_link_id' => $link->id, 'property_file_id' => $fileId, 'sort_order' => 0, 'created_at' => now(),
+        ]);
+
+        $session = \App\Models\PropertyLinkSession::factory()->create([
+            'property_link_id' => $link->id,
+            'email' => 'lisa@example.com',
+        ]);
+        $cookieName = 'sr_link_session_' . substr($link->token, 0, 8);
+        $cookieValue = $session->id . '.' . hash_hmac('sha256', (string) $session->id, config('app.key'));
+
+        $response = $this->withCookie($cookieName, $cookieValue)
+            ->get("/docs/{$link->token}/file/{$fileId}/download");
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+        $response->assertHeader('content-disposition');
+    }
 }

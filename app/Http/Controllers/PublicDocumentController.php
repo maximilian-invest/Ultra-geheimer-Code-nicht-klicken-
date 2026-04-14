@@ -123,6 +123,47 @@ class PublicDocumentController extends Controller
         );
     }
 
+    public function file(Request $request, string $token, int $fileId, string $mode)
+    {
+        $link = PropertyLink::where('token', $token)->first();
+        abort_unless($link, 404);
+        abort_if($link->revoked_at || ($link->expires_at && $link->expires_at->isPast()), 410);
+
+        $session = $this->resolveSessionFromCookie($request, $link);
+        abort_unless($session, 403);
+
+        // Check the file belongs to the link
+        $allowed = DB::table('property_link_documents')
+            ->where('property_link_id', $link->id)
+            ->where('property_file_id', $fileId)
+            ->exists();
+        abort_unless($allowed, 403);
+
+        $file = DB::table('property_files')->where('id', $fileId)->first();
+        abort_unless($file, 404);
+
+        $disk = \Storage::disk('local');
+        abort_unless($disk->exists($file->path), 404);
+
+        // Log the event
+        $eventType = $mode === 'download'
+            ? \App\Models\PropertyLinkEvent::TYPE_DOC_DOWNLOADED
+            : \App\Models\PropertyLinkEvent::TYPE_DOC_VIEWED;
+        $this->logger->recordEvent($session, $eventType, $fileId);
+
+        $headers = [
+            'Content-Type' => $file->mime_type ?? 'application/pdf',
+            'Content-Disposition' => sprintf(
+                '%s; filename="%s"',
+                $mode === 'download' ? 'attachment' : 'inline',
+                addslashes($file->filename),
+            ),
+            'Cache-Control' => 'no-store, private',
+        ];
+
+        return response($disk->get($file->path), 200, $headers);
+    }
+
     protected function resolveSessionFromCookie(Request $request, PropertyLink $link): ?PropertyLinkSession
     {
         $cookieName = 'sr_link_session_' . substr($link->token, 0, 8);

@@ -229,6 +229,129 @@ async function generateDraft() {
   }
 }
 
+function htmlToText(html) {
+  if (!html) return ''
+  return String(html)
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\r/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function normalizeForForwardSplit(text) {
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    // quoted reply prefix in many clients: "> Von: ..."
+    .replace(/^\s*>\s?/gm, '')
+    // ensure header keys start on new lines for robust matching
+    .replace(/\s+(Von|From|Gesendet|Date|An|To|Betreff|Subject)\s*:/gi, '\n$1:')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function splitForwardedMessage(msg) {
+  const bodyText = String(msg?.body_text || '')
+  const htmlText = htmlToText(msg?.body_html || '')
+  const body = normalizeForForwardSplit(bodyText || htmlText)
+  if (!body) return [msg]
+
+  const markerRegex = /\n-{2,}\s*(Weitergeleitete Nachricht|Forwarded message|Original Message|Original-Nachricht|Urspruengliche Nachricht)\s*-{2,}\n/i
+  const markerMatch = body.match(markerRegex)
+  let markerIndex = markerMatch?.index
+  let markerLength = markerMatch?.[0]?.length || 0
+
+  // Outlook/Exchange/Gmail fallback without dashed marker
+  if (typeof markerIndex !== 'number') {
+    const headerFallback = body.match(/\n\s*(Von|From)\s*:.+\n\s*(Gesendet|Date)\s*:.+\n\s*(An|To)\s*:.+\n\s*(Betreff|Subject)\s*:.+/im)
+    if (headerFallback && typeof headerFallback.index === 'number') {
+      markerIndex = headerFallback.index
+      markerLength = 1
+    }
+  }
+
+  // Generic global fallback: first forward-like header block.
+  if (typeof markerIndex !== 'number') {
+    const genericHeader = body.match(/\n\s*(Von|From)\s*:.+\n[\s\S]{0,600}?\n\s*(Betreff|Subject)\s*:.+/im)
+    if (genericHeader && typeof genericHeader.index === 'number' && genericHeader.index > 20) {
+      markerIndex = genericHeader.index
+      markerLength = 1
+    }
+  }
+  if (typeof markerIndex !== 'number') return [msg]
+
+  const beforeText = body.slice(0, markerIndex).trim()
+  const forwardedBlock = body.slice(markerIndex + markerLength).trim()
+  if (!forwardedBlock) return [msg]
+
+  let forwardedFrom = ''
+  let forwardedFromEmail = ''
+  let forwardedSubject = ''
+  let forwardedBody = forwardedBlock
+
+  const headerSplit = forwardedBlock.search(/\n\s*\n/)
+  if (headerSplit >= 0) {
+    const headerPart = forwardedBlock.slice(0, headerSplit)
+    const bodyPart = forwardedBlock.slice(headerSplit).trim()
+    const fromMatch = headerPart.match(/^\s*(Von|From)\s*:\s*(.+)$/im)
+    const subjectMatch = headerPart.match(/^\s*(Betreff|Subject)\s*:\s*(.+)$/im)
+    forwardedFrom = (fromMatch?.[2] || '').trim()
+    forwardedSubject = (subjectMatch?.[2] || '').trim()
+    const fromEmailMatch = forwardedFrom.match(/<([^>]+@[^>]+)>/)
+    if (fromEmailMatch?.[1]) {
+      forwardedFromEmail = fromEmailMatch[1].trim().toLowerCase()
+      // Keep name label clean without angle-bracket email duplication.
+      forwardedFrom = forwardedFrom.replace(/\s*<[^>]+>\s*/, '').trim()
+    }
+    if (bodyPart) forwardedBody = bodyPart
+  }
+
+  // Fallback for portal forwards: extract real customer email from content.
+  if (!forwardedFromEmail) {
+    const directEmailMatch = forwardedBlock.match(/(?:^|\n)\s*(?:E-?Mail|Email)\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,})/i)
+    const mailtoMatch = forwardedBlock.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,})/i)
+    const candidate = (directEmailMatch?.[1] || mailtoMatch?.[1] || '').trim().toLowerCase()
+    if (candidate && !candidate.includes('noreply') && !candidate.includes('no-reply')) {
+      forwardedFromEmail = candidate
+      if (!forwardedFrom || /noreply|no-reply|immoji/i.test(forwardedFrom)) {
+        forwardedFrom = candidate
+      }
+    }
+  }
+
+  const baseMsg = { ...msg }
+  if (beforeText) baseMsg.body_text = beforeText
+
+  const forwardedMsg = {
+    ...msg,
+    id: `${msg.id || 'msg'}-fwd`,
+    body_text: forwardedBody,
+    body_html: null,
+    subject: forwardedSubject || msg.subject || '',
+    from_name: forwardedFrom || forwardedFromEmail || 'Weitergeleitet',
+    from_email: forwardedFromEmail || msg.from_email || '',
+    direction: 'inbound',
+    category: 'forwarded',
+    _isForwardedPart: true,
+  }
+
+  if (beforeText) {
+    baseMsg.body_text = beforeText
+    baseMsg.body_html = null
+    return [forwardedMsg, baseMsg]
+  }
+  return [forwardedMsg]
+}
+
 // ── Date grouping ──
 const groupedMessages = computed(() => {
   if (!props.messages?.length) return []
@@ -236,7 +359,9 @@ const groupedMessages = computed(() => {
   const groups = []
   let currentKey = null
 
-  const sorted = [...props.messages].sort((a, b) => {
+  const flattened = props.messages.flatMap((m) => splitForwardedMessage(m))
+
+  const sorted = [...flattened].sort((a, b) => {
     const da = new Date(a.email_date || a.activity_date || a.date || 0)
     const db = new Date(b.email_date || b.activity_date || b.date || 0)
     return da - db

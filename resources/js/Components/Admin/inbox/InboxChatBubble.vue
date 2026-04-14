@@ -30,21 +30,48 @@ const isIntern = computed(() => {
 const typeBadge = computed(() => {
   const m = props.message
   if (isAutoReply.value) return { label: '\u26A1 Auto-Reply', classes: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+  if ((m.category || '').toLowerCase() === 'forwarded') {
+    return { label: '↪ Weitergeleitet', classes: 'bg-indigo-50 text-indigo-700 border-indigo-200' }
+  }
   if (m.category === 'nachfassen') {
     const stage = m.followup_stage || 1
     const bg = stage >= 2 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
     return { label: `Nachfassen ${stage}`, classes: bg }
   }
-  if (isOutbound.value) return { label: '\u2192 Ausgehend', classes: 'bg-green-50 text-green-700 border-green-200' }
-  return { label: '\u2190 Eingehend', classes: 'bg-blue-50 text-blue-700 border-blue-200' }
+  return null
 })
 
 const displayName = computed(() => props.message.from_name || props.senderName || props.message.from_email || 'Unbekannt')
 
+const senderToneClasses = [
+  'bg-rose-50 text-rose-700 border-rose-200',
+  'bg-amber-50 text-amber-700 border-amber-200',
+  'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'bg-cyan-50 text-cyan-700 border-cyan-200',
+  'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'bg-violet-50 text-violet-700 border-violet-200',
+]
+
+function hashString(value) {
+  let hash = 0
+  const s = String(value || '').toLowerCase().trim()
+  for (let i = 0; i < s.length; i++) {
+    hash = (hash << 5) - hash + s.charCodeAt(i)
+    hash |= 0
+  }
+  return Math.abs(hash)
+}
+
+const senderToneClass = computed(() => {
+  const idx = hashString(displayName.value) % senderToneClasses.length
+  return senderToneClasses[idx]
+})
+
 // Clean and format email body for display
 function cleanEmailBody(raw) {
   if (!raw) return ""
-  let text = raw
+  const original = String(raw)
+  let text = original
 
   // Strip quoted reply chains ("Am ... schrieb ...:" + everything after)
   text = text.replace(/\n\s*Am \d{1,2}\.\d{1,2}\.\d{2,4}.*schrieb.*:[\s\S]*$/im, "")
@@ -62,8 +89,12 @@ function cleanEmailBody(raw) {
   }
   text = lines.slice(0, cutIdx).join("\n")
 
-  // Strip forwarded headers block
-  text = text.replace(/\n-{3,}\s*(Weitergeleitete Nachricht|Forwarded message|Original Message)\s*-{3,}[\s\S]*$/im, "")
+  // Strip forwarded header blocks only when they appear after real intro text.
+  // If the mail itself is a forward, keep the forwarded content visible.
+  const forwardedHeaderMatch = text.match(/\n-{3,}\s*(Weitergeleitete Nachricht|Forwarded message|Original Message)\s*-{3,}/im)
+  if (forwardedHeaderMatch && typeof forwardedHeaderMatch.index === 'number' && forwardedHeaderMatch.index > 120) {
+    text = text.slice(0, forwardedHeaderMatch.index)
+  }
 
   // Strip signature blocks (after --)
   text = text.replace(/\n--\s*\n[\s\S]*$/m, "")
@@ -71,10 +102,43 @@ function cleanEmailBody(raw) {
   // Collapse 3+ consecutive blank lines to 2
   text = text.replace(/(\n\s*){3,}/g, "\n\n")
 
-  return text.trim()
+  text = text.trim()
+
+  // Safety fallback: if cleaning removed almost everything, show original text.
+  if (text.length < 10 && original.trim().length > 0) {
+    return original.trim()
+  }
+
+  return text
 }
 
-const rawBody = computed(() => props.message.full_body || props.message.body_text || props.message.body || props.message.ai_summary || props.message.result || "")
+function htmlToText(html) {
+  if (!html) return ""
+  return String(html)
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\r/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+const rawBody = computed(() => {
+  return props.message.full_body
+    || props.message.body_text
+    || props.message.body
+    || htmlToText(props.message.body_html)
+    || props.message.ai_summary
+    || props.message.result
+    || ""
+})
 const displayBody = computed(() => cleanEmailBody(rawBody.value))
 const hasQuotedContent = computed(() => rawBody.value.length > displayBody.value.length + 20)
 
@@ -94,6 +158,12 @@ const attachments = computed(() => {
     return names.map((name, idx) => ({ name, index: idx }))
   }
   return []
+})
+
+const hasRenderableContent = computed(() => {
+  const text = (displayBody.value || '').trim()
+  const raw = (rawBody.value || '').trim()
+  return text.length > 0 || raw.length > 0 || attachments.value.length > 0
 })
 
 const bubbleClasses = computed(() => {
@@ -132,21 +202,12 @@ function onSaveAttachment(att, idx) {
 </script>
 
 <template>
-  <div class="flex w-full" :class="isOutbound ? 'justify-end' : 'justify-start'">
+  <div v-if="hasRenderableContent" class="flex w-full" :class="isOutbound ? 'justify-end' : 'justify-start'">
     <div
       class="max-w-[80%] px-4 py-3"
       :class="[bubbleClasses, isTruncatable && !expanded ? 'cursor-pointer' : '']"
       @click="toggleExpand"
     >
-      <!-- Meta line -->
-      <div class="flex items-center gap-2 mb-1 flex-wrap">
-        <span class="text-[10px] font-medium opacity-70">{{ displayName }}</span>
-        <span class="text-[10px] opacity-50">{{ formatDate(message.email_date || message.activity_date || message.date) }}</span>
-        <Badge variant="outline" class="text-[9px] px-1.5 py-0 h-4 font-normal border" :class="typeBadge.classes">
-          {{ typeBadge.label }}
-        </Badge>
-      </div>
-
       <!-- Body -->
       <div class="text-[13px] leading-[1.6] whitespace-pre-wrap break-words">
         <template v-if="!isTruncatable || expanded">{{ displayBody }}</template>

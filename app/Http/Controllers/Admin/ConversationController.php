@@ -167,14 +167,14 @@ class ConversationController extends Controller
         // Mark as read
         app(ConversationService::class)->markRead($conv);
 
-        // Load messages from portal_emails matched by contact_email + property_id
-        // DEFENSE: when contact_email is an internal SR-Homes address (data bug
-        // from before resolveContactEmail was hardened), the wildcard to_email
-        // LIKE would leak that inbox owner's entire personal inbox into the
-        // conversation view. In that case match strictly by stakeholder only
-        // and exclude internal senders.
+        // Load messages from portal_emails matched by contact_email + property_id.
+        // DEFENSE: when contact_email is an internal SR-Homes address (legacy data
+        // bug), avoid to_email wildcard matching and scope strictly by stakeholder.
+        // Do NOT exclude internal senders here, otherwise legitimate internal
+        // conversation messages (e.g. colleague replies) disappear from the thread.
         $isInternalContact = (bool) preg_match('/@(sr-homes\.at|bstf\.at)$/i', (string) $conv->contact_email);
         if ($isInternalContact) {
+            $stakeholderEmail = filter_var($conv->stakeholder, FILTER_VALIDATE_EMAIL) ? strtolower($conv->stakeholder) : null;
             $messages = DB::select("
                 SELECT
                     pe.id, pe.direction,
@@ -190,11 +190,29 @@ class ConversationController extends Controller
                 FROM portal_emails pe
                 LEFT JOIN activities a ON a.source_email_id = pe.id
                 WHERE (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
-                  AND LOWER(pe.stakeholder) = LOWER(?)
-                  AND LOWER(pe.from_email) NOT LIKE '%@sr-homes.at'
-                  AND LOWER(pe.from_email) NOT LIKE '%@bstf.at'
+                  AND (
+                      LOWER(pe.stakeholder) = LOWER(?)
+                      OR (
+                          ? IS NOT NULL
+                          AND (
+                              (LOWER(pe.from_email) = LOWER(?) AND LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%'))
+                              OR (LOWER(pe.from_email) = LOWER(?) AND LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%'))
+                          )
+                      )
+                      OR pe.id = ?
+                  )
                 ORDER BY pe.email_date ASC
-            ", [$conv->property_id, $conv->property_id, $conv->stakeholder]);
+            ", [
+                $conv->property_id,
+                $conv->property_id,
+                $conv->stakeholder,
+                $stakeholderEmail,
+                $conv->contact_email,
+                $stakeholderEmail,
+                $stakeholderEmail,
+                $conv->contact_email,
+                $conv->last_email_id,
+            ]);
         } else {
             $messages = DB::select("
                 SELECT
@@ -215,12 +233,49 @@ class ConversationController extends Controller
                       LOWER(pe.from_email) = LOWER(?)
                       OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')
                       OR LOWER(pe.stakeholder) = LOWER(?)
+                      OR pe.id = ?
+                      OR (
+                          ? IS NOT NULL
+                          AND LOWER(pe.from_email) LIKE '%noreply%'
+                          AND LOWER(pe.body_text) LIKE CONCAT('%', LOWER(?), '%')
+                      )
                   )
                 ORDER BY pe.email_date ASC
-            ", [$conv->property_id, $conv->property_id, $conv->contact_email, $conv->contact_email, $conv->stakeholder]);
+            ", [
+                $conv->property_id,
+                $conv->property_id,
+                $conv->contact_email,
+                $conv->contact_email,
+                $conv->stakeholder,
+                $conv->last_email_id,
+                $conv->contact_email,
+                $conv->contact_email,
+            ]);
         }
 
+        // Normalize potential legacy/invalid encodings so JSON rendering does not
+        // drop message body fields ("only Eingehend badge visible" issue).
+        $messages = array_map(function ($msg) {
+            foreach (['from_name', 'subject', 'body_text', 'body_html', 'category', 'attachment_names'] as $field) {
+                if (!isset($msg->$field) || $msg->$field === null) {
+                    continue;
+                }
+                $value = (string) $msg->$field;
+                if ($value === '') {
+                    continue;
+                }
+                $clean = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
+                $msg->$field = $clean !== false ? $clean : mb_convert_encoding($value, 'UTF-8', 'UTF-8, ISO-8859-1, Windows-1252');
+            }
+            return $msg;
+        }, $messages);
+
         $prop = $conv->property;
+        $latestMessage = !empty($messages) ? $messages[count($messages) - 1] : null;
+        $headerFromName = $conv->stakeholder
+            ?: ($latestMessage->from_name ?? null)
+            ?: $conv->contact_email;
+
         $convData = [
             'id'               => $conv->id,
             'contact_email'    => $conv->contact_email,
@@ -243,12 +298,12 @@ class ConversationController extends Controller
             'is_read'          => $conv->is_read,
             'ref_id'           => $prop?->ref_id,
             'address'          => $prop?->address,
-            'from_name'        => $conv->stakeholder,
+            'from_name'        => $headerFromName,
         ];
 
         // Add subject from latest message
         $convData['subject'] = !empty($messages) ? ($messages[count($messages) - 1]->subject ?? '') : '';
-        $convData['from_name'] = $conv->stakeholder;
+        $convData['from_name'] = $headerFromName;
 
         return response()->json([
             'conversation' => $convData,

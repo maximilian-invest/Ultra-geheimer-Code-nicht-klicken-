@@ -47,7 +47,8 @@ class LinkActivityLogger
 
     public function refreshActivitySummary(PropertyLinkSession $session): void
     {
-        $session->loadMissing('link', 'events');
+        // Force-reload relations so newly created events are reflected in the summary.
+        $session->load('link', 'events');
 
         Activity::where('link_session_id', $session->id)->update([
             'activity' => $this->buildSummaryText($session),

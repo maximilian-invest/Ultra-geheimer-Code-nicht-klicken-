@@ -38,4 +38,27 @@ class LinkActivityLoggerTest extends TestCase
         $logger->recordLinkOpened($session);
         $this->assertDatabaseCount('activities', 1);
     }
+
+    public function test_record_event_updates_summary_text_with_counts(): void
+    {
+        $link = PropertyLink::factory()->create(['name' => 'Phase 2']);
+        $session = PropertyLinkSession::factory()->create([
+            'property_link_id' => $link->id,
+            'email' => 'bob@example.com',
+        ]);
+
+        $logger = new LinkActivityLogger();
+        $logger->recordLinkOpened($session);
+
+        $logger->recordEvent($session, \App\Models\PropertyLinkEvent::TYPE_DOC_VIEWED, 42, 60);
+        $logger->recordEvent($session, \App\Models\PropertyLinkEvent::TYPE_DOC_VIEWED, 43, 90);
+        $logger->recordEvent($session, \App\Models\PropertyLinkEvent::TYPE_DOC_DOWNLOADED, 42, null);
+
+        $activity = \App\Models\Activity::where('link_session_id', $session->id)->first();
+        $this->assertStringContainsString('2 Dokumente angesehen', $activity->activity);
+        $this->assertStringContainsString('1 heruntergeladen', $activity->activity);
+        $this->assertStringContainsString("Phase 2", $activity->activity);
+
+        $this->assertDatabaseCount('property_link_events', 3);
+    }
 }

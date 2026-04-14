@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /kundenportal/
+
+Sitemap: https://www.sr-homes.at/sitemap.xml

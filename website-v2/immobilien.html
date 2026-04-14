@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="https://api.immoji.org/image/c602e391-bb1f-445e-b783-70d7fd1de866.svg" />
+  <title>Immobilien | SR-Homes</title>
+  <meta name="description" content="Entdecken Sie exklusive Immobilien in Salzburg und Oberösterreich. Häuser, Wohnungen, Neubauprojekte und Grundstücke." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body data-page="immobilien" class="bg-[#FAF8F5]">
+
+<div id="nav-placeholder"></div>
+
+<main>
+<!-- Header -->
+<section class="pt-32 pb-20 md:pt-40 md:pb-28" style="background:#F0ECE6;border-bottom:1px solid #E5E0D8">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+    <div class="flex items-center gap-3 mb-5">
+      <div style="width:32px;height:2px;background:#D4743B;border-radius:2px"></div>
+      <span class="uppercase tracking-[0.2em] text-xs font-semibold" style="color:#D4743B">Immobilienangebot</span>
+    </div>
+    <h1 class="font-display section-heading" style="font-size:clamp(2.5rem,5vw,4.5rem);font-weight:700;color:#0A0A08;line-height:1;letter-spacing:-0.03em">Finden Sie Ihr neues Zuhause</h1>
+    <p class="text-lg mt-4 max-w-xl" style="color:#5A564E" id="listing-subtitle">Immobilien in Salzburg und Oberösterreich.</p>
+  </div>
+</section>
+
+<!-- Filters + Grid -->
+<section class="py-12" style="background:#FAF8F5">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+    <!-- Filter Bar -->
+    <div class="flex flex-wrap items-center gap-3 mb-10">
+      <button class="filter-cat active px-6 py-2.5 rounded-full text-sm font-semibold transition-all" data-cat="alle" style="background:#D4743B;color:#fff">ALLE</button>
+      <button class="filter-cat px-6 py-2.5 rounded-full text-sm font-semibold transition-all" data-cat="kauf" style="background:transparent;color:#5A564E;border:1.5px solid #E5E0D8">KAUFEN</button>
+      <div class="w-px h-8 mx-2" style="background:#E5E0D8"></div>
+      <button class="filter-type active px-5 py-2.5 rounded-full text-sm font-semibold transition-all" data-type="alle" style="background:#0A0A08;color:#fff">ALLE TYPEN</button>
+      <button class="filter-type px-5 py-2.5 rounded-full text-sm font-semibold transition-all" data-type="haus" style="background:transparent;color:#5A564E;border:1.5px solid #E5E0D8">HAUS</button>
+      <button class="filter-type px-5 py-2.5 rounded-full text-sm font-semibold transition-all" data-type="wohnung" style="background:transparent;color:#5A564E;border:1.5px solid #E5E0D8">WOHNUNG</button>
+      <button class="filter-type px-5 py-2.5 rounded-full text-sm font-semibold transition-all" data-type="neubau" style="background:transparent;color:#5A564E;border:1.5px solid #E5E0D8">NEUBAU</button>
+      <button class="filter-type px-5 py-2.5 rounded-full text-sm font-semibold transition-all" data-type="grundst" style="background:transparent;color:#5A564E;border:1.5px solid #E5E0D8">GRUNDST.</button>
+      <div class="flex-1"></div>
+      <span id="result-count" class="text-sm font-medium" style="color:#9A958C">Ergebnisse</span>
+    </div>
+    <!-- Property Grid -->
+    <div id="property-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <p class="text-sm" style="color:#9A958C">Immobilien werden geladen...</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- Footer (same as homepage) -->
+<div id="footer-placeholder"></div>
+
+<div class="grain"></div>
+<script src="js/app.js"></script>
+<script src="js/listings.js"></script>
+</body>
+</html>

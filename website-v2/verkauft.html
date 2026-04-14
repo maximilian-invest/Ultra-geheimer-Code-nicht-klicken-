@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Referenzen — Erfolgreich vermittelt | SR-Homes</title>
+  <meta name="description" content="Unsere erfolgreich vermittelten Immobilien in Salzburg und Umgebung. Entdecken Sie unsere Referenzen." />
+  <base href="/" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="antialiased" style="font-family:'Outfit',sans-serif;background:#FAF8F5;color:#0A0A08" data-page="verkauft">
+
+  <div id="nav-placeholder"></div>
+
+  <!-- Hero Section -->
+  <section style="background:#0A0A08;padding:160px 0 80px;position:relative">
+    <div style="position:absolute;top:-200px;right:-200px;width:600px;height:600px;background:radial-gradient(circle,rgba(212,116,59,0.06) 0%,transparent 70%);pointer-events:none"></div>
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 md:px-12 lg:px-16">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div style="width:32px;height:2px;background:#D4743B;border-radius:2px"></div>
+        <span style="text-transform:uppercase;letter-spacing:0.2em;font-size:0.7rem;font-weight:600;color:#D4743B">Referenzen</span>
+      </div>
+      <h1 class="font-display" style="font-size:clamp(2.5rem,5vw,4.5rem);font-weight:700;color:#fff;letter-spacing:-0.03em;line-height:0.95">Erfolgreich<br/>vermittelt.</h1>
+      <p style="font-size:1.1rem;color:rgba(255,255,255,0.4);margin-top:20px;max-width:600px;line-height:1.7">Jede Immobilie ist eine Erfolgsgeschichte. Hier finden Sie eine Auswahl unserer abgeschlossenen Vermittlungen — mit dem Makler, der sie begleitet hat.</p>
+      <!-- Stats Bar -->
+      <div id="ref-stats" style="display:flex;gap:40px;margin-top:48px;padding-top:32px;border-top:1px solid rgba(255,255,255,0.06)"></div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(212,116,59,0.3),transparent)"></div>
+  </section>
+
+  <!-- Properties Grid -->
+  <section style="padding:80px 0">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 md:px-12 lg:px-16">
+      <div id="ref-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      <div id="ref-empty" class="text-center py-16" style="display:none">
+        <p class="text-lg" style="color:#9A958C">Aktuell sind noch keine Referenzen verfügbar.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section style="background:#0A0A08;padding:80px 0">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 md:px-12 lg:px-16 text-center">
+      <h2 class="font-display text-2xl md:text-4xl font-bold text-white" style="letter-spacing:-0.03em">Ihre Immobilie könnte die nächste sein.</h2>
+      <p class="mt-4 mx-auto" style="color:rgba(255,255,255,0.4);max-width:480px;font-size:0.95rem">Erfahren Sie den aktuellen Marktwert Ihrer Immobilie — kostenlos und unverbindlich.</p>
+      <div class="flex items-center justify-center gap-4 mt-8 flex-wrap">
+        <a href="bewerten.html" class="inline-flex items-center gap-3 font-semibold text-sm px-8 py-4 text-white rounded-full transition-all duration-500" style="background:#D4743B;letter-spacing:0.05em">
+          Kostenlose Bewertung
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+        </a>
+        <a href="kontakt.html" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:100px;font-size:0.85rem;font-weight:600;color:#fff;border:1px solid rgba(255,255,255,0.12);background:transparent;text-decoration:none;letter-spacing:0.05em;transition:all 0.4s">
+          Beratungsgespräch
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer-placeholder"></div>
+
+  <script src="js/app.js"></script>
+  <script src="js/verkauft.js"></script>
+</body>
+</html>

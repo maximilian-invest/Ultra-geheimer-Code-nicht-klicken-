@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>News | Immobilien-Ratgeber Salzburg | SR Homes</title>
+  <meta name="description" content="Expertenwissen rund um Immobilien in Salzburg: Verkaufen, Kaufen, Bewerten, Finanzierung. Aktuelle Marktanalysen und Praxistipps von SR Homes." />
+  <link rel="canonical" href="https://www.sr-homes.at/blog" />
+  <meta property="og:title" content="News | Immobilien-Ratgeber Salzburg | SR Homes" />
+  <meta property="og:description" content="Expertenwissen rund um Immobilien in Salzburg: Verkaufen, Kaufen, Bewerten, Finanzierung." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.sr-homes.at/blog" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200..900&family=Playfair+Display:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{accent:'#D4743B','accent-hover':'#C0551F',cream:'#FAF8F5','cream-mid':'#F0ECE6',dark:'#0A0A08',body:'#5A564E',muted:'#9A958C',border:'#E5E0D8'}}}}</script>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .blog-card { transition: transform 0.5s cubic-bezier(0.22,1,0.36,1), box-shadow 0.5s cubic-bezier(0.22,1,0.36,1); }
+    .blog-card:hover { transform:translateY(-4px); box-shadow:0 24px 48px -12px rgba(10,10,8,0.1); }
+    .blog-card:hover .card-img img { transform:scale(1.05); }
+    .blog-card .card-img img { transition: transform 1.2s cubic-bezier(0.22,1,0.36,1); }
+    .featured-card:hover .featured-img img { transform:scale(1.04); }
+    .featured-card .featured-img img { transition: transform 1.4s cubic-bezier(0.22,1,0.36,1); }
+    .filter-chip { transition: all 0.3s cubic-bezier(0.22,1,0.36,1); }
+    .filter-chip:hover:not(.active) { background:rgba(212,116,59,0.06) !important; border-color:#D4743B !important; color:#D4743B !important; }
+    .cta-bg { position:relative; overflow:hidden; }
+    .cta-bg::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg, rgba(10,10,8,0.92) 0%, rgba(10,10,8,0.75) 50%, rgba(10,10,8,0.88) 100%); z-index:1; }
+    .cta-bg > * { position:relative; z-index:2; }
+  </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    "name": "SR Homes Immobilien-News",
+    "description": "Expertenwissen rund um Immobilien in Salzburg: Verkaufen, Kaufen, Bewerten, Finanzierung.",
+    "url": "https://www.sr-homes.at/blog",
+    "publisher": {
+      "@type": "Organization",
+      "name": "SR Homes GmbH",
+      "url": "https://www.sr-homes.at"
+    }
+  }
+  </script>
+</head>
+<body style="background:#FAF8F5">
+  <div id="nav-placeholder"></div>
+
+  <!-- Hero -->
+  <section style="background:#0A0A08" class="pt-40 pb-24 md:pb-32 relative overflow-hidden">
+    <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 80% 60% at 10% 50%, rgba(212,116,59,0.08) 0%, transparent 70%)"></div>
+    <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 40% 40% at 90% 80%, rgba(212,116,59,0.04) 0%, transparent 70%)"></div>
+    <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16 relative z-10">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-end">
+        <div class="lg:col-span-7">
+          <div class="flex items-center gap-3 mb-6" data-animate>
+            <div class="w-8 h-[2px]" style="background:#D4743B"></div>
+            <span class="text-xs font-semibold tracking-[0.2em] uppercase" style="color:#D4743B">Immobilien-News</span>
+          </div>
+          <h1 class="font-display font-semibold leading-tight mb-6" style="color:#FAF8F5;font-size:clamp(2.2rem,4.5vw,3.8rem);letter-spacing:-0.02em" data-animate>
+            Wissen, das Immobilien&shy;entscheidungen besser macht
+          </h1>
+          <p class="text-base md:text-lg leading-relaxed" style="color:rgba(255,255,255,0.5);max-width:520px" data-animate>
+            Marktanalysen, Praxistipps und Ratgeber rund um Immobilien in Salzburg, Oberösterreich und ganz Österreich.
+          </p>
+        </div>
+        <div class="lg:col-span-5 hidden lg:flex items-end justify-end" data-animate>
+          <div class="flex items-center gap-6">
+            <div class="text-right">
+              <div class="text-3xl font-bold tracking-tight" style="color:#FAF8F5">10+</div>
+              <div class="text-xs font-medium uppercase tracking-widest mt-1" style="color:rgba(255,255,255,0.35)">Ratgeber</div>
+            </div>
+            <div class="w-[1px] h-12" style="background:rgba(255,255,255,0.1)"></div>
+            <div class="text-right">
+              <div class="text-3xl font-bold tracking-tight" style="color:#FAF8F5">2</div>
+              <div class="text-xs font-medium uppercase tracking-widest mt-1" style="color:rgba(255,255,255,0.35)">Kategorien</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Category Filter -->
+  <div id="filter-bar" style="background:#FAF8F5;border-bottom:1px solid #E5E0D8" class="sticky top-[64px] md:top-[80px] z-40">
+    <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16 py-4 flex items-center gap-3 overflow-x-auto scrollbar-hide">
+      <button class="filter-chip active shrink-0 px-5 py-2.5 rounded-full text-sm font-semibold" data-filter="all" style="background:#0A0A08;color:#FAF8F5;border:1px solid #0A0A08;letter-spacing:0.02em">
+        Alle Beiträge
+      </button>
+      <button class="filter-chip shrink-0 px-5 py-2.5 rounded-full text-sm font-medium" data-filter="ratgeber" style="background:transparent;color:#5A564E;border:1px solid #E5E0D8;letter-spacing:0.02em">
+        Ratgeber
+      </button>
+      <button class="filter-chip shrink-0 px-5 py-2.5 rounded-full text-sm font-medium" data-filter="news" style="background:transparent;color:#5A564E;border:1px solid #E5E0D8;letter-spacing:0.02em">
+        News &amp; Markt
+      </button>
+    </div>
+  </div>
+
+  <!-- Blog Grid -->
+  <section class="py-16 md:py-24" style="background:#FAF8F5">
+    <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+      <!-- Loading State -->
+      <div id="blog-loading" class="space-y-6">
+        <div class="rounded-2xl overflow-hidden animate-pulse" style="background:#F0ECE6;height:420px"></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="rounded-2xl overflow-hidden animate-pulse" style="background:#F0ECE6;height:380px"></div>
+          <div class="rounded-2xl overflow-hidden animate-pulse" style="background:#F0ECE6;height:380px"></div>
+        </div>
+      </div>
+      <!-- Featured Post -->
+      <div id="blog-featured" class="hidden mb-8"></div>
+      <!-- Grid Posts -->
+      <div id="blog-grid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      <!-- Empty State -->
+      <div id="blog-empty" class="hidden text-center py-24">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6" style="background:#F0ECE6">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9A958C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <p class="font-display text-2xl font-semibold mb-3" style="color:#0A0A08">Noch keine Beiträge</p>
+        <p class="text-base" style="color:#9A958C">Neue Artikel erscheinen in Kürze.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section with DALL-E Background -->
+  <section class="cta-bg py-24 md:py-32">
+    <img src="https://kundenportal.sr-homes.at/storage/blog/cta-hero-salzburg.png" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+    <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        <div>
+          <div class="flex items-center gap-3 mb-8" data-animate>
+            <div class="w-8 h-[2px]" style="background:#D4743B"></div>
+            <span class="text-xs font-semibold tracking-[0.2em] uppercase" style="color:#D4743B">Bereit für den nächsten Schritt?</span>
+          </div>
+          <h2 class="font-display font-semibold leading-tight mb-6" style="color:#FAF8F5;font-size:clamp(1.8rem,3.5vw,3rem);letter-spacing:-0.02em" data-animate>
+            Ihre Immobilie verdient eine Strategie, kein Bauchgefühl
+          </h2>
+          <p class="text-base leading-relaxed mb-10" style="color:rgba(255,255,255,0.5);max-width:480px" data-animate>
+            Ob Verkauf, Kauf oder Bewertung — wir begleiten Sie mit datenbasierter Expertise und persönlicher Betreuung.
+          </p>
+          <div class="flex flex-col sm:flex-row gap-4" data-animate>
+            <a href="kontakt.html" class="inline-flex items-center justify-center gap-3 font-bold text-sm px-8 py-4 rounded-full text-white transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]" style="background:#D4743B;letter-spacing:0.05em">
+              KOSTENLOSE BERATUNG
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+            </a>
+            <a href="bewerten.html" class="inline-flex items-center justify-center gap-3 font-semibold text-sm px-8 py-4 rounded-full transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]" style="color:#FAF8F5;border:1.5px solid rgba(255,255,255,0.2);letter-spacing:0.05em">
+              IMMOBILIE BEWERTEN
+            </a>
+          </div>
+        </div>
+        <div class="hidden lg:flex justify-end">
+          <div class="grid grid-cols-2 gap-4" style="max-width:320px">
+            <div class="p-6 rounded-2xl" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(12px)">
+              <div class="text-2xl font-bold tracking-tight mb-1" style="color:#FAF8F5">250+</div>
+              <div class="text-xs font-medium" style="color:rgba(255,255,255,0.4)">Vermittelte Objekte</div>
+            </div>
+            <div class="p-6 rounded-2xl" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(12px)">
+              <div class="text-2xl font-bold tracking-tight mb-1" style="color:#FAF8F5">98%</div>
+              <div class="text-xs font-medium" style="color:rgba(255,255,255,0.4)">Zufriedenheit</div>
+            </div>
+            <div class="col-span-2 p-6 rounded-2xl" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(12px)">
+              <div class="text-2xl font-bold tracking-tight mb-1" style="color:#FAF8F5">15+ Jahre</div>
+              <div class="text-xs font-medium" style="color:rgba(255,255,255,0.4)">Erfahrung in Salzburg &amp; OÖ</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer-placeholder"></div>
+  <div class="grain"></div>
+  <script src="js/app.js"></script>
+  <script src="js/blog.js"></script>
+</body>
+</html>

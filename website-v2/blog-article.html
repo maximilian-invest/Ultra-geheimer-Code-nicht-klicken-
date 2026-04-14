@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>News | SR Homes</title>
+  <meta name="description" content="" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200..900&family=Playfair+Display:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{accent:'#D4743B','accent-hover':'#C0551F',cream:'#FAF8F5','cream-mid':'#F0ECE6',dark:'#0A0A08',body:'#5A564E',muted:'#9A958C',border:'#E5E0D8'}}}}</script>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    /* Reading Progress */
+    #reading-progress { position:fixed; top:0; left:0; height:3px; background:linear-gradient(90deg, #D4743B, #E8943A); z-index:9999; width:0%; transition:width 0.1s linear; }
+
+    /* Article Typography */
+    .article-content h2 {
+      font-family:'Playfair Display',Georgia,serif; font-size:1.75rem; font-weight:700; color:#0A0A08;
+      margin-top:2.5rem; margin-bottom:1rem; line-height:1.3; padding-bottom:0.5rem;
+      border-bottom:1px solid #F0ECE6;
+    }
+    .article-content h3 {
+      font-family:'Playfair Display',Georgia,serif; font-size:1.35rem; font-weight:600; color:#0A0A08;
+      margin-top:2rem; margin-bottom:0.75rem; line-height:1.35;
+    }
+    .article-content h4 { font-size:1.1rem; font-weight:700; color:#0A0A08; margin-top:1.5rem; margin-bottom:0.5rem; }
+    .article-content p { font-size:1.125rem; line-height:1.85; color:#5A564E; margin-bottom:1.25rem; }
+    .article-content a { color:#D4743B; text-decoration:underline; text-underline-offset:3px; text-decoration-color:rgba(212,116,59,0.3); transition:text-decoration-color 0.2s; }
+    .article-content a:hover { color:#C0551F; text-decoration-color:#C0551F; }
+    .article-content ul, .article-content ol { margin-bottom:1.25rem; padding-left:1.5rem; }
+    .article-content ul { list-style-type:disc; }
+    .article-content ol { list-style-type:decimal; }
+    .article-content li { font-size:1.125rem; line-height:1.75; color:#5A564E; margin-bottom:0.4rem; }
+    .article-content li::marker { color:#D4743B; }
+    .article-content strong { color:#0A0A08; font-weight:700; }
+    .article-content em { font-style:italic; }
+    .article-content blockquote {
+      border-left:3px solid #D4743B; margin:1.5rem 0; padding:1rem 1.5rem;
+      background:rgba(212,116,59,0.03); border-radius:0 12px 12px 0;
+    }
+    .article-content blockquote p { color:#5A564E; font-style:italic; margin-bottom:0; }
+    .article-content table { width:100%; border-collapse:collapse; margin-bottom:1.5rem; font-size:0.95rem; border-radius:12px; overflow:hidden; }
+    .article-content th { background:#0A0A08; color:#FAF8F5; font-weight:600; padding:0.75rem 1rem; text-align:left; font-size:0.85rem; letter-spacing:0.03em; }
+    .article-content td { padding:0.65rem 1rem; border-bottom:1px solid #F0ECE6; color:#5A564E; }
+    .article-content tr:last-child td { border-bottom:none; }
+    .article-content tr:hover td { background:rgba(212,116,59,0.02); }
+    .article-content hr { border:none; border-top:1px solid #E5E0D8; margin:2.5rem 0; }
+
+    /* TOC */
+    .toc-link {
+      display:block; padding:0.4rem 0; font-size:0.85rem; color:#9A958C;
+      border-left:2px solid transparent; padding-left:1rem; transition:all 0.25s cubic-bezier(0.22,1,0.36,1);
+      text-decoration:none; line-height:1.4;
+    }
+    .toc-link:hover { color:#5A564E; border-left-color:#E5E0D8; }
+    .toc-link.active { color:#D4743B; border-left-color:#D4743B; font-weight:500; }
+    .toc-link.h3 { padding-left:1.75rem; font-size:0.8rem; }
+
+    /* Share button hover */
+    .share-btn { transition:all 0.25s cubic-bezier(0.22,1,0.36,1); }
+    .share-btn:hover { transform:translateY(-2px); box-shadow:0 4px 12px -4px rgba(10,10,8,0.08); }
+
+    /* Related cards */
+    .related-card { transition:transform 0.5s cubic-bezier(0.22,1,0.36,1), box-shadow 0.5s cubic-bezier(0.22,1,0.36,1); }
+    .related-card:hover { transform:translateY(-4px); box-shadow:0 20px 40px -12px rgba(10,10,8,0.1); }
+    .related-card:hover .rel-img img { transform:scale(1.05); }
+    .related-card .rel-img img { transition:transform 1.2s cubic-bezier(0.22,1,0.36,1); }
+
+    /* CTA */
+    .cta-bg { position:relative; overflow:hidden; }
+    .cta-bg::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg, rgba(10,10,8,0.92) 0%, rgba(10,10,8,0.75) 50%, rgba(10,10,8,0.88) 100%); z-index:1; }
+    .cta-bg > * { position:relative; z-index:2; }
+
+    /* Author pill */
+    .author-pill { display:inline-flex; align-items:center; gap:8px; padding:6px 14px 6px 6px; border-radius:999px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.06); }
+  </style>
+  <script type="application/ld+json" id="schema-blogposting">{}</script>
+</head>
+<body style="background:#FAF8F5">
+  <div id="reading-progress"></div>
+  <div id="nav-placeholder"></div>
+
+  <!-- Breadcrumb -->
+  <div style="background:#FAF8F5;border-bottom:1px solid #E5E0D8" class="pt-20 md:pt-24">
+    <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16 py-3">
+      <nav class="flex items-center gap-2 text-sm" style="color:#9A958C">
+        <a href="index.html" class="transition-colors hover:text-accent" style="color:#9A958C">Start</a>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <a href="blog.html" class="transition-colors hover:text-accent" style="color:#9A958C">News</a>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <span id="breadcrumb-title" class="truncate max-w-[300px]" style="color:#5A564E">Artikel</span>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Article Hero -->
+  <section id="article-hero" style="background:#0A0A08" class="py-16 md:py-24 relative overflow-hidden">
+    <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 70% 60% at 15% 50%, rgba(212,116,59,0.09) 0%, transparent 70%)"></div>
+    <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16 relative z-10">
+      <div class="max-w-[860px]">
+        <div id="article-meta" class="flex flex-wrap items-center gap-4 mb-8"></div>
+        <h1 id="article-title" class="font-display font-semibold leading-tight mb-6" style="color:#FAF8F5;font-size:clamp(1.9rem,4vw,3.5rem);letter-spacing:-0.02em">&nbsp;</h1>
+        <p id="article-excerpt" class="text-base md:text-lg leading-relaxed mb-8" style="color:rgba(255,255,255,0.5);max-width:680px">&nbsp;</p>
+        <div id="article-author" class="author-pill hidden">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style="background:#D4743B;color:#fff">SR</div>
+          <span class="text-sm font-medium" style="color:rgba(255,255,255,0.6)">SR Homes Redaktion</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Featured Image -->
+  <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16 -mt-8 relative z-10 mb-4">
+    <div id="article-image-wrap" class="hidden">
+      <img id="article-image" src="" alt="" class="w-full rounded-2xl object-cover shadow-lg" style="max-height:520px;box-shadow:0 25px 50px -12px rgba(10,10,8,0.15)" />
+    </div>
+  </div>
+
+  <!-- Article Body -->
+  <section class="py-12 md:py-16" style="background:#FAF8F5">
+    <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+      <div class="flex gap-16 items-start">
+        <!-- Main Content -->
+        <div class="flex-1 min-w-0">
+          <div id="article-body" class="article-content max-w-[720px]">
+            <div id="article-skeleton" class="space-y-4">
+              <div class="h-5 rounded-lg animate-pulse" style="background:#F0ECE6;width:90%"></div>
+              <div class="h-5 rounded-lg animate-pulse" style="background:#F0ECE6;width:100%"></div>
+              <div class="h-5 rounded-lg animate-pulse" style="background:#F0ECE6;width:80%"></div>
+              <div class="h-8 mt-8 rounded-lg animate-pulse" style="background:#F0ECE6;width:50%"></div>
+              <div class="h-5 rounded-lg animate-pulse" style="background:#F0ECE6;width:95%"></div>
+              <div class="h-5 rounded-lg animate-pulse" style="background:#F0ECE6;width:88%"></div>
+              <div class="h-5 rounded-lg animate-pulse" style="background:#F0ECE6;width:72%"></div>
+            </div>
+          </div>
+
+          <!-- Tags -->
+          <div id="article-tags" class="hidden mt-12 pt-8" style="border-top:1px solid #E5E0D8">
+            <div class="flex flex-wrap gap-2" id="tags-container"></div>
+          </div>
+        </div>
+
+        <!-- Sidebar -->
+        <aside class="hidden xl:block shrink-0" style="width:280px;position:sticky;top:120px">
+          <!-- TOC -->
+          <div id="toc-wrap" class="hidden mb-6 p-6 rounded-2xl" style="background:#fff;border:1px solid #F0ECE6;box-shadow:0 1px 3px rgba(10,10,8,0.04)">
+            <h4 class="text-xs font-bold uppercase tracking-[0.15em] mb-4" style="color:#9A958C">Inhaltsverzeichnis</h4>
+            <nav id="toc-nav" class="space-y-0.5" style="max-height:calc(100vh - 260px);overflow-y:auto"></nav>
+          </div>
+          <!-- Share -->
+          <div id="share-wrap" class="hidden p-6 rounded-2xl" style="background:#fff;border:1px solid #F0ECE6;box-shadow:0 1px 3px rgba(10,10,8,0.04)">
+            <h4 class="text-xs font-bold uppercase tracking-[0.15em] mb-4" style="color:#9A958C">Artikel teilen</h4>
+            <div class="flex flex-col gap-2">
+              <button id="share-linkedin" class="share-btn flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium" style="background:#FAF8F5;color:#5A564E;border:1px solid #F0ECE6">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#0A66C2"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+                LinkedIn
+              </button>
+              <button id="share-whatsapp" class="share-btn flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium" style="background:#FAF8F5;color:#5A564E;border:1px solid #F0ECE6">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#25D366"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                WhatsApp
+              </button>
+              <button id="share-email" class="share-btn flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium" style="background:#FAF8F5;color:#5A564E;border:1px solid #F0ECE6">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A564E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                Per E-Mail
+              </button>
+              <button id="share-copy" class="share-btn flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium" style="background:#FAF8F5;color:#5A564E;border:1px solid #F0ECE6">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A564E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span id="share-copy-text">Link kopieren</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- Related Articles -->
+  <section id="related-section" class="py-16 md:py-24 hidden" style="background:#fff;border-top:1px solid #F0ECE6">
+    <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+      <div class="flex items-center gap-3 mb-4" data-animate>
+        <div class="w-8 h-[2px]" style="background:#D4743B"></div>
+        <span class="text-xs font-semibold tracking-[0.2em] uppercase" style="color:#D4743B">Weitere Beiträge</span>
+      </div>
+      <h2 class="font-display font-semibold mb-12" style="color:#0A0A08;font-size:clamp(1.6rem,3vw,2.5rem);letter-spacing:-0.02em" data-animate>
+        Das könnte Sie auch interessieren
+      </h2>
+      <div id="related-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta-bg py-20 md:py-28">
+    <img src="https://kundenportal.sr-homes.at/storage/blog/cta-hero-salzburg.png" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+    <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
+      <div class="max-w-2xl">
+        <div class="flex items-center gap-3 mb-8" data-animate>
+          <div class="w-8 h-[2px]" style="background:#D4743B"></div>
+          <span class="text-xs font-semibold tracking-[0.2em] uppercase" style="color:#D4743B">Bereit für den nächsten Schritt?</span>
+        </div>
+        <h2 class="font-display font-semibold leading-tight mb-6" style="color:#FAF8F5;font-size:clamp(1.8rem,3.5vw,3rem);letter-spacing:-0.02em" data-animate>
+          Ihre Immobilie verdient eine Strategie, kein Bauchgefühl
+        </h2>
+        <p class="text-base leading-relaxed mb-10" style="color:rgba(255,255,255,0.5);max-width:480px" data-animate>
+          Ob Verkauf, Kauf oder Bewertung — wir begleiten Sie mit datenbasierter Expertise und persönlicher Betreuung.
+        </p>
+        <a href="kontakt.html" class="inline-flex items-center gap-3 font-bold text-sm px-8 py-4 rounded-full text-white transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]" style="background:#D4743B;letter-spacing:0.05em" data-animate>
+          KOSTENLOSE BERATUNG
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer-placeholder"></div>
+  <div class="grain"></div>
+  <script src="js/app.js"></script>
+  <script src="js/article.js"></script>
+</body>
+</html>

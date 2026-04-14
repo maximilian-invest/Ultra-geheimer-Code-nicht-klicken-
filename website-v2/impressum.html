@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="https://api.immoji.org/image/c602e391-bb1f-445e-b783-70d7fd1de866.svg" />
+  <title>Impressum | SR-Homes</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body data-page="impressum" class="bg-[#FAF8F5]">
+<div id="nav-placeholder"></div>
+
+<main class="pt-32 pb-20">
+  <div class="max-w-[900px] mx-auto px-6 md:px-12">
+    <h1 class="font-display text-3xl md:text-4xl font-bold mb-10" style="color:#0A0A08">Impressum</h1>
+    <div id="impressum-content" class="prose-sr space-y-8">
+      <div>
+        <h2 class="text-lg font-bold mb-4" style="color:#0A0A08">Angaben gemäß § 5 ECG</h2>
+        <p class="text-sm leading-relaxed" style="color:#5A564E"><strong style="color:#0A0A08">SR-Homes Immobilien GmbH</strong><br>Innsbrucker Bundesstraße 73/Top 5<br>A-5020 Salzburg, Österreich</p>
+        <p class="text-sm leading-relaxed mt-4" style="color:#5A564E"><strong style="color:#0A0A08">Telefon:</strong> +43 676 852 677 203<br><strong style="color:#0A0A08">E-Mail:</strong> office@sr-homes.at</p>
+        <p class="text-sm leading-relaxed mt-4" style="color:#5A564E"><strong style="color:#0A0A08">Firmenbuchnummer:</strong> FN 4556571 i<br><strong style="color:#0A0A08">UID-Nr.:</strong> ATU 71268923<br><strong style="color:#0A0A08">Firmenbuchgericht:</strong> Landesgericht Salzburg</p>
+        <p class="text-sm leading-relaxed mt-4" style="color:#5A564E"><strong style="color:#0A0A08">Gewerbeberechtigung:</strong> Konzessionierter Immobilientreuhänder<br><strong style="color:#0A0A08">Aufsichtsbehörde:</strong> Magistrat der Stadt Salzburg</p>
+      </div>
+      <div>
+        <h2 class="text-lg font-bold mb-4" style="color:#0A0A08">Haftungsausschluss</h2>
+        <p class="text-sm leading-relaxed" style="color:#5A564E">Die Inhalte dieser Website wurden mit größtmöglicher Sorgfalt erstellt. Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte übernehmen wir jedoch keine Gewähr. Als Diensteanbieter sind wir gemäß § 7 Abs. 1 ECG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich.</p>
+      </div>
+      <div>
+        <h2 class="text-lg font-bold mb-4" style="color:#0A0A08">Urheberrecht</h2>
+        <p class="text-sm leading-relaxed" style="color:#5A564E">Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem österreichischen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="footer-placeholder"></div>
+<div class="grain"></div>
+<script src="js/app.js"></script>
+<script>
+// CMS override for legal content
+(async function(){
+  try {
+    const r = await fetch('https://kundenportal.sr-homes.at/api/website/content');
+    const d = await r.json();
+    if (!d.success || !d.content?.legal) return;
+    const l = d.content.legal;
+    const el = document.getElementById('impressum-content');
+    if (!el) return;
+    // Only override if CMS has actual content
+    if (l.company_name || l.impressum_extra) {
+      const name = l.company_name || 'SR-Homes Immobilien GmbH';
+      const fn = l.fn_number || 'FN 4556571 i';
+      const uid = l.uid_number || 'ATU 71268923';
+      const court = l.court || 'Landesgericht Salzburg';
+      const ceo = l.ceo || '';
+      const license = l.trade_license || 'Konzessionierter Immobilientreuhänder';
+      const authority = l.authority || 'Magistrat der Stadt Salzburg';
+      // Update in-place if we have CMS data
+      const h2s = el.querySelectorAll('h2');
+      if (h2s.length > 0) {
+        h2s[0].nextElementSibling.innerHTML = `<strong style="color:#0A0A08">${name}</strong><br>Innsbrucker Bundesstraße 73/Top 5<br>A-5020 Salzburg, Österreich` +
+          `<br><br><strong style="color:#0A0A08">Telefon:</strong> +43 676 852 677 203<br><strong style="color:#0A0A08">E-Mail:</strong> office@sr-homes.at` +
+          `<br><br><strong style="color:#0A0A08">Firmenbuchnummer:</strong> ${fn}<br><strong style="color:#0A0A08">UID-Nr.:</strong> ${uid}<br><strong style="color:#0A0A08">Firmenbuchgericht:</strong> ${court}` +
+          (ceo ? `<br><br><strong style="color:#0A0A08">Geschäftsführer:</strong> ${ceo}` : '') +
+          `<br><br><strong style="color:#0A0A08">Gewerbeberechtigung:</strong> ${license}<br><strong style="color:#0A0A08">Aufsichtsbehörde:</strong> ${authority}`;
+      }
+    }
+  } catch(e) { /* keep fallback */ }
+})();
+</script>
+</body>
+</html>

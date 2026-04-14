@@ -170,4 +170,45 @@ class PublicDocumentControllerTest extends TestCase
         $response->assertHeader('content-type', 'application/pdf');
         $response->assertHeader('content-disposition');
     }
+
+    public function test_event_endpoint_creates_event_and_updates_activity_summary(): void
+    {
+        $link = $this->makeLink();
+        $session = \App\Models\PropertyLinkSession::factory()->create([
+            'property_link_id' => $link->id,
+            'email' => 'lisa@example.com',
+        ]);
+        // Seed an initial activity row (normally created by unlock)
+        \App\Models\Activity::create([
+            'property_id' => $link->property_id,
+            'activity_date' => now()->toDateString(),
+            'stakeholder' => 'lisa@example.com',
+            'activity' => 'initial',
+            'category' => 'link_opened',
+            'link_session_id' => $session->id,
+        ]);
+
+        $cookieName = 'sr_link_session_' . substr($link->token, 0, 8);
+        $cookieValue = $session->id . '.' . hash_hmac('sha256', (string) $session->id, config('app.key'));
+
+        $response = $this->withCredentials()
+            ->withCookie($cookieName, $cookieValue)
+            ->postJson("/docs/{$link->token}/event", [
+                'type' => 'doc_viewed',
+                'file_id' => 99,
+                'duration_s' => 45,
+            ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('property_link_events', [
+            'session_id' => $session->id,
+            'event_type' => 'doc_viewed',
+            'property_file_id' => 99,
+            'duration_s' => 45,
+        ]);
+
+        // Activity summary reflects the new event
+        $activity = \App\Models\Activity::where('link_session_id', $session->id)->first();
+        $this->assertStringContainsString('1 Dokumente angesehen', $activity->activity);
+    }
 }

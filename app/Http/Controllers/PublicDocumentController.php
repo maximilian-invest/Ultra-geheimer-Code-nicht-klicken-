@@ -164,6 +164,38 @@ class PublicDocumentController extends Controller
         return response($disk->get($file->path), 200, $headers);
     }
 
+    public function event(Request $request, string $token)
+    {
+        $link = PropertyLink::where('token', $token)->first();
+        abort_unless($link, 404);
+        abort_if($link->revoked_at || ($link->expires_at && $link->expires_at->isPast()), 410);
+
+        $session = $this->resolveSessionFromCookie($request, $link);
+        abort_unless($session, 403);
+
+        $data = $request->validate([
+            'type' => ['required', 'in:doc_viewed,doc_downloaded'],
+            'file_id' => ['nullable', 'integer'],
+            'duration_s' => ['nullable', 'integer', 'min:0', 'max:86400'],
+        ]);
+
+        // Rate limit: 100 events/session/hour
+        $key = "event:session:{$session->id}";
+        if (RateLimiter::tooManyAttempts($key, 100)) {
+            return response()->json(['error' => 'rate_limited'], 429);
+        }
+        RateLimiter::hit($key, 3600);
+
+        $this->logger->recordEvent(
+            $session,
+            $data['type'],
+            $data['file_id'] ?? null,
+            $data['duration_s'] ?? null,
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
     protected function resolveSessionFromCookie(Request $request, PropertyLink $link): ?PropertyLinkSession
     {
         $cookieName = 'sr_link_session_' . substr($link->token, 0, 8);

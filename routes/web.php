@@ -60,6 +60,8 @@ Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])
     ->group(function () {
         Route::get('/', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'index']);
         Route::post('/', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'store']);
+        Route::get('/active', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'activeForProperty'])
+            ->name('admin.property-links.active');
         Route::get('/{link}', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'show']);
         Route::put('/{link}', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'update']);
         Route::delete('/{link}', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'destroy']);

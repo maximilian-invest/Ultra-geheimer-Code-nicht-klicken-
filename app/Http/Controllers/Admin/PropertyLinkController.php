@@ -205,6 +205,26 @@ class PropertyLinkController extends Controller
         return response()->json(['link' => $this->serialize($link->fresh())]);
     }
 
+    public function activeForProperty(Property $property): JsonResponse
+    {
+        $links = $property->propertyLinks()
+            ->whereNull('revoked_at')
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->orderByDesc('is_default')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (PropertyLink $link) => [
+                'id' => $link->id,
+                'name' => $link->name,
+                'url' => url("/docs/{$link->token}"),
+                'expires_at' => $link->expires_at?->toIso8601String(),
+                'document_ids' => $link->documentIds()->all(),
+                'is_default' => (bool) $link->is_default,
+            ]);
+
+        return response()->json(['links' => $links]);
+    }
+
     protected function serialize(PropertyLink $link): array
     {
         $docIds = $link->documentIds();

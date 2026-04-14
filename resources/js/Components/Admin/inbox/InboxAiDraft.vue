@@ -11,7 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Sparkles, RefreshCw, Loader2, ChevronDown, ChevronUp, Send, Paperclip, CalendarDays, CheckCircle } from 'lucide-vue-next'
+import { Sparkles, RefreshCw, Loader2, ChevronDown, ChevronUp, Send, Paperclip, CalendarDays, CheckCircle, Link2 } from 'lucide-vue-next'
+import LinkPickerPopover from './LinkPickerPopover.vue'
 
 const props = defineProps({
   draft: { type: Object, default: null },
@@ -29,6 +30,7 @@ const props = defineProps({
   files: { type: Array, default: () => [] },
   filesLoading: { type: Boolean, default: false },
   selectedFileIds: { type: Array, default: () => [] },
+  propertyId: { type: [Number, String], default: null },
 })
 
 const emit = defineEmits([
@@ -48,6 +50,14 @@ const emit = defineEmits([
 const toneModel = ref('standard')
 const collapsed = ref(true)
 const showFiles = ref(false)
+const linkPickerOpen = ref(false)
+
+const linkPickerPropertyId = computed(() => {
+  const raw = props.propertyId
+  if (raw === null || raw === undefined || raw === '') return null
+  const num = Number(raw)
+  return Number.isFinite(num) ? num : null
+})
 
 // Auto-open file panel and expand draft when match files arrive
 watch(() => props.selectedFileIds, (newIds, oldIds) => {
@@ -85,6 +95,16 @@ function updateDraftField(field, value) {
 function onToneChange(val) {
   toneModel.value = val
   emit('update:tone', val)
+}
+
+async function copyLinkUrl(link) {
+  try {
+    await navigator.clipboard.writeText(link.url)
+    window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'success', text: `Link "${link.name}" kopiert` } }))
+  } catch (e) {
+    window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'error', text: 'Link konnte nicht kopiert werden' } }))
+  }
+  linkPickerOpen.value = false
 }
 </script>
 
@@ -278,33 +298,52 @@ function onToneChange(val) {
           </div>
 
           <!-- Main action bar -->
-          <div class="flex items-center gap-1.5 px-4 py-2 bg-zinc-50/80 border-t border-zinc-100 rounded-b-2xl flex-wrap">
-            <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1" @click="showFiles = !showFiles">
-              <Paperclip class="w-3 h-3" />
-              <span v-if="attachmentCount" class="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[9px] font-medium w-3.5 h-3.5 leading-none">{{ attachmentCount }}</span>
-            </Button>
-            <Button variant="outline" size="icon" class="w-7 h-7" :class="showCalendar ? 'bg-accent' : ''" @click="emit('toggleCalendar')">
-              <CalendarDays class="w-3 h-3" />
-            </Button>
-            <div class="w-px h-5 bg-zinc-200 mx-0.5" />
-            <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1" :disabled="loading" @click="emit('regenerate')">
-              <RefreshCw class="w-3 h-3" :class="loading ? 'animate-spin' : ''" />
-              Neu
-            </Button>
-            <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1 border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100" :disabled="loading" @click="emit('improve')">
-              <Sparkles class="w-3 h-3" />
-              Wording
-            </Button>
-            <div class="flex-1" />
-            <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200" @click="emit('markHandled')">
-              <CheckCircle class="w-3 h-3" />
-              Erledigt
-            </Button>
-            <Button size="sm" class="h-7 text-[11px] gap-1" :disabled="!canSend || sending" @click="emit('send')">
-              <Loader2 v-if="sending" class="w-3 h-3 animate-spin" />
-              <Send v-else class="w-3 h-3" />
-              {{ sendLabel }}
-            </Button>
+          <div class="relative">
+            <LinkPickerPopover
+              v-if="linkPickerOpen && linkPickerPropertyId"
+              :property-id="linkPickerPropertyId"
+              @close="linkPickerOpen = false"
+              @pick="copyLinkUrl"
+            />
+            <div class="flex items-center gap-1.5 px-4 py-2 bg-zinc-50/80 border-t border-zinc-100 rounded-b-2xl flex-wrap">
+              <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1" @click="showFiles = !showFiles">
+                <Paperclip class="w-3 h-3" />
+                <span v-if="attachmentCount" class="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[9px] font-medium w-3.5 h-3.5 leading-none">{{ attachmentCount }}</span>
+              </Button>
+              <Button variant="outline" size="icon" class="w-7 h-7" :class="showCalendar ? 'bg-accent' : ''" @click="emit('toggleCalendar')">
+                <CalendarDays class="w-3 h-3" />
+              </Button>
+              <div class="w-px h-5 bg-zinc-200 mx-0.5" />
+              <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1" :disabled="loading" @click="emit('regenerate')">
+                <RefreshCw class="w-3 h-3" :class="loading ? 'animate-spin' : ''" />
+                Neu
+              </Button>
+              <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1 border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100" :disabled="loading" @click="emit('improve')">
+                <Sparkles class="w-3 h-3" />
+                Wording
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                class="h-7 text-[11px] gap-1"
+                :disabled="!linkPickerPropertyId"
+                :title="linkPickerPropertyId ? 'Docs-Link kopieren' : 'Kein Objekt in der Konversation'"
+                @click="linkPickerOpen = !linkPickerOpen"
+              >
+                <Link2 class="w-3 h-3" />
+                Link
+              </Button>
+              <div class="flex-1" />
+              <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200" @click="emit('markHandled')">
+                <CheckCircle class="w-3 h-3" />
+                Erledigt
+              </Button>
+              <Button size="sm" class="h-7 text-[11px] gap-1" :disabled="!canSend || sending" @click="emit('send')">
+                <Loader2 v-if="sending" class="w-3 h-3 animate-spin" />
+                <Send v-else class="w-3 h-3" />
+                {{ sendLabel }}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

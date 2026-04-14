@@ -2596,6 +2596,7 @@ onMounted(() => {
             :send-account-id="sendAccountId"
             :show-email-fields="showEmailFields"
             :stage="selectedItem?._stage || 1"
+            :property-id="selectedItem?.property_id || null"
             @update:draft="expandedAiDraft = $event"
             @update:send-account-id="sendAccountId = $event"
             @update:show-email-fields="showEmailFields = $event"

@@ -650,7 +650,9 @@ class ConversationController extends Controller
             return response()->json(['error' => 'Conversation not found'], 404);
         }
 
-        $stakeholder = $conv->stakeholder;
+        $stakeholder = $conv->stakeholder
+            ?: $conv->contact_email
+            ?: 'Interessent';
         $propertyId = $conv->property_id;
         $today = date('Y-m-d');
 
@@ -661,9 +663,28 @@ class ConversationController extends Controller
                    pe.from_name
             FROM portal_emails pe
             WHERE pe.property_id = ?
-              AND (LOWER(pe.from_email) = LOWER(?) OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%') OR pe.stakeholder = ?)
+              AND (
+                    LOWER(pe.from_email) = LOWER(?)
+                    OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')
+                    OR (? IS NOT NULL AND pe.stakeholder = ?)
+                    OR pe.id = ?
+                    OR (
+                        ? IS NOT NULL
+                        AND LOWER(pe.from_email) LIKE '%noreply%'
+                        AND LOWER(pe.body_text) LIKE CONCAT('%', LOWER(?), '%')
+                    )
+              )
             ORDER BY pe.email_date ASC
-        ", [$propertyId, $conv->contact_email, $conv->contact_email, $stakeholder]);
+        ", [
+            $propertyId,
+            $conv->contact_email,
+            $conv->contact_email,
+            $stakeholder,
+            $stakeholder,
+            $conv->last_email_id,
+            $conv->contact_email,
+            $conv->contact_email,
+        ]);
 
         if (empty($thread)) {
             return response()->json(['error' => 'Kein Nachrichtenverlauf gefunden'], 404);
@@ -707,18 +728,39 @@ class ConversationController extends Controller
         $lastOutEmail = DB::selectOne("
             SELECT body_text, subject, email_date FROM portal_emails
             WHERE property_id = ? AND direction = 'outbound'
-              AND (LOWER(to_email) = LOWER(?) OR stakeholder = ?)
+              AND (
+                    LOWER(to_email) = LOWER(?)
+                    OR (? IS NOT NULL AND stakeholder = ?)
+                    OR id = ?
+              )
               
             ORDER BY email_date DESC LIMIT 1
-        ", [$propertyId, $conv->contact_email, $stakeholder]);
+        ", [$propertyId, $conv->contact_email, $stakeholder, $stakeholder, $conv->last_email_id]);
 
         $lastInEmail = DB::selectOne("
             SELECT body_text, subject, from_name, email_date FROM portal_emails
             WHERE property_id = ? AND direction = 'inbound'
-              AND (LOWER(from_email) = LOWER(?) OR stakeholder = ?)
+              AND (
+                    LOWER(from_email) = LOWER(?)
+                    OR (? IS NOT NULL AND stakeholder = ?)
+                    OR id = ?
+                    OR (
+                        ? IS NOT NULL
+                        AND LOWER(from_email) LIKE '%noreply%'
+                        AND LOWER(body_text) LIKE CONCAT('%', LOWER(?), '%')
+                    )
+              )
               
             ORDER BY email_date DESC LIMIT 1
-        ", [$propertyId, $conv->contact_email, $stakeholder]);
+        ", [
+            $propertyId,
+            $conv->contact_email,
+            $stakeholder,
+            $stakeholder,
+            $conv->last_email_id,
+            $conv->contact_email,
+            $conv->contact_email,
+        ]);
 
         if ($lastOutEmail && $lastOutEmail->body_text) {
             $outBody = mb_substr(trim(preg_replace('/\s+/', ' ', strip_tags($lastOutEmail->body_text))), 0, 1500);

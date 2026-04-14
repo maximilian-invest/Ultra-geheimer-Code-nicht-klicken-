@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\PropertyLink;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class PropertyLinkService
@@ -16,10 +17,10 @@ class PropertyLinkService
         return $token;
     }
 
-    public function markAsDefault(\App\Models\PropertyLink $link): void
+    public function markAsDefault(PropertyLink $link): void
     {
-        \DB::transaction(function () use ($link) {
-            \App\Models\PropertyLink::where('property_id', $link->property_id)
+        DB::transaction(function () use ($link) {
+            PropertyLink::where('property_id', $link->property_id)
                 ->where('id', '!=', $link->id)
                 ->update(['is_default' => false]);
 
@@ -28,7 +29,7 @@ class PropertyLinkService
         });
     }
 
-    public function isAccessible(\App\Models\PropertyLink $link): bool
+    public function isAccessible(PropertyLink $link): bool
     {
         return $link->isAccessible();
     }

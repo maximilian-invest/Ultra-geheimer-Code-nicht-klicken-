@@ -27,7 +27,21 @@ class PropertyLinkController extends Controller
             ->get()
             ->map(fn (PropertyLink $link) => $this->serialize($link));
 
-        return response()->json(['links' => $links]);
+        $files = DB::table('property_files')
+            ->where('property_id', $property->id)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'label', 'filename', 'mime_type', 'file_size'])
+            ->map(fn ($f) => [
+                'id' => (int) $f->id,
+                'label' => $f->label ?: $f->filename,
+                'filename' => $f->filename,
+                'mime_type' => $f->mime_type,
+                'file_size' => $f->file_size,
+            ])
+            ->values();
+
+        return response()->json(['links' => $links, 'files' => $files]);
     }
 
     public function store(Request $request, Property $property): JsonResponse

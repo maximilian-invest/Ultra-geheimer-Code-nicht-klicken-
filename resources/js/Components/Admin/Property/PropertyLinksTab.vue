@@ -44,7 +44,7 @@
       v-if="formOpen"
       :property-id="propertyId"
       :link="editingLink"
-      :available-files="availableFiles"
+      :available-files="files"
       @close="closeForm"
       @saved="onSaved"
     />
@@ -58,10 +58,10 @@ import PropertyLinkForm from './PropertyLinkForm.vue';
 
 const props = defineProps({
   propertyId: { type: Number, required: true },
-  availableFiles: { type: Array, default: () => [] },
 });
 
 const links = ref([]);
+const files = ref([]);
 const loading = ref(true);
 const formOpen = ref(false);
 const editingLink = ref(null);
@@ -78,6 +78,7 @@ async function fetchLinks() {
   loading.value = true;
   const { data } = await axios.get(`/admin/properties/${props.propertyId}/links`);
   links.value = data.links;
+  files.value = data.files || [];
   loading.value = false;
 }
 
@@ -124,8 +125,12 @@ function closeForm() {
 async function onSaved(link) {
   closeForm();
   if (link?.url) {
-    await navigator.clipboard.writeText(link.url);
-    window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'success', text: 'Link erstellt & kopiert' } }));
+    try {
+      await navigator.clipboard.writeText(link.url);
+      window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'success', text: 'Link erstellt & kopiert' } }));
+    } catch (e) {
+      window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'success', text: 'Link erstellt' } }));
+    }
   }
   await fetchLinks();
 }

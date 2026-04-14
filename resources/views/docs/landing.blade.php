@@ -11,9 +11,9 @@
 <body>
 <main class="docs-container">
     @if ($state === 'locked')
-        @include('docs.partials._email_gate', ['link' => $link])
+        @include('docs.partials._email_gate', ['link' => $link, 'heroImages' => $heroImages ?? []])
     @else
-        @include('docs.partials._unlocked', ['link' => $link, 'files' => $files, 'session' => $session])
+        @include('docs.partials._unlocked', ['link' => $link, 'files' => $files, 'session' => $session, 'heroImages' => $heroImages ?? []])
     @endif
 </main>
 </body>

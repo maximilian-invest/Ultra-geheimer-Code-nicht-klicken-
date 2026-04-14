@@ -198,7 +198,9 @@ class GenerateAiDraft implements ShouldQueue
             // Re-fetch conversation to avoid overwriting manual changes
             $conv = Conversation::find($this->conversationId);
             if ($conv && !$conv->draft_body) {
-                app(ConversationService::class)->saveDraft($conv, $draft['email_body'], $subject, $conv->contact_email);
+                $conversationService = app(ConversationService::class);
+                $body = $conversationService->appendDefaultLinkForErstantwort($draft['email_body'], $conv);
+                $conversationService->saveDraft($conv, $body, $subject, $conv->contact_email);
                 Log::info("GenerateAiDraft: saved draft for conv {$this->conversationId}");
             }
         }

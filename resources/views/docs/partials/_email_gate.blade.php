@@ -1,11 +1,11 @@
 <!-- resources/views/docs/partials/_email_gate.blade.php -->
 <section class="hero">
-    @if (!empty($link->property->title_image_url))
-        <img src="{{ $link->property->title_image_url }}" alt="">
+    @if (!empty($heroImages))
+        <img src="{{ $heroImages[0] }}" alt="{{ $link->property->project_name ?? 'Projektbild' }}">
     @endif
     <div class="hero-text">
         <h1>{{ $link->property->project_name ?? 'Ihre Unterlagen' }}</h1>
-        <div class="meta">{{ $link->property->address ?? '' }} · {{ $link->property->city ?? '' }}</div>
+        <div class="meta">{{ $link->property->address ?? '' }}@if (!empty($link->property->address) && !empty($link->property->city)) · @endif{{ $link->property->city ?? '' }}</div>
     </div>
 </section>
 

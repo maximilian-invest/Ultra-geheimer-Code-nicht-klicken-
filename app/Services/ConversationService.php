@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Activity;
 use App\Models\Conversation;
 use App\Models\PortalEmail;
+use App\Models\PropertyLink;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -183,6 +184,45 @@ class ConversationService
         $conv->draft_to = $to;
         $conv->draft_generated_at = now();
         $conv->save();
+    }
+
+    /**
+     * Append the default PropertyLink URL to an Erstantwort draft body.
+     *
+     * Only modifies the body when:
+     *  - the conversation has not yet sent any outbound (Erstantwort case),
+     *  - the conversation is linked to a property,
+     *  - that property has a default PropertyLink that is neither expired nor revoked.
+     *
+     * Returns the body unchanged otherwise. Shared between the admin
+     * ConversationController::regenerateDraft() action and the
+     * GenerateAiDraft queued job so both code paths stay in sync.
+     */
+    public function appendDefaultLinkForErstantwort(string $draftBody, Conversation $conv): string
+    {
+        if (($conv->outbound_count ?? 0) > 0) {
+            return $draftBody;
+        }
+        if (empty($conv->property_id)) {
+            return $draftBody;
+        }
+
+        $defaultLink = PropertyLink::where('property_id', $conv->property_id)
+            ->where('is_default', true)
+            ->whereNull('revoked_at')
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->first();
+
+        if (!$defaultLink) {
+            return $draftBody;
+        }
+
+        $url = url("/docs/{$defaultLink->token}");
+        $sentence = "Die ausfuehrlichen Unterlagen zum Objekt finden Sie unter folgendem Link:\n" . $url;
+
+        return rtrim($draftBody) . "\n\n" . $sentence;
     }
 
     /**

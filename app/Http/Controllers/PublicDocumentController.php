@@ -40,6 +40,9 @@ class PublicDocumentController extends Controller
 
         $link->load('property');
 
+        // Build property image gallery for hero (first image) and optional strip
+        $heroImages = $this->resolvePropertyImages($link->property_id);
+
         if ($session) {
             $files = DB::table('property_files')
                 ->whereIn('id', $link->documentIds())
@@ -49,14 +52,43 @@ class PublicDocumentController extends Controller
                 'link' => $link,
                 'session' => $session,
                 'files' => $files,
+                'heroImages' => $heroImages,
                 'state' => 'unlocked',
             ]);
         }
 
         return response()->view('docs.landing', [
             'link' => $link,
+            'heroImages' => $heroImages,
             'state' => 'locked',
         ]);
+    }
+
+    /**
+     * Collect property image URLs for the docs hero section.
+     *
+     * Returns an array of absolute URLs (first element = hero image).
+     * Returns [] when no images exist.
+     */
+    protected function resolvePropertyImages(int $propertyId): array
+    {
+        $images = DB::table('property_files')
+            ->where('property_id', $propertyId)
+            ->where('mime_type', 'like', 'image/%')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->limit(5)
+            ->get(['path']);
+
+        $urls = [];
+        foreach ($images as $img) {
+            if (empty($img->path)) {
+                continue;
+            }
+            $urls[] = asset('storage/' . ltrim($img->path, '/'));
+        }
+
+        return $urls;
     }
 
     public function unlock(Request $request, string $token)

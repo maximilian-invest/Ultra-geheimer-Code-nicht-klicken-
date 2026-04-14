@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\PropertyMatch;
 use App\Models\Property;
-use App\Models\PropertyLink;
 use App\Models\Activity;
 use App\Services\PropertyMatcherService;
 use App\Services\AnthropicService;
@@ -863,11 +862,12 @@ class ConversationController extends Controller
         }
 
         if ($draft && !empty($draft['email_body'])) {
-            $draft['email_body'] = $this->appendDefaultLinkForErstantwort($draft['email_body'], $conv);
+            $conversationService = app(ConversationService::class);
+            $draft['email_body'] = $conversationService->appendDefaultLinkForErstantwort($draft['email_body'], $conv);
             $subject = $draft['email_subject'] ?? 'Nachfrage: ' . $propAddr;
 
             \Log::info('conv_regenerate_draft: SAVING draft (NOT sending!) for conv ' . $id . ' subject: ' . $subject);
-            app(ConversationService::class)->saveDraft($conv, $draft['email_body'], $subject, $conv->contact_email);
+            $conversationService->saveDraft($conv, $draft['email_body'], $subject, $conv->contact_email);
 
             return response()->json([
                 'success'       => true,
@@ -1298,43 +1298,6 @@ PROMPT;
             'per_page'      => $perPage,
             'total_pages'   => (int) ceil($total / $perPage),
         ], 200, [], JSON_UNESCAPED_UNICODE);
-    }
-
-    /**
-     * Append the default PropertyLink URL to an Erstantwort draft body.
-     *
-     * Only modifies the body when:
-     *  - the conversation has not yet sent any outbound (Erstantwort case),
-     *  - the conversation is linked to a property,
-     *  - that property has a default PropertyLink that is neither expired nor revoked.
-     *
-     * Returns the body unchanged otherwise.
-     */
-    protected function appendDefaultLinkForErstantwort(string $draftBody, Conversation $conv): string
-    {
-        if (($conv->outbound_count ?? 0) > 0) {
-            return $draftBody;
-        }
-        if (empty($conv->property_id)) {
-            return $draftBody;
-        }
-
-        $defaultLink = PropertyLink::where('property_id', $conv->property_id)
-            ->where('is_default', true)
-            ->whereNull('revoked_at')
-            ->where(function ($q) {
-                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
-            })
-            ->first();
-
-        if (!$defaultLink) {
-            return $draftBody;
-        }
-
-        $url = url("/docs/{$defaultLink->token}");
-        $sentence = "Die ausfuehrlichen Unterlagen zum Objekt finden Sie unter folgendem Link:\n" . $url;
-
-        return rtrim($draftBody) . "\n\n" . $sentence;
     }
 
     /**

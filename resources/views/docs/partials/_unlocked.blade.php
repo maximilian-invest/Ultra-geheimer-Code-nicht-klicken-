@@ -1,7 +1,7 @@
 <!-- resources/views/docs/partials/_unlocked.blade.php -->
 <section class="hero" style="height: 360px;">
-    @if (!empty($link->property->title_image_url))
-        <img src="{{ $link->property->title_image_url }}" alt="">
+    @if (!empty($heroImages))
+        <img src="{{ $heroImages[0] }}" alt="{{ $link->property->project_name ?? 'Projektbild' }}">
     @endif
     <div class="hero-text">
         <h1>{{ $link->property->project_name ?? 'Ihre Unterlagen' }}</h1>

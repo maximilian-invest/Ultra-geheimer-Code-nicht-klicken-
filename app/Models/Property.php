@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Property extends Model
 {
+    use HasFactory;
     protected $fillable = [
         // Core
         'customer_id', 'broker_id', 'ref_id', 'openimmo_id', 'openimmo_anbieter_id',
@@ -213,6 +215,11 @@ class Property extends Model
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
+    }
+
+    public function propertyLinks(): HasMany
+    {
+        return $this->hasMany(PropertyLink::class);
     }
 
     public function images(): HasMany

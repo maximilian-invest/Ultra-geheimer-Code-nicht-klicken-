@@ -1,10 +1,11 @@
 <script setup>
 import { ref, computed } from "vue";
-import { X, Paperclip, Send, Save, Sparkles, Loader2, ChevronDown, RefreshCw } from "lucide-vue-next";
+import { X, Paperclip, Send, Save, Sparkles, Loader2, ChevronDown, RefreshCw, Link2 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import LinkPickerPopover from "./LinkPickerPopover.vue";
 
 const props = defineProps({
   composeTo: { type: String, default: "" },
@@ -40,8 +41,34 @@ const emit = defineEmits([
 
 const fileInputRef = ref(null);
 const showTemplateMenu = ref(false);
+const linkPickerOpen = ref(false);
 const isReply = computed(() => !!props.replyContext);
 const headerTitle = computed(() => isReply.value ? "Antworten" : "Neue Nachricht");
+
+const linkPickerPropertyId = computed(() => {
+  const raw = props.composePropertyId;
+  if (raw === null || raw === undefined || raw === "") return null;
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : null;
+});
+
+function insertLinkBlock(link) {
+  const html = `
+<div style="border:1px solid #E5E0D8; border-radius:12px; padding:16px; margin:16px 0; background:#FAF8F5; font-family:Outfit,sans-serif;">
+  <div style="font-weight:500; color:#D4743B; font-size:14px;">Ihre Unterlagen</div>
+  <a href="${link.url}" style="color:#0A0A08; text-decoration:none; font-weight:500;">
+    ${link.name} · ${link.document_ids.length} Dokumente
+  </a>
+  ${link.expires_at ? `<div style="font-size:13px; color:#5A564E; margin-top:4px;">Gueltig bis ${new Date(link.expires_at).toLocaleDateString('de-AT')}</div>` : ''}
+</div>
+`.trim();
+
+  // composeBody is bound via v-model on the parent; emit the updated value.
+  // TODO: wire to real editor insertion point when a rich-text editor is introduced.
+  const next = (props.composeBody || '') + '\n' + html;
+  emit('update:composeBody', next);
+  linkPickerOpen.value = false;
+}
 
 const senderLabel = computed(() => {
   if (!props.selectedAccountId || !props.emailAccounts.length) return "";
@@ -170,7 +197,13 @@ const propertyLabel = computed(() => {
     </div>
 
     <!-- Bottom action bar (matches AiDraft action bar style) -->
-    <div class="flex-shrink-0">
+    <div class="flex-shrink-0 relative">
+      <LinkPickerPopover
+        v-if="linkPickerOpen && linkPickerPropertyId"
+        :property-id="linkPickerPropertyId"
+        @close="linkPickerOpen = false"
+        @pick="insertLinkBlock"
+      />
       <div class="flex items-center gap-1.5 px-4 py-2 bg-zinc-50/80 border-t border-zinc-100">
         <!-- Left: tools -->
         <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1" @click="fileInputRef?.click()">
@@ -186,6 +219,18 @@ const propertyLabel = computed(() => {
         <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1" :disabled="aiLoading || !composeBody?.trim()" @click="emit('improveWording')">
           <RefreshCw class="h-3 w-3" />
           Wording
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          class="h-7 text-[11px] gap-1"
+          :disabled="!linkPickerPropertyId"
+          :title="linkPickerPropertyId ? 'Tracked Docs-Link einfuegen' : 'Bitte zuerst ein Objekt auswaehlen'"
+          @click="linkPickerOpen = !linkPickerOpen"
+        >
+          <Link2 class="h-3 w-3" />
+          Link einfuegen
         </Button>
 
         <div class="relative">

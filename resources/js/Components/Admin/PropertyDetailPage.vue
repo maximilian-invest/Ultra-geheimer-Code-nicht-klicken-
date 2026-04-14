@@ -14,6 +14,7 @@ import PortalsTab from "@/Components/Admin/property-detail/PortalsTab.vue";
 import KnowledgeTab from "@/Components/Admin/property-detail/KnowledgeTab.vue";
 import FilesTab from "@/Components/Admin/property-detail/FilesTab.vue";
 import ActivityTab from "@/Components/Admin/property-detail/ActivityTab.vue";
+import PropertyLinksTab from '@/Components/Admin/Property/PropertyLinksTab.vue';
 import ExposeParser from '@/Components/Admin/property-detail/ExposeParser.vue';
 import TypeSelector from '@/Components/Admin/property-detail/TypeSelector.vue';
 
@@ -51,6 +52,7 @@ const tabs = computed(() => {
   t.push({ value: 'portale', label: 'Portale' });
   t.push({ value: 'wissen', label: 'Wissen' });
   t.push({ value: 'dateien', label: 'Dateien' });
+  t.push({ value: 'links', label: 'Links' });
   t.push({ value: 'aktivitaeten', label: 'Aktivitäten' });
   return t;
 });
@@ -255,6 +257,7 @@ function handleExposeParsed(result) {
         <PortalsTab v-else-if="activeTab === 'portale'" ref="portalsTabRef" :property="property" @dirty="isDirty = true" />
         <KnowledgeTab v-else-if="activeTab === 'wissen'" :property="property" />
         <FilesTab v-else-if="activeTab === 'dateien'" :property="property" />
+        <PropertyLinksTab v-else-if="activeTab === 'links'" :property-id="property.id" :available-files="property.files || []" />
         <ActivityTab v-else-if="activeTab === 'aktivitaeten'" :property="property" @open-activities="(id, addr) => { if (switchTabFn) switchTabFn('activities'); }" @open-messages="(id, addr) => { if (switchTabFn) switchTabFn('inbox'); }" />
         <div v-else class="text-muted-foreground text-sm">Tab: {{ activeTab }}</div>
       </div>

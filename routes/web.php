@@ -54,4 +54,33 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+// Property Links (admin) — see docs/superpowers/specs/2026-04-14-docs-link-sharing-design.md
+Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])
+    ->prefix('admin/properties/{property}/links')
+    ->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'store']);
+        Route::get('/active', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'activeForProperty'])
+            ->name('admin.property-links.active');
+        Route::get('/{link}', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'show']);
+        Route::put('/{link}', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'update']);
+        Route::delete('/{link}', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'destroy']);
+        Route::post('/{link}/revoke', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'revoke']);
+        Route::post('/{link}/reactivate', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'reactivate']);
+    });
+
+// DSGVO export + delete for link sessions (admin)
+Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])->prefix('admin/dsgvo')->group(function () {
+    Route::get('/links', [\App\Http\Controllers\Admin\DsgvoLinkController::class, 'export']);
+    Route::delete('/links', [\App\Http\Controllers\Admin\DsgvoLinkController::class, 'destroy']);
+});
+
+// Public document delivery
+Route::prefix('docs')->group(function () {
+    Route::get('{token}', [\App\Http\Controllers\PublicDocumentController::class, 'show'])->name('docs.show');
+    Route::post('{token}/unlock', [\App\Http\Controllers\PublicDocumentController::class, 'unlock']);
+    Route::get('{token}/file/{fileId}/{mode}', [\App\Http\Controllers\PublicDocumentController::class, 'file'])->where('mode', 'view|download');
+    Route::post('{token}/event', [\App\Http\Controllers\PublicDocumentController::class, 'event']);
+});
+
 require __DIR__.'/auth.php';

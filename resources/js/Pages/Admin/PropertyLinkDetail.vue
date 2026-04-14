@@ -219,10 +219,10 @@ import {
   Activity,
   MousePointerClick,
 } from 'lucide-vue-next';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/Components/ui/card';
-import { Button } from '@/Components/ui/button';
-import { Badge } from '@/Components/ui/badge';
-import { Separator } from '@/Components/ui/separator';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 const props = defineProps({
   link: Object,

@@ -33,6 +33,30 @@
       </div>
     </section>
 
+    <section class="docs">
+      <div class="docs-head">
+        <h2>Dokumente</h2>
+        <span class="hint">{{ selectedIds.length }} von {{ allFiles.length }} ausgewaehlt</span>
+      </div>
+      <div v-if="allFiles.length === 0" class="empty">Diese Property hat noch keine Dokumente.</div>
+      <ul v-else class="doc-list">
+        <li v-for="file in allFiles" :key="file.id" :class="{ selected: selectedIds.includes(file.id) }">
+          <label>
+            <input type="checkbox" :value="file.id" v-model="selectedIds" />
+            <span class="doc-label">{{ file.label }}</span>
+            <span class="doc-meta">{{ file.filename }}<span v-if="file.file_size"> · {{ formatSize(file.file_size) }}</span></span>
+          </label>
+        </li>
+      </ul>
+      <div class="docs-actions" v-if="allFiles.length > 0">
+        <button class="btn-primary" :disabled="!isDirty || saving" @click="saveDocs">
+          {{ saving ? 'Speichere...' : 'Speichern' }}
+        </button>
+        <button class="btn-ghost" :disabled="!isDirty || saving" @click="resetSelection">Zuruecksetzen</button>
+        <span v-if="saveMessage" class="save-msg" :data-type="saveMessageType">{{ saveMessage }}</span>
+      </div>
+    </section>
+
     <section class="timeline">
       <h2>Aktivitaet</h2>
       <div v-if="sessions.length === 0" class="empty">Noch keine Zugriffe.</div>
@@ -55,12 +79,31 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { router } from '@inertiajs/vue3';
 
 const props = defineProps({
   link: Object,
   sessions: Array,
   property: Object,
+  allFiles: { type: Array, default: () => [] },
+});
+
+const initialIds = () => [...(props.link.document_ids || [])].map(Number).sort((a, b) => a - b);
+
+const selectedIds = ref(initialIds());
+const saving = ref(false);
+const saveMessage = ref('');
+const saveMessageType = ref('success');
+
+watch(() => props.link.document_ids, () => {
+  selectedIds.value = initialIds();
+});
+
+const isDirty = computed(() => {
+  const current = [...selectedIds.value].sort((a, b) => a - b).join(',');
+  const original = initialIds().join(',');
+  return current !== original;
 });
 
 const totalOpens = computed(() =>
@@ -83,12 +126,51 @@ function formatDate(iso) {
 function formatDateTime(iso) {
   return new Date(iso).toLocaleString('de-AT');
 }
+function formatSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
 function eventLabel(t) {
   return { link_opened: 'Link geoeffnet', doc_viewed: 'Dokument angesehen', doc_downloaded: 'Heruntergeladen' }[t] || t;
 }
 async function copyUrl() {
   await navigator.clipboard.writeText(props.link.url);
   window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'success', text: 'URL kopiert' } }));
+}
+function resetSelection() {
+  selectedIds.value = initialIds();
+  saveMessage.value = '';
+}
+async function saveDocs() {
+  if (selectedIds.value.length === 0) {
+    saveMessage.value = 'Mindestens ein Dokument auswaehlen.';
+    saveMessageType.value = 'error';
+    return;
+  }
+  saving.value = true;
+  saveMessage.value = '';
+  try {
+    await window.axios.put(
+      `/admin/properties/${props.property.id}/links/${props.link.id}`,
+      {
+        name: props.link.name,
+        expires_at: props.link.expires_at,
+        file_ids: selectedIds.value,
+      }
+    );
+    saveMessage.value = 'Gespeichert.';
+    saveMessageType.value = 'success';
+    router.reload({ only: ['link', 'allFiles'], preserveScroll: true });
+  } catch (err) {
+    const errors = err?.response?.data?.errors || {};
+    const first = Object.values(errors)[0];
+    saveMessage.value = Array.isArray(first) ? first[0] : (first || err?.response?.data?.message || 'Fehler beim Speichern.');
+    saveMessageType.value = 'error';
+  } finally {
+    saving.value = false;
+  }
 }
 </script>
 
@@ -109,6 +191,28 @@ h1 { font-size: 32px; font-weight: 600; margin: 12px 0 6px; }
 .metric { background: white; border: 1px solid #E5E0D8; border-radius: 12px; padding: 24px; text-align: center; }
 .metric strong { display: block; font-size: 32px; font-weight: 600; color: #D4743B; margin-bottom: 4px; }
 .metric span { font-size: 13px; color: #5A564E; }
+
+.docs { margin: 40px 0; }
+.docs-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+.docs-head h2 { font-size: 22px; font-weight: 600; margin: 0; }
+.docs-head .hint { font-size: 13px; color: #5A564E; }
+.doc-list { list-style: none; padding: 0; margin: 0; border: 1px solid #E5E0D8; border-radius: 12px; overflow: hidden; background: white; }
+.doc-list li { border-bottom: 1px solid #E5E0D8; }
+.doc-list li:last-child { border-bottom: none; }
+.doc-list li.selected { background: #FAF5EF; }
+.doc-list label { display: flex; align-items: center; gap: 14px; padding: 14px 18px; cursor: pointer; }
+.doc-list input[type="checkbox"] { width: 18px; height: 18px; accent-color: #D4743B; cursor: pointer; }
+.doc-label { font-weight: 500; flex: 1; }
+.doc-meta { font-size: 12px; color: #5A564E; font-family: 'JetBrains Mono', monospace; }
+.docs-actions { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
+.btn-primary { background: #D4743B; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; font-family: inherit; font-size: 14px; }
+.btn-primary:disabled { background: #C8C1B5; cursor: not-allowed; }
+.btn-ghost { background: transparent; color: #5A564E; border: 1px solid #E5E0D8; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; font-family: inherit; font-size: 14px; }
+.btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+.save-msg { font-size: 13px; margin-left: 8px; }
+.save-msg[data-type="success"] { color: #15803d; }
+.save-msg[data-type="error"] { color: #b91c1c; }
+
 .timeline h2 { font-size: 22px; font-weight: 600; margin-bottom: 16px; }
 .timeline ul { list-style: none; padding: 0; }
 .timeline > ul > li { border-bottom: 1px solid #E5E0D8; padding: 16px 0; }

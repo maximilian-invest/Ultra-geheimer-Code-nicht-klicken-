@@ -105,6 +105,20 @@ class PropertyLinkController extends Controller
             ])->values(),
         ])->values();
 
+        $allFiles = DB::table('property_files')
+            ->where('property_id', $property->id)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'label', 'filename', 'mime_type', 'file_size'])
+            ->map(fn ($f) => [
+                'id' => (int) $f->id,
+                'label' => $f->label ?: $f->filename,
+                'filename' => $f->filename,
+                'mime_type' => $f->mime_type,
+                'file_size' => $f->file_size,
+            ])
+            ->values();
+
         $payload = [
             'property' => [
                 'id' => $property->id,
@@ -113,6 +127,7 @@ class PropertyLinkController extends Controller
             ],
             'link' => $this->serialize($link),
             'sessions' => $sessions,
+            'allFiles' => $allFiles,
         ];
 
         if ($request->wantsJson()) {

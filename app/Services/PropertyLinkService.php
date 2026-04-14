@@ -27,4 +27,9 @@ class PropertyLinkService
             $link->save();
         });
     }
+
+    public function isAccessible(\App\Models\PropertyLink $link): bool
+    {
+        return $link->isAccessible();
+    }
 }

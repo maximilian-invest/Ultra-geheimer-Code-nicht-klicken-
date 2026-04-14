@@ -48,4 +48,36 @@ class PropertyLinkServiceTest extends TestCase
         $this->assertTrue($linkB->fresh()->is_default, 'linkB should now be default');
         $this->assertTrue($linkC->fresh()->is_default, 'linkC on a DIFFERENT property stays default');
     }
+
+    public function test_is_accessible_returns_false_for_expired_link(): void
+    {
+        $link = PropertyLink::factory()->expired()->create();
+
+        $svc = new PropertyLinkService();
+        $this->assertFalse($svc->isAccessible($link));
+    }
+
+    public function test_is_accessible_returns_false_for_revoked_link(): void
+    {
+        $link = PropertyLink::factory()->revoked()->create();
+
+        $svc = new PropertyLinkService();
+        $this->assertFalse($svc->isAccessible($link));
+    }
+
+    public function test_is_accessible_returns_true_for_active_link(): void
+    {
+        $link = PropertyLink::factory()->create();
+
+        $svc = new PropertyLinkService();
+        $this->assertTrue($svc->isAccessible($link));
+    }
+
+    public function test_is_accessible_returns_true_for_link_without_expiry(): void
+    {
+        $link = PropertyLink::factory()->create(['expires_at' => null]);
+
+        $svc = new PropertyLinkService();
+        $this->assertTrue($svc->isAccessible($link));
+    }
 }

@@ -1,0 +1,119 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Dev: Laravel + Vite (beide Server)",
+      "dependsOn": ["Dev: Laravel Server", "Dev: Vite HMR"],
+      "dependsOrder": "parallel",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Laravel Server",
+      "type": "shell",
+      "command": "php artisan serve --port=8000",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "dev"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Vite HMR",
+      "type": "shell",
+      "command": "npm run dev",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "dev"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "DB: Migrate (lokal)",
+      "type": "shell",
+      "command": "php artisan migrate",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "DB: Migration erstellen...",
+      "type": "shell",
+      "command": "php artisan make:migration ${input:migrationName}",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "DB: Fresh Re-Import von VPS (Prod-Dump)",
+      "type": "shell",
+      "command": "ssh root@187.124.166.153 \"mysqldump --no-defaults -h 127.0.0.1 -u srhomes -p'SRH_db_2026!portal' --single-transaction --quick --routines --triggers srhomes_portal 2>/dev/null | gzip\" > /tmp/srhomes_dump.sql.gz && gunzip -c /tmp/srhomes_dump.sql.gz | mysql -u srhomes -p'SRH_db_2026!portal' srhomes_portal && rm /tmp/srhomes_dump.sql.gz && echo 'DB refreshed from VPS'",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: npm run build (Production)",
+      "type": "shell",
+      "command": "npm run build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Deploy: Push + Deploy auf VPS",
+      "type": "shell",
+      "command": "git push origin main && ssh root@187.124.166.153 'cd /var/www/srhomes && bash deploy.sh'",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Deploy: Nur VPS (ohne Push)",
+      "type": "shell",
+      "command": "ssh root@187.124.166.153 'cd /var/www/srhomes && bash deploy.sh'",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Tinker: artisan tinker",
+      "type": "shell",
+      "command": "php artisan tinker",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "migrationName",
+      "type": "promptString",
+      "description": "Migration name (z.B. add_foo_to_bar)"
+    }
+  ]
+}

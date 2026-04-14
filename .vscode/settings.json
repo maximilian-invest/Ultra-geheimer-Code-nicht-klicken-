@@ -1,0 +1,56 @@
+{
+  "editor.formatOnSave": false,
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.rulers": [120],
+  "files.associations": {
+    "*.blade.php": "blade"
+  },
+  "files.exclude": {
+    "**/vendor": true,
+    "**/node_modules": true,
+    "**/public/build": true,
+    "**/storage/framework/cache": true,
+    "**/storage/framework/sessions": true,
+    "**/storage/framework/views": true,
+    "**/storage/logs": true,
+    "**/bootstrap/cache": true,
+    "**/.phpunit.cache": true
+  },
+  "search.exclude": {
+    "**/vendor": true,
+    "**/node_modules": true,
+    "**/public/build": true,
+    "**/storage/logs": true,
+    "**/composer.lock": true,
+    "**/package-lock.json": true
+  },
+  "[php]": {
+    "editor.tabSize": 4,
+    "editor.defaultFormatter": "bmewburn.vscode-intelephense-client"
+  },
+  "[vue]": {
+    "editor.defaultFormatter": "Vue.volar"
+  },
+  "[blade]": {
+    "editor.defaultFormatter": "onecentlin.laravel-blade"
+  },
+  "intelephense.environment.phpVersion": "8.3.0",
+  "intelephense.files.exclude": [
+    "**/.git/**",
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**/Tests/**",
+    "**/vendor/**/tests/**",
+    "**/.history/**"
+  ],
+  "emmet.includeLanguages": {
+    "blade": "html",
+    "vue-html": "html"
+  },
+  "tailwindCSS.includeLanguages": {
+    "blade": "html",
+    "vue": "html"
+  },
+  "terminal.integrated.cwd": "${workspaceFolder}"
+}

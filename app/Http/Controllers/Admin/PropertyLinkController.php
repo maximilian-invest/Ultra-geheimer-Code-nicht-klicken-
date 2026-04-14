@@ -39,6 +39,8 @@ class PropertyLinkController extends Controller
             'file_ids.*' => ['integer'],
         ]);
 
+        $data['file_ids'] = array_values(array_unique($data['file_ids']));
+
         $validFileIds = DB::table('property_files')
             ->where('property_id', $property->id)
             ->whereIn('id', $data['file_ids'])
@@ -46,7 +48,9 @@ class PropertyLinkController extends Controller
             ->all();
 
         if (count($validFileIds) !== count($data['file_ids'])) {
-            return response()->json(['error' => 'Ein oder mehrere Dokumente gehoeren nicht zu dieser Property'], 422);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'file_ids' => ['Ein oder mehrere Dokumente gehoeren nicht zu dieser Property.'],
+            ]);
         }
 
         $link = DB::transaction(function () use ($data, $property, $validFileIds) {
@@ -118,6 +122,8 @@ class PropertyLinkController extends Controller
             'file_ids.*' => ['integer'],
         ]);
 
+        $data['file_ids'] = array_values(array_unique($data['file_ids']));
+
         $validFileIds = DB::table('property_files')
             ->where('property_id', $property->id)
             ->whereIn('id', $data['file_ids'])
@@ -125,7 +131,9 @@ class PropertyLinkController extends Controller
             ->all();
 
         if (count($validFileIds) !== count($data['file_ids'])) {
-            return response()->json(['error' => 'Ein oder mehrere Dokumente gehoeren nicht zu dieser Property'], 422);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'file_ids' => ['Ein oder mehrere Dokumente gehoeren nicht zu dieser Property.'],
+            ]);
         }
 
         DB::transaction(function () use ($link, $data, $validFileIds) {

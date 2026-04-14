@@ -210,4 +210,27 @@ class PropertyLinkControllerTest extends TestCase
         $this->assertNull($link->revoked_at);
         $this->assertNull($link->revoked_by);
     }
+
+    public function test_store_accepts_duplicate_file_ids_in_request(): void
+    {
+        $admin = $this->adminUser();
+        $property = Property::factory()->create();
+
+        \DB::table('property_files')->insert([
+            ['property_id' => $property->id, 'label' => 'Expose', 'filename' => 'e.pdf', 'path' => 'e.pdf', 'mime_type' => 'application/pdf', 'file_size' => 1, 'sort_order' => 1, 'is_website_download' => 0],
+        ]);
+        $fileId = \DB::table('property_files')->where('property_id', $property->id)->value('id');
+
+        // Client sends the same ID twice — should dedupe and succeed
+        $response = $this->actingAs($admin)
+            ->postJson("/admin/properties/{$property->id}/links", [
+                'name' => 'Dedup',
+                'is_default' => false,
+                'expires_at' => now()->addDays(7)->toIso8601String(),
+                'file_ids' => [$fileId, $fileId],
+            ]);
+
+        $response->assertOk();
+        $this->assertDatabaseCount('property_link_documents', 1);
+    }
 }

@@ -51,3 +51,6 @@ website/node_modules
 
 # Local DB backups
 /storage/backups/
+
+# Git worktrees
+/.worktrees

@@ -9,6 +9,7 @@ use App\Services\PropertyLinkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class PropertyLinkController extends Controller
 {
@@ -83,7 +84,7 @@ class PropertyLinkController extends Controller
         return response()->json(['link' => $this->serialize($link)]);
     }
 
-    public function show(Property $property, PropertyLink $link): JsonResponse
+    public function show(Request $request, Property $property, PropertyLink $link)
     {
         abort_unless($link->property_id === $property->id, 404);
 
@@ -104,10 +105,21 @@ class PropertyLinkController extends Controller
             ])->values(),
         ])->values();
 
-        return response()->json([
+        $payload = [
+            'property' => [
+                'id' => $property->id,
+                'address' => $property->address,
+                'city' => $property->city,
+            ],
             'link' => $this->serialize($link),
             'sessions' => $sessions,
-        ]);
+        ];
+
+        if ($request->wantsJson()) {
+            return response()->json($payload);
+        }
+
+        return Inertia::render('Admin/PropertyLinkDetail', $payload);
     }
 
     public function update(Request $request, Property $property, PropertyLink $link): JsonResponse

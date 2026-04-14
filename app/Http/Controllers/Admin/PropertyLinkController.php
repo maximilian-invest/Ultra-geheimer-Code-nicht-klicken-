@@ -106,6 +106,52 @@ class PropertyLinkController extends Controller
         ]);
     }
 
+    public function update(Request $request, Property $property, PropertyLink $link): JsonResponse
+    {
+        abort_unless($link->property_id === $property->id, 404);
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'is_default' => ['sometimes', 'boolean'],
+            'expires_at' => ['nullable', 'date'],
+            'file_ids' => ['required', 'array', 'min:1'],
+            'file_ids.*' => ['integer'],
+        ]);
+
+        $validFileIds = DB::table('property_files')
+            ->where('property_id', $property->id)
+            ->whereIn('id', $data['file_ids'])
+            ->pluck('id')
+            ->all();
+
+        if (count($validFileIds) !== count($data['file_ids'])) {
+            return response()->json(['error' => 'Ein oder mehrere Dokumente gehoeren nicht zu dieser Property'], 422);
+        }
+
+        DB::transaction(function () use ($link, $data, $validFileIds) {
+            $link->update([
+                'name' => $data['name'],
+                'expires_at' => $data['expires_at'] ?? null,
+            ]);
+
+            DB::table('property_link_documents')->where('property_link_id', $link->id)->delete();
+            foreach ($validFileIds as $sort => $fileId) {
+                DB::table('property_link_documents')->insert([
+                    'property_link_id' => $link->id,
+                    'property_file_id' => $fileId,
+                    'sort_order' => $sort,
+                    'created_at' => now(),
+                ]);
+            }
+
+            if (!empty($data['is_default'])) {
+                $this->service->markAsDefault($link);
+            }
+        });
+
+        return response()->json(['link' => $this->serialize($link->fresh())]);
+    }
+
     protected function serialize(PropertyLink $link): array
     {
         $docIds = $link->documentIds();

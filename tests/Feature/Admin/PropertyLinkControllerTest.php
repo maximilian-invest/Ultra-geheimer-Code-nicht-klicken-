@@ -130,4 +130,32 @@ class PropertyLinkControllerTest extends TestCase
             ->assertJsonPath('sessions.0.email', 'bob@example.com')
             ->assertJsonPath('sessions.0.events.0.event_type', 'link_opened');
     }
+
+    public function test_update_changes_name_expiry_and_documents(): void
+    {
+        $admin = $this->adminUser();
+        $property = Property::factory()->create();
+        $link = PropertyLink::factory()->create([
+            'property_id' => $property->id,
+            'created_by' => $admin->id,
+            'name' => 'Old',
+        ]);
+        \DB::table('property_files')->insert([
+            ['property_id' => $property->id, 'label' => 'A', 'filename' => 'a.pdf', 'path' => 'a.pdf', 'mime_type' => 'application/pdf', 'file_size' => 1, 'sort_order' => 1, 'is_website_download' => 0],
+            ['property_id' => $property->id, 'label' => 'B', 'filename' => 'b.pdf', 'path' => 'b.pdf', 'mime_type' => 'application/pdf', 'file_size' => 1, 'sort_order' => 2, 'is_website_download' => 0],
+        ]);
+        $fileIds = \DB::table('property_files')->where('property_id', $property->id)->pluck('id')->all();
+
+        $response = $this->actingAs($admin)
+            ->putJson("/admin/properties/{$property->id}/links/{$link->id}", [
+                'name' => 'New Name',
+                'expires_at' => now()->addDays(60)->toIso8601String(),
+                'file_ids' => $fileIds,
+                'is_default' => false,
+            ]);
+
+        $response->assertOk();
+        $this->assertSame('New Name', $link->fresh()->name);
+        $this->assertDatabaseCount('property_link_documents', 2);
+    }
 }

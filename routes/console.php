@@ -9,3 +9,5 @@ Schedule::command('followup:pre-generate')->everyThirtyMinutes()->withoutOverlap
 Schedule::command('calendar:sync')->everyFifteenMinutes()->withoutOverlapping();
 
 Schedule::command('market:update')->everyFourHours()->withoutOverlapping();
+
+Schedule::command('links:purge-old-sessions')->dailyAt('03:15');

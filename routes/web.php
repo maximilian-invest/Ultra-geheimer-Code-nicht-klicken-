@@ -67,4 +67,12 @@ Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])
         Route::post('/{link}/reactivate', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'reactivate']);
     });
 
+// Public document delivery
+Route::prefix('docs')->group(function () {
+    Route::get('{token}', [\App\Http\Controllers\PublicDocumentController::class, 'show'])->name('docs.show');
+    Route::post('{token}/unlock', [\App\Http\Controllers\PublicDocumentController::class, 'unlock']);
+    Route::get('{token}/file/{fileId}/{mode}', [\App\Http\Controllers\PublicDocumentController::class, 'file'])->where('mode', 'view|download');
+    Route::post('{token}/event', [\App\Http\Controllers\PublicDocumentController::class, 'event']);
+});
+
 require __DIR__.'/auth.php';

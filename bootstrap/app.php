@@ -18,6 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\SecurityHeaders::class,
         ]);
 
+        $middleware->validateCsrfTokens(except: [
+            'docs/*/unlock',
+            'docs/*/event',
+        ]);
+
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureUserHasRole::class,
             'api.key' => \App\Http\Middleware\VerifyApiKey::class,

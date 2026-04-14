@@ -145,8 +145,17 @@ class PublicDocumentController extends Controller
             ->first();
         abort_unless($file, 404);
 
-        $disk = \Storage::disk('local');
-        abort_unless($disk->exists($file->path), 404);
+        // Property files are uploaded to the public disk (storage/app/public/property_files/...)
+        // but historical files may live on the local disk. Try public first, fall back to local.
+        $disk = null;
+        foreach (['public', 'local'] as $diskName) {
+            $candidate = \Storage::disk($diskName);
+            if ($candidate->exists($file->path)) {
+                $disk = $candidate;
+                break;
+            }
+        }
+        abort_unless($disk, 404);
 
         // Log the event
         $eventType = $mode === 'download'

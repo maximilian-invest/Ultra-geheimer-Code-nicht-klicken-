@@ -9,7 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('property_files', function (Blueprint $table) {
-            $table->boolean('is_website_download')->default(false)->after('sort_order');
+            if (!Schema::hasColumn('property_files', 'is_website_download')) {
+                $table->boolean('is_website_download')->default(false)->after('sort_order');
+            }
         });
     }
 

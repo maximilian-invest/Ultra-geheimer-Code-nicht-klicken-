@@ -19,6 +19,7 @@ return new class extends Migration
                 $table->string('mime_type', 100)->nullable();
                 $table->unsignedInteger('file_size')->nullable();
                 $table->unsignedInteger('sort_order')->default(0);
+                $table->boolean('is_website_download')->default(false);
                 $table->timestamp('created_at')->useCurrent();
                 $table->index('property_id', 'idx_property_id');
             });

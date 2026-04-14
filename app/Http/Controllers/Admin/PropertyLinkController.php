@@ -152,6 +152,39 @@ class PropertyLinkController extends Controller
         return response()->json(['link' => $this->serialize($link->fresh())]);
     }
 
+    public function destroy(Property $property, PropertyLink $link): JsonResponse
+    {
+        abort_unless($link->property_id === $property->id, 404);
+
+        $link->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function revoke(Property $property, PropertyLink $link): JsonResponse
+    {
+        abort_unless($link->property_id === $property->id, 404);
+
+        $link->update([
+            'revoked_at' => now(),
+            'revoked_by' => auth()->id(),
+        ]);
+
+        return response()->json(['link' => $this->serialize($link->fresh())]);
+    }
+
+    public function reactivate(Property $property, PropertyLink $link): JsonResponse
+    {
+        abort_unless($link->property_id === $property->id, 404);
+
+        $link->update([
+            'revoked_at' => null,
+            'revoked_by' => null,
+        ]);
+
+        return response()->json(['link' => $this->serialize($link->fresh())]);
+    }
+
     protected function serialize(PropertyLink $link): array
     {
         $docIds = $link->documentIds();

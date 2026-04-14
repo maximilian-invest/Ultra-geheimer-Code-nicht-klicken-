@@ -158,4 +158,56 @@ class PropertyLinkControllerTest extends TestCase
         $this->assertSame('New Name', $link->fresh()->name);
         $this->assertDatabaseCount('property_link_documents', 2);
     }
+
+    public function test_destroy_removes_link(): void
+    {
+        $admin = $this->adminUser();
+        $property = Property::factory()->create();
+        $link = PropertyLink::factory()->create([
+            'property_id' => $property->id,
+            'created_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->deleteJson("/admin/properties/{$property->id}/links/{$link->id}")
+            ->assertOk();
+
+        $this->assertDatabaseCount('property_links', 0);
+    }
+
+    public function test_revoke_sets_revoked_at_and_revoked_by(): void
+    {
+        $admin = $this->adminUser();
+        $property = Property::factory()->create();
+        $link = PropertyLink::factory()->create([
+            'property_id' => $property->id,
+            'created_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson("/admin/properties/{$property->id}/links/{$link->id}/revoke")
+            ->assertOk();
+
+        $link->refresh();
+        $this->assertNotNull($link->revoked_at);
+        $this->assertSame($admin->id, $link->revoked_by);
+    }
+
+    public function test_reactivate_clears_revoked_state(): void
+    {
+        $admin = $this->adminUser();
+        $property = Property::factory()->create();
+        $link = PropertyLink::factory()->revoked()->create([
+            'property_id' => $property->id,
+            'created_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson("/admin/properties/{$property->id}/links/{$link->id}/reactivate")
+            ->assertOk();
+
+        $link->refresh();
+        $this->assertNull($link->revoked_at);
+        $this->assertNull($link->revoked_by);
+    }
 }

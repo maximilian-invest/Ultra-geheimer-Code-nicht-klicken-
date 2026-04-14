@@ -57,6 +57,8 @@ return new class extends Migration
             DB::statement("DROP TABLE activities");
             DB::statement("ALTER TABLE activities_new RENAME TO activities");
             DB::statement("CREATE INDEX idx_activities_link_session ON activities (link_session_id)");
+            DB::statement("CREATE INDEX idx_activities_property_date ON activities (property_id, activity_date)");
+            DB::statement("CREATE INDEX idx_activities_stakeholder ON activities (stakeholder)");
             DB::statement('PRAGMA foreign_keys = ON');
         }
     }

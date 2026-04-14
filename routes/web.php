@@ -69,6 +69,12 @@ Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])
         Route::post('/{link}/reactivate', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'reactivate']);
     });
 
+// DSGVO export + delete for link sessions (admin)
+Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])->prefix('admin/dsgvo')->group(function () {
+    Route::get('/links', [\App\Http\Controllers\Admin\DsgvoLinkController::class, 'export']);
+    Route::delete('/links', [\App\Http\Controllers\Admin\DsgvoLinkController::class, 'destroy']);
+});
+
 // Public document delivery
 Route::prefix('docs')->group(function () {
     Route::get('{token}', [\App\Http\Controllers\PublicDocumentController::class, 'show'])->name('docs.show');

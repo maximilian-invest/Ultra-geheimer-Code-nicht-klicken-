@@ -54,4 +54,17 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+// Property Links (admin) — see docs/superpowers/specs/2026-04-14-docs-link-sharing-design.md
+Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])
+    ->prefix('admin/properties/{property}/links')
+    ->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'store']);
+        Route::get('/{link}', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'show']);
+        Route::put('/{link}', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'update']);
+        Route::delete('/{link}', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'destroy']);
+        Route::post('/{link}/revoke', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'revoke']);
+        Route::post('/{link}/reactivate', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'reactivate']);
+    });
+
 require __DIR__.'/auth.php';

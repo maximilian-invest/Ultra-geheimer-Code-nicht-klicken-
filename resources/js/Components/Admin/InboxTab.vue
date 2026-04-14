@@ -939,11 +939,24 @@ function openDetail(item, mode) {
     contextPromise = fetch(API.value + "&action=email_context&email_id=" + item.id)
       .then(r => r.json())
       .then(async d => {
-        // Try to load full conversation thread if property_id exists
+        // Use conversation_id from backend (works with AND without property_id)
+        const convId = d.conversation_id;
+        if (convId && selectedItem.value) {
+          selectedItem.value._conv_id = convId;
+        }
+        if (convId) {
+          try {
+            const detailR = await fetch(API.value + "&action=conv_detail&id=" + convId);
+            const detailD = await detailR.json();
+            if (detailD.messages?.length) {
+              expandedDetail.value = { email: detailD.conversation || d.email, thread: detailD.messages || [] };
+              return;
+            }
+          } catch (e) { /* fallback to single email */ }
+        }
+        // Fallback: try conv_list search by stakeholder + property_id
         if (d.email?.property_id && (d.email?.from_email || d.email?.to_email || d.email?.stakeholder)) {
           try {
-            // Find conversation for this email
-            const searchEmail = d.email.direction === "inbound" ? d.email.from_email : d.email.to_email;
             const stakeholder = d.email.stakeholder || d.email.from_name || "";
             const convListR = await fetch(API.value + "&action=conv_list&search=" + encodeURIComponent(stakeholder) + "&property_id=" + d.email.property_id + "&per_page=1");
             const convListD = await convListR.json();
@@ -1176,7 +1189,7 @@ async function markConvDone(convId) {
 async function markHandled(stakeholder, propertyId) {
   const item = selectedItem.value;
   try {
-    const r = await fetch(API.value + "&action=conv_done&id=" + (item ? item.id : ''), {
+    const r = await fetch(API.value + "&action=conv_done&id=" + (item ? (item._conv_id || item.id) : ''), {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
@@ -1227,7 +1240,8 @@ async function sendDraft() {
 
   try {
     const action = isFollowup ? "conv_followup" : "conv_reply";
-    const r = await fetch(API.value + "&action=" + action + "&id=" + itemId, {
+    const convId = item._conv_id || itemId;
+    const r = await fetch(API.value + "&action=" + action + "&id=" + convId, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1866,7 +1880,7 @@ function startCompose() {
   composeBcc.value = '';
   showCcBcc.value = false;
   composeSubject.value = '';
-  composeBody.value = buildSignature ? buildSignature() : '';
+  composeBody.value = '';  // signature shown as visual preview, appended on send
   composeAttachments.value = [];
   composePropertyId.value = null;
   composeStakeholder.value = '';
@@ -2538,6 +2552,7 @@ onMounted(() => {
         :compose-bcc="composeBcc"
         :show-cc-bcc="showCcBcc"
         :reply-context="replyContext"
+        :signature-data="sigData"
         @update:compose-to="composeTo = $event"
         @update:compose-subject="composeSubject = $event"
         @update:compose-body="composeBody = $event"

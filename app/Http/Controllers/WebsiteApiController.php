@@ -485,7 +485,7 @@ class WebsiteApiController extends Controller
      */
     public function content()
     {
-        $data = Cache::remember('website_content', 600, function () {
+        $data = Cache::remember('website_content', 60, function () {
             $rows = DB::table('website_content')
                 ->where('is_active', 1)
                 ->orderBy('section')

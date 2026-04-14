@@ -39,3 +39,8 @@ website/node_modules
 !storage/logs/.gitkeep
 !bootstrap/cache/.gitkeep
 
+
+# Backup files
+*.bak
+*.bak.*
+*.bak_*

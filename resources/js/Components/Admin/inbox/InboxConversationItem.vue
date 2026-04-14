@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Trash2 } from "lucide-vue-next";
+import { CheckCircle, Trash2, Reply } from "lucide-vue-next";
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -125,6 +125,27 @@ const isBesichtigung = computed(() => {
   return cat === "besichtigung";
 });
 
+const isIntern = computed(() => {
+  const cat = (props.item.category || "").toLowerCase();
+  if (cat === "intern") return true;
+  // For conversations: check if the CONTACT (external person) is sr-homes
+  const contactEmail = (props.item.contact_email || "").toLowerCase();
+  if (contactEmail && contactEmail.endsWith("@sr-homes.at")) return true;
+  // For posteingang/gesendet emails: both from AND to must be sr-homes
+  const from = (props.item.from_email || "").toLowerCase();
+  const to = (props.item.to_email || "").toLowerCase();
+  if (from.endsWith("@sr-homes.at") && to.endsWith("@sr-homes.at")) return true;
+  return false;
+});
+
+const hasBeenReplied = computed(() => {
+  // Conversations: outbound_count > 0 means we replied
+  if (props.item.outbound_count > 0) return true;
+  // Posteingang emails: has_reply flag
+  if (props.item.has_reply && props.item.direction === "inbound") return true;
+  return false;
+});
+
 const hasMatches = computed(() => props.item.match_count > 0 && !props.item.match_dismissed);
 
 function getAvatarColor(name) {
@@ -162,7 +183,7 @@ function getAvatarColor(name) {
               class="text-[13px] text-foreground truncate"
               :class="(subtab === 'posteingang' && !item.is_read) ? 'font-bold' : 'font-semibold'"
             >{{ displayName }}</span>
-            <CheckCircle v-if="item.has_reply && item.direction === 'inbound'" class="w-3 h-3 text-green-500 flex-shrink-0" title="Beantwortet" />
+            <Reply v-if="hasBeenReplied" class="w-3.5 h-3.5 text-blue-500 flex-shrink-0 -scale-x-100" title="Beantwortet" />
           </div>
           <div class="flex items-center gap-1 flex-shrink-0">
             <span class="text-[10px] text-muted-foreground whitespace-nowrap">{{ timestamp }}</span>
@@ -226,6 +247,13 @@ function getAvatarColor(name) {
             class="text-[9px] px-1.5 py-0 h-4 font-medium bg-purple-100 text-purple-700 border-purple-200"
           >
             Kaufanbot
+          </Badge>
+          <Badge
+            v-if="isIntern"
+            variant="secondary"
+            class="text-[9px] px-1.5 py-0 h-4 font-medium bg-sky-100 text-sky-700 border border-sky-300"
+          >
+            Intern
           </Badge>
 
           <!-- Nachfassen subtab badges -->

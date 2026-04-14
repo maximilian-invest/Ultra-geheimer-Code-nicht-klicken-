@@ -26,6 +26,7 @@ const props = defineProps({
   composeBcc: { type: String, default: "" },
   showCcBcc: { type: Boolean, default: false },
   replyContext: { type: Object, default: null },
+  signatureData: { type: Object, default: null },
 });
 
 const emit = defineEmits([
@@ -137,13 +138,27 @@ const propertyLabel = computed(() => {
     </div>
 
     <!-- Body (main area, matches chat area styling) -->
-    <div class="flex-1 min-h-0 overflow-y-auto px-5 py-4 bg-white">
+    <div class="flex-1 min-h-0 overflow-y-auto px-5 py-4 bg-white flex flex-col">
       <textarea
         :value="composeBody"
         @input="emit('update:composeBody', $event.target.value)"
         placeholder="Nachricht schreiben..."
-        class="w-full h-full min-h-[200px] text-[13px] leading-relaxed bg-transparent border-0 outline-none resize-none placeholder:text-muted-foreground/50"
+        class="w-full flex-1 min-h-[180px] text-[13px] leading-relaxed bg-transparent border-0 outline-none resize-none placeholder:text-muted-foreground/50"
       />
+      <!-- Signature Preview (read-only, appended automatically on send) -->
+      <div v-if="signatureData" class="mt-3 pt-2 border-t border-dashed border-zinc-200 text-[12px] leading-relaxed select-none pointer-events-none">
+        <div class="text-zinc-300">--</div>
+        <div v-if="signatureData.signature_name" class="text-zinc-500 font-medium">{{ signatureData.signature_name }}</div>
+        <div v-if="signatureData.signature_title" class="text-zinc-400">{{ signatureData.signature_title }}</div>
+        <div v-if="signatureData.signature_company" class="text-zinc-400">{{ signatureData.signature_company }}</div>
+        <div v-if="signatureData.signature_phone" class="text-zinc-400">Tel: {{ signatureData.signature_phone }}</div>
+        <div v-if="signatureData.signature_website" class="text-zinc-400">{{ signatureData.signature_website }}</div>
+      </div>
+      <div v-else class="mt-3 pt-2 border-t border-dashed border-zinc-200 text-[12px] leading-relaxed select-none pointer-events-none">
+        <div class="text-zinc-300">--</div>
+        <div class="text-zinc-400">SR-Homes Immobilien GmbH</div>
+        <div class="text-zinc-400">www.sr-homes.at</div>
+      </div>
     </div>
 
     <!-- Attachments -->

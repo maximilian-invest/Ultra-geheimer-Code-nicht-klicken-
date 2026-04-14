@@ -168,28 +168,57 @@ class ConversationController extends Controller
         app(ConversationService::class)->markRead($conv);
 
         // Load messages from portal_emails matched by contact_email + property_id
-        $messages = DB::select("
-            SELECT
-                pe.id, pe.direction,
-                CASE WHEN pe.direction = 'inbound' THEN pe.from_name ELSE pe.to_email END as from_name,
-                pe.subject,
-                SUBSTRING(pe.body_text, 1, 5000) as body_text,
-                pe.body_html,
-                pe.email_date,
-                pe.category,
-                pe.has_attachment,
-                pe.attachment_names,
-                a.followup_stage
-            FROM portal_emails pe
-            LEFT JOIN activities a ON a.source_email_id = pe.id
-            WHERE (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
-              AND (
-                  LOWER(pe.from_email) = LOWER(?)
-                  OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')
-                  OR LOWER(pe.stakeholder) = LOWER(?)
-              )
-            ORDER BY pe.email_date ASC
-        ", [$conv->property_id, $conv->property_id, $conv->contact_email, $conv->contact_email, $conv->stakeholder]);
+        // DEFENSE: when contact_email is an internal SR-Homes address (data bug
+        // from before resolveContactEmail was hardened), the wildcard to_email
+        // LIKE would leak that inbox owner's entire personal inbox into the
+        // conversation view. In that case match strictly by stakeholder only
+        // and exclude internal senders.
+        $isInternalContact = (bool) preg_match('/@(sr-homes\.at|bstf\.at)$/i', (string) $conv->contact_email);
+        if ($isInternalContact) {
+            $messages = DB::select("
+                SELECT
+                    pe.id, pe.direction,
+                    CASE WHEN pe.direction = 'inbound' THEN pe.from_name ELSE pe.to_email END as from_name,
+                    pe.subject,
+                    SUBSTRING(pe.body_text, 1, 5000) as body_text,
+                    pe.body_html,
+                    pe.email_date,
+                    pe.category,
+                    pe.has_attachment,
+                    pe.attachment_names,
+                    a.followup_stage
+                FROM portal_emails pe
+                LEFT JOIN activities a ON a.source_email_id = pe.id
+                WHERE (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
+                  AND LOWER(pe.stakeholder) = LOWER(?)
+                  AND LOWER(pe.from_email) NOT LIKE '%@sr-homes.at'
+                  AND LOWER(pe.from_email) NOT LIKE '%@bstf.at'
+                ORDER BY pe.email_date ASC
+            ", [$conv->property_id, $conv->property_id, $conv->stakeholder]);
+        } else {
+            $messages = DB::select("
+                SELECT
+                    pe.id, pe.direction,
+                    CASE WHEN pe.direction = 'inbound' THEN pe.from_name ELSE pe.to_email END as from_name,
+                    pe.subject,
+                    SUBSTRING(pe.body_text, 1, 5000) as body_text,
+                    pe.body_html,
+                    pe.email_date,
+                    pe.category,
+                    pe.has_attachment,
+                    pe.attachment_names,
+                    a.followup_stage
+                FROM portal_emails pe
+                LEFT JOIN activities a ON a.source_email_id = pe.id
+                WHERE (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
+                  AND (
+                      LOWER(pe.from_email) = LOWER(?)
+                      OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')
+                      OR LOWER(pe.stakeholder) = LOWER(?)
+                  )
+                ORDER BY pe.email_date ASC
+            ", [$conv->property_id, $conv->property_id, $conv->contact_email, $conv->contact_email, $conv->stakeholder]);
+        }
 
         $prop = $conv->property;
         $convData = [
@@ -334,11 +363,8 @@ class ConversationController extends Controller
                     ->whereIn('id', $inboundIds)
                     ->update(['is_deleted' => 1, 'deleted_at' => now()]);
 
-                // Update related activities so they don't appear in Unbeantwortet
-                DB::table('activities')
-                    ->whereIn('source_email_id', $inboundIds)
-                    ->whereNotIn('category', ['update', 'email-out', 'nachfassen', 'expose'])
-                    ->update(['category' => 'update']);
+                // NOTE: We no longer re-categorize activities to 'update' — that destroys analytics.
+                // Unbeantwortet now filters via portal_emails.is_deleted instead.
 
                 Log::info('Auto-trashed inbound emails after conv reply', [
                     'conv_id' => $conv->id,
@@ -861,18 +887,29 @@ class ConversationController extends Controller
         $properties = Property::whereIn('id', $selectedIds)->get();
 
         // Build thread context for draft generation
+        // For proactive offers (no conv->property_id): load ALL recent emails from contact regardless of property
+        // For original-property conversations: scope to that property
         $emailQuery = DB::table('portal_emails')
-            ->where(function ($q) use ($conv) { $q->whereRaw("LOWER(from_email) = LOWER(?)", [$conv->contact_email])->orWhereRaw("LOWER(to_email) LIKE CONCAT('%', LOWER(?), '%')", [$conv->contact_email]); })
+            ->where(function ($q) use ($conv) {
+                $q->whereRaw("LOWER(from_email) = LOWER(?)", [$conv->contact_email])
+                  ->orWhereRaw("LOWER(to_email) LIKE CONCAT('%', LOWER(?), '%')", [$conv->contact_email]);
+            })
             ->orderByDesc("email_date")
-            ->limit(5);
+            ->limit(8);
 
         if ($conv->property_id) {
             $emailQuery->where('property_id', $conv->property_id);
-        } else {
-            $emailQuery->whereNull('property_id');
         }
+        // No else: for proactive offers, we want the full conversation history with this contact
 
         $emails = $emailQuery->get();
+        \Log::info('matchGenerateDraft: loading thread context', [
+            'conv_id' => $conv->id,
+            'contact_email' => $conv->contact_email,
+            'property_id' => $conv->property_id,
+            'email_count' => $emails->count(),
+            'selected_property_count' => count($selectedIds),
+        ]);
 
         $threadLines = [];
         foreach ($emails->reverse() as $e) {
@@ -903,10 +940,19 @@ class ConversationController extends Controller
         // Get broker ID for scoping
         $brokerId = $conv->property_id ? Property::where('id', $conv->property_id)->value('broker_id') : null;
 
+        // Detect first-message intent (was the initial mail an inquiry, general contact, or different?)
+        $firstInbound = $emails->reverse()->first(function ($e) { return $e->direction === 'inbound'; });
+        $firstInboundText = $firstInbound ? mb_strtolower(mb_substr($firstInbound->body_text ?? '', 0, 300)) : '';
+        $looksLikeInquiry = preg_match('/(anfrage|interesse|besichtig|expos|frag|info|kaufen|mieten|wohnung|haus|objekt)/u', $firstInboundText);
+
         // AI draft generation with full conversation context
-        $promptContext = $originalProp
-            ? 'KONTEXT: Der Kunde hat ursprünglich eine Anfrage zum Objekt ORIGINAL-OBJEKT gestellt. Du bietest ihm nun ZUSÄTZLICHE passende Immobilien an.'
-            : 'KONTEXT: Du kontaktierst den Kunden proaktiv mit passenden Immobilien-Vorschlägen basierend auf dem bisherigen Kontakt.';
+        if ($originalProp) {
+            $promptContext = "KONTEXT: Der Kunde hat ursprünglich eine Anfrage zum Objekt '{$originalProp->title}' gestellt. Du bietest ihm nun ZUSÄTZLICHE passende Immobilien an, weil das Original eventuell nicht genau passt oder du parallel weitere interessante Optionen hast.";
+        } elseif ($looksLikeInquiry) {
+            $promptContext = 'KONTEXT: Der Kunde hat sich mit einer Anfrage gemeldet (Interesse an Immobilien geäussert). Du bedankst dich für die Anfrage und bietest darüber hinaus konkrete Immobilien an, die zu seinem Suchprofil passen könnten.';
+        } else {
+            $promptContext = 'KONTEXT: Du kontaktierst den Kunden proaktiv mit passenden Immobilien-Vorschlägen aus deinem Portfolio. Es gibt eine bestehende Geschäftsbeziehung — knüpfe daran an.';
+        }
 
         $systemPrompt = <<<PROMPT
 Du bist ein erfahrener Immobilienmakler bei SR-Homes. Schreibe eine professionelle, persönliche Email an den Kunden.
@@ -914,24 +960,26 @@ Du bist ein erfahrener Immobilienmakler bei SR-Homes. Schreibe eine professionel
 {$promptContext}
 
 AUFBAU DER EMAIL:
-1. Formelle Anrede (Sehr geehrte/r Herr/Frau [Nachname])
-2. Beziehe dich auf den bisherigen Email-Verlauf — zeige dass du die Situation des Kunden verstehst
-3. Falls ein Original-Objekt existiert: Beziehe dich kurz darauf und leite dann natürlich über zu den neuen Vorschlägen
-   Falls KEIN Original-Objekt: Beginne mit einer passenden Einleitung wie "Bei der Durchsicht unseres Portfolios bin ich auf Immobilien gestossen, die für Sie interessant sein könnten"
-4. Stelle jedes vorgeschlagene Objekt mit den wichtigsten Eckdaten vor
-5. Erwähne dass du das Exposé zu jedem Objekt beigelegt hast (falls vorhanden)
-6. Biete ein unverbindliches Gespräch oder eine Besichtigung an
-7. Schliesse mit "Mit freundlichen Grüssen" — KEINEN Namen dahinter, die Signatur wird automatisch angehängt
+1. Formelle Anrede (Sehr geehrte/r Herr/Frau [Nachname] — Nachname aus Kundennamen ableiten)
+2. Eröffnung passend zum KONTEXT oben:
+   - Wenn Original-Objekt: kurz darauf Bezug nehmen, dann Brücke zu neuen Vorschlägen
+   - Wenn Anfrage: "Vielen Dank für Ihre Anfrage. Ergänzend zu Ihrem Interesse möchte ich Ihnen weitere Objekte vorstellen, die gut passen könnten..."
+   - Wenn proaktiv: "Im Zuge unseres laufenden Austauschs ist mir aufgefallen, dass folgende Immobilien aus unserem aktuellen Portfolio sehr gut zu Ihnen passen würden..."
+3. Stelle jedes vorgeschlagene Objekt im Fliesstext kurz vor — Adresse, Eckdaten (Zimmer/Fläche), Preis. KEINE Aufzählung, sondern natürlich verbunden.
+4. Wenn Exposés beigelegt sind: erwähne natürlich "die Exposés finden Sie im Anhang"
+5. Biete ein unverbindliches Gespräch oder Besichtigung an
+6. Schliesse mit "Mit freundlichen Grüssen" auf einer eigenen Zeile — KEINEN Namen dahinter (Signatur wird automatisch angehängt)
 
 REGELN:
-- KEIN generischer Werbetext — die Mail soll sich lesen als hätte der Makler persönlich nachgedacht
+- KEIN generischer Werbetext — soll sich lesen als hätte der Makler persönlich nachgedacht
 - Verwende "ich" nicht "wir" — persönlicher Ton
-- Max 200 Wörter
-- Keine Aufzählungszeichen oder Nummerierungen für die Objekte — fliessender Text
-- WICHTIG: Antworte NUR mit dem JSON, kein anderer Text
+- 150–250 Wörter, kompakt aber konkret
+- Keine Bullet-Points, keine Nummerierungen — fliessender Text
+- Wenn du den Nachnamen nicht sicher kennst, verwende "Sehr geehrte Damen und Herren"
+- WICHTIG: Antworte NUR mit gültigem JSON, kein Markdown, keine Code-Fences
 
-Antworte als JSON:
-{"email_subject": "...", "email_body": "..."}
+Antwort-Format (genau dieses JSON-Schema):
+{"email_subject": "Betreff hier", "email_body": "Mail-Text mit \n\n für Absätze"}
 PROMPT;
 
         $userMessage = "KONVERSATIONSVERLAUF:\n" . ($threadLines ? implode("\n---\n", $threadLines) : '(Kein bisheriger Verlauf vorhanden)')
@@ -939,11 +987,24 @@ PROMPT;
             . ($originalDesc ? "\nORIGINAL-OBJEKT: {$originalDesc}" : "\nORIGINAL-OBJEKT: (Keines — proaktives Angebot)")
             . "\n\nVORZUSCHLAGENDE OBJEKTE:\n" . implode("\n", $propDescriptions);
 
+        \Log::info('matchGenerateDraft: calling AI', [
+            'conv_id' => $conv->id,
+            'has_original' => !empty($originalProp),
+            'looks_like_inquiry' => (bool)$looksLikeInquiry,
+            'prop_count' => count($propDescriptions),
+            'thread_lines' => count($threadLines),
+        ]);
         $ai = app(AnthropicService::class);
-        $draft = $ai->chatJson($systemPrompt, $userMessage, 1000);
+        $draft = $ai->chatJson($systemPrompt, $userMessage, 1500);
 
-        if (!$draft) {
-            return response()->json(['error' => 'AI draft generation failed'], 500);
+        if (!$draft || empty($draft['email_body'])) {
+            \Log::warning('matchGenerateDraft: AI returned empty draft', [
+                'conv_id' => $conv->id,
+                'draft_keys' => $draft ? array_keys($draft) : null,
+            ]);
+            return response()->json([
+                'error' => 'AI hat keinen Entwurf zurückgegeben. Bitte erneut versuchen.',
+            ], 500);
         }
 
         // Collect expose files with property mapping

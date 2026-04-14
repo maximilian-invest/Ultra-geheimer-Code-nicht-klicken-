@@ -1002,8 +1002,8 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
 
         DB::update("UPDATE portal_emails SET is_deleted = 1, deleted_at = NOW() WHERE id IN ({$placeholders})", $ids);
-        // Set category to 'update' so it disappears from Unbeantwortet (which filters out 'update')
-        $count = DB::update("UPDATE activities SET category = 'update' WHERE source_email_id IN ({$placeholders}) AND category NOT IN ('update','email-out','nachfassen','expose')", $ids);
+        // NOTE: We no longer re-categorize activities — that destroys analytics.
+        // Unbeantwortet filters via portal_emails.is_deleted instead.
 
         return response()->json(['ok' => true, 'trashed' => count($ids)]);
     }

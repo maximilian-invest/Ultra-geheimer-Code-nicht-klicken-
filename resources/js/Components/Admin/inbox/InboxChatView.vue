@@ -60,6 +60,8 @@ function toggleOfferProperty(id) {
 async function generateOfferDraft() {
   if (offerSelectedCount.value === 0) return
   offerGenerating.value = true
+  const cnt = offerSelectedCount.value
+  toast("Generiere Entwurf für " + cnt + (cnt > 1 ? " Objekte…" : " Objekt…"))
   try {
     const r = await fetch(API.value + '&action=match_generate_draft', {
       method: 'POST',
@@ -69,17 +71,26 @@ async function generateOfferDraft() {
         property_ids: [...offerSelectedIds.value],
       }),
     })
-    const d = await r.json()
-    if (d.error) {
-      toast('Fehler: ' + d.error)
+    let d
+    try {
+      d = await r.json()
+    } catch (parseErr) {
+      console.error('match_generate_draft: invalid JSON response', parseErr, 'status', r.status)
+      toast('Server-Fehler (HTTP ' + r.status + ') — bitte erneut versuchen')
+      return
+    }
+    if (!r.ok || d.error) {
+      console.warn('match_generate_draft error:', d)
+      toast('Fehler beim Generieren: ' + (d.error || ('HTTP ' + r.status)))
       return
     }
     if (!d.draft_body) {
+      console.warn('match_generate_draft: empty draft_body', d)
       toast('Kein Entwurf erhalten — bitte erneut versuchen')
       return
     }
     offerOpen.value = false
-    toast('Entwurf generiert!')
+    toast('Entwurf generiert — siehe Reply-Bereich unten')
     emit('matchDraft', {
       draft_body: d.draft_body,
       draft_subject: d.draft_subject,
@@ -89,7 +100,7 @@ async function generateOfferDraft() {
     })
   } catch (e) {
     console.error('Failed to generate offer draft', e)
-    toast('Netzwerkfehler beim Generieren des Entwurfs')
+    toast('Netzwerkfehler: ' + (e.message || 'unbekannt'))
   } finally {
     offerGenerating.value = false
   }

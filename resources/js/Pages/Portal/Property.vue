@@ -403,6 +403,12 @@ const categoryCounts = computed(() => {
   ;(props.activities || []).forEach(a => {
     counts[a.category] = (counts[a.category] || 0) + 1
   })
+  // Kaufanbote: immer die tatsaechlich hinterlegten Angebote zeigen (KaufanbotHelper),
+  // nicht die Anzahl der Activity-Eintraege (Mails/Gespraeche ueber Kaufanbote).
+  // Single source of truth: props.property.kaufanbot_count vom Server.
+  if (props.property?.kaufanbot_count !== undefined && props.property?.kaufanbot_count !== null) {
+    counts.kaufanbot = props.property.kaufanbot_count
+  }
   return counts
 })
 

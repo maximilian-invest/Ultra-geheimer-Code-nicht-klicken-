@@ -861,9 +861,10 @@ async function deleteEntry(section, key) {
               {{ sec.label }}
             </button>
           </nav>
-          <a href="https://sr-homes.at" target="_blank"
-            class="flex items-center gap-2 px-3 py-2 mt-3 rounded-xl text-[13px] font-medium text-[#D4622B] hover:bg-orange-50 transition-all border border-[var(--border)]">
-            <ExternalLink class="w-3.5 h-3.5 shrink-0" /> Website öffnen
+          <a href="/website-preview/" target="_blank"
+            class="flex items-center justify-center gap-2 px-3 py-2.5 mt-4 rounded-xl text-[13px] font-semibold text-white bg-[#D4622B] hover:bg-[#B8541F] active:scale-[0.98] shadow-sm hover:shadow-md transition-all"
+            title="Oeffnet die neue Website (sr-homes-v2) mit Live-CMS-Inhalten">
+            <ExternalLink class="w-3.5 h-3.5 shrink-0" /> Website oeffnen
           </a>
         </div>
 

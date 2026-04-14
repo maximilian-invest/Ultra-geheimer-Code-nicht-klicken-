@@ -213,7 +213,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 FROM activities a
                 LEFT JOIN portal_emails pe ON pe.id = a.source_email_id
                 {$brokerInnerJoin}
-                WHERE {$sysFilter}
+                WHERE {$sysFilter} AND (pe.id IS NULL OR pe.is_deleted = 0)
                 GROUP BY norm_name, a.property_id
             ) conv
             LEFT JOIN properties p ON conv.property_id = p.id
@@ -416,7 +416,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 FROM activities a
                 LEFT JOIN portal_emails pe ON pe.id = a.source_email_id
                 JOIN properties p ON p.id = a.property_id
-                WHERE {$sysFilter} AND a.property_id IS NOT NULL AND COALESCE(p.on_hold, 0) = 0 {$brokerFilterStats}
+                WHERE {$sysFilter} AND (pe.id IS NULL OR pe.is_deleted = 0) AND a.property_id IS NOT NULL AND COALESCE(p.on_hold, 0) = 0 {$brokerFilterStats}
                 GROUP BY norm_name, a.property_id
                 HAVING last_cat NOT IN ('email-out', 'expose', 'update', 'nachfassen') AND DATEDIFF(NOW(), last_date) >= 0 AND last_has_email = 1
             ) sub
@@ -434,7 +434,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 FROM activities a
                 LEFT JOIN portal_emails pe ON pe.id = a.source_email_id
                 JOIN properties p ON p.id = a.property_id
-                WHERE {$sysFilter} AND a.property_id IS NOT NULL AND COALESCE(p.on_hold, 0) = 0 {$brokerFilterStats}
+                WHERE {$sysFilter} AND (pe.id IS NULL OR pe.is_deleted = 0) AND a.property_id IS NOT NULL AND COALESCE(p.on_hold, 0) = 0 {$brokerFilterStats}
                 GROUP BY norm_name, a.property_id
                 HAVING last_cat IN ('email-out', 'expose', 'nachfassen') AND DATEDIFF(NOW(), last_date) >= 3 AND has_erstanfrage = 1 AND inbound_replies = 0 AND stage2_nachfassen_count < 2
             ) sub
@@ -997,7 +997,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                     SUBSTRING_INDEX(GROUP_CONCAT(CASE WHEN a.source_email_id IS NOT NULL THEN 1 ELSE 0 END ORDER BY a.id DESC), ',', 1) as last_has_email
                 FROM activities a
                 LEFT JOIN portal_emails pe ON pe.id = a.source_email_id
-                WHERE {$sysFilter}
+                WHERE {$sysFilter} AND (pe.id IS NULL OR pe.is_deleted = 0)
                 GROUP BY norm_name, a.property_id
             ) conv
             LEFT JOIN properties p ON conv.property_id = p.id
@@ -1165,7 +1165,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                     MAX(CASE WHEN a.snooze_until IS NOT NULL AND a.snooze_until > NOW() THEN a.snooze_until ELSE NULL END) as snooze_until
                 FROM activities a
                 LEFT JOIN portal_emails pe ON pe.id = a.source_email_id
-                WHERE {$sysFilter}
+                WHERE {$sysFilter} AND (pe.id IS NULL OR pe.is_deleted = 0)
                 GROUP BY norm_name, a.property_id
             ) conv
             LEFT JOIN properties p ON conv.property_id = p.id

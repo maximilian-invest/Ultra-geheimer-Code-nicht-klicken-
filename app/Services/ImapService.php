@@ -273,6 +273,14 @@ class ImapService
                     continue; // Skip normal processing
                 }
 
+                // ---- DSGVO/Noise-Filter: Newsletter, Rechnungen, Service-Mails ueberspringen ----
+                // Verhindert dass personenbezogene Service-Mails in der Business-DB landen.
+                // Das echte IMAP-Postfach (Webmail/Mail-Client) bleibt unangetastet.
+                if ($this->shouldSkipImport($fromEmail, $fromDomain, $subject, $direction)) {
+                    Log::info("[IMAP] Skip (noise filter): {$fromEmail} | subj: " . mb_substr($subject, 0, 60));
+                    continue;
+                }
+
                 // Check attachments
                 $hasAttachment = $this->hasAttachments($structure);
                 $attachmentNames = $hasAttachment ? $this->getAttachmentNames($structure) : null;
@@ -869,6 +877,15 @@ class ImapService
                         \Log::warning("ConversationService failed for email {$email->id}: " . $e->getMessage());
                     }
 
+                    // Auto-generate AI draft for inbound customer emails
+                    if ($direction === 'inbound' && isset($conversation) && $conversation && $conversation->property_id) {
+                        try {
+                            \App\Jobs\GenerateAiDraft::dispatch($conversation->id)->onQueue('default');
+                        } catch (\Throwable $e) {
+                            \Log::warning("GenerateAiDraft dispatch failed for conv {$conversation->id}: " . $e->getMessage());
+                        }
+                    }
+
                     // Cross-match: analyze if customer might fit other properties
                     if ($email->direction === 'inbound') {
                         $conv = \App\Models\Conversation::where('contact_email', $email->contact_email ?? $email->from_email)
@@ -903,6 +920,17 @@ class ImapService
                         } catch (\Throwable $e) {
                             Log::warning("autoReply failed for email {$email->id}: " . $e->getMessage());
                         }
+                    }
+                }
+
+                // Also create/update conversations for emails WITHOUT property_id or internal emails
+                // so they appear in Anfragen/Posteingang
+                if (!($email->property_id && !$isInternalEmail)) {
+                    try {
+                        $convService = app(\App\Services\ConversationService::class);
+                        $conversation = $convService->updateFromEmail($email, null);
+                    } catch (\Throwable $e) {
+                        \Log::warning("ConversationService (no-property) failed for email {$email->id}: " . $e->getMessage());
                     }
                 }
 
@@ -1052,7 +1080,16 @@ Wenn kein Objekt passt, setze property_id auf null.';
             $body = $partNumber
                 ? imap_fetchbody($mailbox, $uid, $partNumber, FT_UID)
                 : imap_body($mailbox, $uid, FT_UID);
-            return $this->decodeBody($body, $structure->encoding ?? 0);
+            $body = $this->decodeBody($body, $structure->encoding ?? 0);
+            $charset = 'UTF-8';
+            if (isset($structure->parameters)) {
+                foreach ($structure->parameters as $param) {
+                    if (strtolower($param->attribute) === 'charset') {
+                        $charset = strtoupper($param->value);
+                    }
+                }
+            }
+            return $this->convertToUtf8($body, $charset);
         }
 
         // Multipart: find text/plain first, then text/html as fallback
@@ -1106,6 +1143,35 @@ Wenn kein Objekt passt, setze property_id auf null.';
             4 => quoted_printable_decode($body), // QUOTED-PRINTABLE
             default => $body,
         };
+    }
+
+    /**
+     * Convert text from source charset to UTF-8.
+     */
+    private function convertToUtf8(string $text, string $charset = 'UTF-8'): string
+    {
+        $charset = strtoupper(trim($charset));
+        // Normalize charset aliases
+        $aliases = [
+            'LATIN1' => 'ISO-8859-1', 'LATIN-1' => 'ISO-8859-1',
+            'ISO8859-1' => 'ISO-8859-1', 'ISO_8859-1' => 'ISO-8859-1',
+            'WINDOWS-1252' => 'CP1252', 'WIN-1252' => 'CP1252',
+        ];
+        $charset = $aliases[$charset] ?? $charset;
+
+        if ($charset === 'UTF-8' || $charset === 'UTF8') {
+            // Already UTF-8, but validate
+            if (mb_check_encoding($text, 'UTF-8')) return $text;
+            // Invalid UTF-8: try Windows-1252 (common in German emails)
+            return mb_convert_encoding($text, 'UTF-8', 'CP1252');
+        }
+
+        try {
+            return mb_convert_encoding($text, 'UTF-8', $charset);
+        } catch (\Throwable $e) {
+            // Fallback: try common German encodings
+            return mb_convert_encoding($text, 'UTF-8', 'CP1252,ISO-8859-1,UTF-8');
+        }
     }
 
     private function hasAttachments($structure): bool
@@ -2130,4 +2196,102 @@ Leeres Array [] wenn keine NEUEN Fakten enthalten sind.';
             }
         }
     }
+    /**
+     * DSGVO/Noise-Filter fuer den IMAP-Import:
+     * Ueberspringt personenbezogene Service-/Newsletter-Mails BEVOR sie in portal_emails landen.
+     *
+     * WICHTIG: Filtert NUR den Import in unsere Business-DB.
+     * Das tatsaechliche IMAP-Postfach (Gmail/Outlook/etc.) bleibt komplett unangetastet.
+     * Mails sind weiterhin im Webmail und Mail-Client sichtbar.
+     *
+     * Whitelist (immer importieren):
+     *  - Alle ausgehenden Mails (direction=outbound) - eigener Versand
+     *  - Property-Ref-ID im Subject (#123, REF-456, OBJ-789)
+     *  - Immobilienplattformen (willhaben, immoscout24, immowelt, remax, ...)
+     *
+     * Blacklist (skip):
+     *  - Service-/Rechnungs-/Newsletter-Domains (druck.at, klarna, dpd, dropbox, ...)
+     *  - [SPAM]-markierte Subjects
+     */
+    private function shouldSkipImport(
+        string $fromEmail,
+        string $fromDomain,
+        string $subject,
+        string $direction
+    ): bool {
+        // 1) Outbound immer behalten
+        if ($direction === 'outbound') {
+            return false;
+        }
+
+        // 2) Property-Ref-ID im Subject -> behalten
+        if (preg_match('/(?:#|\bREF[- ]?|\bOBJ[- ]?)\d{2,}/i', $subject)) {
+            return false;
+        }
+
+        $fromEmailLower  = strtolower($fromEmail);
+        $fromDomainLower = strtolower($fromDomain);
+
+        // 3) Immobilienplattformen immer zulassen
+        $platformDomains = [
+            'willhaben.at', 'willhaben.email', 'willhaben.immomail',
+            'immobilienscout24.at', 'immobilienscout24.de',
+            'immowelt.at', 'immowelt.de',
+            'immo.at',
+            'remax.at', 'remax-austria.at',
+            'immodirekt.at',
+            'justimmo.at',
+            'edenhome.at',
+            'ivd.net',
+            'der-makler.at',
+            'findmyhome.at',
+        ];
+        foreach ($platformDomains as $pd) {
+            if ($fromDomainLower === $pd || str_ends_with($fromDomainLower, '.' . $pd)) {
+                return false;
+            }
+        }
+
+        // 4) [SPAM]-Subject -> skip
+        if (preg_match('/^\s*\[SPAM\]/i', $subject)) {
+            return true;
+        }
+
+        // 5) Blacklist bekannter Service-/Rechnungs-/Newsletter-Domains
+        $blacklistDomains = [
+            // Druck & Office-Service
+            'druck.at',
+            'konicaminolta.eu', 'konicaminolta.com', 'my.konicaminolta.eu',
+            // Real-Estate-Tools (nur Tool-Benachrichtigungen, keine Kunden)
+            'sprengnetter.at', 'sprengnetter.com', 'sprengnetter.de',
+            // Stock-Photos
+            'shutterstock.com', 'submit.shutterstock.com',
+            // Shipping
+            'dpd.at', 'dpd.de', 'dpd.com',
+            'post.at',
+            // Telco & Energie
+            'magenta.at', 'a1.net', 'drei.at',
+            // Payment & Invoicing
+            'klarna.com', 'klarna.de', 'klarna.at', 'mailer.klarna.com',
+            // File-Transfer
+            'wetransfer.com', 'wetransfer.email',
+            'dropbox.com', 'dropboxmail.com', 'no-reply.dropbox.com',
+            // Wholesale
+            'metro.at', 'metro.de',
+            // Education
+            'volkshochschule.at', 'vhs.at',
+            // Networking-Gruppen
+            'bninotifications.com', 'bni.com',
+            // Bulk-Mail-Provider (selten von echten Kunden)
+            'mailchimp.com', 'sendgrid.net', 'mailgun.org',
+        ];
+        foreach ($blacklistDomains as $bd) {
+            if ($fromDomainLower === $bd || str_ends_with($fromDomainLower, '.' . $bd)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 }

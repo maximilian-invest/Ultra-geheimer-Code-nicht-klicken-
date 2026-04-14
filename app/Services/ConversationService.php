@@ -32,7 +32,7 @@ class ConversationService
 
                 // Lock existing row to prevent race conditions
                 $conv = Conversation::where('contact_email', $contactEmail)
-                    ->where('property_id', $email->property_id)
+                    ->where(function($pq) use ($email) { if ($email->property_id) { $pq->where('property_id', $email->property_id); } else { $pq->whereNull('property_id'); } })
                     ->lockForUpdate()
                     ->first();
 
@@ -107,7 +107,7 @@ class ConversationService
                 }
 
                 // Update category if more specific
-                $specificCategories = ['kaufanbot', 'besichtigung', 'absage'];
+                $specificCategories = ['kaufanbot', 'besichtigung', 'absage', 'intern'];
                 if ($email->category && in_array(strtolower($email->category), $specificCategories)) {
                     $conv->category = strtolower($email->category);
                 }
@@ -195,8 +195,8 @@ class ConversationService
         if ($email->direction === 'inbound') {
             $fromEmail = strtolower(trim($email->from_email ?? ''));
 
-            // Direct email (not a platform noreply)
-            if ($fromEmail && !$this->isNoReplyEmail($fromEmail)) {
+            // Direct email (not a platform noreply, not an internal SR-Homes address)
+            if ($fromEmail && !$this->isNoReplyEmail($fromEmail) && !$this->isInternalEmail($fromEmail)) {
                 return $fromEmail;
             }
 
@@ -227,7 +227,12 @@ class ConversationService
         // Outbound: parse to_email
         $to = $email->to_email ?? '';
         if (preg_match('/<([^>]+)>/', $to, $m)) $to = $m[1];
-        return strtolower(trim($to));
+        $to = strtolower(trim($to));
+        // Don't treat internal SR-Homes addresses as an external contact
+        if ($to && $this->isInternalEmail($to)) {
+            return null;
+        }
+        return $to;
     }
 
     /**
@@ -287,6 +292,21 @@ class ConversationService
         }
 
         return 'direkt';
+    }
+
+    /**
+     * Check if an email address belongs to an internal SR-Homes user
+     * (and should therefore never be used as an external contact_email).
+     */
+    public function isInternalEmail(?string $email): bool
+    {
+        if (!$email) return false;
+        $email = strtolower(trim($email));
+        // Strip angle brackets if present (e.g. "Name <a@b>")
+        if (preg_match('/<([^>]+)>/', $email, $m)) {
+            $email = $m[1];
+        }
+        return (bool) preg_match('/@(sr-homes\.at|bstf\.at)$/i', $email);
     }
 
     /**

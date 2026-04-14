@@ -214,7 +214,7 @@ PROMPT;
             return 0;
         }
 
-        // Location match (25 points)
+        // Location match (25 points) — HARD FILTER: if locations specified but no match, exclude
         $locations = array_map("mb_strtolower", $criteria["locations"] ?? []);
         if (!empty($locations)) {
             $propCity = mb_strtolower($prop->city ?? "");
@@ -229,14 +229,24 @@ PROMPT;
                     break;
                 }
             }
-            // Regional match: same zip prefix = same region (50xx = Salzburg area)
+            // Regional match: same zip prefix = same region
             if (!$locMatched && $propZip) {
                 foreach ($locations as $loc) {
-                    if (str_contains($loc, "salzburg") && str_starts_with($propZip, "50")) {
+                    // Try matching by first 2 digits of zip (same region)
+                    $locZipPrefix = "";
+                    if (preg_match('/\b(\d{2})\d{2}\b/', $loc, $zm)) {
+                        $locZipPrefix = $zm[1];
+                    }
+                    if ($locZipPrefix && str_starts_with($propZip, $locZipPrefix)) {
                         $score += 15;
+                        $locMatched = true;
                         break;
                     }
                 }
+            }
+            // Hard filter: location specified but no match at all -> exclude
+            if (!$locMatched) {
+                return 0;
             }
         }
         // Price within range (20 points)

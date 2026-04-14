@@ -20,6 +20,12 @@ const isOutbound = computed(() => {
 
 const isAutoReply = computed(() => props.message.category === 'auto-reply' || props.message.is_auto_reply)
 const isNachfassen = computed(() => props.message.category === 'nachfassen')
+const isIntern = computed(() => {
+  const cat = (props.message.category || '').toLowerCase()
+  const from = (props.message.from_email || '').toLowerCase()
+  const to = (props.message.to_email || '').toLowerCase()
+  return cat === 'intern' || (from.endsWith('@sr-homes.at') && to.endsWith('@sr-homes.at'))
+})
 
 const typeBadge = computed(() => {
   const m = props.message
@@ -35,10 +41,45 @@ const typeBadge = computed(() => {
 
 const displayName = computed(() => props.message.from_name || props.senderName || props.message.from_email || 'Unbekannt')
 
-const displayBody = computed(() => props.message.body_text || props.message.body || props.message.full_body || props.message.ai_summary || props.message.result || '')
+// Clean and format email body for display
+function cleanEmailBody(raw) {
+  if (!raw) return ""
+  let text = raw
 
-const isTruncatable = computed(() => displayBody.value.length > 150)
-const truncatedBody = computed(() => isTruncatable.value ? displayBody.value.slice(0, 150).trimEnd() : displayBody.value)
+  // Strip quoted reply chains ("Am ... schrieb ...:" + everything after)
+  text = text.replace(/\n\s*Am \d{1,2}\.\d{1,2}\.\d{2,4}.*schrieb.*:[\s\S]*$/im, "")
+  // Strip "> " quoted lines at the end
+  const lines = text.split("\n")
+  let cutIdx = lines.length
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].match(/^\s*>/) || lines[i].match(/^\s*\|/)) {
+      cutIdx = i
+    } else if (lines[i].trim() === "") {
+      // skip blank
+    } else {
+      break
+    }
+  }
+  text = lines.slice(0, cutIdx).join("\n")
+
+  // Strip forwarded headers block
+  text = text.replace(/\n-{3,}\s*(Weitergeleitete Nachricht|Forwarded message|Original Message)\s*-{3,}[\s\S]*$/im, "")
+
+  // Strip signature blocks (after --)
+  text = text.replace(/\n--\s*\n[\s\S]*$/m, "")
+
+  // Collapse 3+ consecutive blank lines to 2
+  text = text.replace(/(\n\s*){3,}/g, "\n\n")
+
+  return text.trim()
+}
+
+const rawBody = computed(() => props.message.full_body || props.message.body_text || props.message.body || props.message.ai_summary || props.message.result || "")
+const displayBody = computed(() => cleanEmailBody(rawBody.value))
+const hasQuotedContent = computed(() => rawBody.value.length > displayBody.value.length + 20)
+
+const isTruncatable = computed(() => displayBody.value.length > 300)
+const truncatedBody = computed(() => isTruncatable.value ? displayBody.value.slice(0, 300).trimEnd() : displayBody.value)
 
 // Parse attachments from has_attachment + attachment_names OR attachments array
 const attachments = computed(() => {
@@ -56,6 +97,7 @@ const attachments = computed(() => {
 })
 
 const bubbleClasses = computed(() => {
+  if (isIntern.value) return 'bg-sky-50 border border-sky-100 text-zinc-800 rounded-xl rounded-bl-sm'
   if (isAutoReply.value) return 'bg-emerald-50 border border-emerald-100 text-zinc-800 rounded-xl rounded-bl-sm'
   if (isNachfassen.value) return 'bg-amber-50 border border-amber-100 text-zinc-800 rounded-xl rounded-bl-sm'
   if (isOutbound.value) return 'bg-zinc-100 border border-zinc-100 text-zinc-800 rounded-xl rounded-br-sm'
@@ -70,7 +112,13 @@ function formatDate(d) {
   if (!d) return ''
   const date = new Date(d)
   if (isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })
+  const now = new Date()
+  const isToday = date.toDateString() === now.toDateString()
+  const time = date.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })
+  if (isToday) return time
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  return day + '.' + month + '. ' + time
 }
 
 function onSaveAttachment(att, idx) {
@@ -100,18 +148,24 @@ function onSaveAttachment(att, idx) {
       </div>
 
       <!-- Body -->
-      <div class="text-[13px] leading-relaxed whitespace-pre-wrap">
+      <div class="text-[13px] leading-[1.6] whitespace-pre-wrap break-words">
         <template v-if="!isTruncatable || expanded">{{ displayBody }}</template>
         <template v-else>
-          <span class="line-clamp-3">{{ truncatedBody }}...</span>
-          <span class="text-[11px] text-blue-600 hover:text-blue-800 font-medium mt-1 inline-block">Mehr anzeigen</span>
+          <span>{{ truncatedBody }}...</span>
+          <button class="text-[11px] text-blue-600 hover:text-blue-800 font-medium mt-1 block" @click.stop="expanded = true">Mehr anzeigen</button>
         </template>
       </div>
 
-      <!-- Collapse -->
-      <button v-if="isTruncatable && expanded" class="text-[11px] text-blue-600 hover:text-blue-800 font-medium mt-1" @click.stop="expanded = false">
-        Weniger anzeigen
-      </button>
+      <!-- Collapse + Quoted toggle -->
+      <div v-if="expanded" class="flex items-center gap-2 mt-1">
+        <button v-if="isTruncatable" class="text-[11px] text-blue-600 hover:text-blue-800 font-medium" @click.stop="expanded = false">
+          Weniger anzeigen
+        </button>
+        <button v-if="hasQuotedContent" class="text-[10px] text-zinc-400 hover:text-zinc-600 font-medium" @click.stop="expanded = expanded === 'full' ? true : 'full'">
+          {{ expanded === 'full' ? 'Zitat ausblenden' : '... Zitierte Nachricht' }}
+        </button>
+      </div>
+      <div v-if="expanded === 'full'" class="text-[12px] leading-relaxed whitespace-pre-wrap text-zinc-400 mt-1 pl-2 border-l-2 border-zinc-200">{{ rawBody }}</div>
 
       <!-- Attachments -->
       <div v-if="attachments.length" class="mt-2 pt-2 border-t border-black/5 space-y-1">

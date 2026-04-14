@@ -78,12 +78,24 @@ class Conversation extends Model
 
     public function scopeForBroker($query, ?int $brokerId, string $userType = "makler")
     {
+        // Assistenz/Backoffice: see everything
         if (!$brokerId || in_array($userType, ["assistenz", "backoffice"])) return $query;
+
+        // Admin: see only conversations from own email accounts
+        if ($userType === "admin") {
+            return $query->whereIn("last_email_id", function ($sub) use ($brokerId) {
+                $sub->select("id")->from("portal_emails")
+                    ->whereIn("account_id", function ($sub2) use ($brokerId) {
+                        $sub2->select("id")->from("email_accounts")->where("user_id", $brokerId);
+                    });
+            });
+        }
+
+        // Makler: only own properties + unassigned from own accounts
         return $query->where(function ($q) use ($brokerId) {
             $q->whereIn("property_id", function ($sub) use ($brokerId) {
                 $sub->select("id")->from("properties")->where("broker_id", $brokerId);
             })->orWhere(function ($q2) use ($brokerId) {
-                // Unassigned: only show if received by this broker's email account
                 $q2->whereNull("property_id")
                    ->whereIn("last_email_id", function ($sub) use ($brokerId) {
                        $sub->select("id")->from("portal_emails")

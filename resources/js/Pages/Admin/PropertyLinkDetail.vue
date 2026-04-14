@@ -1,86 +1,228 @@
 <template>
-  <div class="detail-page">
-    <header class="detail-header">
-      <a :href="`/admin/properties/${property.id}`" class="back">← Zurueck zu {{ property.address }}</a>
-      <h1>{{ link.name }}</h1>
-      <div class="meta">
-        <span class="status" :data-status="link.status">{{ statusLabel(link.status) }}</span>
-        <span>Laeuft am {{ formatDate(link.expires_at) }}</span>
-        <span>Erstellt am {{ formatDate(link.created_at) }}</span>
-      </div>
-      <div class="url-box">
-        <code>{{ link.url }}</code>
-        <button @click="copyUrl">Kopieren</button>
-      </div>
-    </header>
+  <div class="min-h-screen bg-background">
+    <div class="mx-auto max-w-5xl px-6 py-10">
+      <!-- Back link -->
+      <a
+        :href="`/admin/properties/${property.id}`"
+        class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft class="h-4 w-4" />
+        Zurueck zu {{ property.address }}
+      </a>
 
-    <section class="metrics">
-      <div class="metric">
-        <strong>{{ totalOpens }}</strong>
-        <span>Aufrufe</span>
-      </div>
-      <div class="metric">
-        <strong>{{ sessions.length }}</strong>
-        <span>Personen</span>
-      </div>
-      <div class="metric">
-        <strong>{{ totalViews }}</strong>
-        <span>Dokument-Ansichten</span>
-      </div>
-      <div class="metric">
-        <strong>{{ totalDownloads }}</strong>
-        <span>Downloads</span>
-      </div>
-    </section>
-
-    <section class="docs">
-      <div class="docs-head">
-        <h2>Dokumente</h2>
-        <span class="hint">{{ selectedIds.length }} von {{ allFiles.length }} ausgewaehlt</span>
-      </div>
-      <div v-if="allFiles.length === 0" class="empty">Diese Property hat noch keine Dokumente.</div>
-      <ul v-else class="doc-list">
-        <li v-for="file in allFiles" :key="file.id" :class="{ selected: selectedIds.includes(file.id) }">
-          <label>
-            <input type="checkbox" :value="file.id" v-model="selectedIds" />
-            <span class="doc-label">{{ file.label }}</span>
-            <span class="doc-meta">{{ file.filename }}<span v-if="file.file_size"> · {{ formatSize(file.file_size) }}</span></span>
-          </label>
-        </li>
-      </ul>
-      <div class="docs-actions" v-if="allFiles.length > 0">
-        <button class="btn-primary" :disabled="!isDirty || saving" @click="saveDocs">
-          {{ saving ? 'Speichere...' : 'Speichern' }}
-        </button>
-        <button class="btn-ghost" :disabled="!isDirty || saving" @click="resetSelection">Zuruecksetzen</button>
-        <span v-if="saveMessage" class="save-msg" :data-type="saveMessageType">{{ saveMessage }}</span>
-      </div>
-    </section>
-
-    <section class="timeline">
-      <h2>Aktivitaet</h2>
-      <div v-if="sessions.length === 0" class="empty">Noch keine Zugriffe.</div>
-      <ul v-else>
-        <li v-for="session in sessions" :key="session.id">
-          <div class="session-head">
-            <strong>{{ session.email }}</strong>
-            <span>{{ formatDateTime(session.first_seen_at) }}</span>
+      <!-- Header -->
+      <div class="mt-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 class="font-display text-3xl font-semibold tracking-tight">{{ link.name }}</h1>
+          <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <Badge :variant="statusVariant(link.status)" class="gap-1">
+              <span class="h-1.5 w-1.5 rounded-full" :class="statusDot(link.status)"></span>
+              {{ statusLabel(link.status) }}
+            </Badge>
+            <span class="flex items-center gap-1">
+              <Calendar class="h-3.5 w-3.5" />
+              Laeuft am {{ formatDate(link.expires_at) }}
+            </span>
+            <span>·</span>
+            <span>Erstellt am {{ formatDate(link.created_at) }}</span>
           </div>
-          <ul class="events">
-            <li v-for="event in session.events" :key="event.id">
-              <span class="event-type" :data-type="event.event_type">{{ eventLabel(event.event_type) }}</span>
-              <span class="event-meta">{{ formatDateTime(event.created_at) }}</span>
+        </div>
+      </div>
+
+      <!-- URL box -->
+      <Card class="mt-6">
+        <CardContent class="flex items-center gap-3 p-4">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
+            <LinkIcon class="h-4 w-4 text-muted-foreground" />
+          </div>
+          <code class="flex-1 truncate font-mono text-sm text-foreground">{{ link.url }}</code>
+          <Button variant="outline" size="sm" @click="copyUrl">
+            <component :is="copied ? Check : Copy" class="h-4 w-4" />
+            {{ copied ? 'Kopiert' : 'Kopieren' }}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <!-- Metrics -->
+      <div class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Card>
+          <CardContent class="p-5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Aufrufe</span>
+              <Eye class="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div class="mt-2 text-3xl font-semibold tracking-tight">{{ totalOpens }}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent class="p-5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Personen</span>
+              <Users class="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div class="mt-2 text-3xl font-semibold tracking-tight">{{ sessions.length }}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent class="p-5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Ansichten</span>
+              <FileText class="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div class="mt-2 text-3xl font-semibold tracking-tight">{{ totalViews }}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent class="p-5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Downloads</span>
+              <Download class="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div class="mt-2 text-3xl font-semibold tracking-tight">{{ totalDownloads }}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <!-- Documents -->
+      <Card class="mt-6">
+        <CardHeader class="flex flex-row items-start justify-between space-y-0">
+          <div>
+            <CardTitle class="flex items-center gap-2 text-lg">
+              <FileText class="h-5 w-5 text-muted-foreground" />
+              Dokumente
+            </CardTitle>
+            <p class="mt-1 text-sm text-muted-foreground">
+              Waehle aus, welche Files im Link sichtbar sind.
+            </p>
+          </div>
+          <span class="shrink-0 text-xs font-medium text-muted-foreground">
+            {{ selectedIds.length }} / {{ allFiles.length }}
+          </span>
+        </CardHeader>
+        <CardContent class="pt-0">
+          <div v-if="allFiles.length === 0" class="rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+            Diese Property hat noch keine Dokumente.
+          </div>
+          <div v-else class="divide-y divide-border rounded-lg border border-border">
+            <label
+              v-for="file in allFiles"
+              :key="file.id"
+              class="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+              :class="selectedIds.includes(file.id) && 'bg-muted/30'"
+            >
+              <input
+                type="checkbox"
+                :value="file.id"
+                v-model="selectedIds"
+                class="h-4 w-4 shrink-0 rounded border-border text-primary accent-primary focus:ring-2 focus:ring-ring focus:ring-offset-0"
+              />
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
+                <FileText class="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-medium text-foreground">{{ file.label }}</div>
+                <div class="truncate font-mono text-xs text-muted-foreground">
+                  {{ file.filename }}<span v-if="file.file_size"> · {{ formatSize(file.file_size) }}</span>
+                </div>
+              </div>
+            </label>
+          </div>
+        </CardContent>
+        <CardFooter v-if="allFiles.length > 0" class="flex items-center gap-3 border-t border-border bg-muted/20 px-6 py-4">
+          <Button :disabled="!isDirty || saving" @click="saveDocs">
+            <Loader2 v-if="saving" class="h-4 w-4 animate-spin" />
+            <Save v-else class="h-4 w-4" />
+            {{ saving ? 'Speichere...' : 'Speichern' }}
+          </Button>
+          <Button variant="outline" :disabled="!isDirty || saving" @click="resetSelection">
+            <RotateCcw class="h-4 w-4" />
+            Zuruecksetzen
+          </Button>
+          <div v-if="saveMessage" class="ml-auto flex items-center gap-1.5 text-sm">
+            <CheckCircle2 v-if="saveMessageType === 'success'" class="h-4 w-4 text-emerald-600" />
+            <AlertCircle v-else class="h-4 w-4 text-destructive" />
+            <span :class="saveMessageType === 'success' ? 'text-emerald-600' : 'text-destructive'">
+              {{ saveMessage }}
+            </span>
+          </div>
+        </CardFooter>
+      </Card>
+
+      <!-- Activity -->
+      <Card class="mt-6">
+        <CardHeader>
+          <CardTitle class="flex items-center gap-2 text-lg">
+            <Activity class="h-5 w-5 text-muted-foreground" />
+            Aktivitaet
+          </CardTitle>
+          <p class="text-sm text-muted-foreground">Wer hat den Link geoeffnet und was angesehen.</p>
+        </CardHeader>
+        <CardContent>
+          <div v-if="sessions.length === 0" class="rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+            Noch keine Zugriffe.
+          </div>
+          <ul v-else class="space-y-5">
+            <li v-for="session in sessions" :key="session.id" class="rounded-lg border border-border p-4">
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-semibold">
+                    {{ initials(session.email) }}
+                  </div>
+                  <div class="min-w-0">
+                    <div class="truncate text-sm font-medium text-foreground">{{ session.email }}</div>
+                    <div class="text-xs text-muted-foreground">
+                      Zuerst gesehen {{ formatDateTime(session.first_seen_at) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <Separator class="my-3" />
+              <ul class="space-y-1.5">
+                <li
+                  v-for="event in session.events"
+                  :key="event.id"
+                  class="flex items-center justify-between text-xs"
+                >
+                  <span class="flex items-center gap-2">
+                    <component :is="eventIcon(event.event_type)" class="h-3.5 w-3.5" :class="eventColor(event.event_type)" />
+                    <span class="font-medium text-foreground">{{ eventLabel(event.event_type) }}</span>
+                  </span>
+                  <span class="text-muted-foreground">{{ formatDateTime(event.created_at) }}</span>
+                </li>
+              </ul>
             </li>
           </ul>
-        </li>
-      </ul>
-    </section>
+        </CardContent>
+      </Card>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
+import {
+  ArrowLeft,
+  Link as LinkIcon,
+  Copy,
+  Check,
+  Calendar,
+  Eye,
+  Users,
+  FileText,
+  Download,
+  Save,
+  RotateCcw,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Activity,
+  MousePointerClick,
+} from 'lucide-vue-next';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/Components/ui/card';
+import { Button } from '@/Components/ui/button';
+import { Badge } from '@/Components/ui/badge';
+import { Separator } from '@/Components/ui/separator';
 
 const props = defineProps({
   link: Object,
@@ -95,6 +237,7 @@ const selectedIds = ref(initialIds());
 const saving = ref(false);
 const saveMessage = ref('');
 const saveMessageType = ref('success');
+const copied = ref(false);
 
 watch(() => props.link.document_ids, () => {
   selectedIds.value = initialIds();
@@ -117,14 +260,20 @@ const totalDownloads = computed(() =>
 );
 
 function statusLabel(s) {
-  return { active: 'AKTIV', expired: 'ABGELAUFEN', revoked: 'GESPERRT' }[s] || s;
+  return { active: 'Aktiv', expired: 'Abgelaufen', revoked: 'Gesperrt' }[s] || s;
+}
+function statusVariant(s) {
+  return { active: 'secondary', expired: 'outline', revoked: 'destructive' }[s] || 'outline';
+}
+function statusDot(s) {
+  return { active: 'bg-emerald-500', expired: 'bg-amber-500', revoked: 'bg-red-500' }[s] || 'bg-muted';
 }
 function formatDate(iso) {
   if (!iso) return 'unbegrenzt';
-  return new Date(iso).toLocaleDateString('de-AT');
+  return new Date(iso).toLocaleDateString('de-AT', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 function formatDateTime(iso) {
-  return new Date(iso).toLocaleString('de-AT');
+  return new Date(iso).toLocaleString('de-AT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 function formatSize(bytes) {
   if (!bytes) return '';
@@ -132,12 +281,35 @@ function formatSize(bytes) {
   if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
+function initials(email) {
+  if (!email) return '?';
+  return email.slice(0, 2).toUpperCase();
+}
 function eventLabel(t) {
-  return { link_opened: 'Link geoeffnet', doc_viewed: 'Dokument angesehen', doc_downloaded: 'Heruntergeladen' }[t] || t;
+  return {
+    link_opened: 'Link geoeffnet',
+    doc_viewed: 'Dokument angesehen',
+    doc_downloaded: 'Heruntergeladen',
+  }[t] || t;
+}
+function eventIcon(t) {
+  return {
+    link_opened: MousePointerClick,
+    doc_viewed: Eye,
+    doc_downloaded: Download,
+  }[t] || Activity;
+}
+function eventColor(t) {
+  return {
+    link_opened: 'text-muted-foreground',
+    doc_viewed: 'text-blue-500',
+    doc_downloaded: 'text-primary',
+  }[t] || 'text-muted-foreground';
 }
 async function copyUrl() {
   await navigator.clipboard.writeText(props.link.url);
-  window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'success', text: 'URL kopiert' } }));
+  copied.value = true;
+  setTimeout(() => (copied.value = false), 1800);
 }
 function resetSelection() {
   selectedIds.value = initialIds();
@@ -160,66 +332,17 @@ async function saveDocs() {
         file_ids: selectedIds.value,
       }
     );
-    saveMessage.value = 'Gespeichert.';
+    saveMessage.value = 'Gespeichert';
     saveMessageType.value = 'success';
     router.reload({ only: ['link', 'allFiles'], preserveScroll: true });
+    setTimeout(() => (saveMessage.value = ''), 2500);
   } catch (err) {
     const errors = err?.response?.data?.errors || {};
     const first = Object.values(errors)[0];
-    saveMessage.value = Array.isArray(first) ? first[0] : (first || err?.response?.data?.message || 'Fehler beim Speichern.');
+    saveMessage.value = Array.isArray(first) ? first[0] : (first || err?.response?.data?.message || 'Fehler beim Speichern');
     saveMessageType.value = 'error';
   } finally {
     saving.value = false;
   }
 }
 </script>
-
-<style scoped>
-.detail-page { max-width: 1100px; margin: 0 auto; padding: 40px 32px; font-family: 'Outfit', sans-serif; color: #0A0A08; }
-.back { color: #5A564E; text-decoration: none; font-size: 14px; }
-.back:hover { color: #D4743B; }
-h1 { font-size: 32px; font-weight: 600; margin: 12px 0 6px; }
-.meta { display: flex; gap: 16px; color: #5A564E; font-size: 14px; margin-bottom: 20px; }
-.status { font-weight: 600; }
-.status[data-status="active"] { color: #15803d; }
-.status[data-status="expired"] { color: #b45309; }
-.status[data-status="revoked"] { color: #b91c1c; }
-.url-box { display: flex; gap: 8px; background: #FAF8F5; border: 1px solid #E5E0D8; border-radius: 12px; padding: 14px 18px; align-items: center; max-width: 720px; }
-.url-box code { flex: 1; color: #0A0A08; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
-.url-box button { background: #D4743B; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
-.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 32px 0; }
-.metric { background: white; border: 1px solid #E5E0D8; border-radius: 12px; padding: 24px; text-align: center; }
-.metric strong { display: block; font-size: 32px; font-weight: 600; color: #D4743B; margin-bottom: 4px; }
-.metric span { font-size: 13px; color: #5A564E; }
-
-.docs { margin: 40px 0; }
-.docs-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
-.docs-head h2 { font-size: 22px; font-weight: 600; margin: 0; }
-.docs-head .hint { font-size: 13px; color: #5A564E; }
-.doc-list { list-style: none; padding: 0; margin: 0; border: 1px solid #E5E0D8; border-radius: 12px; overflow: hidden; background: white; }
-.doc-list li { border-bottom: 1px solid #E5E0D8; }
-.doc-list li:last-child { border-bottom: none; }
-.doc-list li.selected { background: #FAF5EF; }
-.doc-list label { display: flex; align-items: center; gap: 14px; padding: 14px 18px; cursor: pointer; }
-.doc-list input[type="checkbox"] { width: 18px; height: 18px; accent-color: #D4743B; cursor: pointer; }
-.doc-label { font-weight: 500; flex: 1; }
-.doc-meta { font-size: 12px; color: #5A564E; font-family: 'JetBrains Mono', monospace; }
-.docs-actions { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
-.btn-primary { background: #D4743B; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; font-family: inherit; font-size: 14px; }
-.btn-primary:disabled { background: #C8C1B5; cursor: not-allowed; }
-.btn-ghost { background: transparent; color: #5A564E; border: 1px solid #E5E0D8; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; font-family: inherit; font-size: 14px; }
-.btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
-.save-msg { font-size: 13px; margin-left: 8px; }
-.save-msg[data-type="success"] { color: #15803d; }
-.save-msg[data-type="error"] { color: #b91c1c; }
-
-.timeline h2 { font-size: 22px; font-weight: 600; margin-bottom: 16px; }
-.timeline ul { list-style: none; padding: 0; }
-.timeline > ul > li { border-bottom: 1px solid #E5E0D8; padding: 16px 0; }
-.session-head { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
-.events { padding-left: 16px; }
-.events li { display: flex; justify-content: space-between; font-size: 13px; color: #5A564E; padding: 4px 0; }
-.event-type { font-weight: 500; color: #0A0A08; }
-.event-type[data-type="doc_downloaded"] { color: #D4743B; }
-.empty { padding: 40px; text-align: center; color: #5A564E; background: #FAF8F5; border-radius: 12px; }
-</style>

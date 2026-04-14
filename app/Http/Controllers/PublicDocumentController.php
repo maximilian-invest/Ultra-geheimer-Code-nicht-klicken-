@@ -59,6 +59,70 @@ class PublicDocumentController extends Controller
         ]);
     }
 
+    public function unlock(Request $request, string $token)
+    {
+        $link = PropertyLink::where('token', $token)->first();
+        abort_unless($link, 404);
+
+        if ($link->revoked_at || ($link->expires_at && $link->expires_at->isPast())) {
+            return response()->view('docs.error', ['reason' => $link->revoked_at ? 'revoked' : 'expired', 'link' => $link], 410);
+        }
+
+        $rateLimitKey = "unlock:{$token}";
+        if (RateLimiter::tooManyAttempts($rateLimitKey, 10)) {
+            return response()->view('docs.error', ['reason' => 'rate_limited', 'link' => $link], 429);
+        }
+        RateLimiter::hit($rateLimitKey, 3600);
+
+        $data = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'dsgvo' => ['required', 'accepted'],
+        ]);
+
+        $email = strtolower(trim($data['email']));
+        $salt = config('app.key');
+
+        $session = PropertyLinkSession::where('property_link_id', $link->id)
+            ->where('email', $email)
+            ->where('last_seen_at', '>', now()->subDay())
+            ->first();
+
+        if (!$session) {
+            $session = PropertyLinkSession::create([
+                'property_link_id' => $link->id,
+                'email' => $email,
+                'dsgvo_accepted_at' => now(),
+                'ip_hash' => hash('sha256', $request->ip() . $salt),
+                'user_agent_hash' => hash('sha256', ($request->userAgent() ?? '') . $salt),
+                'first_seen_at' => now(),
+                'last_seen_at' => now(),
+                'created_at' => now(),
+            ]);
+        } else {
+            $session->update(['last_seen_at' => now()]);
+        }
+
+        // Log first "link_opened" event and activity
+        $this->logger->recordEvent($session, \App\Models\PropertyLinkEvent::TYPE_LINK_OPENED);
+        $this->logger->recordLinkOpened($session);
+
+        // Set session cookie
+        $cookieName = 'sr_link_session_' . substr($link->token, 0, 8);
+        $cookieValue = $session->id . '.' . hash_hmac('sha256', (string) $session->id, $salt);
+
+        return redirect("/docs/{$link->token}")->cookie(
+            $cookieName,
+            $cookieValue,
+            1440, // 24h
+            '/',
+            null,
+            true, // secure
+            true, // httpOnly
+            false,
+            'lax'
+        );
+    }
+
     protected function resolveSessionFromCookie(Request $request, PropertyLink $link): ?PropertyLinkSession
     {
         $cookieName = 'sr_link_session_' . substr($link->token, 0, 8);

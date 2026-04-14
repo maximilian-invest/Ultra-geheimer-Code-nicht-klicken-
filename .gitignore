@@ -48,3 +48,6 @@ website/node_modules
 *.bak
 *.bak.*
 *.bak_*
+
+# Local DB backups
+/storage/backups/

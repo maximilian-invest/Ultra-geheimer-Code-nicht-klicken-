@@ -2,7 +2,14 @@
    SR-HOMES — Shared JavaScript
    ═══════════════════════════════════════════════════════════════ */
 
-const API = 'https://kundenportal.sr-homes.at/api/website';
+// API base: localhost -> lokaler Laravel (:8000), sonst Produktion
+const API = (() => {
+  const h = typeof window !== 'undefined' ? window.location.hostname : '';
+  if (h === 'localhost' || h === '127.0.0.1') {
+    return 'http://localhost:8000/api/website';
+  }
+  return 'https://kundenportal.sr-homes.at/api/website';
+})();
 const ACCENT = '#D4743B';
 const ACCENT_HOVER = '#C0551F';
 

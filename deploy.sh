@@ -16,9 +16,10 @@
 
 set -euo pipefail
 
-PORTAL_DIR="/var/www/srhomes"
-WEBSITE_V2_TARGET="/var/www/sr-homes-v2"
-BACKUP_DIR="/root/backups"
+DEFAULT_PORTAL_DIR="/var/www/srhomes"
+PORTAL_DIR="${PORTAL_DIR:-$DEFAULT_PORTAL_DIR}"
+WEBSITE_V2_TARGET="${WEBSITE_V2_TARGET:-/var/www/sr-homes-v2}"
+BACKUP_DIR="${BACKUP_DIR:-/root/backups}"
 DB_USER="srhomes"
 DB_PASS='SRH_db_2026!portal'
 DB_NAME="srhomes_portal"
@@ -32,13 +33,41 @@ err() { echo -e "\033[1;31m${LOG_PREFIX} ✗\033[0m $*" >&2; }
 
 trap 'err "Deploy FAILED at line $LINENO. Backup at $BACKUP_DIR/db-pre-deploy-$STAMP.sql.gz"' ERR
 
+# Resolve deploy working directory robustly:
+# 1) explicit PORTAL_DIR env var
+# 2) default VPS path
+# 3) current directory if it looks like the Laravel app
+if [ ! -d "$PORTAL_DIR" ]; then
+    if [ -f "./artisan" ] && [ -d "./app" ] && [ -d "./resources" ]; then
+        PORTAL_DIR="$(pwd)"
+        log "PORTAL_DIR not found, using current dir: $PORTAL_DIR"
+    else
+        err "PORTAL_DIR does not exist: $PORTAL_DIR"
+        err "Set PORTAL_DIR explicitly, e.g.: PORTAL_DIR=/var/www/srhomes ./deploy.sh"
+        exit 1
+    fi
+fi
+
 cd "$PORTAL_DIR"
+
+# Safety guard: prevent accidental local execution with destructive git reset.
+if [ "$PORTAL_DIR" != "$DEFAULT_PORTAL_DIR" ] && [ "${ALLOW_NON_VPS_DEPLOY:-0}" != "1" ]; then
+    err "Refusing to run deploy on non-default path: $PORTAL_DIR"
+    err "Set ALLOW_NON_VPS_DEPLOY=1 if you really want this."
+    exit 1
+fi
+
+# Backup directory fallback when /root is unavailable (e.g. local dev machine).
+if ! mkdir -p "$BACKUP_DIR" 2>/dev/null; then
+    BACKUP_DIR="$PORTAL_DIR/storage/backups"
+    mkdir -p "$BACKUP_DIR"
+    log "BACKUP_DIR not writable, using fallback: $BACKUP_DIR"
+fi
 
 # ----------------------------------------------------------------------------
 # 1. DB Backup (Safety-Net BEVOR irgendwas angefasst wird)
 # ----------------------------------------------------------------------------
 log "Step 1/8: DB backup"
-mkdir -p "$BACKUP_DIR"
 BACKUP_FILE="$BACKUP_DIR/db-pre-deploy-$STAMP.sql.gz"
 mysqldump --no-defaults -h 127.0.0.1 -u "$DB_USER" -p"$DB_PASS" \
     --single-transaction --quick --routines --triggers "$DB_NAME" 2>/dev/null \
@@ -106,6 +135,7 @@ ok "caches rebuilt"
 # ----------------------------------------------------------------------------
 log "Step 7/8: rsync website-v2 -> $WEBSITE_V2_TARGET"
 if [ -d "$PORTAL_DIR/website-v2" ]; then
+    mkdir -p "$WEBSITE_V2_TARGET"
     rsync -a --delete \
         --exclude '.git*' \
         "$PORTAL_DIR/website-v2/" "$WEBSITE_V2_TARGET/"

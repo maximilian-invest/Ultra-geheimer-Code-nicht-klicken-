@@ -2,13 +2,19 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Dev: Laravel + Vite (beide Server)",
-      "dependsOn": ["Dev: Laravel Server", "Dev: Vite HMR"],
+      "label": "Dev: Alle Server (Laravel + Vite + Website)",
+      "dependsOn": ["Dev: Laravel Server", "Dev: Vite HMR", "Dev: Website v2 (Port 8082)"],
       "dependsOrder": "parallel",
       "group": {
         "kind": "build",
         "isDefault": true
       },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Laravel + Vite (nur Admin/Portal)",
+      "dependsOn": ["Dev: Laravel Server", "Dev: Vite HMR"],
+      "dependsOrder": "parallel",
       "problemMatcher": []
     },
     {
@@ -27,6 +33,18 @@
       "label": "Dev: Vite HMR",
       "type": "shell",
       "command": "npm run dev",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "dev"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Website v2 (Port 8082)",
+      "type": "shell",
+      "command": "python3 -m http.server 8082 --directory website-v2",
       "isBackground": true,
       "presentation": {
         "reveal": "always",

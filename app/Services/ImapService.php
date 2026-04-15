@@ -1116,21 +1116,38 @@ Wenn kein Objekt passt, setze property_id auf null.';
                 $nested = $this->extractTextFromStructure($mailbox, $uid, $part, $pNum);
                 if (trim($nested)) return $nested;
             } elseif ($part->type === 0) { // type 0 = text
+                // Read the charset declared on this specific part (defaults
+                // to UTF-8 when none is set). Without this the multipart
+                // branch below used to store raw Windows-1252/ISO-8859-1
+                // bytes, MySQL replaced every umlaut with '?' and the text
+                // was permanently lost.
+                $charset = 'UTF-8';
+                if (isset($part->parameters)) {
+                    foreach ($part->parameters as $param) {
+                        if (strtolower($param->attribute) === 'charset') {
+                            $charset = strtoupper($param->value);
+                            break;
+                        }
+                    }
+                }
+
                 if ($subtype === 'plain' && !$textPart) {
-                    $textPart = ['num' => $pNum, 'encoding' => $part->encoding ?? 0];
+                    $textPart = ['num' => $pNum, 'encoding' => $part->encoding ?? 0, 'charset' => $charset];
                 } elseif ($subtype === 'html' && !$htmlPart) {
-                    $htmlPart = ['num' => $pNum, 'encoding' => $part->encoding ?? 0];
+                    $htmlPart = ['num' => $pNum, 'encoding' => $part->encoding ?? 0, 'charset' => $charset];
                 }
             }
         }
 
         if ($textPart) {
             $body = imap_fetchbody($mailbox, $uid, $textPart['num'], FT_UID);
-            return $this->decodeBody($body, $textPart['encoding']);
+            $decoded = $this->decodeBody($body, $textPart['encoding']);
+            return $this->convertToUtf8($decoded, $textPart['charset']);
         }
         if ($htmlPart) {
             $body = imap_fetchbody($mailbox, $uid, $htmlPart['num'], FT_UID);
             $decoded = $this->decodeBody($body, $htmlPart['encoding']);
+            $decoded = $this->convertToUtf8($decoded, $htmlPart['charset']);
             // Protect email addresses in angle brackets before stripping
             $decoded = preg_replace('/<([\w.+-]+@[\w.-]+\.[a-z]{2,})>/i', ' $1 ', $decoded);
             return strip_tags($decoded);
@@ -1138,7 +1155,7 @@ Wenn kein Objekt passt, setze property_id auf null.';
 
         // Last resort: fetch part 1 raw
         $body = imap_fetchbody($mailbox, $uid, '1', FT_UID);
-        return quoted_printable_decode($body);
+        return $this->convertToUtf8(quoted_printable_decode($body), 'UTF-8');
     }
 
     /**

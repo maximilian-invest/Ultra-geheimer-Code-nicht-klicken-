@@ -20,6 +20,15 @@ const isOutbound = computed(() => {
 
 const isAutoReply = computed(() => props.message.category === 'auto-reply' || props.message.is_auto_reply)
 const isNachfassen = computed(() => props.message.category === 'nachfassen')
+
+// Forwarded-mail metadata surfaced by InboxChatView.splitForwardedMessage.
+// When present we render a header strip ("Weiterleitung ursprünglich von: X")
+// so the user can tell at a glance that a colleague forwarded someone
+// else's mail — critical for the Susanne → Max → Baldinger case.
+const forwardedFromName = computed(() => props.message._forwardedFromName || null)
+const forwardedFromEmail = computed(() => props.message._forwardedFromEmail || null)
+const forwardedSubject = computed(() => props.message._forwardedSubject || null)
+const isForwardedBy = computed(() => !!forwardedFromName.value || !!forwardedFromEmail.value)
 const isIntern = computed(() => {
   const cat = (props.message.category || '').toLowerCase()
   const from = (props.message.from_email || '').toLowerCase()
@@ -125,6 +134,18 @@ function cleanEmailBody(raw) {
   if (!raw) return ""
   const original = String(raw)
   let text = decodeHtmlEntities(original)
+
+  // Strip quoted Outlook/Gmail forward header blocks (Von:/Gesendet:/An:/
+  // Betreff: groups). When the bubble also has extracted forward metadata
+  // shown in the header strip, these lines are pure noise inside the body.
+  text = text.replace(/^\s*(Von|From)\s*:.+\n(?:\s*(Gesendet|Date)\s*:.+\n)?(?:\s*(An|To)\s*:.+\n)?(?:\s*(Cc|CC)\s*:.*\n)?(?:\s*(Betreff|Subject)\s*:.+\n)?/gim, '')
+
+  // Strip the classic SR-Homes footer block (signature + full DSGVO
+  // boilerplate) that gets dragged into every bubble. Anchor on the
+  // "Mit freundlichen Grüßen" line with a generous lookahead so it kills
+  // the whole trailing signature + privacy notice.
+  text = text.replace(/\n\s*Mit freundlichen Gr(ü|\?|ue)(ß|\?|ss)en[\s\S]*$/i, '')
+  text = text.replace(/\n\s*Der Schutz von personenbezogenen Daten[\s\S]*$/i, '')
 
   // Strip English reply-quote chains ("On 08.04.26 at 21:29, X wrote:" + rest)
   // Apple Mail and Gmail use this exact attribution format.
@@ -308,6 +329,23 @@ function onSaveAttachment(att, idx) {
       <div v-if="isIntern && recipientLabel" class="flex items-center gap-1 text-[10px] text-sky-700/80 font-medium mb-1 -mt-0.5">
         <span class="opacity-70">An:</span>
         <span class="truncate">{{ recipientLabel }}</span>
+      </div>
+
+      <!-- Forwarded-from header strip: shows when the bubble's sender is
+           relaying someone else's mail. Keeps the display attribution
+           clear — the outer bubble is still "from Susanne" but the
+           content originally came from the extracted forwarded sender. -->
+      <div v-if="isForwardedBy" class="flex items-start gap-1.5 text-[10px] text-indigo-700 font-medium mb-2 -mt-0.5 px-2 py-1 rounded-md bg-indigo-50/70 border border-indigo-100">
+        <svg class="w-3 h-3 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-baseline gap-x-1">
+            <span class="opacity-70">Weiterleitung ursprünglich von:</span>
+            <span class="font-semibold text-indigo-900">{{ forwardedFromName || forwardedFromEmail }}</span>
+          </div>
+          <div v-if="forwardedSubject" class="text-[10px] text-indigo-700/80 truncate">
+            Betreff: {{ forwardedSubject }}
+          </div>
+        </div>
       </div>
 
       <!-- Body -->

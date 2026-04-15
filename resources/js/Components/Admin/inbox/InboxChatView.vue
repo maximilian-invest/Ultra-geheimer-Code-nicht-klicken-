@@ -275,6 +275,13 @@ const REPLY_ATTRIBUTION_RE = /(?:^|\n)\s*(?:>\s*)?(On|Am)\b[^\n]{0,240}\b(wrote|
 const BARE_ATTRIBUTION_RE = /\n\s*(?:>\s*)?[^\n<>]{1,120}\s(wrote|schrieb)\s*:\s*(?:\n|$)/i
 const OWN_DOMAIN_RE = /@sr-homes\.at$/i
 
+// Annotate a message with forwarded-mail metadata when we detect it's a
+// forward. Returns a SINGLE message with extra fields so the bubble
+// template can render a "Weitergeleitet von X — ursprünglich von Y"
+// header strip and strip the quoted header block out of the body.
+// Previously this function split forwards into multiple bubbles which
+// produced confusing duplicates (Baldinger case) and hid the fact that
+// the real sender was a colleague forwarding us someone else's mail.
 function splitForwardedMessage(msg, threadSenders) {
   const bodyText = String(msg?.body_text || '')
   const htmlText = htmlToText(msg?.body_html || '')
@@ -282,7 +289,7 @@ function splitForwardedMessage(msg, threadSenders) {
   if (!body) return [msg]
 
   // Guard 1: if the body contains a reply-attribution line, this is a
-  // reply-quote chain — not a forward. Never split.
+  // reply-quote chain — not a forward. Never annotate.
   if (REPLY_ATTRIBUTION_RE.test(body) || BARE_ATTRIBUTION_RE.test(body)) {
     return [msg]
   }
@@ -328,11 +335,16 @@ function splitForwardedMessage(msg, threadSenders) {
     const subjectMatch = headerPart.match(/^\s*(Betreff|Subject)\s*:\s*(.+)$/im)
     forwardedFrom = (fromMatch?.[2] || '').trim()
     forwardedSubject = (subjectMatch?.[2] || '').trim()
-    const fromEmailMatch = forwardedFrom.match(/<([^>]+@[^>]+)>/)
-    if (fromEmailMatch?.[1]) {
-      forwardedFromEmail = fromEmailMatch[1].trim().toLowerCase()
-      // Keep name label clean without angle-bracket email duplication.
+    // "Baldinger Immobilien  office@mondseelandimmobilien.at" — no angle
+    // brackets, just a bare email at the end. Extract it.
+    const bareEmailMatch = forwardedFrom.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,})/i)
+    const angleEmailMatch = forwardedFrom.match(/<([^>]+@[^>]+)>/)
+    if (angleEmailMatch?.[1]) {
+      forwardedFromEmail = angleEmailMatch[1].trim().toLowerCase()
       forwardedFrom = forwardedFrom.replace(/\s*<[^>]+>\s*/, '').trim()
+    } else if (bareEmailMatch?.[1]) {
+      forwardedFromEmail = bareEmailMatch[1].trim().toLowerCase()
+      forwardedFrom = forwardedFrom.replace(bareEmailMatch[1], '').replace(/\s+/g, ' ').trim()
     }
     if (bodyPart) forwardedBody = bodyPart
   }
@@ -352,48 +364,28 @@ function splitForwardedMessage(msg, threadSenders) {
 
   // Guard 2: if the extracted sender is from our own domain, the "forwarded"
   // block is actually our own outbound mail quoted back at us in a reply.
-  // Splitting it would create a duplicate phantom bubble, because the real
-  // outbound mail is already in the thread. Treat as unsplit.
+  // The bubble must render unchanged so we don't imply this is a forward.
   if (forwardedFromEmail && OWN_DOMAIN_RE.test(forwardedFromEmail)) {
     return [msg]
   }
 
-  // Guard 3: if the forwarded block's original sender already appears as
-  // its own message in the thread (e.g. Susanne forwards a Baldinger mail
-  // to Max, but Baldinger's original mail is ALSO a separate row in the
-  // conversation), splitting the forward would just duplicate content we
-  // already show. Collapse to Susanne's wrapper instead.
-  if (forwardedFromEmail && threadSenders && threadSenders.has(forwardedFromEmail)) {
-    if (beforeText) {
-      return [{ ...msg, body_text: beforeText, body_html: null }]
-    }
-    // No wrapper text at all — the whole message is "just a forward".
-    // Drop it entirely since the real mail is already in the thread.
-    return []
-  }
-
-  const baseMsg = { ...msg }
-  if (beforeText) baseMsg.body_text = beforeText
-
-  const forwardedMsg = {
+  // Return a SINGLE annotated message. The bubble template shows a header
+  // strip with the forwarded metadata, and cleanEmailBody strips the
+  // quoted header block + quoted signature from the displayed body.
+  return [{
     ...msg,
-    id: `${msg.id || 'msg'}-fwd`,
-    body_text: forwardedBody,
+    // Body used for display is the forwarded content — the meaningful
+    // payload — with Susanne's signature/wrapper preserved as an optional
+    // prefix on top of it.
+    body_text: beforeText
+      ? `${beforeText}\n\n---\n\n${forwardedBody}`
+      : forwardedBody,
     body_html: null,
-    subject: forwardedSubject || msg.subject || '',
-    from_name: forwardedFrom || forwardedFromEmail || 'Weitergeleitet',
-    from_email: forwardedFromEmail || msg.from_email || '',
-    direction: 'inbound',
-    category: 'forwarded',
-    _isForwardedPart: true,
-  }
-
-  if (beforeText) {
-    baseMsg.body_text = beforeText
-    baseMsg.body_html = null
-    return [forwardedMsg, baseMsg]
-  }
-  return [forwardedMsg]
+    _forwardedFromName: forwardedFrom || forwardedFromEmail || null,
+    _forwardedFromEmail: forwardedFromEmail || null,
+    _forwardedSubject: forwardedSubject || null,
+    _forwardedHasWrapper: !!beforeText,
+  }]
 }
 
 // ── Date grouping ──

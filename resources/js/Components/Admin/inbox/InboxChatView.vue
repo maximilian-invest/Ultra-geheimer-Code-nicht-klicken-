@@ -104,6 +104,19 @@ function exitCompose() {
   composeContext.value = null
 }
 
+// Reset compose mode when the user picks a different conversation.
+// Without this, switching from mail A (where the user clicked
+// "Mit KI-Entwurf antworten") to mail B would leave the compose pane
+// open — still showing mail A's draft — over mail B's thread.
+watch(
+  () => props.item?.id,
+  (newId, oldId) => {
+    if (newId !== oldId && composeMode.value === 'compose') {
+      exitCompose()
+    }
+  }
+)
+
 const bgGradient = inject("inboxBgGradient", ref(""));
 const bgOpacity = inject("inboxBgOpacity", ref(0.15));
 const API = inject('API')

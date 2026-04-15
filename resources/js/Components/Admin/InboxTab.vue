@@ -28,6 +28,11 @@ import InboxMatchView from "./inbox/InboxMatchView.vue";
 // ============================================================
 const API = inject("API");
 const toast = inject("toast");
+// User's email signature block (plain string), provided by Dashboard.vue.
+// Used by regenerateAiDraft to strip the AI's own sign-off and append
+// the full company block so drafts always carry name + title + company
+// + phone + website.
+const injectedInboxSignature = inject("inboxSignature", "");
 const switchTab = inject("switchTab");
 const unansweredCount = inject("unansweredCount");
 const followupCount = inject("followupCount");
@@ -1051,6 +1056,21 @@ function setAiDetailLevel(level) {
   localStorage.setItem("sr-ai-detail-level", level);
 }
 
+// Strip the AI's own sign-off block (from "Mit freundlichen Grüßen ..."
+// to end of string) and append the user's full signature instead, so
+// the composed mail always carries the full company block (name, title,
+// company, phone, website) that the AI never generates on its own.
+function withUserSignature(aiBody) {
+  const sig = injectedInboxSignature || '';
+  if (!aiBody) return sig ? '\n\n' + sig : '';
+  let stripped = String(aiBody);
+  stripped = stripped.replace(/\n\s*(Mit\s+freundlichen\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)en|Beste\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Liebe\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Viele\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Mit\s+besten\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e)[\s\S]*$/i, '');
+  stripped = stripped.replace(/\n\s*Ihre?\s+\w+[\s\S]*$/i, ''); // "Ihr Max ..."
+  stripped = stripped.trimEnd();
+  if (!sig) return stripped;
+  return stripped + '\n\n' + sig;
+}
+
 async function regenerateAiDraft() {
   const item = selectedItem.value;
   if (!item) return;
@@ -1068,9 +1088,10 @@ async function regenerateAiDraft() {
     const d = await r.json();
     if (d.draft_body) {
       expandedAiDraft.value = {
-        body: d.draft_body,
+        body: withUserSignature(d.draft_body),
         subject: d.draft_subject || item.subject || '',
         to: d.draft_to || item.contact_email || '',
+        cc: expandedAiDraft.value?.cc || '',
       };
     } else {
       toast("KI-Entwurf konnte nicht generiert werden: " + (d.error || "Unbekannter Fehler"));

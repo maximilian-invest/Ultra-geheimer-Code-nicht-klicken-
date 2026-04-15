@@ -124,17 +124,6 @@ function onLinkPicked(link) {
 
 <template>
   <div class="sr-compose">
-    <!-- Compact header: just an Abbrechen button right-aligned. No title —
-         the user knows which button they clicked, repeating it here wastes
-         vertical space and doesn't add info. -->
-    <header class="sr-compose-header sr-compose-header--compact">
-      <div class="sr-compose-spacer"></div>
-      <button type="button" class="sr-compose-cancel" @click="onCancel">
-        <X class="w-3.5 h-3.5" />
-        <span>Abbrechen</span>
-      </button>
-    </header>
-
     <!-- To / Subject fields -->
     <div class="sr-compose-fields">
       <div class="sr-field">

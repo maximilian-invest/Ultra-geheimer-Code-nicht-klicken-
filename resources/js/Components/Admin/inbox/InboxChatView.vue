@@ -109,17 +109,14 @@ function enterCompose(kind, withDraft) {
   // prefill so the pane has a known starting shape. The pane itself
   // will overwrite body when the user types or the AI draft lands.
   //
-  // For plain "Antworten" (withDraft=false) we pre-populate the body
-  // with the user's email signature so the sign-off is there from the
-  // start. For "Mit KI-Entwurf" (withDraft=true) we leave body empty —
-  // the AI draft will replace it on arrival and the AI prompt already
-  // includes a sign-off so appending our signature would produce
-  // duplicates.
+  // Both modes pre-populate the body with the user's signature so the
+  // sign-off is there from the first frame. For plain "Antworten" the
+  // user types above the signature. For "Mit KI-Entwurf" the AI call
+  // replaces the body entirely — InboxTab.regenerateAiDraft strips any
+  // AI-generated sign-off and appends the full signature again.
   if (inboxComposeInject?.draft) {
     const current = inboxComposeInject.draft.value || {}
-    const initialBody = withDraft
-      ? (current.body || '')
-      : (inboxSignature ? '\n\n\n' + inboxSignature : '')
+    const initialBody = inboxSignature ? '\n\n\n' + inboxSignature : ''
     inboxComposeInject.draft.value = {
       body: initialBody,
       subject: composeContext.value.prefill.subject,
@@ -159,8 +156,23 @@ function onLinkPicked(link) {
   const draftRef = inboxComposeInject?.draft
   if (!draftRef) { linkPickerOpen.value = false; return }
   const current = draftRef.value || { body: '', subject: '', to: '' }
-  const append = `\n\nUnterlagen: ${link.url}`
-  draftRef.value = { ...current, body: ((current.body || '') + append).trim() }
+  const body = String(current.body || '')
+  const insertion = `\n\nUnterlagen: ${link.url}`
+
+  // Insert BEFORE the sign-off line so the link sits with the main
+  // content, not tacked on at the very end below "Mit freundlichen
+  // Grüßen". We search for the first German greeting marker and splice
+  // above it. If no greeting is found, append at the end (current
+  // behaviour).
+  const signOffRe = /\n\s*(Mit\s+freundlichen\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)en|Beste\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Liebe\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Viele\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Ihre?\s+(Susanne|Maximilian))/i
+  const match = body.match(signOffRe)
+  let newBody
+  if (match && typeof match.index === 'number') {
+    newBody = body.slice(0, match.index) + insertion + body.slice(match.index)
+  } else {
+    newBody = (body + insertion).trim()
+  }
+  draftRef.value = { ...current, body: newBody }
   linkPickerOpen.value = false
 }
 
@@ -564,23 +576,11 @@ const statusBadge = computed(() => {
       </div>
     </div>
 
-    <!-- Manual property offer button (always visible) -->
-    <div v-if="!hasMatches || !matchOpen" class="flex-shrink-0 border-b border-zinc-100">
-      <button
-        @click="toggleOfferPanel"
-        class="w-full flex items-center justify-between px-5 py-2 hover:bg-zinc-50/50 transition-colors"
-      >
-        <div class="flex items-center gap-2.5">
-          <div class="w-6 h-6 rounded-md bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center flex-shrink-0">
-            <span class="text-white text-[11px] font-bold">+</span>
-          </div>
-          <span class="text-[13px] font-medium">Immobilien anbieten</span>
-          <span v-if="offerSelectedCount > 0" class="text-[11px] text-orange-600 font-semibold">({{ offerSelectedCount }} ausgewahlt)</span>
-        </div>
-        <component :is="offerOpen ? ChevronUp : ChevronDown" class="w-4 h-4 text-muted-foreground flex-shrink-0" />
-      </button>
-
-      <div v-if="offerOpen" class="border-t border-zinc-100">
+    <!-- Immobilien anbieten panel — the trigger button is now in the
+         sticky compose action bar; this block only renders the expanded
+         panel content inline when offerOpen is true. -->
+    <div v-if="offerOpen" class="flex-shrink-0 border-b border-zinc-100">
+      <div class="border-t border-zinc-100">
         <div class="px-5 py-2 bg-zinc-50/50">
           <input
             v-model="offerSearch"
@@ -763,6 +763,15 @@ const statusBadge = computed(() => {
         <Wand2 class="w-3.5 h-3.5" />
         Verbessern
       </button>
+      <button
+        type="button"
+        class="sr-btn sr-btn-ghost"
+        title="Weitere Objekte als Alternativen vorschlagen"
+        @click="toggleOfferPanel"
+      >
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Immobilie anbieten
+      </button>
       <div class="sr-thread-actions-spacer"></div>
       <div class="sr-link-picker-wrapper">
         <LinkPickerPopover
@@ -782,6 +791,14 @@ const statusBadge = computed(() => {
           Link
         </button>
       </div>
+      <button
+        type="button"
+        class="sr-btn sr-btn-ghost"
+        @click="exitCompose"
+      >
+        <X class="w-3.5 h-3.5" />
+        Abbrechen
+      </button>
     </footer>
 
     <!-- Slots below chat -->

@@ -197,10 +197,10 @@ function onNameClick() {
   background: hsl(0 0% 100%);
 }
 .sr-msg:last-child { border-bottom: none; }
-.sr-msg--collapsed { background: hsl(0 0% 99%); cursor: pointer; transition: background 120ms ease; }
-.sr-msg--collapsed:hover { background: hsl(0 0% 97%); }
+.sr-msg--collapsed { background: hsl(0 0% 100%); cursor: pointer; transition: background 120ms ease; }
+.sr-msg--collapsed:hover { background: hsl(0 0% 98%); }
 
-.sr-msg-row { display: flex; align-items: center; gap: 12px; padding: 12px 24px; }
+.sr-msg-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
 .sr-avatar {
   width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -230,12 +230,12 @@ function onNameClick() {
 .sr-chevron { width: 16px; height: 16px; color: hsl(0 0% 60%); flex-shrink: 0; }
 
 .sr-preview {
-  padding: 0 24px 12px 68px;
+  padding: 0 12px 10px 52px;
   font-size: 12px; color: hsl(0 0% 45%);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.sr-expanded-content { padding: 4px 24px 24px 68px; }
+.sr-expanded-content { padding: 2px 12px 16px 52px; }
 
 .sr-intern-strip,
 .sr-forward-strip {

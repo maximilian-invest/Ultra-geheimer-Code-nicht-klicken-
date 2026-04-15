@@ -69,12 +69,6 @@ const composeContext = ref(null)   // { kind, withDraft, prefill, referenceMessa
 // inject('inboxCompose') call.
 const inboxComposeInject = inject('inboxCompose', null)
 
-// User's email signature — injected from Dashboard.vue. Appended to
-// the body when starting a plain "Antworten" so Max doesn't have to
-// type his sign-off every time. For "Mit KI-Entwurf" we trust the AI
-// to include a sign-off.
-const inboxSignature = inject('inboxSignature', '')
-
 function enterCompose(kind, withDraft) {
   const m = kind === 'forward'
     ? flatMessages.value[flatMessages.value.length - 1]
@@ -109,16 +103,12 @@ function enterCompose(kind, withDraft) {
   // prefill so the pane has a known starting shape. The pane itself
   // will overwrite body when the user types or the AI draft lands.
   //
-  // Both modes pre-populate the body with the user's signature so the
-  // sign-off is there from the first frame. For plain "Antworten" the
-  // user types above the signature. For "Mit KI-Entwurf" the AI call
-  // replaces the body entirely — InboxTab.regenerateAiDraft strips any
-  // AI-generated sign-off and appends the full signature again.
+  // Start with an empty body. Signature is shown separately as preview
+  // and appended only at send-time to avoid duplicate/signature-in-body UX.
   if (inboxComposeInject?.draft) {
     const current = inboxComposeInject.draft.value || {}
-    const initialBody = inboxSignature ? '\n\n\n' + inboxSignature : ''
     inboxComposeInject.draft.value = {
-      body: initialBody,
+      body: '',
       subject: composeContext.value.prefill.subject,
       to: composeContext.value.prefill.to,
       cc: current.cc || '',
@@ -646,7 +636,7 @@ const statusBadge = computed(() => {
     </div>
 
     <!-- Chat area -->
-    <div class="flex-1 overflow-y-auto px-5 py-4 bg-white" :style="bgGradient ? { background: 'rgba(255,255,255,0.92)' } : {}">
+    <div class="flex-1 overflow-y-auto bg-white" :style="bgGradient ? { background: 'rgba(255,255,255,0.92)' } : {}">
       <div v-if="loading" class="flex items-center justify-center h-full">
         <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />
       </div>
@@ -809,11 +799,11 @@ const statusBadge = computed(() => {
 <style scoped>
 .sr-thread-card {
   background: hsl(0 0% 100%);
-  border: 1px solid hsl(0 0% 90%);
-  border-radius: 12px;
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 1px -1px rgb(0 0 0 / 0.04);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   overflow: hidden;
-  margin: 16px;
+  margin: 0;
 }
 .sr-subject-header {
   padding: 20px 24px 18px;

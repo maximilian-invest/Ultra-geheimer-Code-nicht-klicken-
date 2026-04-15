@@ -200,6 +200,7 @@ const brokerList = ref([]);
 
 // Signature from settings
 const sigData = ref(null);
+provide("inboxSignatureData", sigData);
 
 // Compose state
 const composeTo = ref("");
@@ -1056,19 +1057,28 @@ function setAiDetailLevel(level) {
   localStorage.setItem("sr-ai-detail-level", level);
 }
 
-// Strip the AI's own sign-off block (from "Mit freundlichen Grüßen ..."
-// to end of string) and append the user's full signature instead, so
-// the composed mail always carries the full company block (name, title,
-// company, phone, website) that the AI never generates on its own.
+// Always use the stored signature from settings and keep it single.
 function withUserSignature(aiBody) {
-  const sig = injectedInboxSignature || '';
-  if (!aiBody) return sig ? '\n\n' + sig : '';
-  let stripped = String(aiBody);
-  stripped = stripped.replace(/\n\s*(Mit\s+freundlichen\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)en|Beste\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Liebe\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Viele\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Mit\s+besten\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e)[\s\S]*$/i, '');
-  stripped = stripped.replace(/\n\s*Ihre?\s+\w+[\s\S]*$/i, ''); // "Ihr Max ..."
-  stripped = stripped.trimEnd();
-  if (!sig) return stripped;
-  return stripped + '\n\n' + sig;
+  const storedSig = buildSignature().trim();
+  const injectedSig = String(injectedInboxSignature || '').trim();
+  let body = String(aiBody || '');
+
+  // Remove any AI sign-off and everything below it.
+  body = body.replace(
+    /\n\s*(Mit\s+freundlichen\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)en|Beste\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Liebe\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Viele\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Mit\s+besten\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e|Freundliche\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)e)[\s\S]*$/i,
+    ''
+  );
+
+  // Remove previously appended signatures to avoid duplicates.
+  const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (storedSig) body = body.replace(new RegExp(`\\n\\n?${escapeRegExp(storedSig)}\\s*$`, 'i'), '');
+  if (injectedSig && injectedSig !== storedSig) {
+    body = body.replace(new RegExp(`\\n\\n?${escapeRegExp(injectedSig)}\\s*$`, 'i'), '');
+  }
+
+  body = body.trimEnd();
+  if (!storedSig) return body;
+  return body ? `${body}\n\n${storedSig}` : storedSig;
 }
 
 async function regenerateAiDraft() {
@@ -1294,11 +1304,12 @@ async function sendDraft() {
   try {
     const action = isFollowup ? "conv_followup" : "conv_reply";
     const convId = item._conv_id || itemId;
+    const normalizedBody = withUserSignature(draft.body || '');
     const r = await fetch(API.value + "&action=" + action + "&id=" + convId, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        body: draft.body,
+        body: normalizedBody,
         subject: draft.subject || '',
         to: draft.to || item.from_email || item.contact_email || '',
         cc: draft.cc || '',
@@ -1409,9 +1420,9 @@ async function sendEmail() {
   if (!selectedAccountId.value) { toast("Bitte Absender-Konto waehlen."); return; }
   emailSending.value = true;
   try {
+    const normalizedBody = withUserSignature(composeBody.value || "");
     const sigHtml = buildSignatureHtml();
-    const sig = buildSignature();
-    let htmlBody = composeBody.value.replace(/\n/g, "<br>") + sigHtml;
+    let htmlBody = normalizedBody.replace(/\n/g, "<br>") + sigHtml;
 
     if (emailSourceId.value && replyContext.value && replyContext.value.originalBody) {
       const origDate = replyContext.value.originalDate || "";
@@ -1430,7 +1441,7 @@ async function sendEmail() {
     if (composeBcc.value) fd.append("bcc", composeBcc.value);
     fd.append("subject", composeSubject.value);
     fd.append("body_html", htmlBody);
-    fd.append("body_text", composeBody.value + sig);
+    fd.append("body_text", normalizedBody);
     fd.append("property_id", composePropertyId.value || "");
     fd.append("in_reply_to", emailSourceId.value || "");
     for (const file of composeAttachments.value) fd.append("attachments[]", file);
@@ -2180,9 +2191,9 @@ onMounted(() => {
     </div>
 
     <!-- Content (z-10 above background) -->
-    <div class="relative z-10 flex flex-1 min-h-0 overflow-hidden">
+    <div class="relative z-10 flex flex-1 min-h-0 overflow-hidden md:divide-x md:divide-zinc-300">
       <!-- Left: Conversation List -->
-      <div class="w-full md:w-[400px] flex-shrink-0 md:border-r border-zinc-100 flex flex-col h-full overflow-hidden" :class="{ 'hidden md:flex': detailOpen || composing }">
+      <div class="w-full md:w-[400px] flex-shrink-0 flex flex-col h-full overflow-hidden md:bg-zinc-50/40" :class="{ 'hidden md:flex': detailOpen || composing }">
 
         <!-- Panel Header with Pill Tabs -->
         <div class="px-4 pt-3 pb-2 flex-shrink-0">
@@ -2600,7 +2611,7 @@ onMounted(() => {
 <!-- Right: Compose View or Chat View -->
       <InboxComposeView
         v-if="composing"
-        class="flex-1 min-w-0 w-full md:w-auto"
+        class="flex-1 min-w-0 w-full md:w-auto bg-white"
         :compose-to="composeTo"
         :compose-subject="composeSubject"
         :compose-body="composeBody"
@@ -2644,7 +2655,7 @@ onMounted(() => {
       />
       <InboxChatView
         v-else-if="selectedItem"
-        class="flex-1 min-w-0 w-full md:w-auto"
+        class="flex-1 min-w-0 w-full md:w-auto bg-white"
         :item="selectedItem"
         :messages="allDetailMessages"
         :loading="expandedLoading"

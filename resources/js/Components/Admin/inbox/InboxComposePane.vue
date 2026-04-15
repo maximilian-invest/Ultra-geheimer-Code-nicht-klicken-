@@ -32,6 +32,7 @@ const inboxCompose = inject('inboxCompose', {
   send: () => {},
   toggleFile: () => {},
 })
+const signatureData = inject('inboxSignatureData', ref(null))
 
 const draft = inboxCompose.draft
 const sendAccountId = inboxCompose.sendAccountId
@@ -90,6 +91,21 @@ const referencePreview = computed(() => {
 
 const bodyIsEmpty = computed(() => !(draft.value?.body || '').trim())
 const showDraftBadge = computed(() => !bodyIsEmpty.value && props.withDraft)
+const signature = computed(() => signatureData?.value || null)
+const hasSignature = computed(() => !!(signature.value && (signature.value.signature_name || signature.value.signature_company)))
+
+function resolveSignatureUrl(url) {
+  const raw = String(url || '').trim()
+  if (!raw) return ''
+  if (typeof window === 'undefined') return raw
+  const isLocalUi = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  const isLocalAsset = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(raw)
+  if (isLocalUi && isLocalAsset) {
+    // In local dev, signature assets may only exist on prod storage.
+    return raw.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i, 'https://kundenportal.sr-homes.at')
+  }
+  return raw
+}
 
 // ── Draft field setters
 function updateDraftField(field, value) {
@@ -199,6 +215,39 @@ function onLinkPicked(link) {
         placeholder="Deine Antwort hier eintippen…"
         class="sr-body-textarea"
       ></textarea>
+
+      <div v-if="hasSignature" class="sr-signature-preview">
+        <div class="sr-signature-label">Hinterlegte Signatur</div>
+        <div class="sr-signature-card">
+          <img
+            v-if="signature.signature_logo_url"
+            :src="resolveSignatureUrl(signature.signature_logo_url)"
+            alt="Signatur-Logo"
+            class="sr-signature-logo"
+          />
+          <div class="sr-signature-main">
+            <img
+              v-if="signature.signature_photo_url"
+              :src="resolveSignatureUrl(signature.signature_photo_url)"
+              alt="Signatur-Foto"
+              class="sr-signature-photo"
+            />
+            <div class="sr-signature-text">
+              <strong>{{ signature.signature_name || '' }}</strong>
+              <span v-if="signature.signature_title">{{ signature.signature_title }}</span>
+              <span>{{ signature.signature_company || '' }}</span>
+              <span v-if="signature.signature_phone">Tel: {{ signature.signature_phone }}</span>
+              <span v-if="signature.signature_website">{{ signature.signature_website }}</span>
+            </div>
+          </div>
+          <img
+            v-if="signature.signature_banner_url"
+            :src="resolveSignatureUrl(signature.signature_banner_url)"
+            alt="Signatur-Banner"
+            class="sr-signature-banner"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- Send action bar is rendered as a sticky footer by InboxChatView,
@@ -351,6 +400,62 @@ function onLinkPicked(link) {
 }
 .sr-body-textarea::placeholder {
   color: hsl(0 0% 65%);
+}
+
+.sr-signature-preview {
+  margin-top: 14px;
+  border-top: 1px dashed hsl(0 0% 90%);
+  padding-top: 10px;
+}
+.sr-signature-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: hsl(0 0% 52%);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.sr-signature-card {
+  border: 1px solid hsl(0 0% 90%);
+  border-radius: 8px;
+  padding: 10px;
+  background: hsl(0 0% 100%);
+}
+.sr-signature-logo {
+  max-height: 56px;
+  max-width: 180px;
+  object-fit: contain;
+  margin-bottom: 8px;
+}
+.sr-signature-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.sr-signature-photo {
+  width: 58px;
+  height: 76px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.sr-signature-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: hsl(0 0% 30%);
+  line-height: 1.4;
+}
+.sr-signature-text strong {
+  color: hsl(0 0% 15%);
+  font-size: 13px;
+}
+.sr-signature-banner {
+  margin-top: 8px;
+  max-width: 360px;
+  width: 100%;
+  border-radius: 4px;
 }
 
 .sr-compose-actions {

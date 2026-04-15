@@ -1344,7 +1344,9 @@ async function sendDraft() {
   try {
     const action = isFollowup ? "conv_followup" : "conv_reply";
     const convId = item._conv_id || itemId;
-    const normalizedBody = withUserSignature(draft.body || '');
+    // Keep reply body signature-free here so EmailService can append the
+    // configured HTML signature (photo/logo/banner) consistently.
+    const normalizedBody = stripAiSignoffAndKnownSignatures(draft.body || '');
     const r = await fetch(API.value + "&action=" + action + "&id=" + convId, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

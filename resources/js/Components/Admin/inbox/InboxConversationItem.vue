@@ -51,7 +51,30 @@ function formatDateTime(dateStr) {
   return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + " " + time;
 }
 
-const displayName = computed(() => props.item.stakeholder || props.item.from_name || props.item.from_email || "Unbekannt");
+// Display name resolution:
+// - For real human senders (not platform noreply), prefer the actual mail
+//   from_name header — it's the literal "From:" on the envelope and cannot
+//   be wrong. The AI-derived stakeholder field is an inferred guess (e.g.
+//   extracts a name mentioned in the body) and regularly disagrees with
+//   reality. Example: newsletter from insights@wkooe.at has from_name
+//   "Doris Hummer" but AI stakeholder "Hannes Buchinger (WKOÖ)" because
+//   an article inside was authored by Buchinger.
+// - For platform noreply senders (willhaben / immoscout / typeform), the
+//   from_name is useless (it's "Typeform Notifications" etc.) and the AI
+//   stakeholder is actually the correct real person, so we prefer it.
+function isNoReplyFrom(email) {
+  if (!email) return false;
+  const e = String(email).toLowerCase();
+  return /noreply|no-reply|notifications?@|followups\.typeform|bounce|mailer-daemon/.test(e);
+}
+const displayName = computed(() => {
+  const item = props.item;
+  const from = item.from_email || "";
+  if (isNoReplyFrom(from)) {
+    return item.stakeholder || item.from_name || from || "Unbekannt";
+  }
+  return item.from_name || item.stakeholder || from || "Unbekannt";
+});
 const initials = computed(() => getInitials(displayName.value));
 
 const timestamp = computed(() => {

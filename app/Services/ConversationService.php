@@ -37,6 +37,24 @@ class ConversationService
                     ->lockForUpdate()
                     ->first();
 
+                // Fallback lookup: when we can't find a conversation by
+                // contact_email (the typeform body parser occasionally
+                // picks a slightly different email for the same person —
+                // stuebermail@gmail.com vs m.stu3ber@gmail.com), try to
+                // reuse an existing conversation that already holds the
+                // same stakeholder on the same property. Avoids spawning
+                // duplicate conversations for recurring customers.
+                if (!$conv && !empty($email->stakeholder) && !empty($email->property_id)) {
+                    $candidate = Conversation::where('property_id', $email->property_id)
+                        ->whereRaw('LOWER(stakeholder) = LOWER(?)', [$email->stakeholder])
+                        ->lockForUpdate()
+                        ->first();
+                    if ($candidate) {
+                        $conv = $candidate;
+                        Log::info("ConversationService: reused conv {$conv->id} by stakeholder/property match for email {$email->id} (contact_email {$contactEmail} did not match the stored {$conv->contact_email})");
+                    }
+                }
+
                 if (!$conv) {
                     $conv = Conversation::create([
                         'contact_email'    => $contactEmail,

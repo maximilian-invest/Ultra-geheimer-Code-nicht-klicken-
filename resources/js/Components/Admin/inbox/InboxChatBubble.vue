@@ -361,13 +361,30 @@ function htmlToText(html) {
   return String(html)
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    // Block-level structure → newlines. Without this, Typeform / Outlook
+    // HTML mails (which are nested <table><tr><td> layouts) collapse into
+    // one long wall of text with no separators between fields.
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/<\/td>/gi, "  ") // two spaces between cells in a row
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<\/h[1-6]>/gi, "\n\n")
+    .replace(/<\/(?:pre|blockquote)>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&(?:apos|#39);/gi, "'")
+    .replace(/&#(\d+);/g, (_, n) => {
+      try { return String.fromCharCode(parseInt(n, 10)) } catch (e) { return '' }
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => {
+      try { return String.fromCharCode(parseInt(n, 16)) } catch (e) { return '' }
+    })
     .replace(/\r/g, "")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -375,13 +392,21 @@ function htmlToText(html) {
 }
 
 const rawBody = computed(() => {
-  const src = props.message.full_body
-    || props.message.body_text
-    || props.message.body
-    || htmlToText(props.message.body_html)
-    || props.message.ai_summary
-    || props.message.result
-    || ""
+  const txt = props.message.full_body || props.message.body_text || props.message.body || ''
+  const htm = props.message.body_html || ''
+
+  // Heuristic: when body_text is a single unbroken wall (no newlines, or
+  // fewer than 3) but body_html is available, render from HTML instead.
+  // Typeform / Outlook / Microsoft newsletter mails send text/plain as
+  // one long line because their layout lives in the HTML table tree.
+  // htmlToText turns the HTML structure into proper newlines.
+  const txtNewlines = (txt.match(/\n/g) || []).length
+  const preferHtml = htm && txtNewlines < 3 && txt.length > 200
+
+  const src = preferHtml
+    ? htmlToText(htm)
+    : (txt || htmlToText(htm) || props.message.ai_summary || props.message.result || '')
+
   return decodeHtmlEntities(src)
 })
 const displayBody = computed(() => cleanEmailBody(rawBody.value))

@@ -235,8 +235,17 @@ class ConversationService
         if ($email->direction === 'inbound') {
             $fromEmail = strtolower(trim($email->from_email ?? ''));
 
-            // Direct email (not a platform noreply, not an internal SR-Homes address)
+            // Direct email from an external party (not a platform noreply, not an
+            // internal SR-Homes address). This is the happy path for customer mails.
             if ($fromEmail && !$this->isNoReplyEmail($fromEmail) && !$this->isInternalEmail($fromEmail)) {
+                return $fromEmail;
+            }
+
+            // Internal sender (@sr-homes.at): use the real address directly. These
+            // are colleagues we CAN reply to — previously we fell through to the
+            // placeholder branch which broke "Reply" by populating drafts with a
+            // bogus @placeholder.local recipient (see the Nico Berger case).
+            if ($fromEmail && !$this->isNoReplyEmail($fromEmail) && $this->isInternalEmail($fromEmail)) {
                 return $fromEmail;
             }
 
@@ -259,7 +268,8 @@ class ConversationService
                 }
             }
 
-            // Last resort: placeholder
+            // Last resort: placeholder. Only for truly unreachable senders
+            // (platform noreply without embedded contact, automated systems).
             if (empty($email->stakeholder)) return null;
             return 'noreply_' . \Illuminate\Support\Str::slug($email->stakeholder) . '@placeholder.local';
         }
@@ -268,11 +278,12 @@ class ConversationService
         $to = $email->to_email ?? '';
         if (preg_match('/<([^>]+)>/', $to, $m)) $to = $m[1];
         $to = strtolower(trim($to));
-        // Don't treat internal SR-Homes addresses as an external contact
-        if ($to && $this->isInternalEmail($to)) {
-            return null;
-        }
-        return $to;
+        // Internal outbound (reply to a colleague) is a valid conversation contact.
+        // We used to return null here, which meant replies to an internal thread
+        // never got logged under the inbound conversation — previous behavior only
+        // made sense when inbound-internal was rejected; now that both sides are
+        // accepted the rule needs to be symmetric.
+        return $to ?: null;
     }
 
     /**

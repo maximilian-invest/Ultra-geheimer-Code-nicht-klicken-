@@ -24,7 +24,26 @@ const isIntern = computed(() => {
   const cat = (props.message.category || '').toLowerCase()
   const from = (props.message.from_email || '').toLowerCase()
   const to = (props.message.to_email || '').toLowerCase()
-  return cat === 'intern' || (from.endsWith('@sr-homes.at') && to.endsWith('@sr-homes.at'))
+  const direction = (props.message.direction || '').toLowerCase()
+  if (cat === 'intern') return true
+  // Both ends on our own domain.
+  if (from.endsWith('@sr-homes.at') && to.endsWith('@sr-homes.at')) return true
+  // Inbound copy of an internal mail (we were CC'd on something our own
+  // colleague sent out to a third party). Surface it as intern so it
+  // doesn't masquerade as a customer message.
+  if (from.endsWith('@sr-homes.at') && direction === 'inbound') return true
+  return false
+})
+
+// Recipient shown on internal bubbles so the user can tell at a glance
+// where the mail was actually addressed (useful when we were only CC'd).
+const recipientLabel = computed(() => {
+  const raw = props.message.to_email || ''
+  if (!raw) return ''
+  // Best effort: strip angle-bracket wrappers, pick the first address.
+  const first = String(raw).split(',')[0].trim()
+  const angleMatch = first.match(/<([^>]+)>/)
+  return (angleMatch?.[1] || first).trim()
 })
 
 const typeBadge = computed(() => {
@@ -67,14 +86,53 @@ const senderToneClass = computed(() => {
   return senderToneClasses[idx]
 })
 
+// Decode HTML entities that some mail clients leave in the text/plain part.
+// Without this, bodies show literal "&nbsp;", "&lt;", "&gt;", "&amp;" etc.
+function decodeHtmlEntities(s) {
+  if (!s) return ''
+  return String(s)
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&(?:apos|#39);/gi, "'")
+    .replace(/&amp;/gi, '&')
+    .replace(/&#(\d+);/g, (_, n) => {
+      try { return String.fromCharCode(parseInt(n, 10)) } catch (e) { return '' }
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => {
+      try { return String.fromCharCode(parseInt(n, 16)) } catch (e) { return '' }
+    })
+}
+
+// Some mail clients (especially Apple Mail quoted-printable output) strip
+// paragraph breaks and collapse sentences into one run-on line, e.g.
+// "Hölzl,Wir können ... Auto.069910859884Beste Grüße Michael". Re-insert
+// spaces at the points where a sentence clearly restarts so the body is
+// readable again. Heuristic is conservative to avoid breaking URLs / CamelCase.
+function unmangleRunOns(text) {
+  return String(text || '')
+    // comma/semicolon directly followed by uppercase letter → insert space
+    .replace(/([,;])([A-ZÄÖÜ])/g, '$1 $2')
+    // period followed by a long digit run (phone numbers mashed onto end of sentence)
+    .replace(/([.!?])(\d{3,})/g, '$1 $2')
+    // digit run followed by a capitalized word → insert space ("884Beste" → "884 Beste")
+    .replace(/(\d)([A-ZÄÖÜ][a-zäöüß])/g, '$1 $2')
+}
+
 // Clean and format email body for display
 function cleanEmailBody(raw) {
   if (!raw) return ""
   const original = String(raw)
-  let text = original
+  let text = decodeHtmlEntities(original)
+
+  // Strip English reply-quote chains ("On 08.04.26 at 21:29, X wrote:" + rest)
+  // Apple Mail and Gmail use this exact attribution format.
+  text = text.replace(/\n\s*On\s+[A-Z0-9][^\n]{0,240}wrote\s*:[\s\S]*$/im, "")
 
   // Strip quoted reply chains ("Am ... schrieb ...:" + everything after)
   text = text.replace(/\n\s*Am \d{1,2}\.\d{1,2}\.\d{2,4}.*schrieb.*:[\s\S]*$/im, "")
+  text = text.replace(/\n\s*Am\s+\w+[.,]?\s+\d{1,2}\.\s*\w+[.\s]+\d{2,4}[^\n]*schrieb[\s\S]*$/im, "")
   // Strip "> " quoted lines at the end
   const lines = text.split("\n")
   let cutIdx = lines.length
@@ -102,11 +160,14 @@ function cleanEmailBody(raw) {
   // Collapse 3+ consecutive blank lines to 2
   text = text.replace(/(\n\s*){3,}/g, "\n\n")
 
+  // Re-insert whitespace at sentence restart points (mangled bodies).
+  text = unmangleRunOns(text)
+
   text = text.trim()
 
   // Safety fallback: if cleaning removed almost everything, show original text.
   if (text.length < 10 && original.trim().length > 0) {
-    return original.trim()
+    return decodeHtmlEntities(original).trim()
   }
 
   return text
@@ -131,13 +192,14 @@ function htmlToText(html) {
 }
 
 const rawBody = computed(() => {
-  return props.message.full_body
+  const src = props.message.full_body
     || props.message.body_text
     || props.message.body
     || htmlToText(props.message.body_html)
     || props.message.ai_summary
     || props.message.result
     || ""
+  return decodeHtmlEntities(src)
 })
 const displayBody = computed(() => cleanEmailBody(rawBody.value))
 const hasQuotedContent = computed(() => rawBody.value.length > displayBody.value.length + 20)
@@ -241,6 +303,13 @@ function onSaveAttachment(att, idx) {
       :class="[bubbleClasses, isTruncatable && !expanded ? 'cursor-pointer' : '']"
       @click="toggleExpand"
     >
+      <!-- Recipient header (only for intern bubbles so we can see where the
+           mail actually went when we were just CC'd) -->
+      <div v-if="isIntern && recipientLabel" class="flex items-center gap-1 text-[10px] text-sky-700/80 font-medium mb-1 -mt-0.5">
+        <span class="opacity-70">An:</span>
+        <span class="truncate">{{ recipientLabel }}</span>
+      </div>
+
       <!-- Body -->
       <div class="text-[13px] leading-[1.6] whitespace-pre-wrap break-words">
         <template v-if="!isTruncatable || expanded">{{ displayBody }}</template>

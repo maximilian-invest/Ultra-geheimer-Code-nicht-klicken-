@@ -128,13 +128,21 @@ const isBesichtigung = computed(() => {
 const isIntern = computed(() => {
   const cat = (props.item.category || "").toLowerCase();
   if (cat === "intern") return true;
-  // For conversations: check if the CONTACT (external person) is sr-homes
+  // For conversations: check the contact OR the resolved stakeholder
+  // (ConversationService stores a placeholder contact_email for internal
+  // senders and puts the real address on the stakeholder column, so we
+  // have to look at both).
   const contactEmail = (props.item.contact_email || "").toLowerCase();
   if (contactEmail && contactEmail.endsWith("@sr-homes.at")) return true;
+  const stakeholder = (props.item.stakeholder || "").toLowerCase();
+  if (stakeholder && stakeholder.endsWith("@sr-homes.at")) return true;
   // For posteingang/gesendet emails: both from AND to must be sr-homes
   const from = (props.item.from_email || "").toLowerCase();
   const to = (props.item.to_email || "").toLowerCase();
   if (from.endsWith("@sr-homes.at") && to.endsWith("@sr-homes.at")) return true;
+  // Inbound copy of a mail sent by a colleague (we were CC'd) — still intern.
+  const direction = (props.item.direction || "").toLowerCase();
+  if (from.endsWith("@sr-homes.at") && direction === "inbound") return true;
   return false;
 });
 

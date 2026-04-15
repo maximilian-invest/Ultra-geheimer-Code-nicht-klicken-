@@ -1,17 +1,7 @@
 <!-- resources/views/docs/partials/_email_gate.blade.php -->
-<section class="hero">
-    @if (!empty($heroImages))
-        <img src="{{ $heroImages[0] }}" alt="{{ $link->property->project_name ?? 'Projektbild' }}">
-    @endif
-    <div class="hero-text">
-        <h1>{{ $link->property->project_name ?? 'Ihre Unterlagen' }}</h1>
-        <div class="meta">{{ $link->property->address ?? '' }}@if (!empty($link->property->address) && !empty($link->property->city)) · @endif{{ $link->property->city ?? '' }}</div>
-    </div>
-</section>
-
 <article class="email-gate-card">
-    <h2>Unterlagen ansehen</h2>
-    <p>Bitte bestaetigen Sie Ihre Email-Adresse, um die Unterlagen einzusehen.</p>
+    <h2>Unterlagen freischalten</h2>
+    <p>Exposé, Grundrisse, Preisliste und weitere Unterlagen — direkt im Browser einsehen. Keine Downloads, keine Weiterleitung.</p>
 
     <form method="POST" action="/docs/{{ $link->token }}/unlock">
         @csrf
@@ -24,6 +14,6 @@
             <span>Ich stimme zu, dass meine Email-Adresse im Rahmen der Betreuung dieses Immobilien-Projekts verarbeitet wird. Details in der <a href="/datenschutz">Datenschutzerklaerung</a>.</span>
         </label>
 
-        <button type="submit" class="cta-primary">Unterlagen ansehen →</button>
+        <button type="submit" class="cta-primary">Unterlagen freischalten →</button>
     </form>
 </article>

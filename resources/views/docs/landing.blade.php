@@ -9,12 +9,35 @@
     <link rel="stylesheet" href="{{ asset('docs/docs.css') }}">
 </head>
 <body>
+@include('docs.partials._header', ['company' => $company ?? []])
+
 <main class="docs-container">
+    @include('docs.partials._hero', [
+        'link' => $link,
+        'heroImages' => $heroImages ?? [],
+        'showcase' => $showcase ?? null,
+        'state' => $state,
+        'files' => $files ?? null,
+        'session' => $session ?? null,
+    ])
+
+    @include('docs.partials._showcase', [
+        'link' => $link,
+        'heroImages' => $heroImages ?? [],
+        'showcase' => $showcase ?? [],
+    ])
+
     @if ($state === 'locked')
-        @include('docs.partials._email_gate', ['link' => $link, 'heroImages' => $heroImages ?? []])
+        @include('docs.partials._email_gate', ['link' => $link])
     @else
-        @include('docs.partials._unlocked', ['link' => $link, 'files' => $files, 'session' => $session, 'heroImages' => $heroImages ?? []])
+        @include('docs.partials._unlocked', [
+            'link' => $link,
+            'files' => $files,
+            'session' => $session,
+        ])
     @endif
 </main>
+
+@include('docs.partials._footer', ['company' => $company ?? []])
 </body>
 </html>

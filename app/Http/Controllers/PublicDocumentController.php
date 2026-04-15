@@ -40,32 +40,41 @@ class PublicDocumentController extends Controller
 
         $link->load('property');
 
-        // Build property image gallery for hero (first image) and optional strip
+        // Build property image gallery (first element = hero image)
         $heroImages = $this->resolvePropertyImages($link->property_id);
+
+        // Build showcase data (key facts, descriptions) from property row
+        $showcase = $this->buildShowcase($link->property);
+
+        // Company info for header + footer
+        $company = config('portal.company', []);
+
+        $commonProps = [
+            'link' => $link,
+            'heroImages' => $heroImages,
+            'showcase' => $showcase,
+            'company' => $company,
+        ];
 
         if ($session) {
             $files = DB::table('property_files')
                 ->whereIn('id', $link->documentIds())
                 ->get();
 
-            return response()->view('docs.landing', [
-                'link' => $link,
+            return response()->view('docs.landing', array_merge($commonProps, [
                 'session' => $session,
                 'files' => $files,
-                'heroImages' => $heroImages,
                 'state' => 'unlocked',
-            ]);
+            ]));
         }
 
-        return response()->view('docs.landing', [
-            'link' => $link,
-            'heroImages' => $heroImages,
+        return response()->view('docs.landing', array_merge($commonProps, [
             'state' => 'locked',
-        ]);
+        ]));
     }
 
     /**
-     * Collect property image URLs for the docs hero section.
+     * Collect property image URLs for the docs hero and gallery.
      *
      * Returns an array of absolute URLs (first element = hero image).
      * Returns [] when no images exist.
@@ -77,7 +86,7 @@ class PublicDocumentController extends Controller
             ->where('mime_type', 'like', 'image/%')
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->limit(5)
+            ->limit(6)
             ->get(['path']);
 
         $urls = [];
@@ -89,6 +98,100 @@ class PublicDocumentController extends Controller
         }
 
         return $urls;
+    }
+
+    /**
+     * Build the project showcase payload from a Property model.
+     *
+     * Returns an associative array with:
+     *  - badges:       list of ['label' => string] for hero sub-badges
+     *  - description:  realty_description (stripped of HTML, trimmed)
+     *  - location:     location_description (stripped, trimmed)
+     *  - equipment:    equipment_description (stripped, trimmed)
+     *  - facts:        list of ['label' => string, 'value' => string, 'icon' => string]
+     *
+     * Values are only included when the underlying property field is present,
+     * so the views can simply iterate and render whatever is available.
+     */
+    protected function buildShowcase($property): array
+    {
+        if (!$property) {
+            return [
+                'badges' => [],
+                'description' => '',
+                'location' => '',
+                'equipment' => '',
+                'facts' => [],
+            ];
+        }
+
+        $badges = [];
+        if (!empty($property->total_units)) {
+            $badges[] = ['label' => $property->total_units . ' Wohneinheiten'];
+        }
+        if (!empty($property->construction_year)) {
+            $badges[] = ['label' => 'Fertigstellung ' . $property->construction_year];
+        }
+        if (!empty($property->purchase_price) && (float) $property->purchase_price > 0) {
+            $badges[] = ['label' => 'ab ' . $this->formatPrice((float) $property->purchase_price)];
+        } elseif (!empty($property->rental_price) && (float) $property->rental_price > 0) {
+            $badges[] = ['label' => 'Miete ab ' . $this->formatPrice((float) $property->rental_price) . '/Monat'];
+        }
+
+        $facts = [];
+        if (!empty($property->total_units)) {
+            $facts[] = ['label' => 'Einheiten', 'value' => (string) $property->total_units, 'icon' => 'units'];
+        }
+        if (!empty($property->construction_year)) {
+            $facts[] = ['label' => 'Fertigstellung', 'value' => (string) $property->construction_year, 'icon' => 'year'];
+        }
+        if (!empty($property->purchase_price) && (float) $property->purchase_price > 0) {
+            $facts[] = ['label' => 'Ab-Preis', 'value' => $this->formatPrice((float) $property->purchase_price), 'icon' => 'price'];
+        }
+        if (!empty($property->living_area) && (float) $property->living_area > 0) {
+            $facts[] = ['label' => 'Wohnfläche', 'value' => number_format((float) $property->living_area, 0, ',', '.') . ' m²', 'icon' => 'area'];
+        }
+        if (!empty($property->city)) {
+            $facts[] = ['label' => 'Lage', 'value' => $property->city, 'icon' => 'location'];
+        }
+        if (!empty($property->energy_type) || !empty($property->heating)) {
+            $facts[] = [
+                'label' => 'Heizung',
+                'value' => $property->heating ?: $property->energy_type,
+                'icon' => 'energy',
+            ];
+        }
+
+        // Cap facts at 4 to keep the grid tidy
+        $facts = array_slice($facts, 0, 4);
+
+        return [
+            'badges' => $badges,
+            'description' => $this->cleanText($property->realty_description ?? ''),
+            'location' => $this->cleanText($property->location_description ?? ''),
+            'equipment' => $this->cleanText($property->equipment_description ?? ''),
+            'facts' => $facts,
+        ];
+    }
+
+    /**
+     * Format a price as "123.456 €" (German locale, no decimals).
+     */
+    protected function formatPrice(float $value): string
+    {
+        return number_format($value, 0, ',', '.') . ' €';
+    }
+
+    /**
+     * Strip HTML, collapse whitespace, and trim long property description fields.
+     */
+    protected function cleanText(string $raw): string
+    {
+        $stripped = trim(strip_tags($raw));
+        // Normalise excessive blank lines but keep paragraph breaks
+        $normalised = preg_replace("/\r\n|\r/", "\n", $stripped);
+        $normalised = preg_replace("/\n{3,}/", "\n\n", $normalised);
+        return $normalised ?? '';
     }
 
     public function unlock(Request $request, string $token)

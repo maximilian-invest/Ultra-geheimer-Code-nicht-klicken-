@@ -259,11 +259,33 @@ function normalizeForForwardSplit(text) {
     .trim()
 }
 
+// Reply-quote attribution patterns.
+// These indicate the quoted block below is a reply-quote (someone answered us
+// and their mail client auto-appended our original mail as quoted context),
+// NOT a genuine forward. If any of these patterns appear in the body, we
+// must NOT split — otherwise the original outbound mail gets duplicated as
+// a phantom "forwarded" bubble in the chat view.
+// Matches:
+//   "On 08.04.26 at 21:29, SR-Homes Immobilien wrote:" (Apple Mail / Gmail EN)
+//   "On Tue, Apr 8, 2026 at 9:29 PM, X wrote:" (Gmail EN)
+//   "Am 08.04.2026 um 21:29 schrieb X:" (Thunderbird DE)
+//   "Am Di., 8. Apr. 2026 um 21:29 Uhr schrieb X:" (Gmail DE)
+//   "X schrieb:" / "X wrote:" (bare, at start of a line)
+const REPLY_ATTRIBUTION_RE = /(?:^|\n)\s*(?:>\s*)?(On|Am)\b[^\n]{0,240}\b(wrote|schrieb)\s*:/i
+const BARE_ATTRIBUTION_RE = /\n\s*(?:>\s*)?[^\n<>]{1,120}\s(wrote|schrieb)\s*:\s*(?:\n|$)/i
+const OWN_DOMAIN_RE = /@sr-homes\.at$/i
+
 function splitForwardedMessage(msg) {
   const bodyText = String(msg?.body_text || '')
   const htmlText = htmlToText(msg?.body_html || '')
   const body = normalizeForForwardSplit(bodyText || htmlText)
   if (!body) return [msg]
+
+  // Guard 1: if the body contains a reply-attribution line, this is a
+  // reply-quote chain — not a forward. Never split.
+  if (REPLY_ATTRIBUTION_RE.test(body) || BARE_ATTRIBUTION_RE.test(body)) {
+    return [msg]
+  }
 
   const markerRegex = /\n-{2,}\s*(Weitergeleitete Nachricht|Forwarded message|Original Message|Original-Nachricht|Urspruengliche Nachricht)\s*-{2,}\n/i
   const markerMatch = body.match(markerRegex)
@@ -326,6 +348,14 @@ function splitForwardedMessage(msg) {
         forwardedFrom = candidate
       }
     }
+  }
+
+  // Guard 2: if the extracted sender is from our own domain, the "forwarded"
+  // block is actually our own outbound mail quoted back at us in a reply.
+  // Splitting it would create a duplicate phantom bubble, because the real
+  // outbound mail is already in the thread. Treat as unsplit.
+  if (forwardedFromEmail && OWN_DOMAIN_RE.test(forwardedFromEmail)) {
+    return [msg]
   }
 
   const baseMsg = { ...msg }

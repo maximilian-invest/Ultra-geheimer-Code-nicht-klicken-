@@ -80,11 +80,23 @@ function enterCompose(kind, withDraft) {
     ? flatMessages.value[flatMessages.value.length - 1]
     : latestInbound()
   if (!m) return
+
+  // Prefer the conversation's stored contact_email as the reply target
+  // over the raw from_email of the latest inbound mail. For platform
+  // sources like Typeform/Willhaben/ImmoScout the raw from_email is a
+  // noreply notifier (notifications@followups.typeform.io etc.) while
+  // contact_email is the real customer address that ConversationService
+  // resolved by parsing the body. Fall back to m.from_email only when
+  // contact_email is empty or is a synthetic placeholder.
+  const convContact = String(props.item?.contact_email || '').toLowerCase()
+  const convContactIsReal = convContact && !convContact.endsWith('@placeholder.local')
+  const replyTo = convContactIsReal ? props.item.contact_email : (m.from_email || '')
+
   composeContext.value = {
     kind,
     withDraft,
     prefill: {
-      to: kind === 'forward' ? '' : (m.from_email || ''),
+      to: kind === 'forward' ? '' : replyTo,
       subject: kind === 'forward'
         ? (m.subject?.startsWith('WG: ') ? m.subject : 'WG: ' + (m.subject || ''))
         : (m.subject?.startsWith('Re: ') ? m.subject : 'Re: ' + (m.subject || '')),

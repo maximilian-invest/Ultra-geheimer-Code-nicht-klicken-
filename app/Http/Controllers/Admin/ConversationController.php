@@ -198,7 +198,17 @@ class ConversationController extends Controller
                     $item['stakeholder'] = $displayOverride['from_name'];
                     $item['from_name']   = $displayOverride['from_name'];
                 }
-                if (!empty($displayOverride['from_email'])) {
+                // Only override contact_email when the stored value is a
+                // known placeholder (legacy internal-sender pattern). For
+                // real email addresses (e.g. a customer email extracted
+                // from a Typeform/Willhaben/ImmoScout body by
+                // ConversationService::resolveContactEmail) the stored
+                // value is the authoritative reply target and must NOT
+                // be clobbered with the latest inbound mail's from_email
+                // (which is typically the platform notification address).
+                if (!empty($displayOverride['from_email'])
+                    && str_ends_with(strtolower((string) $item['contact_email']), '@placeholder.local')
+                ) {
                     $item['contact_email'] = $displayOverride['from_email'];
                 }
                 if (!empty($displayOverride['subject'])) {

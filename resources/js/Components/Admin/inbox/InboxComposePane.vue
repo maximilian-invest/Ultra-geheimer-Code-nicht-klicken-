@@ -124,13 +124,11 @@ function onLinkPicked(link) {
 
 <template>
   <div class="sr-compose">
-    <!-- Orange header strip -->
-    <header class="sr-compose-header">
-      <div class="sr-compose-title">
-        <Sparkles v-if="withDraft" class="w-4 h-4" />
-        <Send v-else class="w-4 h-4" />
-        <span>{{ withDraft ? 'Mit KI-Entwurf ' + kindLabel.toLowerCase() : kindLabel }}</span>
-      </div>
+    <!-- Compact header: just an Abbrechen button right-aligned. No title —
+         the user knows which button they clicked, repeating it here wastes
+         vertical space and doesn't add info. -->
+    <header class="sr-compose-header sr-compose-header--compact">
+      <div class="sr-compose-spacer"></div>
       <button type="button" class="sr-compose-cancel" @click="onCancel">
         <X class="w-3.5 h-3.5" />
         <span>Abbrechen</span>
@@ -246,6 +244,10 @@ function onLinkPicked(link) {
   align-items: center;
   gap: 12px;
 }
+.sr-compose-header--compact {
+  padding: 8px 16px;
+}
+.sr-compose-spacer { flex: 1; }
 .sr-compose-title {
   display: flex;
   align-items: center;

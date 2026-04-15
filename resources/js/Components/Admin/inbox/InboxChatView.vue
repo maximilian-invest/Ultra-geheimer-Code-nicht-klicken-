@@ -616,28 +616,6 @@ const statusBadge = computed(() => {
             :property-id="item?.property_id || null"
             @cancel="exitCompose"
           />
-
-          <footer class="sr-thread-actions" v-if="composeMode === 'thread'">
-            <Button variant="default" size="sm" @click="enterCompose('reply', false)">
-              <svg class="sr-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
-              Antworten
-            </Button>
-            <button type="button" class="sr-ai-reply-btn" @click="enterCompose('reply', true)">
-              <Sparkles class="sr-action-icon" />
-              Mit KI-Entwurf antworten
-            </button>
-            <div class="sr-thread-actions-spacer"></div>
-            <Button variant="ghost" size="sm" @click="enterCompose('reply-all', false)">
-              Allen antworten
-            </Button>
-            <Button variant="ghost" size="sm" @click="enterCompose('forward', false)">
-              Weiterleiten
-            </Button>
-            <Button variant="ghost" size="sm" class="sr-done-btn" @click="emit('markHandled')">
-              <CheckCircle class="sr-action-icon" />
-              Erledigt
-            </Button>
-          </footer>
         </div>
         <div v-if="isNachfassen && daysWaiting" class="flex justify-center mt-6 mb-2">
           <div class="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 max-w-sm text-center">
@@ -654,6 +632,35 @@ const statusBadge = computed(() => {
         </div>
       </template>
     </div>
+
+    <!-- Persistent action bar — always visible at the bottom of the reading
+         pane, outside the scroll container so the user never has to scroll
+         down to reach Antworten. Only shown in thread mode; compose mode
+         has its own Senden / Abbrechen bar inside InboxComposePane. -->
+    <footer
+      v-if="composeMode === 'thread' && !loading && flatMessages.length"
+      class="sr-thread-actions sr-thread-actions--sticky flex-shrink-0"
+    >
+      <Button variant="default" size="sm" @click="enterCompose('reply', false)">
+        <svg class="sr-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+        Antworten
+      </Button>
+      <button type="button" class="sr-ai-reply-btn" @click="enterCompose('reply', true)">
+        <Sparkles class="sr-action-icon" />
+        Mit KI-Entwurf antworten
+      </button>
+      <div class="sr-thread-actions-spacer"></div>
+      <Button variant="ghost" size="sm" @click="enterCompose('reply-all', false)">
+        Allen antworten
+      </Button>
+      <Button variant="ghost" size="sm" @click="enterCompose('forward', false)">
+        Weiterleiten
+      </Button>
+      <Button variant="ghost" size="sm" class="sr-done-btn" @click="emit('markHandled')">
+        <CheckCircle class="sr-action-icon" />
+        Erledigt
+      </Button>
+    </footer>
 
     <!-- Slots below chat -->
     <div class="flex-shrink-0"><slot name="ai-draft" /></div>
@@ -690,7 +697,13 @@ const statusBadge = computed(() => {
   padding: 14px 24px;
   background: hsl(0 0% 99%);
   border-top: 1px solid hsl(0 0% 93%);
-  display: flex; gap: 8px;
+  display: flex; gap: 8px; align-items: center;
+}
+/* Persistent variant: sits outside the scroll container, always visible */
+.sr-thread-actions--sticky {
+  background: hsl(0 0% 100%);
+  border-top: 1px solid hsl(0 0% 90%);
+  box-shadow: 0 -4px 12px -6px rgb(0 0 0 / 0.08), 0 -1px 0 0 rgb(0 0 0 / 0.02);
 }
 .sr-action-icon { width: 14px; height: 14px; margin-right: 6px; }
 .sr-badge-orange { background: hsl(24 90% 96%); color: hsl(24 80% 38%); border-color: hsl(24 80% 90%); }

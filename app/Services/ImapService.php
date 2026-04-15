@@ -1082,6 +1082,125 @@ Wenn kein Objekt passt, setze property_id auf null.';
     }
 
     /**
+     * Walk the MIME structure and return the HTML part of the message, if
+     * any — charset-converted to UTF-8. Used by refetchBody() to restore
+     * the html version on rows where the legacy multipart decoder had
+     * dropped body_html.
+     */
+    private function extractHtmlFromStructure($mailbox, int $uid, $structure, string $partNumber = ''): ?string
+    {
+        if (empty($structure->parts)) {
+            if (($structure->type ?? -1) === 0 && strtolower($structure->subtype ?? '') === 'html') {
+                $body = $partNumber
+                    ? imap_fetchbody($mailbox, $uid, $partNumber, FT_UID)
+                    : imap_body($mailbox, $uid, FT_UID);
+                $decoded = $this->decodeBody($body, $structure->encoding ?? 0);
+                $charset = 'UTF-8';
+                if (isset($structure->parameters)) {
+                    foreach ($structure->parameters as $param) {
+                        if (strtolower($param->attribute) === 'charset') {
+                            $charset = strtoupper($param->value);
+                            break;
+                        }
+                    }
+                }
+                return $this->convertToUtf8($decoded, $charset);
+            }
+            return null;
+        }
+
+        foreach ($structure->parts as $index => $part) {
+            $pNum = $partNumber ? ($partNumber . '.' . ($index + 1)) : (string)($index + 1);
+            if (isset($part->parts)) {
+                $nested = $this->extractHtmlFromStructure($mailbox, $uid, $part, $pNum);
+                if ($nested) return $nested;
+            } elseif (($part->type ?? -1) === 0 && strtolower($part->subtype ?? '') === 'html') {
+                $charset = 'UTF-8';
+                if (isset($part->parameters)) {
+                    foreach ($part->parameters as $param) {
+                        if (strtolower($param->attribute) === 'charset') {
+                            $charset = strtoupper($param->value);
+                            break;
+                        }
+                    }
+                }
+                $body = imap_fetchbody($mailbox, $uid, $pNum, FT_UID);
+                $decoded = $this->decodeBody($body, $part->encoding ?? 0);
+                return $this->convertToUtf8($decoded, $charset);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Re-fetch a single portal_email from IMAP and rewrite its body_text /
+     * body_html columns with the CURRENT (fixed) decoder pipeline. This is
+     * the permanent recovery path for rows that were written before the
+     * charset conversion bug was fixed — the MySQL row may have replaced
+     * every Windows-1252 byte with '?', but the original bytes are still
+     * sitting on the IMAP server as long as the mail hasn't been deleted.
+     *
+     * Returns true when the row was successfully updated. Returns false
+     * when:
+     *   - the row has no imap_uid / imap_folder / account_id
+     *   - the account is inactive
+     *   - IMAP cannot open the folder
+     *   - the UID no longer exists on the server (user deleted / moved)
+     *   - the decoder returns no content
+     */
+    public function refetchBody(PortalEmail $email): array
+    {
+        if (empty($email->account_id) || empty($email->imap_uid) || empty($email->imap_folder)) {
+            return ['ok' => false, 'reason' => 'missing_imap_coordinates'];
+        }
+
+        $account = EmailAccount::find($email->account_id);
+        if (!$account) {
+            return ['ok' => false, 'reason' => 'account_not_found'];
+        }
+        if (!$account->is_active) {
+            return ['ok' => false, 'reason' => 'account_inactive'];
+        }
+
+        $baseStr = '{' . $account->imap_host . ':' . $account->imap_port . '/imap/' . $account->imap_encryption . '}';
+        $mailbox = @imap_open($baseStr . $email->imap_folder, $account->imap_username, $account->imap_password);
+        if (!$mailbox) {
+            return ['ok' => false, 'reason' => 'imap_open_failed', 'error' => imap_last_error() ?: null];
+        }
+
+        try {
+            $structure = @imap_fetchstructure($mailbox, (int) $email->imap_uid, FT_UID);
+            if (!$structure) {
+                return ['ok' => false, 'reason' => 'uid_not_found_on_server'];
+            }
+
+            $text = $this->extractTextFromStructure($mailbox, (int) $email->imap_uid, $structure);
+            $text = preg_replace('/<([\w.+-]+@[\w.-]+\.[a-z]{2,})>/i', ' $1 ', $text);
+            $text = strip_tags($text);
+            $text = mb_substr(trim($text), 0, 50000);
+
+            $html = $this->extractHtmlFromStructure($mailbox, (int) $email->imap_uid, $structure);
+            if ($html !== null) {
+                $html = mb_substr($html, 0, 200000);
+            }
+
+            if ($text === '' && ($html === null || $html === '')) {
+                return ['ok' => false, 'reason' => 'empty_body_after_refetch'];
+            }
+
+            $email->body_text = $text;
+            if ($html !== null && $html !== '') {
+                $email->body_html = $html;
+            }
+            $email->save();
+
+            return ['ok' => true, 'body_text_len' => strlen($text), 'body_html_len' => strlen((string) $html)];
+        } finally {
+            @imap_close($mailbox);
+        }
+    }
+
+    /**
      * Recursively find and decode the text/plain part from MIME structure.
      */
     private function extractTextFromStructure($mailbox, int $uid, $structure, string $partNumber = ''): string

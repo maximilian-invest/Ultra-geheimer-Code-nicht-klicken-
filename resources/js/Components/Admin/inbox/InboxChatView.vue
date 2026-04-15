@@ -369,23 +369,69 @@ function splitForwardedMessage(msg, threadSenders) {
     return [msg]
   }
 
+  // Decide whether the wrapper text above the forwarded block is a real
+  // comment from the forwarder (e.g. "FYI, schau dir das mal an") or just
+  // their mail-client signature + privacy notice. When it's pure signature
+  // we drop it entirely and show only the forwarded payload — otherwise
+  // we'd bury the actual content Max wants under Susanne's 20-line
+  // boilerplate (the case that made him ask for this fix).
+  const wrapperNote = extractWrapperNote(beforeText)
+
   // Return a SINGLE annotated message. The bubble template shows a header
   // strip with the forwarded metadata, and cleanEmailBody strips the
   // quoted header block + quoted signature from the displayed body.
   return [{
     ...msg,
-    // Body used for display is the forwarded content — the meaningful
-    // payload — with Susanne's signature/wrapper preserved as an optional
-    // prefix on top of it.
-    body_text: beforeText
-      ? `${beforeText}\n\n---\n\n${forwardedBody}`
+    // Body for display = forwarded payload, optionally prefixed with any
+    // meaningful wrapper comment the forwarder added above.
+    body_text: wrapperNote
+      ? `${wrapperNote}\n\n— — —\n\n${forwardedBody}`
       : forwardedBody,
     body_html: null,
     _forwardedFromName: forwardedFrom || forwardedFromEmail || null,
     _forwardedFromEmail: forwardedFromEmail || null,
     _forwardedSubject: forwardedSubject || null,
-    _forwardedHasWrapper: !!beforeText,
+    _forwardedHasWrapper: !!wrapperNote,
   }]
+}
+
+// Extract any meaningful wrapper comment the forwarder wrote ABOVE their
+// signature block. Scans for the first greeting-style line ("Mit
+// freundlichen Grüßen", "LG", etc.) and discards everything from that
+// point onwards — the signature, contact details, DSGVO boilerplate, all
+// of it. If nothing meaningful remains, returns '' so splitForwardedMessage
+// knows to drop the wrapper entirely and show only the forwarded payload.
+// Handles the '?'-corrupted variants (Gr??en) for legacy encoding-damaged
+// mails.
+function extractWrapperNote(beforeText) {
+  if (!beforeText) return ''
+  let text = String(beforeText)
+
+  const sigMarkers = [
+    /\bMit\s+freundlichen\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)/i,
+    /\bMit\s+besten\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)/i,
+    /\bBeste\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)/i,
+    /\bLiebe\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)/i,
+    /\bSch(?:ö|\?|oe)ne\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)/i,
+    /\bViele\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)/i,
+    /\bIhre?\s+Susanne/i,
+    /\bIhre?\s+Maximilian/i,
+    /\bDer\s+Schutz\s+von\s+personenbezogenen\s+Daten/i,
+    /\b(?:SR[\s-]?Homes|sr-homes\.at)/i,
+  ]
+  let cutIdx = text.length
+  for (const re of sigMarkers) {
+    const m = text.match(re)
+    if (m && typeof m.index === 'number' && m.index < cutIdx) {
+      cutIdx = m.index
+    }
+  }
+  text = text.slice(0, cutIdx).trim()
+
+  // Noise filter: if what's left is too short to be a real comment
+  // (just a "Hallo Max" or empty line), drop it.
+  if (text.length < 15) return ''
+  return text
 }
 
 // ── Date grouping ──

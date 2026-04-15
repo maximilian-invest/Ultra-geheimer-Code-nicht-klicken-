@@ -114,6 +114,149 @@ function decodeHtmlEntities(s) {
     })
 }
 
+// Best-effort repair of '?' characters that an IMAP encoding bug left in
+// the stored body_text. The original umlaut bytes are LOST in MySQL, so
+// this is a dictionary-based guess based on the most common German
+// patterns in business mails. Fully rolled out encoding-fixed mails (post
+// ImapService fix) don't need this, but legacy rows like Susanne's 2042
+// forward do.
+const UMLAUT_REPAIRS = [
+  // — ß family (end-of-word or well-known compounds)
+  [/\bStra\?e\b/g, 'Straße'],
+  [/\bstra\?e\b/g, 'straße'],
+  [/Bundesstra\?e/g, 'Bundesstraße'],
+  [/Hauptstra\?e/g, 'Hauptstraße'],
+  [/\bGro\?/g, 'Groß'],
+  [/\bgro\?/g, 'groß'],
+  [/\bwei\?\b/g, 'weiß'],
+  [/\bWei\?\b/g, 'Weiß'],
+  [/\bhei\?\b/g, 'heiß'],
+  [/\bFu\?/g, 'Fuß'],
+  [/\bFlu\?/g, 'Fluß'],
+  [/\bRei\?/g, 'Reiß'],
+  [/\bausschlie\?lich/g, 'ausschließlich'],
+  [/\bAusschlie\?lich/g, 'Ausschließlich'],
+  [/\bSchlu\?/g, 'Schluß'],
+  [/Gr(?:ü|\?)(?:ß|\?)en/g, 'Grüßen'],
+  [/Gr(?:ü|\?)(?:ß|\?)e\b/g, 'Grüße'],
+  [/\bgem\?\?/g, 'gemäß'],
+
+  // — ü family. NOTE: \b before \? doesn't anchor because \? is non-word,
+  // so patterns that start with \? drop the leading \b and rely on the
+  // uniqueness of the rest of the match to avoid mid-word false positives.
+  [/\bf\?r\b/g, 'für'],
+  [/\bF\?r\b/g, 'Für'],
+  [/\?berdachte/g, 'überdachte'],
+  [/\?berblick/g, 'Überblick'],
+  [/\?bermittelt/g, 'übermittelt'],
+  [/\?bersetzt/g, 'übersetzt'],
+  [/\?bernehmen/g, 'übernehmen'],
+  [/\?bernimmt/g, 'übernimmt'],
+  [/\?berweis/g, 'überweis'],
+  [/\?berpr\?fen/g, 'überprüfen'],
+  [/\?berpr\?ft/g, 'überprüft'],
+  [/\?berwiegend/g, 'überwiegend'],
+  [/\?ber eine/g, 'Über eine'],
+  [/\?ber\b/g, 'über'],
+  [/\bw\?rden\b/g, 'würden'],
+  [/\bW\?rden\b/g, 'Würden'],
+  [/\bw\?rde\b/g, 'würde'],
+  [/\bW\?rde\b/g, 'Würde'],
+  [/\bm\?ssen/g, 'müssen'],
+  [/\bM\?ssen/g, 'Müssen'],
+  [/\bm\?glich/g, 'möglich'], // ö
+  [/\bM\?glich/g, 'Möglich'],
+  [/\bpr\?fen/g, 'prüfen'],
+  [/\bPr\?fen/g, 'Prüfen'],
+  [/\bzur\?ck/g, 'zurück'],
+  [/\bZur\?ck/g, 'Zurück'],
+  [/\bSt\?ck/g, 'Stück'],
+  [/\bst\?ck/g, 'stück'],
+  [/\bnat\?rlich/g, 'natürlich'],
+  [/\bNat\?rlich/g, 'Natürlich'],
+  [/\bgr\?n/g, 'grün'],
+  [/\bGr\?n/g, 'Grün'],
+  [/\bn\?tz/g, 'nütz'],
+  [/\bGl\?ck/g, 'Glück'],
+  [/\bgl\?ck/g, 'glück'],
+  [/\bStellpl\?tze/g, 'Stellplätze'],
+  [/Immobilientreuh\?nder/g, 'Immobilientreuhänder'],
+  [/Gesch\?ftsf\?hrer/g, 'Geschäftsführer'],
+  [/Gesch\?ftsabwick/g, 'Geschäftsabwick'],
+  [/Vermittlungsb\?hne/g, 'Vermittlungsbühne'],
+  [/\bB\?ro/g, 'Büro'],
+  [/\bb\?ro/g, 'büro'],
+
+  // — ä family
+  [/\bGesch\?ft/g, 'Geschäft'],
+  [/\bgesch\?ft/g, 'geschäft'],
+  [/\bt\?glich/g, 'täglich'],
+  [/\bT\?glich/g, 'Täglich'],
+  [/\bn\?chst/g, 'nächst'],
+  [/\bN\?chst/g, 'Nächst'],
+  [/\bn\?mlich/g, 'nämlich'],
+  [/\bst\?ndig/g, 'ständig'],
+  [/\bverf\?gbar/g, 'verfügbar'],
+  [/\bVerf\?gbar/g, 'Verfügbar'],
+  [/\bw\?hrend/g, 'während'],
+  [/\bW\?hrend/g, 'Während'],
+  [/\btats\?chlich/g, 'tatsächlich'],
+  [/\bTats\?chlich/g, 'Tatsächlich'],
+  [/\bverst\?ndlich/g, 'verständlich'],
+  [/\bL\?nge/g, 'Länge'],
+  [/\bl\?nge/g, 'länge'],
+  [/\bh\?tte\b/g, 'hätte'],
+  [/\bh\?tten\b/g, 'hätten'],
+  [/\bw\?re\b/g, 'wäre'],
+  [/\bW\?re\b/g, 'Wäre'],
+  [/\bS\?tze/g, 'Sätze'],
+  [/\bPl\?tze/g, 'Plätze'],
+  [/\bB\?ume/g, 'Bäume'],
+  [/\bG\?ste/g, 'Gäste'],
+  [/\bverk\?uf/g, 'verkäuf'],
+  [/\bVerk\?uf/g, 'Verkäuf'],
+  [/\?rzte/g, 'Ärzte'],
+  [/\?hnlich/g, 'ähnlich'],
+  [/\?ltest/g, 'ältest'],
+  [/\?ltere/g, 'ältere'],
+  [/\bM\?rz/g, 'März'],
+  [/\bst\?rker/g, 'stärker'],
+
+  // — ö family
+  [/\bk\?nn/g, 'könn'],
+  [/\bK\?nn/g, 'Könn'],
+  [/\bsch\?n/g, 'schön'],
+  [/\bSch\?n/g, 'Schön'],
+  [/\bh\?ren/g, 'hören'],
+  [/\bH\?ren/g, 'Hören'],
+  [/\bm\?cht/g, 'möcht'],
+  [/\bM\?cht/g, 'Möcht'],
+  [/\bgeh\?rt/g, 'gehört'],
+  [/\bgel\?st/g, 'gelöst'],
+  [/\?ffn/g, 'öffn'],
+  [/\?stlich/g, 'östlich'],
+  [/\?ffentlich/g, 'öffentlich'],
+  [/\bgr\?\?er/g, 'größer'],
+
+  // — apostrophe mangling (client exported a straight ' as ? too)
+  [/\bgeht\?s\b/g, "geht's"],
+  [/\bhat\?s\b/g, "hat's"],
+  [/\bist\?s\b/g, "ist's"],
+  [/\bgibt\?s\b/g, "gibt's"],
+
+  // — start-of-sentence Über
+  [/^\s*\?ber\s/m, 'Über '],
+]
+
+function repairUmlauts(text) {
+  if (!text || !text.includes('?')) return text
+  let out = String(text)
+  for (const [pattern, replacement] of UMLAUT_REPAIRS) {
+    out = out.replace(pattern, replacement)
+  }
+  return out
+}
+
 // Some mail clients (especially Apple Mail quoted-printable output) strip
 // paragraph breaks and collapse sentences into one run-on line, e.g.
 // "Hölzl,Wir können ... Auto.069910859884Beste Grüße Michael". Re-insert
@@ -135,17 +278,36 @@ function cleanEmailBody(raw) {
   const original = String(raw)
   let text = decodeHtmlEntities(original)
 
+  // Best-effort German umlaut repair for legacy rows where the IMAP
+  // fetcher stored raw Windows-1252 bytes that MySQL replaced with '?'.
+  text = repairUmlauts(text)
+
   // Strip quoted Outlook/Gmail forward header blocks (Von:/Gesendet:/An:/
   // Betreff: groups). When the bubble also has extracted forward metadata
   // shown in the header strip, these lines are pure noise inside the body.
   text = text.replace(/^\s*(Von|From)\s*:.+\n(?:\s*(Gesendet|Date)\s*:.+\n)?(?:\s*(An|To)\s*:.+\n)?(?:\s*(Cc|CC)\s*:.*\n)?(?:\s*(Betreff|Subject)\s*:.+\n)?/gim, '')
 
   // Strip the classic SR-Homes footer block (signature + full DSGVO
-  // boilerplate) that gets dragged into every bubble. Anchor on the
-  // "Mit freundlichen Grüßen" line with a generous lookahead so it kills
-  // the whole trailing signature + privacy notice.
-  text = text.replace(/\n\s*Mit freundlichen Gr(ü|\?|ue)(ß|\?|ss)en[\s\S]*$/i, '')
-  text = text.replace(/\n\s*Der Schutz von personenbezogenen Daten[\s\S]*$/i, '')
+  // boilerplate) that gets dragged into every bubble. IMPORTANT: stop at
+  // the first "— — —" forwarded-content separator that splitForwardedMessage
+  // inserts — previously these strippers greedily ate everything to
+  // end-of-string, including the Baldinger payload below the separator.
+  const forwardSep = text.indexOf('— — —')
+  if (forwardSep >= 0) {
+    // Signature cleanup only inside the wrapper region.
+    const before = text.slice(0, forwardSep)
+    const after = text.slice(forwardSep)
+    let cleanedBefore = before
+      .replace(/\n\s*Mit freundlichen Gr(ü|\?|ue)(ß|\?|ss)en[\s\S]*$/i, '')
+      .replace(/\n\s*Der Schutz von personenbezogenen Daten[\s\S]*$/i, '')
+    text = cleanedBefore + after
+    // If the wrapper was nothing but a signature, drop the now-leading
+    // separator so the body starts with the forwarded content directly.
+    text = text.replace(/^\s*— — —\s*/, '')
+  } else {
+    text = text.replace(/\n\s*Mit freundlichen Gr(ü|\?|ue)(ß|\?|ss)en[\s\S]*$/i, '')
+    text = text.replace(/\n\s*Der Schutz von personenbezogenen Daten[\s\S]*$/i, '')
+  }
 
   // Strip English reply-quote chains ("On 08.04.26 at 21:29, X wrote:" + rest)
   // Apple Mail and Gmail use this exact attribution format.
@@ -320,7 +482,7 @@ function onSaveAttachment(att, idx) {
 <template>
   <div v-if="hasRenderableContent" class="flex w-full" :class="isOutbound ? 'justify-end' : 'justify-start'">
     <div
-      class="max-w-[80%] px-4 py-3"
+      class="max-w-[95%] md:max-w-[92%] px-4 py-3"
       :class="[bubbleClasses, isTruncatable && !expanded ? 'cursor-pointer' : '']"
       @click="toggleExpand"
     >

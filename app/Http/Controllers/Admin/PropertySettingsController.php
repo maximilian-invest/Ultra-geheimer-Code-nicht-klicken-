@@ -1336,12 +1336,14 @@ PY;
 
     private function recalcUnitStats(int $propId): void
     {
+        // total_units = residential apartments only (is_parking = 0).
+        // Parking spaces (Stellplatz, Tiefgarage, Carportplatz) are NOT counted as Wohneinheiten.
         $stats = DB::selectOne("
             SELECT
-                COUNT(*) as total,
-                SUM(status = 'frei') as frei,
-                SUM(status = 'reserviert') as reserviert,
-                SUM(status = 'verkauft') as verkauft,
+                SUM(CASE WHEN is_parking = 0 THEN 1 ELSE 0 END) as total,
+                SUM(CASE WHEN is_parking = 0 AND status = 'frei' THEN 1 ELSE 0 END) as frei,
+                SUM(CASE WHEN is_parking = 0 AND status = 'reserviert' THEN 1 ELSE 0 END) as reserviert,
+                SUM(CASE WHEN is_parking = 0 AND status = 'verkauft' THEN 1 ELSE 0 END) as verkauft,
                 SUM(CASE WHEN is_parking = 0 THEN COALESCE(area_m2, 0) ELSE 0 END) as sum_area
             FROM property_units WHERE property_id = ?
         ", [$propId]);

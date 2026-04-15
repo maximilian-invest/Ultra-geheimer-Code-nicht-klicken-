@@ -21,19 +21,25 @@
         'session' => $session ?? null,
     ])
 
-    @include('docs.partials._showcase', [
-        'link' => $link,
-        'heroImages' => $heroImages ?? [],
-        'showcase' => $showcase ?? [],
-    ])
-
     @if ($state === 'locked')
+        {{-- Locked: build desire first (showcase), then request email --}}
+        @include('docs.partials._showcase', [
+            'link' => $link,
+            'heroImages' => $heroImages ?? [],
+            'showcase' => $showcase ?? [],
+        ])
         @include('docs.partials._email_gate', ['link' => $link])
     @else
+        {{-- Unlocked: documents first (primary reason the customer is here), then showcase as context --}}
         @include('docs.partials._unlocked', [
             'link' => $link,
             'files' => $files,
             'session' => $session,
+        ])
+        @include('docs.partials._showcase', [
+            'link' => $link,
+            'heroImages' => $heroImages ?? [],
+            'showcase' => $showcase ?? [],
         ])
     @endif
 </main>

@@ -115,8 +115,21 @@ class ImapService
                     continue;
                 }
 
-                // Get body
+                // Get body (text + html). The text version is the always-used
+                // display fallback, the HTML version is what the new inbox
+                // reading pane renders via DOMPurify. Without this the
+                // reading pane drops back to the ugly text/plain variant
+                // on every mail that has both parts.
                 $body = $this->getBody($mailbox, $uid);
+                $bodyHtml = null;
+                try {
+                    $structure = imap_fetchstructure($mailbox, $uid, FT_UID);
+                    if ($structure) {
+                        $bodyHtml = $this->extractHtmlFromStructure($mailbox, $uid, $structure);
+                    }
+                } catch (\Throwable $e) {
+                    // body_html stays null — fallback renderer handles it
+                }
 
                 // Parse from
                 $fromParsed = mailparse_rfc822_parse_addresses($from);
@@ -662,6 +675,7 @@ class ImapService
                     'to_email' => $to,
                     'subject' => $subject,
                     'body_text' => $body,
+                    'body_html' => $bodyHtml ? mb_substr($bodyHtml, 0, 200000) : null,
                     'email_date' => $date,
                     'property_id' => $propertyId ?? (
                         !empty($analysis['suggested_property_ref_id'])

@@ -994,7 +994,7 @@ function openDetail(item, mode) {
   } else {
     contextPromise = fetch(API.value + "&action=conv_detail&id=" + item.id)
       .then(r => r.json())
-      .then(d => {
+      .then(async (d) => {
         expandedDetail.value = { email: d.conversation || null, thread: d.messages || [] };
       })
       .catch(e => { toast("Fehler: " + e.message); })
@@ -1013,15 +1013,19 @@ function openDetail(item, mode) {
       body: JSON.stringify({}),
     })
       .then(r => r.json())
-      .then(d => {
+      .then(async (d) => {
         // Respect user input — if the user already started typing their own
         // reply while the AI was still running, do NOT clobber it. Only fill
         // in the AI body when the current draft body is still empty.
         const current = expandedAiDraft.value || {};
         const userHasTyped = typeof current.body === 'string' && current.body.trim().length > 0;
         if (d.draft_body && !userHasTyped) {
+          const draftWithLink = await ensureDraftContainsPropertyLink(
+            stripAiSignoffAndKnownSignatures(d.draft_body),
+            item
+          );
           expandedAiDraft.value = {
-            body: d.draft_body,
+            body: draftWithLink,
             subject: d.draft_subject || current.subject || item.subject || '',
             to: d.draft_to || current.to || item.contact_email || '',
           };
@@ -1078,6 +1082,33 @@ function stripAiSignoffAndKnownSignatures(aiBody) {
   return body.trimEnd();
 }
 
+async function fetchPreferredPropertyLink(propertyId) {
+  const pid = Number(propertyId);
+  if (!Number.isFinite(pid) || pid <= 0) return '';
+  try {
+    const r = await fetch(`/admin/properties/${pid}/links/active`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!r.ok) return '';
+    const d = await r.json();
+    const links = Array.isArray(d?.links) ? d.links : [];
+    const first = links.find((l) => (l?.url || l?.public_url || l?.link_url || '').trim());
+    return String(first?.url || first?.public_url || first?.link_url || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+async function ensureDraftContainsPropertyLink(body, item) {
+  const cleanBody = String(body || '').trimEnd();
+  const existingLinkMatch = cleanBody.match(/https?:\/\/[^\s)>"']+/i);
+  if (existingLinkMatch) return cleanBody;
+  const linkUrl = await fetchPreferredPropertyLink(item?.property_id);
+  if (!linkUrl) return cleanBody;
+  const sep = cleanBody ? '\n\n' : '';
+  return `${cleanBody}${sep}Unterlagen: ${linkUrl}`;
+}
+
 // Always use the stored signature from settings and keep it single.
 function withUserSignature(aiBody) {
   const storedSig = buildSignature().trim();
@@ -1102,8 +1133,12 @@ async function regenerateAiDraft() {
     clearTimeout(timeout);
     const d = await r.json();
     if (d.draft_body) {
+      const draftWithLink = await ensureDraftContainsPropertyLink(
+        stripAiSignoffAndKnownSignatures(d.draft_body),
+        item
+      );
       expandedAiDraft.value = {
-        body: stripAiSignoffAndKnownSignatures(d.draft_body),
+        body: draftWithLink,
         subject: d.draft_subject || item.subject || '',
         to: d.draft_to || item.contact_email || '',
         cc: expandedAiDraft.value?.cc || '',

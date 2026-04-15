@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, inject, onMounted, watch, nextTick } from 'vue'
-import { Send, RefreshCw, Sparkles, Paperclip, Wand2, X, Loader2, Link2 } from 'lucide-vue-next'
+import { Send, RefreshCw, Paperclip, Wand2, X, Loader2, Link2 } from 'lucide-vue-next'
 import LinkPickerPopover from './LinkPickerPopover.vue'
 
 const props = defineProps({
@@ -92,7 +92,6 @@ const referencePreview = computed(() => {
 })
 
 const bodyIsEmpty = computed(() => !(draft.value?.body || '').trim())
-const showDraftBadge = computed(() => !bodyIsEmpty.value && props.withDraft)
 const signature = computed(() => signatureData?.value || null)
 const hasSignature = computed(() => !!(signature.value && (signature.value.signature_name || signature.value.signature_company)))
 
@@ -218,10 +217,6 @@ function onLinkPicked(link) {
 
     <!-- Body textarea -->
     <div class="sr-compose-body">
-      <div v-if="showDraftBadge" class="sr-draft-badge">
-        <Sparkles class="w-3 h-3" />
-        KI-Entwurf
-      </div>
       <div v-if="loading" class="sr-body-loading">
         <Loader2 class="w-4 h-4 animate-spin" />
         <span>KI-Entwurf wird generiert…</span>
@@ -379,19 +374,6 @@ function onLinkPicked(link) {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-}
-.sr-draft-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  margin-bottom: 10px;
-  background: linear-gradient(135deg, hsl(28 98% 54%), hsl(18 88% 48%));
-  color: hsl(0 0% 100%);
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
 }
 .sr-body-loading {
   display: flex;

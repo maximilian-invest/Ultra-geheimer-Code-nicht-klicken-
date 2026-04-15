@@ -77,13 +77,25 @@ class PublicDocumentController extends Controller
      * Collect property image URLs for the docs hero and gallery.
      *
      * Returns an array of absolute URLs (first element = hero image).
-     * Returns [] when no images exist.
+     * Pulls from property_images (the authoritative image table where the
+     * admin UI actually uploads photos — floor plans, interior visuals,
+     * and the iPhone exterior shots all live here). The old code queried
+     * property_files which only contained 3 interior visualizations that
+     * happened to be imported alongside the PDF documents, so every
+     * exterior photo uploaded through the admin was invisible on the
+     * docs landing page.
+     *
+     * Ordering: title image first (is_title_image = 1), then sort_order
+     * ascending, then id ascending. Non-public and floor-plan entries
+     * are excluded from the docs gallery.
      */
     protected function resolvePropertyImages(int $propertyId): array
     {
-        $images = DB::table('property_files')
+        $images = DB::table('property_images')
             ->where('property_id', $propertyId)
-            ->where('mime_type', 'like', 'image/%')
+            ->where('is_public', 1)
+            ->where('is_floorplan', 0)
+            ->orderByDesc('is_title_image')
             ->orderBy('sort_order')
             ->orderBy('id')
             ->limit(6)
@@ -167,9 +179,13 @@ class PublicDocumentController extends Controller
 
         return [
             'badges' => $badges,
-            'description' => $this->cleanText($property->realty_description ?? ''),
-            'location' => $this->cleanText($property->location_description ?? ''),
-            'equipment' => $this->cleanText($property->equipment_description ?? ''),
+            // Compressed copy for the landing page. The full descriptions
+            // run 2000+ characters each, which is way too much for a
+            // sales funnel. Cap them to a couple of short paragraphs so
+            // the page reads fast and stays scannable.
+            'description' => $this->cleanText($property->realty_description ?? '', 520),
+            'location' => $this->cleanText($property->location_description ?? '', 420),
+            'equipment' => $this->cleanText($property->equipment_description ?? '', 360),
             'facts' => $facts,
         ];
     }
@@ -183,15 +199,50 @@ class PublicDocumentController extends Controller
     }
 
     /**
-     * Strip HTML, collapse whitespace, and trim long property description fields.
+     * Strip HTML, collapse whitespace, and optionally truncate long
+     * property description fields to a soft character budget. When
+     * $maxChars is set, the string is cut at the closest sentence /
+     * paragraph boundary BEFORE the limit and an ellipsis is appended.
+     * Boundaries outside 60% of the budget are ignored so we don't end
+     * up with a near-empty paragraph.
      */
-    protected function cleanText(string $raw): string
+    protected function cleanText(string $raw, int $maxChars = 0): string
     {
         $stripped = trim(strip_tags($raw));
         // Normalise excessive blank lines but keep paragraph breaks
         $normalised = preg_replace("/\r\n|\r/", "\n", $stripped);
         $normalised = preg_replace("/\n{3,}/", "\n\n", $normalised);
-        return $normalised ?? '';
+        $normalised = $normalised ?? '';
+
+        if ($maxChars <= 0 || mb_strlen($normalised) <= $maxChars) {
+            return $normalised;
+        }
+
+        $cut = mb_substr($normalised, 0, $maxChars);
+
+        // Prefer a paragraph break near the end of the budget.
+        $paraBoundary = mb_strrpos($cut, "\n\n");
+        if ($paraBoundary !== false && $paraBoundary >= (int) ($maxChars * 0.6)) {
+            return rtrim(mb_substr($cut, 0, $paraBoundary)) . ' …';
+        }
+
+        // Otherwise cut at the last sentence end (. ! ?) inside the budget.
+        $candidates = [];
+        foreach (['. ', '! ', '? ', '.' . "\n", '!' . "\n", '?' . "\n"] as $sep) {
+            $pos = mb_strrpos($cut, $sep);
+            if ($pos !== false) $candidates[] = $pos + mb_strlen($sep) - 1;
+        }
+        $boundary = empty($candidates) ? false : max($candidates);
+        if ($boundary !== false && $boundary >= (int) ($maxChars * 0.6)) {
+            return rtrim(mb_substr($cut, 0, $boundary + 1)) . ' …';
+        }
+
+        // Last resort: hard cut with ellipsis, don't break a word.
+        $spaceBoundary = mb_strrpos($cut, ' ');
+        if ($spaceBoundary !== false && $spaceBoundary >= (int) ($maxChars * 0.6)) {
+            $cut = mb_substr($cut, 0, $spaceBoundary);
+        }
+        return rtrim($cut) . ' …';
     }
 
     public function unlock(Request $request, string $token)

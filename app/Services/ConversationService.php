@@ -431,7 +431,7 @@ class ConversationService
         $sql = "
             SELECT pe.id
             FROM portal_emails pe
-            WHERE (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
+            WHERE (pe.property_id = ? OR pe.property_id IS NULL)
               AND (
                   LOWER(pe.from_email) = LOWER(?)
                   OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')
@@ -440,7 +440,6 @@ class ConversationService
               )
         ";
         $params = [
-            $propertyId,
             $propertyId,
             $contactEmail,
             $contactEmail,
@@ -479,7 +478,7 @@ class ConversationService
             SELECT id, direction, email_date
             FROM portal_emails
             WHERE is_deleted = 0
-              AND (property_id = ? OR (property_id IS NULL AND ? IS NULL))
+              AND (property_id = ? OR property_id IS NULL)
               AND (
                   LOWER(from_email) = LOWER(?)
                   OR LOWER(to_email) LIKE CONCAT('%', LOWER(?), '%')
@@ -487,7 +486,6 @@ class ConversationService
               )
             ORDER BY email_date ASC, id ASC
         ", [
-            $conv->property_id,
             $conv->property_id,
             $contactEmail,
             $contactEmail,
@@ -566,7 +564,7 @@ class ConversationService
         foreach ($mails as $m) {
             $rows = DB::select("
                 SELECT id FROM conversations
-                WHERE (property_id = ? OR (property_id IS NULL AND ? IS NULL))
+                WHERE (property_id = ? OR property_id IS NULL OR ? IS NULL)
                   AND (
                       LOWER(contact_email) = LOWER(?)
                       OR LOWER(contact_email) = LOWER(?)

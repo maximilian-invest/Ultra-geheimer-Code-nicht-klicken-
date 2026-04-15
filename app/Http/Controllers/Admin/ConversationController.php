@@ -44,7 +44,6 @@ class ConversationController extends Controller
         $placeholders = implode(',', array_fill(0, count($accountIds), '?'));
         $params = [
             $conv->property_id,
-            $conv->property_id,
             $contactEmail,
             $contactEmail,
             $stakeholder,
@@ -57,7 +56,7 @@ class ConversationController extends Controller
             FROM portal_emails pe
             WHERE pe.is_deleted = 0
               AND pe.direction = 'inbound'
-              AND (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
+              AND (pe.property_id = ? OR pe.property_id IS NULL)
               AND (
                   LOWER(pe.from_email) = LOWER(?)
                   OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')
@@ -301,7 +300,7 @@ class ConversationController extends Controller
                 FROM portal_emails pe
                 LEFT JOIN activities a ON a.source_email_id = pe.id
                 WHERE pe.is_deleted = 0
-                  AND (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
+                  AND (pe.property_id = ? OR pe.property_id IS NULL)
                   AND (
                       LOWER(pe.stakeholder) = LOWER(?)
                       OR (
@@ -316,7 +315,6 @@ class ConversationController extends Controller
                   {$acctFilter}
                 ORDER BY pe.email_date ASC
             ", array_merge([
-                $conv->property_id,
                 $conv->property_id,
                 $conv->stakeholder,
                 $stakeholderEmail,
@@ -344,7 +342,7 @@ class ConversationController extends Controller
                 FROM portal_emails pe
                 LEFT JOIN activities a ON a.source_email_id = pe.id
                 WHERE pe.is_deleted = 0
-                  AND (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
+                  AND (pe.property_id = ? OR pe.property_id IS NULL)
                   AND (
                       LOWER(pe.from_email) = LOWER(?)
                       OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')
@@ -359,7 +357,6 @@ class ConversationController extends Controller
                   {$acctFilter}
                 ORDER BY pe.email_date ASC
             ", array_merge([
-                $conv->property_id,
                 $conv->property_id,
                 $conv->contact_email,
                 $conv->contact_email,

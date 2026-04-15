@@ -2,9 +2,10 @@
 import { computed, inject, ref, watch } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-vue-next'
+import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp, Sparkles, CheckCircle } from 'lucide-vue-next'
 import InboxMatchCard from './InboxMatchCard.vue'
 import InboxMailMessage from './InboxMailMessage.vue'
+import InboxComposePane from './InboxComposePane.vue'
 import { extractForwardMetadata } from './mailText.js'
 
 const props = defineProps({
@@ -14,7 +15,7 @@ const props = defineProps({
   mode: { type: String, default: 'offen' },
 })
 
-const emit = defineEmits(['close', 'saveAttachment', 'matchDraft', 'matchDismiss', 'reply', 'reply-all', 'forward'])
+const emit = defineEmits(['close', 'saveAttachment', 'matchDraft', 'matchDismiss', 'markHandled'])
 
 function latestInbound() {
   for (let i = flatMessages.value.length - 1; i >= 0; i--) {
@@ -52,6 +53,57 @@ function onForward() {
     quotedMessageId: m.id || null,
   })
 }
+
+// ── Compose mode state (local to this component) ─────────────────
+// When the user clicks "Antworten" in the thread footer, we flip mode
+// to 'compose' and the template renders InboxComposePane instead of
+// the accordion. The message being replied to is stashed in
+// composeContext.referenceMessage and displayed as a collapsed strip
+// below the pane.
+const composeMode = ref('thread') // 'thread' | 'compose'
+const composeContext = ref(null)   // { kind, withDraft, prefill, referenceMessage }
+
+// Inject used only for seeding the shared draft state when entering
+// compose mode — the compose pane itself reads/writes via its own
+// inject('inboxCompose') call.
+const inboxComposeInject = inject('inboxCompose', null)
+
+function enterCompose(kind, withDraft) {
+  const m = kind === 'forward'
+    ? flatMessages.value[flatMessages.value.length - 1]
+    : latestInbound()
+  if (!m) return
+  composeContext.value = {
+    kind,
+    withDraft,
+    prefill: {
+      to: kind === 'forward' ? '' : (m.from_email || ''),
+      subject: kind === 'forward'
+        ? (m.subject?.startsWith('WG: ') ? m.subject : 'WG: ' + (m.subject || ''))
+        : (m.subject?.startsWith('Re: ') ? m.subject : 'Re: ' + (m.subject || '')),
+    },
+    referenceMessage: m,
+  }
+  composeMode.value = 'compose'
+
+  // Seed the shared draft state (expandedAiDraft via inject) with the
+  // prefill so the pane has a known starting shape. The pane itself
+  // will overwrite body when the user types or the AI draft lands.
+  if (inboxComposeInject?.draft) {
+    const current = inboxComposeInject.draft.value || {}
+    inboxComposeInject.draft.value = {
+      body: withDraft ? (current.body || '') : '',
+      subject: composeContext.value.prefill.subject,
+      to: composeContext.value.prefill.to,
+    }
+  }
+}
+
+function exitCompose() {
+  composeMode.value = 'thread'
+  composeContext.value = null
+}
+
 const bgGradient = inject("inboxBgGradient", ref(""));
 const bgOpacity = inject("inboxBgOpacity", ref(0.15));
 const API = inject('API')
@@ -542,7 +594,8 @@ const statusBadge = computed(() => {
             </div>
           </header>
 
-          <div class="sr-thread-body">
+          <!-- Thread mode: accordion messages -->
+          <div v-if="composeMode === 'thread'" class="sr-thread-body">
             <InboxMailMessage
               v-for="(msg, idx) in flatMessages"
               :key="msg.id || ('idx-' + idx)"
@@ -553,18 +606,36 @@ const statusBadge = computed(() => {
             />
           </div>
 
-          <footer class="sr-thread-actions">
-            <Button variant="default" size="sm" @click="onReply">
+          <!-- Compose mode: the reply pane -->
+          <InboxComposePane
+            v-else-if="composeContext"
+            :kind="composeContext.kind"
+            :with-draft="composeContext.withDraft"
+            :prefill="composeContext.prefill"
+            :reference-message="composeContext.referenceMessage"
+            :property-id="item?.property_id || null"
+            @cancel="exitCompose"
+          />
+
+          <footer class="sr-thread-actions" v-if="composeMode === 'thread'">
+            <Button variant="default" size="sm" @click="enterCompose('reply', false)">
               <svg class="sr-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
               Antworten
             </Button>
-            <Button variant="outline" size="sm" @click="onReplyAll">
-              <svg class="sr-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 17 2 12 7 7"/><polyline points="12 17 7 12 12 7"/><path d="M22 18v-2a4 4 0 0 0-4-4H7"/></svg>
+            <button type="button" class="sr-ai-reply-btn" @click="enterCompose('reply', true)">
+              <Sparkles class="sr-action-icon" />
+              Mit KI-Entwurf antworten
+            </button>
+            <div class="sr-thread-actions-spacer"></div>
+            <Button variant="ghost" size="sm" @click="enterCompose('reply-all', false)">
               Allen antworten
             </Button>
-            <Button variant="outline" size="sm" @click="onForward">
-              <svg class="sr-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+            <Button variant="ghost" size="sm" @click="enterCompose('forward', false)">
               Weiterleiten
+            </Button>
+            <Button variant="ghost" size="sm" class="sr-done-btn" @click="emit('markHandled')">
+              <CheckCircle class="sr-action-icon" />
+              Erledigt
             </Button>
           </footer>
         </div>
@@ -625,4 +696,26 @@ const statusBadge = computed(() => {
 .sr-badge-orange { background: hsl(24 90% 96%); color: hsl(24 80% 38%); border-color: hsl(24 80% 90%); }
 .sr-badge-sky    { background: hsl(199 85% 96%); color: hsl(199 85% 30%); border-color: hsl(199 85% 88%); }
 .sr-badge-gray   { background: hsl(0 0% 96%); color: hsl(0 0% 40%); border-color: hsl(0 0% 88%); }
+.sr-ai-reply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, hsl(28 98% 54%), hsl(18 88% 48%));
+  color: hsl(0 0% 100%);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgb(249 115 22 / 0.22);
+  transition: filter 120ms ease;
+  height: 32px;
+}
+.sr-ai-reply-btn:hover {
+  filter: brightness(1.08);
+}
+.sr-thread-actions-spacer { flex: 1; min-width: 12px; }
+.sr-done-btn { color: hsl(142 72% 32%); }
+.sr-done-btn:hover { background: hsl(142 72% 95%); }
 </style>

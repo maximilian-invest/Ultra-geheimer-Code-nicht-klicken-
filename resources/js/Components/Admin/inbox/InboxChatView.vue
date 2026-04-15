@@ -644,7 +644,7 @@ const statusBadge = computed(() => {
         Keine Nachrichten
       </div>
       <template v-else>
-        <div class="sr-thread-card">
+        <div class="sr-thread-card" :class="{ 'sr-thread-card--compose': composeMode === 'compose' }">
           <!-- Subject + badges live in the outer header at the top of the
                reading pane (flex-shrink-0 block above the scroll area).
                The inner subject-header was removed to save vertical space
@@ -804,6 +804,11 @@ const statusBadge = computed(() => {
   box-shadow: none;
   overflow: hidden;
   margin: 0;
+}
+.sr-thread-card--compose {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .sr-subject-header {
   padding: 20px 24px 18px;

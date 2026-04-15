@@ -8,7 +8,14 @@
     <div v-if="loading" class="loading">Lade Links …</div>
     <div v-else-if="links.length === 0" class="empty">
       <p>Keine aktiven Links fuer dieses Objekt.</p>
-      <a :href="`/admin/properties/${propertyId}`">Jetzt erstellen →</a>
+      <button
+        type="button"
+        class="create-link-btn"
+        @click="openPropertySettings"
+      >
+        Link in Objekt-Einstellungen anlegen →
+      </button>
+      <p class="empty-hint">Du wirst direkt zum Bereich "Properties" weitergeleitet.</p>
     </div>
     <ul v-else>
       <li v-for="link in links" :key="link.id">
@@ -26,20 +33,33 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({ propertyId: { type: Number, required: true } });
-defineEmits(['close', 'pick']);
+const emit = defineEmits(['close', 'pick']);
 
 const links = ref([]);
 const loading = ref(true);
+const errorMsg = ref('');
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('de-AT');
 }
 
 onMounted(async () => {
-  const { data } = await axios.get(`/admin/properties/${props.propertyId}/links/active`);
-  links.value = data.links;
-  loading.value = false;
+  try {
+    const { data } = await axios.get(`/admin/properties/${props.propertyId}/links/active`);
+    links.value = data.links || [];
+  } catch (e) {
+    errorMsg.value = 'Links konnten nicht geladen werden.';
+  } finally {
+    loading.value = false;
+  }
 });
+
+function openPropertySettings() {
+  try {
+    localStorage.setItem('sr-admin-tab', 'properties')
+  } catch {}
+  window.location.href = '/admin'
+}
 </script>
 
 <style scoped>
@@ -48,7 +68,18 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 header h4 { font-size: 14px; font-weight: 600; color: #0A0A08; }
 .close { background: transparent; border: none; font-size: 20px; cursor: pointer; color: #5A564E; }
 .loading, .empty { padding: 20px; text-align: center; color: #5A564E; font-size: 13px; }
-.empty a { display: block; margin-top: 8px; color: #D4743B; text-decoration: none; font-weight: 500; }
+.create-link-btn {
+  display: inline-block;
+  margin-top: 8px;
+  color: #D4743B;
+  background: transparent;
+  border: none;
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+.empty-hint { margin-top: 8px; font-size: 11px; color: #7a766f; }
+.empty-hint.error { color: #b42318; }
 ul { list-style: none; padding: 6px; max-height: 300px; overflow-y: auto; }
 ul li button { width: 100%; text-align: left; padding: 10px 14px; background: transparent; border: none; border-radius: 8px; cursor: pointer; transition: background 150ms; }
 ul li button:hover { background: #FAF8F5; }

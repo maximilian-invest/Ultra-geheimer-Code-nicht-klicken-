@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, inject, onMounted, watch } from 'vue'
+import { ref, computed, inject, onMounted, watch, nextTick } from 'vue'
 import { Send, RefreshCw, Sparkles, Paperclip, Wand2, X, Loader2, Link2 } from 'lucide-vue-next'
 import LinkPickerPopover from './LinkPickerPopover.vue'
 
@@ -38,6 +38,7 @@ const draft = inboxCompose.draft
 const sendAccountId = inboxCompose.sendAccountId
 const sendAccounts = inboxCompose.sendAccounts
 const loading = inboxCompose.loading
+const bodyTextareaRef = ref(null)
 
 // ── Local UI state
 const linkPickerOpen = ref(false)
@@ -60,6 +61,7 @@ onMounted(() => {
   if (props.withDraft && !(draft.value.body || '').trim()) {
     inboxCompose.regenerate()
   }
+  nextTick(autoResizeBody)
 })
 
 // ── Computed labels
@@ -101,7 +103,6 @@ function resolveSignatureUrl(url) {
   const isLocalUi = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   const isLocalAsset = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(raw)
   if (isLocalUi && isLocalAsset) {
-    // In local dev, signature assets may only exist on prod storage.
     return raw.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i, 'https://kundenportal.sr-homes.at')
   }
   return raw
@@ -111,6 +112,23 @@ function resolveSignatureUrl(url) {
 function updateDraftField(field, value) {
   draft.value = { ...(draft.value || {}), [field]: value }
 }
+
+function autoResizeBody() {
+  const el = bodyTextareaRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
+
+function onBodyInput(event) {
+  updateDraftField('body', event.target.value)
+  autoResizeBody()
+}
+
+watch(
+  () => draft.value?.body,
+  () => nextTick(autoResizeBody)
+)
 
 // ── Handlers
 function onCancel() {
@@ -209,43 +227,29 @@ function onLinkPicked(link) {
         <span>KI-Entwurf wird generiert…</span>
       </div>
       <textarea
+        ref="bodyTextareaRef"
         v-else
         :value="draft?.body || ''"
-        @input="updateDraftField('body', $event.target.value)"
+        @input="onBodyInput"
         placeholder="Deine Antwort hier eintippen…"
         class="sr-body-textarea"
       ></textarea>
 
-      <div v-if="hasSignature" class="sr-signature-preview">
-        <div class="sr-signature-label">Hinterlegte Signatur</div>
-        <div class="sr-signature-card">
-          <img
-            v-if="signature.signature_logo_url"
-            :src="resolveSignatureUrl(signature.signature_logo_url)"
-            alt="Signatur-Logo"
-            class="sr-signature-logo"
-          />
-          <div class="sr-signature-main">
-            <img
-              v-if="signature.signature_photo_url"
-              :src="resolveSignatureUrl(signature.signature_photo_url)"
-              alt="Signatur-Foto"
-              class="sr-signature-photo"
-            />
-            <div class="sr-signature-text">
-              <strong>{{ signature.signature_name || '' }}</strong>
-              <span v-if="signature.signature_title">{{ signature.signature_title }}</span>
-              <span>{{ signature.signature_company || '' }}</span>
-              <span v-if="signature.signature_phone">Tel: {{ signature.signature_phone }}</span>
-              <span v-if="signature.signature_website">{{ signature.signature_website }}</span>
-            </div>
-          </div>
-          <img
-            v-if="signature.signature_banner_url"
-            :src="resolveSignatureUrl(signature.signature_banner_url)"
-            alt="Signatur-Banner"
-            class="sr-signature-banner"
-          />
+      <div v-if="hasSignature" class="sr-signature-inline">
+        <div class="sr-signature-greeting">Mit freundlichen Grüßen</div>
+        <img
+          v-if="signature.signature_photo_url"
+          :src="resolveSignatureUrl(signature.signature_photo_url)"
+          alt="Signatur-Foto"
+          class="sr-signature-photo"
+        />
+        <div class="sr-signature-text">
+          <strong>{{ signature.signature_name || '' }}</strong>
+          <span v-if="signature.signature_title">{{ signature.signature_title }}</span>
+          <span v-if="signature.signature_company">{{ signature.signature_company }}</span>
+          <span v-if="signature.signature_address">{{ signature.signature_address }}</span>
+          <span v-if="signature.signature_phone">Tel: {{ signature.signature_phone }}</span>
+          <span v-if="signature.signature_website">{{ signature.signature_website }}</span>
         </div>
       </div>
     </div>
@@ -271,7 +275,15 @@ function onLinkPicked(link) {
 <style scoped>
 .sr-compose {
   background: hsl(0 0% 100%);
-  border-top: 1px solid hsl(0 0% 93%);
+  border-top: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.sr-compose:focus-within {
+  outline: none;
+  box-shadow: none;
 }
 
 .sr-compose-header {
@@ -360,9 +372,13 @@ function onLinkPicked(link) {
 }
 
 .sr-compose-body {
-  padding: 16px 24px 12px;
-  min-height: 220px;
+  padding: 0;
   position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
 }
 .sr-draft-badge {
   display: inline-flex;
@@ -388,55 +404,54 @@ function onLinkPicked(link) {
 }
 .sr-body-textarea {
   width: 100%;
-  min-height: 200px;
-  border: none;
-  outline: none;
+  flex: 0 0 auto;
+  min-height: 38vh;
+  padding: 14px 16px;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 0;
   background: transparent;
   font-family: inherit;
   font-size: 13.5px;
   line-height: 1.65;
   color: hsl(0 0% 15%);
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .sr-body-textarea::placeholder {
   color: hsl(0 0% 65%);
 }
+.sr-body-textarea:focus,
+.sr-body-textarea:focus-visible,
+.sr-body-textarea:active {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+  background: transparent;
+}
 
-.sr-signature-preview {
-  margin-top: 14px;
-  border-top: 1px dashed hsl(0 0% 90%);
-  padding-top: 10px;
-}
-.sr-signature-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: hsl(0 0% 52%);
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-.sr-signature-card {
-  border: 1px solid hsl(0 0% 90%);
-  border-radius: 8px;
-  padding: 10px;
-  background: hsl(0 0% 100%);
-}
-.sr-signature-logo {
-  max-height: 56px;
-  max-width: 180px;
-  object-fit: contain;
-  margin-bottom: 8px;
-}
-.sr-signature-main {
+.sr-signature-inline {
+  background: transparent;
+  padding: 0 16px 14px;
   display: flex;
   align-items: flex-start;
+  flex-wrap: wrap;
   gap: 10px;
 }
+.sr-signature-greeting {
+  width: 100%;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: hsl(0 0% 28%);
+}
 .sr-signature-photo {
-  width: 58px;
-  height: 76px;
+  width: 90px;
+  height: 116px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 2px;
   flex-shrink: 0;
 }
 .sr-signature-text {
@@ -444,18 +459,13 @@ function onLinkPicked(link) {
   flex-direction: column;
   gap: 2px;
   font-size: 12px;
-  color: hsl(0 0% 30%);
-  line-height: 1.4;
+  line-height: 1.35;
+  color: hsl(0 0% 24%);
 }
 .sr-signature-text strong {
-  color: hsl(0 0% 15%);
-  font-size: 13px;
-}
-.sr-signature-banner {
-  margin-top: 8px;
-  max-width: 360px;
-  width: 100%;
-  border-radius: 4px;
+  color: hsl(0 0% 12%);
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .sr-compose-actions {

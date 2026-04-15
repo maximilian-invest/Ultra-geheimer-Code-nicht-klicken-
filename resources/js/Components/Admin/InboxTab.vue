@@ -1057,8 +1057,7 @@ function setAiDetailLevel(level) {
   localStorage.setItem("sr-ai-detail-level", level);
 }
 
-// Always use the stored signature from settings and keep it single.
-function withUserSignature(aiBody) {
+function stripAiSignoffAndKnownSignatures(aiBody) {
   const storedSig = buildSignature().trim();
   const injectedSig = String(injectedInboxSignature || '').trim();
   let body = String(aiBody || '');
@@ -1076,7 +1075,13 @@ function withUserSignature(aiBody) {
     body = body.replace(new RegExp(`\\n\\n?${escapeRegExp(injectedSig)}\\s*$`, 'i'), '');
   }
 
-  body = body.trimEnd();
+  return body.trimEnd();
+}
+
+// Always use the stored signature from settings and keep it single.
+function withUserSignature(aiBody) {
+  const storedSig = buildSignature().trim();
+  const body = stripAiSignoffAndKnownSignatures(aiBody);
   if (!storedSig) return body;
   return body ? `${body}\n\n${storedSig}` : storedSig;
 }
@@ -1098,7 +1103,7 @@ async function regenerateAiDraft() {
     const d = await r.json();
     if (d.draft_body) {
       expandedAiDraft.value = {
-        body: withUserSignature(d.draft_body),
+        body: stripAiSignoffAndKnownSignatures(d.draft_body),
         subject: d.draft_subject || item.subject || '',
         to: d.draft_to || item.contact_email || '',
         cc: expandedAiDraft.value?.cc || '',

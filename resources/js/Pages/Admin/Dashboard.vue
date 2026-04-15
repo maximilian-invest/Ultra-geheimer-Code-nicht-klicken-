@@ -104,6 +104,23 @@ function openContact(name) {
 }
 provide("openContact", openContact);
 
+// Current user's avatar (profile_image + initials) — consumed by the
+// inbox reading pane for outbound messages. Falls back to initials when
+// no profile image is uploaded. Provided as a plain object (not a
+// ref/computed) because user profile doesn't change mid-session —
+// simpler downstream consumption, no .value unwrap needed.
+const _avatarUser = page.props.auth?.user
+const _avatarName = String(_avatarUser?.name || "")
+const _avatarParts = _avatarName.trim().split(/\s+/).filter(Boolean)
+const _avatarInitials = (_avatarParts.length >= 2
+    ? _avatarParts[0][0] + _avatarParts[_avatarParts.length - 1][0]
+    : _avatarName.slice(0, 2) || "??").toUpperCase()
+const currentUserAvatar = {
+    url: _avatarUser?.profile_image ? "/storage/" + _avatarUser.profile_image : null,
+    initials: _avatarInitials,
+};
+provide("currentUserAvatar", currentUserAvatar);
+
 const userType = computed(() => page.props.auth?.user?.user_type || 'makler');
 const isAdmin = computed(() => userType.value === 'admin');
 provide("userType", userType);

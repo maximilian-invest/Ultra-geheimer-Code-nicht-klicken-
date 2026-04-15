@@ -20,6 +20,66 @@ use App\Services\AnthropicService;
 class ConversationController extends Controller
 {
     /**
+     * Find the latest inbound non-trashed mail in the current user's
+     * mailboxes for a given conversation, returning its display metadata.
+     * Used to override stakeholder/subject/contact_email at list-render
+     * time so a shared thread is labelled from the user's own perspective.
+     *
+     * Returns null when there's no user-visible inbound mail (e.g. all
+     * inbound mails are in other colleagues' accounts or trashed).
+     *
+     * @param  int[]|null  $accountIds
+     * @return array{from_name: ?string, from_email: ?string, subject: ?string, email_date: ?string}|null
+     */
+    private function resolveUserVisibleDisplay(Conversation $conv, ?array $accountIds): ?array
+    {
+        // No account filter (console/cron/assistenz with full scope) — the
+        // globally stored stakeholder is correct, skip the override.
+        if ($accountIds === null) return null;
+        if (empty($accountIds)) return null;
+
+        $contactEmail = strtolower((string) $conv->contact_email);
+        $stakeholder  = (string) ($conv->stakeholder ?? '');
+
+        $placeholders = implode(',', array_fill(0, count($accountIds), '?'));
+        $params = [
+            $conv->property_id,
+            $conv->property_id,
+            $contactEmail,
+            $contactEmail,
+            $stakeholder,
+            $conv->last_email_id,
+        ];
+        foreach ($accountIds as $aid) $params[] = (int) $aid;
+
+        $row = DB::selectOne("
+            SELECT pe.from_name, pe.from_email, pe.subject, pe.email_date
+            FROM portal_emails pe
+            WHERE pe.is_deleted = 0
+              AND pe.direction = 'inbound'
+              AND (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
+              AND (
+                  LOWER(pe.from_email) = LOWER(?)
+                  OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')
+                  OR LOWER(pe.stakeholder) = LOWER(?)
+                  OR pe.id = ?
+              )
+              AND pe.account_id IN ({$placeholders})
+            ORDER BY pe.email_date DESC
+            LIMIT 1
+        ", $params);
+
+        if (!$row) return null;
+
+        return [
+            'from_name'  => $row->from_name ?? null,
+            'from_email' => $row->from_email ?? null,
+            'subject'    => $row->subject ?? null,
+            'email_date' => $row->email_date ?? null,
+        ];
+    }
+
+    /**
      * conv_list — List conversations by status or view.
      */
     public function list(Request $request): JsonResponse
@@ -90,7 +150,16 @@ class ConversationController extends Controller
 
         $paginated = $query->paginate($perPage, ['*'], 'page', $page);
 
-        $conversations = collect($paginated->items())->map(function (Conversation $conv) {
+        // Account scope for the current user — used to build a per-user
+        // display name / subject so a shared conversation (e.g. Susanne
+        // forwarded a Baldinger mail to Max) shows the MAX-visible sender
+        // in the list instead of the globally-stored stakeholder, which
+        // would otherwise read "Baldinger Immobilien" even though the only
+        // mail Max can see in that thread is from Susanne.
+        $convService = app(ConversationService::class);
+        $userAcctIds = $convService->currentUserAccountIds();
+
+        $conversations = collect($paginated->items())->map(function (Conversation $conv) use ($userAcctIds) {
             $prop = $conv->property;
             $item = [
                 'id'               => $conv->id,
@@ -120,8 +189,30 @@ class ConversationController extends Controller
                 'subject'          => '',
             ];
 
-            // Get subject from last email
-            if ($conv->last_email_id) {
+            // Per-user display: look up the latest non-trashed inbound mail
+            // on this conversation that's in the current user's mailboxes,
+            // and override the list title with that sender's name + subject.
+            // Outbound mails don't count — the list shows who we talk TO.
+            $displayOverride = $this->resolveUserVisibleDisplay($conv, $userAcctIds);
+            if ($displayOverride) {
+                if (!empty($displayOverride['from_name'])) {
+                    $item['stakeholder'] = $displayOverride['from_name'];
+                    $item['from_name']   = $displayOverride['from_name'];
+                }
+                if (!empty($displayOverride['from_email'])) {
+                    $item['contact_email'] = $displayOverride['from_email'];
+                }
+                if (!empty($displayOverride['subject'])) {
+                    $item['subject'] = $displayOverride['subject'];
+                }
+                if (!empty($displayOverride['email_date'])) {
+                    $item['last_inbound_at'] = $displayOverride['email_date'];
+                }
+            }
+
+            // Fallback: global conv last_email_id subject (only when we
+            // didn't get a per-user override)
+            if ($item['subject'] === '' && $conv->last_email_id) {
                 $lastEmail = DB::selectOne("SELECT subject FROM portal_emails WHERE id = ?", [$conv->last_email_id]);
                 if ($lastEmail) $item['subject'] = $lastEmail->subject;
             }

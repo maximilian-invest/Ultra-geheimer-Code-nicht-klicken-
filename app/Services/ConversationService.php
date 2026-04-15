@@ -58,6 +58,27 @@ class ConversationService
                     $conv->last_inbound_at = $email->email_date ?? now();
                     $conv->is_read = false;
 
+                    // Detect "zur Info / CC" mails: the To header points at someone
+                    // other than one of our own registered mailboxes, which means we
+                    // only received this mail because we were CC'd. These threads
+                    // should NEVER auto-generate a reply draft (the right action is
+                    // usually "nothing" or at most a one-line acknowledgement to the
+                    // sender, not an answer to the external addressee). Mark the
+                    // conversation with category='info-cc' so GenerateAiDraft and
+                    // the UI can treat it appropriately. If a later mail in the
+                    // same thread comes in directly addressed to us, promote the
+                    // conversation back to a normal open state.
+                    if ($this->isCcOnlyCopy($email)) {
+                        // Sticky info-cc only when no more specific category is set
+                        $sticky = ['kaufanbot', 'besichtigung', 'absage'];
+                        if (!in_array(strtolower($conv->category ?? ''), $sticky, true)) {
+                            $conv->category = 'info-cc';
+                        }
+                    } elseif (($conv->category ?? '') === 'info-cc') {
+                        // Direct mail arrived on a previously info-cc thread: promote
+                        $conv->category = null;
+                    }
+
                     // Absage → auto-archive, nicht ins Nachfassen
                     if (strtolower($email->category ?? '') === 'absage') {
                         $conv->status = 'archiviert';
@@ -358,6 +379,48 @@ class ConversationService
             $email = $m[1];
         }
         return (bool) preg_match('/@(sr-homes\.at|bstf\.at)$/i', $email);
+    }
+
+    /**
+     * Check if an inbound email was only received because we were CC'd — i.e.
+     * the To header points at a third party rather than one of our own
+     * registered mailboxes. Such mails are "zur Info" copies and must not
+     * trigger AI draft generation, because we're not the party the sender
+     * was writing to.
+     *
+     * Returns false for outbound mails and for mails where we cannot tell
+     * (missing to_email), erring toward the normal-conversation behaviour.
+     */
+    public function isCcOnlyCopy(PortalEmail $email): bool
+    {
+        if (strtolower($email->direction ?? '') !== 'inbound') return false;
+
+        $to = strtolower(trim($email->to_email ?? ''));
+        if (!$to) return false;
+        // "Display Name <address@domain>" → address@domain
+        if (preg_match('/<([^>]+)>/', $to, $m)) {
+            $to = strtolower(trim($m[1]));
+        }
+        if (!$to) return false;
+
+        // If the To is one of our own registered accounts, this mail was
+        // addressed directly at us (normal conversation).
+        $ownEmails = \App\Models\EmailAccount::where('is_active', true)
+            ->pluck('email_address')
+            ->map(fn($e) => strtolower(trim($e)))
+            ->filter()
+            ->values()
+            ->all();
+
+        if (in_array($to, $ownEmails, true)) return false;
+
+        // Also treat any @sr-homes.at / @bstf.at address as "one of us" in case
+        // an active account isn't registered in EmailAccount yet.
+        if ($this->isInternalEmail($to) && in_array($to, $ownEmails, true)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

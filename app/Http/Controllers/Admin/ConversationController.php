@@ -649,6 +649,21 @@ class ConversationController extends Controller
             return response()->json(['error' => 'Conversation not found'], 404);
         }
 
+        // Refuse draft generation for "zur Info" CC copies: the mail wasn't
+        // addressed to us, so an AI reply would be nonsense. The UI should
+        // hide the regenerate button for these threads, but guard here too
+        // in case an old client still posts.
+        if ($conv->category === 'info-cc') {
+            return response()->json([
+                'error' => 'Diese Nachricht wurde nur zur Info (CC) gesendet — kein Antwort-Entwurf erforderlich.',
+            ], 400);
+        }
+        if ($conv->category === 'intern') {
+            return response()->json([
+                'error' => 'Interne Conversation — kein automatischer Entwurf.',
+            ], 400);
+        }
+
         $stakeholder = $conv->stakeholder
             ?: $conv->contact_email
             ?: 'Interessent';

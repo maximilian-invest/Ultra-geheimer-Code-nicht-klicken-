@@ -115,6 +115,11 @@ const isKaufanbot = computed(() => {
   return cat === "kaufanbot" || cat === "anbot";
 });
 
+const isInfoCc = computed(() => {
+  const cat = (props.item.category || "").toLowerCase();
+  return cat === "info-cc";
+});
+
 const isAbsage = computed(() => {
   const cat = (props.item.category || "").toLowerCase();
   return cat === "absage";
@@ -262,6 +267,13 @@ function getAvatarColor(name) {
             class="text-[9px] px-1.5 py-0 h-4 font-medium bg-sky-100 text-sky-700 border border-sky-300"
           >
             Intern
+          </Badge>
+          <Badge
+            v-if="isInfoCc"
+            variant="secondary"
+            class="text-[9px] px-1.5 py-0 h-4 font-medium bg-zinc-100 text-zinc-600 border border-zinc-300"
+          >
+            zur Info (CC)
           </Badge>
 
           <!-- Nachfassen subtab badges -->

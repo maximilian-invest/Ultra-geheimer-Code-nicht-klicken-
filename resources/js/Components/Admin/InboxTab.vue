@@ -985,9 +985,13 @@ function openDetail(item, mode) {
       .finally(() => { expandedLoading.value = false; });
   }
 
-  // Generate draft if not available from conv_list
+  // Generate draft if not available from conv_list. Skip for threads that
+  // should not receive an automated reply: info-cc (we were only CC'd, mail
+  // wasn't addressed to us) and intern (colleague comms, no customer reply).
   const promises = [contextPromise];
-  if ((mode === 'offen' || mode === 'nachfassen') && !item.draft_body && !item.draft_dismissed) {
+  const noAutoDraftCats = ['info-cc', 'intern'];
+  const convCat = (item.category || '').toLowerCase();
+  if ((mode === 'offen' || mode === 'nachfassen') && !item.draft_body && !item.draft_dismissed && !noAutoDraftCats.includes(convCat)) {
     const aiPromise = fetch(API.value + "&action=conv_regenerate_draft&id=" + item.id, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),

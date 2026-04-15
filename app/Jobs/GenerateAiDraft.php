@@ -39,6 +39,15 @@ class GenerateAiDraft implements ShouldQueue
         // Skip internal emails
         if ($conv->category === 'intern') return;
 
+        // Skip "zur Info / CC" copies — the mail was not addressed to us, so
+        // generating a reply as if we were the intended recipient would be
+        // nonsensical (the right action is usually nothing, or at most a
+        // one-line thanks to the sender, which the user writes themselves).
+        if ($conv->category === 'info-cc') {
+            Log::info("GenerateAiDraft: skipping conv {$this->conversationId} — category=info-cc (we were only CC'd)");
+            return;
+        }
+
         $stakeholder = $conv->stakeholder;
         $propertyId = $conv->property_id;
         $today = date('Y-m-d');

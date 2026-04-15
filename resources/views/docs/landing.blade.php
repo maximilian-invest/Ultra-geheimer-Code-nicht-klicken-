@@ -22,13 +22,13 @@
     ])
 
     @if ($state === 'locked')
-        {{-- Locked: build desire first (showcase), then request email --}}
+        {{-- Locked: request email first so access is clearly gated from the start --}}
+        @include('docs.partials._email_gate', ['link' => $link])
         @include('docs.partials._showcase', [
             'link' => $link,
             'heroImages' => $heroImages ?? [],
             'showcase' => $showcase ?? [],
         ])
-        @include('docs.partials._email_gate', ['link' => $link])
     @else
         {{-- Unlocked: documents first (primary reason the customer is here), then showcase as context --}}
         @include('docs.partials._unlocked', [

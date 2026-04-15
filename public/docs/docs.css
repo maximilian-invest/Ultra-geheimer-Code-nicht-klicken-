@@ -216,8 +216,11 @@ html, body { font-family: 'Outfit', -apple-system, system-ui, sans-serif; backgr
 /* ------------------------------------------------------------------ */
 /* Unlocked docs section heading                                       */
 /* ------------------------------------------------------------------ */
-.unlocked-section { margin-top: 16px; }
-.unlocked-heading { margin-bottom: 8px; }
+.unlocked-section {
+  margin-top: 28px;
+  padding-inline: 2px;
+}
+.unlocked-heading { margin-bottom: 20px; }
 .unlocked-heading h2 {
   font-size: 28px;
   font-weight: 600;
@@ -270,14 +273,14 @@ html, body { font-family: 'Outfit', -apple-system, system-ui, sans-serif; backgr
 .unlocked-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  margin-top: 40px;
+  gap: 28px;
+  margin-top: 24px;
 }
 .doc-card {
   background: white;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
-  padding: 32px;
+  padding: 30px;
   box-shadow: var(--shadow-soft);
   transition: all 250ms var(--ease);
   animation: card-fade-in 400ms var(--ease) both;
@@ -286,7 +289,11 @@ html, body { font-family: 'Outfit', -apple-system, system-ui, sans-serif; backgr
 @keyframes card-fade-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .doc-card h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
 .doc-card .file-size { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
-.doc-card .actions { display: flex; gap: 10px; }
+.doc-card .actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
 .doc-card .btn-view, .doc-card .btn-download {
   flex: 1;
   padding: 10px 16px;

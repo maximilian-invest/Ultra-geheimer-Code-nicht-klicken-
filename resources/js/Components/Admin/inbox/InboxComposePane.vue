@@ -41,6 +41,7 @@ const loading = inboxCompose.loading
 // ── Local UI state
 const linkPickerOpen = ref(false)
 const referenceExpanded = ref(false)
+const ccVisible = ref(false)
 
 // On mount, seed the draft with the prefill if the body is still empty.
 // Also trigger AI draft generation when withDraft is true and the body
@@ -160,6 +161,24 @@ function onLinkPicked(link) {
           :value="draft?.to || ''"
           @input="updateDraftField('to', $event.target.value)"
           placeholder="Empfänger-E-Mail"
+          class="sr-field-input"
+        />
+        <button
+          v-if="!ccVisible && !(draft?.cc || '').trim()"
+          type="button"
+          class="sr-field-toggle"
+          title="Cc hinzufügen"
+          @click="ccVisible = true"
+        >+ Cc</button>
+      </div>
+
+      <div v-if="ccVisible || (draft?.cc || '').trim()" class="sr-field">
+        <label>Cc</label>
+        <input
+          type="text"
+          :value="draft?.cc || ''"
+          @input="updateDraftField('cc', $event.target.value)"
+          placeholder="Weitere Empfänger (Komma-getrennt)"
           class="sr-field-input"
         />
       </div>
@@ -285,6 +304,19 @@ function onLinkPicked(link) {
   flex: 1;
   font-size: 13px;
   color: hsl(0 0% 35%);
+}
+.sr-field-toggle {
+  font-size: 11px;
+  color: hsl(28 80% 42%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.sr-field-toggle:hover {
+  background: hsl(28 90% 96%);
 }
 
 .sr-compose-body {

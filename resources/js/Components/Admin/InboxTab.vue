@@ -1280,6 +1280,7 @@ async function sendDraft() {
         body: draft.body,
         subject: draft.subject || '',
         to: draft.to || item.from_email || item.contact_email || '',
+        cc: draft.cc || '',
         account_id: sendAccountId.value || 1,
         file_ids: expandedSelectedFiles.value || [],
       }),

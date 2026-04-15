@@ -444,8 +444,16 @@ class ConversationController extends Controller
         $body      = $input['body'] ?? '';
         $subject   = $input['subject'] ?? '';
         $to        = $input['to'] ?? $conv->contact_email;
+        $cc        = $input['cc'] ?? null;
         $accountId = $input['account_id'] ?? null;
         $fileIds   = $input['file_ids'] ?? [];
+
+        // Normalise cc: empty string → null so EmailService::send doesn't
+        // pass an empty header.
+        if (is_string($cc)) {
+            $cc = trim($cc);
+            if ($cc === '') $cc = null;
+        }
 
         if (!$body || !$subject || !$accountId) {
             return response()->json(['error' => 'body, subject, account_id required'], 400);
@@ -492,7 +500,7 @@ class ConversationController extends Controller
                 $body,
                 $conv->property_id,
                 $conv->stakeholder,
-                null, null, $attachments,
+                $cc, null, $attachments,
                 null, null,
                 'email-out'
             );

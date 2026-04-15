@@ -69,6 +69,12 @@ const composeContext = ref(null)   // { kind, withDraft, prefill, referenceMessa
 // inject('inboxCompose') call.
 const inboxComposeInject = inject('inboxCompose', null)
 
+// User's email signature — injected from Dashboard.vue. Appended to
+// the body when starting a plain "Antworten" so Max doesn't have to
+// type his sign-off every time. For "Mit KI-Entwurf" we trust the AI
+// to include a sign-off.
+const inboxSignature = inject('inboxSignature', '')
+
 function enterCompose(kind, withDraft) {
   const m = kind === 'forward'
     ? flatMessages.value[flatMessages.value.length - 1]
@@ -90,12 +96,23 @@ function enterCompose(kind, withDraft) {
   // Seed the shared draft state (expandedAiDraft via inject) with the
   // prefill so the pane has a known starting shape. The pane itself
   // will overwrite body when the user types or the AI draft lands.
+  //
+  // For plain "Antworten" (withDraft=false) we pre-populate the body
+  // with the user's email signature so the sign-off is there from the
+  // start. For "Mit KI-Entwurf" (withDraft=true) we leave body empty —
+  // the AI draft will replace it on arrival and the AI prompt already
+  // includes a sign-off so appending our signature would produce
+  // duplicates.
   if (inboxComposeInject?.draft) {
     const current = inboxComposeInject.draft.value || {}
+    const initialBody = withDraft
+      ? (current.body || '')
+      : (inboxSignature ? '\n\n\n' + inboxSignature : '')
     inboxComposeInject.draft.value = {
-      body: withDraft ? (current.body || '') : '',
+      body: initialBody,
       subject: composeContext.value.prefill.subject,
       to: composeContext.value.prefill.to,
+      cc: current.cc || '',
     }
   }
 }
@@ -626,17 +643,10 @@ const statusBadge = computed(() => {
       </div>
       <template v-else>
         <div class="sr-thread-card">
-          <header v-if="subjectLine" class="sr-subject-header">
-            <h3>{{ subjectLine }}</h3>
-            <div class="sr-subject-meta">
-              <Badge v-if="statusBadge" variant="outline" :class="statusBadge.classes">{{ statusBadge.label }}</Badge>
-              <span>{{ flatMessages.length }} {{ flatMessages.length === 1 ? 'Nachricht' : 'Nachrichten' }}</span>
-              <span v-if="participantsLabel" class="sr-sep">·</span>
-              <span v-if="participantsLabel">{{ participantsLabel }}</span>
-              <span v-if="refIdLabel" class="sr-sep">·</span>
-              <span v-if="refIdLabel">{{ refIdLabel }}</span>
-            </div>
-          </header>
+          <!-- Subject + badges live in the outer header at the top of the
+               reading pane (flex-shrink-0 block above the scroll area).
+               The inner subject-header was removed to save vertical space
+               and eliminate the redundant title. -->
 
           <!-- Thread mode: accordion messages -->
           <div v-if="composeMode === 'thread'" class="sr-thread-body">

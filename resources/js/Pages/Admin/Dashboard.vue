@@ -121,6 +121,27 @@ const currentUserAvatar = {
 };
 provide("currentUserAvatar", currentUserAvatar);
 
+// Build the user's email signature from the profile fields for reuse
+// in inbox compose mode. The existing User model has signature_name,
+// signature_title, signature_company, signature_phone, signature_website.
+// InboxChatView reads this via inject('inboxSignature') when prefilling
+// a plain "Antworten" draft.
+const _sigParts = [];
+const _sigName = String(_avatarUser?.signature_name || _avatarUser?.name || "").trim();
+const _sigTitle = String(_avatarUser?.signature_title || "").trim();
+const _sigCompany = String(_avatarUser?.signature_company || "").trim();
+const _sigPhone = String(_avatarUser?.signature_phone || "").trim();
+const _sigWebsite = String(_avatarUser?.signature_website || "").trim();
+if (_sigName) _sigParts.push(_sigName);
+if (_sigTitle) _sigParts.push(_sigTitle);
+if (_sigCompany) _sigParts.push(_sigCompany);
+if (_sigPhone) _sigParts.push("Tel: " + _sigPhone);
+if (_sigWebsite) _sigParts.push(_sigWebsite);
+const inboxSignature = _sigParts.length
+    ? "Mit freundlichen Grüßen\n\n" + _sigParts.join("\n")
+    : "";
+provide("inboxSignature", inboxSignature);
+
 const userType = computed(() => page.props.auth?.user?.user_type || 'makler');
 const isAdmin = computed(() => userType.value === 'admin');
 provide("userType", userType);

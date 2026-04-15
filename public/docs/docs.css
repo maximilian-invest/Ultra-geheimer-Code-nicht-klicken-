@@ -218,6 +218,7 @@ html, body { font-family: 'Outfit', -apple-system, system-ui, sans-serif; backgr
 /* ------------------------------------------------------------------ */
 .unlocked-section {
   margin-top: 28px;
+  margin-bottom: 44px;
   padding-inline: 2px;
 }
 .unlocked-heading { margin-bottom: 20px; }

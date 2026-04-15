@@ -145,6 +145,39 @@ const hasQuotedContent = computed(() => rawBody.value.length > displayBody.value
 const isTruncatable = computed(() => displayBody.value.length > 300)
 const truncatedBody = computed(() => isTruncatable.value ? displayBody.value.slice(0, 300).trimEnd() : displayBody.value)
 
+// Exact timestamp label shown at the bottom of each bubble.
+// Format: HH:MM (today) or DD.MM. HH:MM (other days, as a safety fallback).
+const timeLabel = computed(() => {
+  const raw = props.message.email_date || props.message.activity_date || props.message.date || props.message.created_at
+  if (!raw) return ''
+  const date = new Date(raw)
+  if (isNaN(date.getTime())) return ''
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  const now = new Date()
+  const isToday = date.toDateString() === now.toDateString()
+  if (isToday) return `${hh}:${mm}`
+  const dd = String(date.getDate()).padStart(2, '0')
+  const mo = String(date.getMonth() + 1).padStart(2, '0')
+  return `${dd}.${mo}. ${hh}:${mm}`
+})
+
+// Full timestamp shown as a tooltip when hovering the time label.
+const timeTooltip = computed(() => {
+  const raw = props.message.email_date || props.message.activity_date || props.message.date || props.message.created_at
+  if (!raw) return ''
+  const date = new Date(raw)
+  if (isNaN(date.getTime())) return ''
+  return date.toLocaleString('de-AT', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+})
+
 // Parse attachments from has_attachment + attachment_names OR attachments array
 const attachments = computed(() => {
   const m = props.message
@@ -243,6 +276,16 @@ function onSaveAttachment(att, idx) {
             Speichern
           </button>
         </div>
+      </div>
+
+      <!-- Timestamp (always shown at bottom of bubble) -->
+      <div v-if="timeLabel" class="flex justify-end mt-1.5 -mb-0.5">
+        <span
+          class="text-[10px] text-zinc-400 font-medium tabular-nums select-none"
+          :title="timeTooltip"
+        >
+          {{ timeLabel }}
+        </span>
       </div>
     </div>
   </div>

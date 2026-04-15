@@ -385,8 +385,17 @@ class ImapService
                 }
 
                 // Inbound fallback: if still no property, look up prior emails from this sender
-                // Handles replies where body/subject no longer contain ref_id
-                if (!$propertyId && $direction === 'inbound' && $fromEmail && !$isInternalEmail) {
+                // Handles replies where body/subject no longer contain ref_id.
+                //
+                // IMPORTANT: do not run this fallback when the sender is from our own
+                // domain (@sr-homes.at). Internal colleagues work on many different
+                // properties, so inheriting the property_id from the last mail they
+                // sent is almost always wrong (e.g. Nico Berger's "Drohnenaufnahmen
+                // Grödig" mail on property 5 would otherwise contaminate every
+                // subsequent internal mail he sends about any other object). For
+                // internal senders we leave property_id NULL and let the user
+                // assign manually from the "Nicht zugeordnet" view.
+                if (!$propertyId && $direction === 'inbound' && $fromEmail && !$isInternalEmail && !$isSrHomesFrom) {
                     $senderEmail = strtolower($fromEmail);
 
                     // 1. Previous inbound email from same address with a known property
@@ -422,6 +431,8 @@ class ImapService
                             Log::info("[IMAP] Inbound fallback (activity by email): {$senderEmail} -> property {$propertyId}");
                         }
                     }
+                } elseif (!$propertyId && $direction === 'inbound' && $fromEmail && $isSrHomesFrom) {
+                    Log::info("[IMAP] Skipping sender-history fallback for internal sender {$fromEmail} (would otherwise inherit stale property_id across unrelated internal mails)");
                 }
 
                 // For outbound, parse recipient name

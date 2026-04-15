@@ -3,8 +3,9 @@ import { computed, inject, ref, watch } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-vue-next'
-import InboxChatBubble from './InboxChatBubble.vue'
 import InboxMatchCard from './InboxMatchCard.vue'
+import InboxMailMessage from './InboxMailMessage.vue'
+import { extractForwardMetadata } from './mailText.js'
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -13,7 +14,44 @@ const props = defineProps({
   mode: { type: String, default: 'offen' },
 })
 
-const emit = defineEmits(['close', 'saveAttachment', 'matchDraft', 'matchDismiss'])
+const emit = defineEmits(['close', 'saveAttachment', 'matchDraft', 'matchDismiss', 'reply', 'reply-all', 'forward'])
+
+function latestInbound() {
+  for (let i = flatMessages.value.length - 1; i >= 0; i--) {
+    const m = flatMessages.value[i]
+    if ((m.direction || '').toLowerCase() === 'inbound') return m
+  }
+  return flatMessages.value[flatMessages.value.length - 1] || null
+}
+
+function onReply() {
+  const m = latestInbound()
+  if (!m) return
+  emit('reply', {
+    toEmail: m.from_email || '',
+    subject: m.subject?.startsWith('Re: ') ? m.subject : 'Re: ' + (m.subject || ''),
+    quotedMessageId: m.id || null,
+  })
+}
+
+function onReplyAll() {
+  const m = latestInbound()
+  if (!m) return
+  emit('reply-all', {
+    toEmail: m.from_email || '',
+    subject: m.subject?.startsWith('Re: ') ? m.subject : 'Re: ' + (m.subject || ''),
+    quotedMessageId: m.id || null,
+  })
+}
+
+function onForward() {
+  const m = flatMessages.value[flatMessages.value.length - 1]
+  if (!m) return
+  emit('forward', {
+    subject: m.subject?.startsWith('WG: ') ? m.subject : 'WG: ' + (m.subject || ''),
+    quotedMessageId: m.id || null,
+  })
+}
 const bgGradient = inject("inboxBgGradient", ref(""));
 const bgOpacity = inject("inboxBgOpacity", ref(0.15));
 const API = inject('API')
@@ -229,268 +267,68 @@ async function generateDraft() {
   }
 }
 
-function htmlToText(html) {
-  if (!html) return ''
-  return String(html)
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/\r/g, '')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
-
-function normalizeForForwardSplit(text) {
-  return String(text || '')
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    // quoted reply prefix in many clients: "> Von: ..."
-    .replace(/^\s*>\s?/gm, '')
-    // ensure header keys start on new lines for robust matching
-    .replace(/\s+(Von|From|Gesendet|Date|An|To|Betreff|Subject)\s*:/gi, '\n$1:')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
-
-// Reply-quote attribution patterns.
-// These indicate the quoted block below is a reply-quote (someone answered us
-// and their mail client auto-appended our original mail as quoted context),
-// NOT a genuine forward. If any of these patterns appear in the body, we
-// must NOT split — otherwise the original outbound mail gets duplicated as
-// a phantom "forwarded" bubble in the chat view.
-// Matches:
-//   "On 08.04.26 at 21:29, SR-Homes Immobilien wrote:" (Apple Mail / Gmail EN)
-//   "On Tue, Apr 8, 2026 at 9:29 PM, X wrote:" (Gmail EN)
-//   "Am 08.04.2026 um 21:29 schrieb X:" (Thunderbird DE)
-//   "Am Di., 8. Apr. 2026 um 21:29 Uhr schrieb X:" (Gmail DE)
-//   "X schrieb:" / "X wrote:" (bare, at start of a line)
-const REPLY_ATTRIBUTION_RE = /(?:^|\n)\s*(?:>\s*)?(On|Am)\b[^\n]{0,240}\b(wrote|schrieb)\s*:/i
-const BARE_ATTRIBUTION_RE = /\n\s*(?:>\s*)?[^\n<>]{1,120}\s(wrote|schrieb)\s*:\s*(?:\n|$)/i
-const OWN_DOMAIN_RE = /@sr-homes\.at$/i
-
-// Annotate a message with forwarded-mail metadata when we detect it's a
-// forward. Returns a SINGLE message with extra fields so the bubble
-// template can render a "Weitergeleitet von X — ursprünglich von Y"
-// header strip and strip the quoted header block out of the body.
-// Previously this function split forwards into multiple bubbles which
-// produced confusing duplicates (Baldinger case) and hid the fact that
-// the real sender was a colleague forwarding us someone else's mail.
-function splitForwardedMessage(msg, threadSenders) {
-  const bodyText = String(msg?.body_text || '')
-  const htmlText = htmlToText(msg?.body_html || '')
-  const body = normalizeForForwardSplit(bodyText || htmlText)
-  if (!body) return [msg]
-
-  // Guard 1: if the body contains a reply-attribution line, this is a
-  // reply-quote chain — not a forward. Never annotate.
-  if (REPLY_ATTRIBUTION_RE.test(body) || BARE_ATTRIBUTION_RE.test(body)) {
-    return [msg]
-  }
-
-  const markerRegex = /\n-{2,}\s*(Weitergeleitete Nachricht|Forwarded message|Original Message|Original-Nachricht|Urspruengliche Nachricht)\s*-{2,}\n/i
-  const markerMatch = body.match(markerRegex)
-  let markerIndex = markerMatch?.index
-  let markerLength = markerMatch?.[0]?.length || 0
-
-  // Outlook/Exchange/Gmail fallback without dashed marker
-  if (typeof markerIndex !== 'number') {
-    const headerFallback = body.match(/\n\s*(Von|From)\s*:.+\n\s*(Gesendet|Date)\s*:.+\n\s*(An|To)\s*:.+\n\s*(Betreff|Subject)\s*:.+/im)
-    if (headerFallback && typeof headerFallback.index === 'number') {
-      markerIndex = headerFallback.index
-      markerLength = 1
-    }
-  }
-
-  // Generic global fallback: first forward-like header block.
-  if (typeof markerIndex !== 'number') {
-    const genericHeader = body.match(/\n\s*(Von|From)\s*:.+\n[\s\S]{0,600}?\n\s*(Betreff|Subject)\s*:.+/im)
-    if (genericHeader && typeof genericHeader.index === 'number' && genericHeader.index > 20) {
-      markerIndex = genericHeader.index
-      markerLength = 1
-    }
-  }
-  if (typeof markerIndex !== 'number') return [msg]
-
-  const beforeText = body.slice(0, markerIndex).trim()
-  const forwardedBlock = body.slice(markerIndex + markerLength).trim()
-  if (!forwardedBlock) return [msg]
-
-  let forwardedFrom = ''
-  let forwardedFromEmail = ''
-  let forwardedSubject = ''
-  let forwardedBody = forwardedBlock
-
-  const headerSplit = forwardedBlock.search(/\n\s*\n/)
-  if (headerSplit >= 0) {
-    const headerPart = forwardedBlock.slice(0, headerSplit)
-    const bodyPart = forwardedBlock.slice(headerSplit).trim()
-    const fromMatch = headerPart.match(/^\s*(Von|From)\s*:\s*(.+)$/im)
-    const subjectMatch = headerPart.match(/^\s*(Betreff|Subject)\s*:\s*(.+)$/im)
-    forwardedFrom = (fromMatch?.[2] || '').trim()
-    forwardedSubject = (subjectMatch?.[2] || '').trim()
-    // "Baldinger Immobilien  office@mondseelandimmobilien.at" — no angle
-    // brackets, just a bare email at the end. Extract it.
-    const bareEmailMatch = forwardedFrom.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,})/i)
-    const angleEmailMatch = forwardedFrom.match(/<([^>]+@[^>]+)>/)
-    if (angleEmailMatch?.[1]) {
-      forwardedFromEmail = angleEmailMatch[1].trim().toLowerCase()
-      forwardedFrom = forwardedFrom.replace(/\s*<[^>]+>\s*/, '').trim()
-    } else if (bareEmailMatch?.[1]) {
-      forwardedFromEmail = bareEmailMatch[1].trim().toLowerCase()
-      forwardedFrom = forwardedFrom.replace(bareEmailMatch[1], '').replace(/\s+/g, ' ').trim()
-    }
-    if (bodyPart) forwardedBody = bodyPart
-  }
-
-  // Fallback for portal forwards: extract real customer email from content.
-  if (!forwardedFromEmail) {
-    const directEmailMatch = forwardedBlock.match(/(?:^|\n)\s*(?:E-?Mail|Email)\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,})/i)
-    const mailtoMatch = forwardedBlock.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,})/i)
-    const candidate = (directEmailMatch?.[1] || mailtoMatch?.[1] || '').trim().toLowerCase()
-    if (candidate && !candidate.includes('noreply') && !candidate.includes('no-reply')) {
-      forwardedFromEmail = candidate
-      if (!forwardedFrom || /noreply|no-reply|immoji/i.test(forwardedFrom)) {
-        forwardedFrom = candidate
-      }
-    }
-  }
-
-  // Guard 2: if the extracted sender is from our own domain, the "forwarded"
-  // block is actually our own outbound mail quoted back at us in a reply.
-  // The bubble must render unchanged so we don't imply this is a forward.
-  if (forwardedFromEmail && OWN_DOMAIN_RE.test(forwardedFromEmail)) {
-    return [msg]
-  }
-
-  // Decide whether the wrapper text above the forwarded block is a real
-  // comment from the forwarder (e.g. "FYI, schau dir das mal an") or just
-  // their mail-client signature + privacy notice. When it's pure signature
-  // we drop it entirely and show only the forwarded payload — otherwise
-  // we'd bury the actual content Max wants under Susanne's 20-line
-  // boilerplate (the case that made him ask for this fix).
-  const wrapperNote = extractWrapperNote(beforeText)
-
-  // Return a SINGLE annotated message. The bubble template shows a header
-  // strip with the forwarded metadata, and cleanEmailBody strips the
-  // quoted header block + quoted signature from the displayed body.
-  return [{
-    ...msg,
-    // Body for display = forwarded payload, optionally prefixed with any
-    // meaningful wrapper comment the forwarder added above.
-    body_text: wrapperNote
-      ? `${wrapperNote}\n\n— — —\n\n${forwardedBody}`
-      : forwardedBody,
-    body_html: null,
-    _forwardedFromName: forwardedFrom || forwardedFromEmail || null,
-    _forwardedFromEmail: forwardedFromEmail || null,
-    _forwardedSubject: forwardedSubject || null,
-    _forwardedHasWrapper: !!wrapperNote,
-  }]
-}
-
-// Extract any meaningful wrapper comment the forwarder wrote ABOVE their
-// signature block. Scans for the first greeting-style line ("Mit
-// freundlichen Grüßen", "LG", etc.) and discards everything from that
-// point onwards — the signature, contact details, DSGVO boilerplate, all
-// of it. If nothing meaningful remains, returns '' so splitForwardedMessage
-// knows to drop the wrapper entirely and show only the forwarded payload.
-// Handles the '?'-corrupted variants (Gr??en) for legacy encoding-damaged
-// mails.
-function extractWrapperNote(beforeText) {
-  if (!beforeText) return ''
-  let text = String(beforeText)
-
-  const sigMarkers = [
-    /\bMit\s+freundlichen\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)/i,
-    /\bMit\s+besten\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)/i,
-    /\bBeste\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)/i,
-    /\bLiebe\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)/i,
-    /\bSch(?:ö|\?|oe)ne\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)/i,
-    /\bViele\s+Gr(?:ü|\?|ue)(?:ß|\?|ss)/i,
-    /\bIhre?\s+Susanne/i,
-    /\bIhre?\s+Maximilian/i,
-    /\bDer\s+Schutz\s+von\s+personenbezogenen\s+Daten/i,
-    /\b(?:SR[\s-]?Homes|sr-homes\.at)/i,
-  ]
-  let cutIdx = text.length
-  for (const re of sigMarkers) {
-    const m = text.match(re)
-    if (m && typeof m.index === 'number' && m.index < cutIdx) {
-      cutIdx = m.index
-    }
-  }
-  text = text.slice(0, cutIdx).trim()
-
-  // Noise filter: if what's left is too short to be a real comment
-  // (just a "Hallo Max" or empty line), drop it.
-  if (text.length < 15) return ''
-  return text
-}
-
-// ── Date grouping ──
-const groupedMessages = computed(() => {
+const flatMessages = computed(() => {
   if (!props.messages?.length) return []
 
-  const groups = []
-  let currentKey = null
-
-  // Collect every from_email that already appears as its own row in the
-  // thread. splitForwardedMessage uses this to avoid synthesising a
-  // duplicate "forwarded" bubble for a sender whose original mail is
-  // already present (Baldinger + Susanne's forward case).
-  const threadSenders = new Set()
-  for (const m of props.messages) {
-    const fe = (m.from_email || '').trim().toLowerCase()
-    if (fe) threadSenders.add(fe)
-  }
-
-  const flattened = props.messages.flatMap((m) => splitForwardedMessage(m, threadSenders))
-
-  const sorted = [...flattened].sort((a, b) => {
+  // Sort chronologically (oldest first).
+  const sorted = [...props.messages].sort((a, b) => {
     const da = new Date(a.email_date || a.activity_date || a.date || 0)
     const db = new Date(b.email_date || b.activity_date || b.date || 0)
     return da - db
   })
 
-  for (const msg of sorted) {
-    const raw = msg.email_date || msg.activity_date || msg.date
-    const dateKey = raw ? new Date(raw).toDateString() : 'unknown'
-    if (dateKey !== currentKey) {
-      currentKey = dateKey
-      groups.push({ dateKey, label: formatDateLabel(raw), messages: [] })
-    }
-    groups[groups.length - 1].messages.push(msg)
+  // Collect thread senders for forward dedup — if the forwarded sender
+  // already appears as their own message in the thread, skip annotating.
+  const threadSenders = new Set()
+  for (const m of sorted) {
+    const fe = (m.from_email || '').trim().toLowerCase()
+    if (fe) threadSenders.add(fe)
   }
 
-  return groups
+  return sorted.map((m) => {
+    const meta = extractForwardMetadata(m)
+    if (meta && meta.fromEmail && threadSenders.has(meta.fromEmail)) {
+      return m // skip annotation — original is already in the thread
+    }
+    if (meta) {
+      return {
+        ...m,
+        _forwardedFromName: meta.fromName,
+        _forwardedFromEmail: meta.fromEmail,
+        _forwardedSubject: meta.subject,
+      }
+    }
+    return m
+  })
 })
 
-function formatDateLabel(raw) {
-  if (!raw) return ''
-  const d = new Date(raw)
-  if (isNaN(d.getTime())) return ''
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate())
-  const diff = today - target
+const subjectLine = computed(() => {
+  const last = flatMessages.value[flatMessages.value.length - 1]
+  return last?.subject || last?.email_subject || ''
+})
 
-  if (diff === 0) return 'Heute'
-  if (diff === 86400000) return 'Gestern'
+const refIdLabel = computed(() => props.refId || props.item?.ref_id || null)
 
-  const day = d.getDate()
-  const months = [
-    'J\u00E4nner', 'Februar', 'M\u00E4rz', 'April', 'Mai', 'Juni',
-    'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
-  ]
-  return `${day}. ${months[d.getMonth()]} ${d.getFullYear()}`
-}
+const participantsLabel = computed(() => {
+  const names = new Set()
+  for (const m of flatMessages.value) {
+    const d = (m.direction || '').toLowerCase()
+    if (d === 'outbound') names.add('Sie')
+    else if (m.from_name) names.add(String(m.from_name).replace(/\s*<[^>]+>\s*$/, '').trim())
+  }
+  return Array.from(names).join(', ')
+})
+
+const statusBadge = computed(() => {
+  const item = props.item || {}
+  const cat = (item.category || '').toLowerCase()
+  if (item.status === 'nachfassen_1' || item.status === 'nachfassen_2' || item.status === 'nachfassen_3') {
+    return { label: 'Nachfassen', classes: 'sr-badge-orange' }
+  }
+  if (cat === 'intern') return { label: 'Intern', classes: 'sr-badge-sky' }
+  if (cat === 'info-cc') return { label: 'zur Info (CC)', classes: 'sr-badge-gray' }
+  return null
+})
 </script>
 
 <template>
@@ -687,25 +525,48 @@ function formatDateLabel(raw) {
       <div v-if="loading" class="flex items-center justify-center h-full">
         <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />
       </div>
-      <div v-else-if="!groupedMessages.length" class="flex items-center justify-center h-full text-sm text-muted-foreground">
+      <div v-else-if="!flatMessages.length" class="flex items-center justify-center h-full text-sm text-muted-foreground">
         Keine Nachrichten
       </div>
       <template v-else>
-        <div v-for="(group, gi) in groupedMessages" :key="gi">
-          <div class="flex items-center gap-3 my-4" v-if="group.label">
-            <div class="flex-1 h-px bg-zinc-100" />
-            <span class="text-[11px] text-muted-foreground font-medium whitespace-nowrap">{{ group.label }}</span>
-            <div class="flex-1 h-px bg-zinc-100" />
-          </div>
-          <div class="space-y-3">
-            <InboxChatBubble
-              v-for="(msg, mi) in group.messages"
-              :key="msg.id || mi"
+        <div class="sr-thread-card">
+          <header v-if="subjectLine" class="sr-subject-header">
+            <h3>{{ subjectLine }}</h3>
+            <div class="sr-subject-meta">
+              <Badge v-if="statusBadge" variant="outline" :class="statusBadge.classes">{{ statusBadge.label }}</Badge>
+              <span>{{ flatMessages.length }} {{ flatMessages.length === 1 ? 'Nachricht' : 'Nachrichten' }}</span>
+              <span v-if="participantsLabel" class="sr-sep">·</span>
+              <span v-if="participantsLabel">{{ participantsLabel }}</span>
+              <span v-if="refIdLabel" class="sr-sep">·</span>
+              <span v-if="refIdLabel">{{ refIdLabel }}</span>
+            </div>
+          </header>
+
+          <div class="sr-thread-body">
+            <InboxMailMessage
+              v-for="(msg, idx) in flatMessages"
+              :key="msg.id || ('idx-' + idx)"
               :message="msg"
               :sender-name="item.from_name || item.stakeholder || ''"
+              :is-initially-expanded="idx === flatMessages.length - 1"
               @save-attachment="emit('saveAttachment', $event)"
             />
           </div>
+
+          <footer class="sr-thread-actions">
+            <Button variant="default" size="sm" @click="onReply">
+              <svg class="sr-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+              Antworten
+            </Button>
+            <Button variant="outline" size="sm" @click="onReplyAll">
+              <svg class="sr-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 17 2 12 7 7"/><polyline points="12 17 7 12 12 7"/><path d="M22 18v-2a4 4 0 0 0-4-4H7"/></svg>
+              Allen antworten
+            </Button>
+            <Button variant="outline" size="sm" @click="onForward">
+              <svg class="sr-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+              Weiterleiten
+            </Button>
+          </footer>
         </div>
         <div v-if="isNachfassen && daysWaiting" class="flex justify-center mt-6 mb-2">
           <div class="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 max-w-sm text-center">
@@ -727,3 +588,41 @@ function formatDateLabel(raw) {
     <div class="flex-shrink-0"><slot name="ai-draft" /></div>
   </div>
 </template>
+
+<style scoped>
+.sr-thread-card {
+  background: hsl(0 0% 100%);
+  border: 1px solid hsl(0 0% 90%);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 1px -1px rgb(0 0 0 / 0.04);
+  overflow: hidden;
+  margin: 16px;
+}
+.sr-subject-header {
+  padding: 20px 24px 18px;
+  border-bottom: 1px solid hsl(0 0% 93%);
+}
+.sr-subject-header h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: hsl(0 0% 9%);
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+.sr-subject-meta {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 8px; font-size: 12px; color: hsl(0 0% 45%);
+}
+.sr-sep { color: hsl(0 0% 75%); }
+.sr-thread-actions {
+  padding: 14px 24px;
+  background: hsl(0 0% 99%);
+  border-top: 1px solid hsl(0 0% 93%);
+  display: flex; gap: 8px;
+}
+.sr-action-icon { width: 14px; height: 14px; margin-right: 6px; }
+.sr-badge-orange { background: hsl(24 90% 96%); color: hsl(24 80% 38%); border-color: hsl(24 80% 90%); }
+.sr-badge-sky    { background: hsl(199 85% 96%); color: hsl(199 85% 30%); border-color: hsl(199 85% 88%); }
+.sr-badge-gray   { background: hsl(0 0% 96%); color: hsl(0 0% 40%); border-color: hsl(0 0% 88%); }
+</style>

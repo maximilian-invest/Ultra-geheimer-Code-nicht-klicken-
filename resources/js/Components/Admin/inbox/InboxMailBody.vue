@@ -7,18 +7,16 @@ const props = defineProps({
   message: { type: Object, required: true },
 })
 
-// Decide whether to render sanitised HTML or cleaned text. Prefer HTML
-// when it exists AND the plain-text version is a one-line wall (the
-// Typeform / Outlook HTML-only-layout signature). Otherwise fall back
-// to the cleaned plain text path.
+// Always prefer HTML when it's present. The earlier newline-count
+// heuristic back-fired on mails like Immowelt's "+-+ ASCII art" platform
+// template — those have plenty of newlines in body_text but the text
+// version is garbage, while the HTML version renders with proper
+// layout, brand images, and working links. Fall back to the cleaned
+// text pipeline only when body_html is actually empty.
 const rawHtml = computed(() => String(props.message.body_html || ''))
 const rawText = computed(() => String(props.message.full_body || props.message.body_text || props.message.body || ''))
 
-const preferHtml = computed(() => {
-  if (!rawHtml.value) return false
-  const nl = (rawText.value.match(/\n/g) || []).length
-  return rawText.value.length > 200 ? nl < 3 : rawHtml.value.length > 0
-})
+const preferHtml = computed(() => rawHtml.value.trim().length > 0)
 
 // Sanitise HTML with a permissive-but-safe allowlist. Scripts, iframes,
 // forms, and event handlers are stripped. Links get target="_blank"

@@ -94,6 +94,30 @@ provided by `Dashboard.vue` and used elsewhere (e.g.
 `InboxChatView.vue:507`). Hover and focus states on the name match the
 existing Badge pattern.
 
+**Avatar rendering — user profile image for outbound messages:** When
+the message is outbound (sent from one of the current user's own email
+accounts), the avatar displays the user's `users.profile_image` file
+instead of the initials. Resolved via a new `inject('currentUserAvatar', …)`
+in `Dashboard.vue` alongside the existing `openContact` provider, which
+exposes `{ url: '/storage/<path>' | null, initials: 'MH' }` based on
+`Auth::user()->profile_image`. `InboxMailMessage` reads the injection
+once at component creation and renders:
+
+- Outbound + `url` set → `<img src="url" alt="initials">` inside a round
+  avatar container.
+- Outbound + `url` null → initials avatar with the existing SR-Homes
+  orange gradient (unchanged from today).
+- Inbound (external or colleague) → initials avatar with the existing
+  muted-blue gradient. External senders never get a photo because we
+  don't track contact photos.
+
+Max's `users.profile_image` is currently `NULL`, so today he'll see the
+"MH" initials on his own outbound bubbles. The moment he uploads a
+profile image via the existing profile settings UI (the same field that
+powers the blog author photo and the website broker photo), the inbox
+avatar switches automatically on next page load. No manual refresh of
+the inbox component or backend data migration is required.
+
 Default expansion rules:
 
 - The newest message in the thread starts expanded.
@@ -257,6 +281,10 @@ Max picked accordion directly during the visual companion exchange
 - Clicking "Michael Schustereder" in the sender line calls
   `openContact('Michael Schustereder')` and routes to the contact
   settings, same behaviour as today's Badge click in `InboxChatView.vue`.
+- Outbound messages show Max's real profile photo as the avatar once
+  `users.profile_image` is uploaded via profile settings. Without an
+  uploaded photo, the initials avatar is shown. External senders always
+  get the initials avatar.
 - Clicking Reply focuses the existing InboxAiDraft pane with the right
   prefilled recipient/subject.
 - All existing badges (Nachfassen, Intern, info-cc, Auto-Reply) still
@@ -278,6 +306,7 @@ Max picked accordion directly during the visual companion exchange
 ### Modified
 
 - `resources/js/Components/Admin/inbox/InboxChatView.vue` — swap bubble → message, add subject header + reply actions
+- `resources/js/Pages/Admin/Dashboard.vue` — add `provide('currentUserAvatar', { url, initials })` alongside the existing `openContact` provider
 - `package.json` — add `dompurify` dependency
 
 ### Removed

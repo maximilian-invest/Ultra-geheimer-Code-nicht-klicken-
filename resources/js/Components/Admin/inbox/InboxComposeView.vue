@@ -76,10 +76,39 @@ const senderLabel = computed(() => {
   return acc?.email || acc?.label || "";
 });
 
+function resolveSignatureUrl(url) {
+  const raw = String(url || "").trim();
+  if (!raw) return "";
+  if (typeof window === "undefined") return raw;
+  const isLocalUi = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  const isLocalAsset = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(raw);
+  if (isLocalUi && isLocalAsset) {
+    return raw.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i, "https://kundenportal.sr-homes.at");
+  }
+  return raw;
+}
+
+function propertyDisplayName(p) {
+  if (!p) return "";
+  const ref = String(p.ref_id || "").trim();
+  const title = String(p.title || "").trim();
+  const address = String(p.address || "").trim();
+  const city = String(p.city || "").trim();
+  if (ref && address) return `${ref} - ${address}`;
+  if (ref && city) return `${ref} - ${city}`;
+  if (ref) return ref;
+  if (title && address) return `${title} - ${address}`;
+  if (title) return title;
+  if (address && city) return `${address}, ${city}`;
+  if (address) return address;
+  if (city) return city;
+  return `Objekt ohne Bezeichnung (#${p.id})`;
+}
+
 const propertyLabel = computed(() => {
   if (!props.composePropertyId || !props.properties.length) return null;
   const p = props.properties.find(pr => String(pr.id) === String(props.composePropertyId));
-  return p ? (p.ref_id || p.address || "Obj " + p.id) : null;
+  return p ? propertyDisplayName(p) : null;
 });
 </script>
 
@@ -152,7 +181,7 @@ const propertyLabel = computed(() => {
           <SelectTrigger class="h-7 border-0 shadow-none text-[12px] px-0 bg-transparent focus:ring-0"><SelectValue placeholder="Kein Objekt" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="none" class="text-[12px]">Kein Objekt</SelectItem>
-            <SelectItem v-for="p in properties" :key="p.id" :value="String(p.id)" class="text-[12px]">{{ p.ref_id || p.address || ('Obj ' + p.id) }}</SelectItem>
+            <SelectItem v-for="p in properties" :key="p.id" :value="String(p.id)" class="text-[12px]">{{ propertyDisplayName(p) }}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -175,11 +204,33 @@ const propertyLabel = computed(() => {
       <!-- Signature Preview (read-only, appended automatically on send) -->
       <div v-if="signatureData" class="mt-3 pt-2 border-t border-dashed border-zinc-200 text-[12px] leading-relaxed select-none pointer-events-none">
         <div class="text-zinc-300">--</div>
-        <div v-if="signatureData.signature_name" class="text-zinc-500 font-medium">{{ signatureData.signature_name }}</div>
-        <div v-if="signatureData.signature_title" class="text-zinc-400">{{ signatureData.signature_title }}</div>
-        <div v-if="signatureData.signature_company" class="text-zinc-400">{{ signatureData.signature_company }}</div>
-        <div v-if="signatureData.signature_phone" class="text-zinc-400">Tel: {{ signatureData.signature_phone }}</div>
-        <div v-if="signatureData.signature_website" class="text-zinc-400">{{ signatureData.signature_website }}</div>
+        <img
+          v-if="signatureData.signature_logo_url"
+          :src="resolveSignatureUrl(signatureData.signature_logo_url)"
+          alt="Signatur-Logo"
+          class="max-h-10 object-contain mt-1 mb-2"
+        />
+        <div class="flex items-start gap-3">
+          <img
+            v-if="signatureData.signature_photo_url"
+            :src="resolveSignatureUrl(signatureData.signature_photo_url)"
+            alt="Signatur-Foto"
+            class="w-[56px] h-[72px] object-cover rounded"
+          />
+          <div>
+            <div v-if="signatureData.signature_name" class="text-zinc-500 font-medium">{{ signatureData.signature_name }}</div>
+            <div v-if="signatureData.signature_title" class="text-zinc-400">{{ signatureData.signature_title }}</div>
+            <div v-if="signatureData.signature_company" class="text-zinc-400">{{ signatureData.signature_company }}</div>
+            <div v-if="signatureData.signature_phone" class="text-zinc-400">Tel: {{ signatureData.signature_phone }}</div>
+            <div v-if="signatureData.signature_website" class="text-zinc-400">{{ signatureData.signature_website }}</div>
+          </div>
+        </div>
+        <img
+          v-if="signatureData.signature_banner_url"
+          :src="resolveSignatureUrl(signatureData.signature_banner_url)"
+          alt="Signatur-Banner"
+          class="max-w-[320px] w-full rounded mt-2"
+        />
       </div>
       <div v-else class="mt-3 pt-2 border-t border-dashed border-zinc-200 text-[12px] leading-relaxed select-none pointer-events-none">
         <div class="text-zinc-300">--</div>

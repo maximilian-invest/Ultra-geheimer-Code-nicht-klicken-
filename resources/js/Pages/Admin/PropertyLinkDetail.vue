@@ -3,7 +3,8 @@
     <div class="mx-auto max-w-5xl px-6 py-10">
       <!-- Back link -->
       <a
-        :href="`/admin/properties/${property.id}`"
+        href="/admin"
+        @click.prevent="goBackToProperties"
         class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft class="h-4 w-4" />
@@ -305,6 +306,12 @@ function eventColor(t) {
     doc_viewed: 'text-blue-500',
     doc_downloaded: 'text-primary',
   }[t] || 'text-muted-foreground';
+}
+function goBackToProperties() {
+  try {
+    localStorage.setItem('sr-admin-tab', 'properties');
+  } catch {}
+  window.location.href = '/admin';
 }
 async function copyUrl() {
   await navigator.clipboard.writeText(props.link.url);

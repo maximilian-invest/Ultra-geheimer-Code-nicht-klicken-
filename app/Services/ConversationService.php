@@ -176,10 +176,14 @@ class ConversationService
 
     /**
      * Mark a conversation as done. Also trashes every portal_email that
-     * belongs to this conversation so the thread disappears consistently
-     * from Posteingang (previously the two views were out of sync — clicking
-     * "Erledigt" in Anfragen left the raw mails sitting in Posteingang, and
-     * vice versa).
+     * belongs to this conversation AND is visible to the current user —
+     * i.e. mails in the current user's own email accounts. Mails from
+     * other colleagues that happen to share the same stakeholder/contact
+     * are left untouched.
+     *
+     * This is the fix for the Baldinger/Susanne case where Max clicking
+     * "Erledigt" on a forwarded thread would otherwise have wiped out
+     * Susanne's entire internal Baldinger correspondence.
      */
     public function markDone(Conversation $conv): void
     {
@@ -190,12 +194,18 @@ class ConversationService
         $conv->draft_generated_at = null;
         $conv->save();
 
-        // Sync the underlying mails to Papierkorb.
-        $mailIds = $this->mailIdsForConversation($conv);
+        // Scope the trash to the current user's mailboxes.
+        $accountIds = $this->currentUserAccountIds();
+        $mailIds = $this->mailIdsForConversation($conv, $accountIds);
         if (!empty($mailIds)) {
             $placeholders = implode(',', array_fill(0, count($mailIds), '?'));
             DB::update("UPDATE portal_emails SET is_deleted = 1, deleted_at = NOW() WHERE id IN ({$placeholders}) AND is_deleted = 0", $mailIds);
         }
+
+        // Recompute the conversation's global counters — the user's mails
+        // are gone, but other users may still hold live mails in the same
+        // thread, so the conv row reflects what's left across all accounts.
+        $this->rebuildFromEmails($conv->id);
     }
 
     /**
@@ -385,15 +395,22 @@ class ConversationService
      * using the same matching rules as conv_detail (contact_email on either
      * side, stakeholder fallback, same property scope).
      *
+     * When $accountIds is provided (typically the current user's mailboxes),
+     * the result is scoped to mails in those accounts only. This is used by
+     * markDone so that "Erledigt" clicks only trash the current user's view
+     * of a shared conversation — a colleague's mails on the same thread
+     * stay untouched.
+     *
+     * @param int[]|null $accountIds
      * @return int[]
      */
-    public function mailIdsForConversation(Conversation $conv): array
+    public function mailIdsForConversation(Conversation $conv, ?array $accountIds = null): array
     {
         $contactEmail = strtolower((string) $conv->contact_email);
         $stakeholder = (string) ($conv->stakeholder ?? '');
         $propertyId = $conv->property_id;
 
-        $rows = DB::select("
+        $sql = "
             SELECT pe.id
             FROM portal_emails pe
             WHERE (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
@@ -403,15 +420,23 @@ class ConversationService
                   OR LOWER(pe.stakeholder) = LOWER(?)
                   OR pe.id = ?
               )
-        ", [
+        ";
+        $params = [
             $propertyId,
             $propertyId,
             $contactEmail,
             $contactEmail,
             $stakeholder,
             $conv->last_email_id,
-        ]);
+        ];
 
+        if (is_array($accountIds) && count($accountIds) > 0) {
+            $ph = implode(',', array_fill(0, count($accountIds), '?'));
+            $sql .= " AND pe.account_id IN ({$ph})";
+            foreach ($accountIds as $aid) $params[] = (int) $aid;
+        }
+
+        $rows = DB::select($sql, $params);
         return array_values(array_unique(array_map(fn($r) => (int) $r->id, $rows)));
     }
 
@@ -542,6 +567,33 @@ class ConversationService
             foreach ($lastHit as $r) $convIds[(int) $r->id] = true;
         }
         return array_keys($convIds);
+    }
+
+    /**
+     * Return the active EmailAccount ids that belong to the currently
+     * authenticated user. Assistenz/backoffice/admin roles get all active
+     * accounts. If no user is authenticated (e.g. a console command), the
+     * method returns null so callers can skip account scoping entirely.
+     *
+     * @return int[]|null
+     */
+    public function currentUserAccountIds(): ?array
+    {
+        $userId = \Illuminate\Support\Facades\Auth::id();
+        if (!$userId) return null;
+
+        $userType = \Illuminate\Support\Facades\Auth::user()->user_type ?? 'makler';
+
+        if (in_array($userType, ['assistenz', 'backoffice'], true)) {
+            return DB::table('email_accounts')->where('is_active', 1)->pluck('id')->map(fn($v) => (int) $v)->all();
+        }
+
+        return DB::table('email_accounts')
+            ->where('is_active', 1)
+            ->where('user_id', $userId)
+            ->pluck('id')
+            ->map(fn($v) => (int) $v)
+            ->all();
     }
 
     /**

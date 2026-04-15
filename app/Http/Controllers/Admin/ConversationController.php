@@ -173,6 +173,24 @@ class ConversationController extends Controller
         // Do NOT exclude internal senders here, otherwise legitimate internal
         // conversation messages (e.g. colleague replies) disappear from the thread.
         $isInternalContact = (bool) preg_match('/@(sr-homes\.at|bstf\.at)$/i', (string) $conv->contact_email);
+        // Account scoping: when looking at a shared thread, only show mails
+        // that landed in the CURRENT user's mailboxes. Makler see their own
+        // accounts only; assistenz/backoffice see all. Without this a
+        // forwarded mail (Susanne → Max) would drag Susanne's entire prior
+        // correspondence into Max's view even though those mails were never
+        // addressed to him.
+        $convService = app(ConversationService::class);
+        $acctIds = $convService->currentUserAccountIds();
+        $acctFilter = '';
+        $acctParams = [];
+        if (is_array($acctIds) && count($acctIds) > 0) {
+            $ph = implode(',', array_fill(0, count($acctIds), '?'));
+            // Include NULL account rows as a safety net for legacy data
+            // imported before account_id existed.
+            $acctFilter = " AND (pe.account_id IN ({$ph}) OR pe.account_id IS NULL)";
+            $acctParams = array_map('intval', $acctIds);
+        }
+
         if ($isInternalContact) {
             $stakeholderEmail = filter_var($conv->stakeholder, FILTER_VALIDATE_EMAIL) ? strtolower($conv->stakeholder) : null;
             $messages = DB::select("
@@ -204,8 +222,9 @@ class ConversationController extends Controller
                       )
                       OR pe.id = ?
                   )
+                  {$acctFilter}
                 ORDER BY pe.email_date ASC
-            ", [
+            ", array_merge([
                 $conv->property_id,
                 $conv->property_id,
                 $conv->stakeholder,
@@ -215,7 +234,7 @@ class ConversationController extends Controller
                 $stakeholderEmail,
                 $conv->contact_email,
                 $conv->last_email_id,
-            ]);
+            ], $acctParams));
         } else {
             $messages = DB::select("
                 SELECT
@@ -246,8 +265,9 @@ class ConversationController extends Controller
                           AND LOWER(pe.body_text) LIKE CONCAT('%', LOWER(?), '%')
                       )
                   )
+                  {$acctFilter}
                 ORDER BY pe.email_date ASC
-            ", [
+            ", array_merge([
                 $conv->property_id,
                 $conv->property_id,
                 $conv->contact_email,
@@ -256,7 +276,7 @@ class ConversationController extends Controller
                 $conv->last_email_id,
                 $conv->contact_email,
                 $conv->contact_email,
-            ]);
+            ], $acctParams));
         }
 
         // Normalize potential legacy/invalid encodings so JSON rendering does not

@@ -1238,6 +1238,33 @@ async function markHandled(stakeholder, propertyId) {
   } catch (e) { toast("Fehler: " + e.message); }
 }
 
+function onComposeReply(payload) {
+  // Focus the existing AI draft pane and prefill recipient/subject.
+  if (!expandedAiDraft.value) {
+    expandedAiDraft.value = {
+      body: '',
+      subject: payload.subject || '',
+      to: payload.toEmail || '',
+    };
+  } else {
+    expandedAiDraft.value = {
+      ...expandedAiDraft.value,
+      subject: payload.subject || expandedAiDraft.value.subject,
+      to: payload.toEmail || expandedAiDraft.value.to,
+    };
+  }
+  showEmailFields.value = true;
+}
+
+function onComposeForward(payload) {
+  expandedAiDraft.value = {
+    body: '',
+    subject: payload.subject || '',
+    to: '',
+  };
+  showEmailFields.value = true;
+}
+
 // ============================================================
 // SEND DRAFT (from PrioritiesTab.vue, sheetOpen → detailOpen)
 // ============================================================
@@ -2616,6 +2643,9 @@ onMounted(() => {
         :mode="selectedMode"
         @close="selectedItem = null; detailOpen = false"
         @save-attachment="onSaveAttachment($event)"
+        @reply="onComposeReply($event)"
+        @reply-all="onComposeReply({ ...$event, replyAll: true })"
+        @forward="onComposeForward($event)"
         @match-draft="handleMatchDraft"
         @match-dismiss="handleMatchDismiss"
       >

@@ -129,7 +129,7 @@ function onLinkPicked(link) {
       <div class="sr-compose-title">
         <Sparkles v-if="withDraft" class="w-4 h-4" />
         <Send v-else class="w-4 h-4" />
-        <span>{{ kindLabel }} an {{ recipientName }}</span>
+        <span>{{ withDraft ? 'Mit KI-Entwurf ' + kindLabel.toLowerCase() : kindLabel }}</span>
       </div>
       <button type="button" class="sr-compose-cancel" @click="onCancel">
         <X class="w-3.5 h-3.5" />

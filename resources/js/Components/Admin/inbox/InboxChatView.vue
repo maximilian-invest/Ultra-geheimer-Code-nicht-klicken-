@@ -2,10 +2,11 @@
 import { computed, inject, ref, watch } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp, Sparkles, CheckCircle } from 'lucide-vue-next'
+import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp, Sparkles, CheckCircle, Send, RefreshCw, Wand2, Link2 } from 'lucide-vue-next'
 import InboxMatchCard from './InboxMatchCard.vue'
 import InboxMailMessage from './InboxMailMessage.vue'
 import InboxComposePane from './InboxComposePane.vue'
+import LinkPickerPopover from './LinkPickerPopover.vue'
 import { extractForwardMetadata } from './mailText.js'
 
 const props = defineProps({
@@ -102,6 +103,36 @@ function enterCompose(kind, withDraft) {
 function exitCompose() {
   composeMode.value = 'thread'
   composeContext.value = null
+  linkPickerOpen.value = false
+}
+
+// ── Persistent compose action bar state + handlers ─────────────────
+// The Senden / Neu generieren / Verbessern / Link buttons are mounted
+// in InboxChatView (not InboxComposePane) so they sit outside the
+// scroll container and stay visible. They route through the same
+// inject('inboxCompose') contract the compose pane uses.
+const linkPickerOpen = ref(false)
+
+const composeDraft = computed(() => inboxComposeInject?.draft?.value || null)
+const composeBodyIsEmpty = computed(() => !(composeDraft.value?.body || '').trim())
+const composeLoading = computed(() => inboxComposeInject?.loading?.value || false)
+
+function onComposeSend() {
+  inboxComposeInject?.send?.()
+}
+function onComposeRegenerate() {
+  inboxComposeInject?.regenerate?.()
+}
+function onComposeImprove() {
+  inboxComposeInject?.improve?.()
+}
+function onLinkPicked(link) {
+  const draftRef = inboxComposeInject?.draft
+  if (!draftRef) { linkPickerOpen.value = false; return }
+  const current = draftRef.value || { body: '', subject: '', to: '' }
+  const append = `\n\nUnterlagen: ${link.url}`
+  draftRef.value = { ...current, body: ((current.body || '') + append).trim() }
+  linkPickerOpen.value = false
 }
 
 // Reset compose mode when the user picks a different conversation.
@@ -675,6 +706,62 @@ const statusBadge = computed(() => {
       </Button>
     </footer>
 
+    <!-- Persistent compose action bar — same pattern as the thread action
+         bar above, but with Senden / Neu generieren / Verbessern / Link.
+         Mounted outside the scroll container so it's always visible while
+         the user scrolls through the body textarea or the reference strip. -->
+    <footer
+      v-if="composeMode === 'compose' && composeContext"
+      class="sr-thread-actions sr-thread-actions--sticky sr-compose-actions--sticky flex-shrink-0"
+    >
+      <button
+        type="button"
+        class="sr-btn sr-btn-primary"
+        :disabled="composeBodyIsEmpty"
+        @click="onComposeSend"
+      >
+        <Send class="w-3.5 h-3.5" />
+        Senden
+      </button>
+      <button
+        type="button"
+        class="sr-ai-reply-btn"
+        :disabled="composeLoading"
+        @click="onComposeRegenerate"
+      >
+        <RefreshCw class="sr-action-icon" :class="composeLoading ? 'animate-spin' : ''" />
+        {{ composeLoading ? 'Generiere…' : 'Neu generieren' }}
+      </button>
+      <button
+        type="button"
+        class="sr-btn sr-btn-ghost"
+        :disabled="composeBodyIsEmpty || composeLoading"
+        @click="onComposeImprove"
+      >
+        <Wand2 class="w-3.5 h-3.5" />
+        Verbessern
+      </button>
+      <div class="sr-thread-actions-spacer"></div>
+      <div class="sr-link-picker-wrapper">
+        <LinkPickerPopover
+          v-if="linkPickerOpen && item?.property_id"
+          :property-id="Number(item.property_id)"
+          @close="linkPickerOpen = false"
+          @pick="onLinkPicked"
+        />
+        <button
+          type="button"
+          class="sr-btn sr-btn-ghost"
+          :disabled="!item?.property_id"
+          :title="item?.property_id ? 'Docs-Link anfügen' : 'Kein Objekt in der Konversation'"
+          @click="linkPickerOpen = !linkPickerOpen"
+        >
+          <Link2 class="w-3.5 h-3.5" />
+          Link
+        </button>
+      </div>
+    </footer>
+
     <!-- Slots below chat -->
     <div class="flex-shrink-0"><slot name="ai-draft" /></div>
   </div>
@@ -718,6 +805,51 @@ const statusBadge = computed(() => {
   border-top: 1px solid hsl(0 0% 90%);
   box-shadow: 0 -4px 12px -6px rgb(0 0 0 / 0.08), 0 -1px 0 0 rgb(0 0 0 / 0.02);
 }
+/* Compose-mode variant gets a subtle orange tint so the user sees at a
+   glance they're in reply mode, not thread mode. */
+.sr-compose-actions--sticky {
+  background: linear-gradient(180deg, hsl(28 98% 98%), hsl(0 0% 100%));
+  border-top-color: hsl(28 80% 88%);
+}
+/* Button shared classes used by the compose sticky bar */
+.sr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: hsl(0 0% 100%);
+  border: 1px solid hsl(0 0% 90%);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(0 0% 15%);
+  cursor: pointer;
+  transition: all 120ms ease;
+  height: 32px;
+}
+.sr-btn:hover:not(:disabled) {
+  background: hsl(0 0% 97%);
+  border-color: hsl(0 0% 80%);
+}
+.sr-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.sr-btn-primary {
+  background: hsl(0 0% 9%);
+  color: hsl(0 0% 100%);
+  border-color: hsl(0 0% 9%);
+}
+.sr-btn-primary:hover:not(:disabled) { background: hsl(0 0% 18%); }
+.sr-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.sr-btn-ghost:hover:not(:disabled) {
+  background: hsl(0 0% 96%);
+  border-color: hsl(0 0% 90%);
+}
+.sr-link-picker-wrapper { position: relative; }
 .sr-action-icon { width: 14px; height: 14px; margin-right: 6px; }
 .sr-badge-orange { background: hsl(24 90% 96%); color: hsl(24 80% 38%); border-color: hsl(24 80% 90%); }
 .sr-badge-sky    { background: hsl(199 85% 96%); color: hsl(199 85% 30%); border-color: hsl(199 85% 88%); }

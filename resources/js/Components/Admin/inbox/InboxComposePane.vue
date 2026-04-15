@@ -195,44 +195,9 @@ function onLinkPicked(link) {
       ></textarea>
     </div>
 
-    <!-- Send action bar -->
-    <div class="sr-compose-actions">
-      <button type="button" class="sr-btn sr-btn-primary" :disabled="bodyIsEmpty" @click="onSend">
-        <Send class="w-3.5 h-3.5" />
-        Senden
-      </button>
-
-      <button type="button" class="sr-btn sr-btn-ai" :disabled="loading" @click="onRegenerate">
-        <RefreshCw class="w-3.5 h-3.5" :class="loading ? 'animate-spin' : ''" />
-        {{ loading ? 'Generiere…' : 'Neu generieren' }}
-      </button>
-
-      <button type="button" class="sr-btn" :disabled="bodyIsEmpty || loading" @click="onImprove">
-        <Wand2 class="w-3.5 h-3.5" />
-        Verbessern
-      </button>
-
-      <div class="sr-compose-spacer"></div>
-
-      <div class="sr-link-picker-wrapper">
-        <LinkPickerPopover
-          v-if="linkPickerOpen && propertyId"
-          :property-id="Number(propertyId)"
-          @close="linkPickerOpen = false"
-          @pick="onLinkPicked"
-        />
-        <button
-          type="button"
-          class="sr-btn sr-btn-ghost"
-          :disabled="!propertyId"
-          :title="propertyId ? 'Docs-Link anfügen' : 'Kein Objekt in der Konversation'"
-          @click="linkPickerOpen = !linkPickerOpen"
-        >
-          <Link2 class="w-3.5 h-3.5" />
-          Link
-        </button>
-      </div>
-    </div>
+    <!-- Send action bar is rendered as a sticky footer by InboxChatView,
+         outside this component's scroll area, so it's always visible
+         while the user scrolls through the body or the reference strip. -->
 
     <!-- Reference strip: the message being replied to -->
     <div v-if="referenceMessage" class="sr-reference-strip" @click="referenceExpanded = !referenceExpanded">

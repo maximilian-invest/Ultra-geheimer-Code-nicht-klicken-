@@ -143,9 +143,13 @@ const propertyLabel = computed(() => {
       <div class="flex items-center h-9 px-5 border-b border-zinc-100/80 text-[12px]">
         <span class="text-muted-foreground w-14 flex-shrink-0">Von</span>
         <Select :model-value="selectedAccountId ? String(selectedAccountId) : ''" @update:model-value="emit('update:selectedAccountId', $event)">
-          <SelectTrigger class="h-7 border-0 shadow-none text-[12px] px-0 bg-transparent focus:ring-0"><SelectValue placeholder="Konto..." /></SelectTrigger>
+          <SelectTrigger class="h-7 border-0 shadow-none text-[12px] px-0 bg-transparent focus:ring-0 text-foreground font-medium [&_span]:text-foreground">
+            <SelectValue placeholder="Konto..." />
+          </SelectTrigger>
           <SelectContent>
-            <SelectItem v-for="acc in emailAccounts" :key="acc.id" :value="String(acc.id)" class="text-[12px]">{{ acc.email_address || acc.email || acc.label }}</SelectItem>
+            <SelectItem v-for="acc in emailAccounts" :key="acc.id" :value="String(acc.id)" class="text-[12px] text-foreground font-medium">
+              {{ acc.email_address || acc.email || acc.label }}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -191,8 +191,39 @@ const autoReplySaving = ref(false);
 const autoReplyPropertyIds = ref([]);
 
 // Broker filter
-const maklerFilter = ref('all');
+const maklerFilter = ref('');
 const brokerList = ref([]);
+
+function resolveDefaultBrokerId(list) {
+  const brokers = Array.isArray(list) ? list : [];
+  if (!brokers.length) return '';
+  const nico = brokers.find((b) => /nico/i.test(String(b.name || '')) && /berger/i.test(String(b.name || '')));
+  if (nico?.id) return String(nico.id);
+  const office = brokers.find((b) => /office/i.test(String(b.name || '')));
+  if (office?.id) return String(office.id);
+  return String(brokers[0].id || '');
+}
+
+function brokerDisplayName(b) {
+  if (!b) return '';
+  const name = String(b.name || b.full_name || b.label || '').trim();
+  if (name) return name;
+  const email = String(b.email || b.email_address || '').trim();
+  if (email) return email;
+  return `Makler #${b.id}`;
+}
+
+const effectiveBrokerFilter = computed(() => {
+  if (!isAssistenz.value) return '';
+  if (maklerFilter.value) return String(maklerFilter.value);
+  return resolveDefaultBrokerId(brokerList.value);
+});
+
+const selectedBrokerLabel = computed(() => {
+  const current = String(maklerFilter.value || '');
+  const b = brokerList.value.find((x) => String(x.id) === current);
+  return b ? brokerDisplayName(b) : '';
+});
 
 // ============================================================
 // COMMS STATE (from CommsTab.vue)
@@ -595,7 +626,7 @@ async function loadUnanswered(filter) {
   unansweredFilter.value = filter;
   unansweredLoading.value = true;
   try {
-    const brokerParam = (maklerFilter.value && maklerFilter.value !== 'all') ? "&broker_filter=" + maklerFilter.value : "";
+    const brokerParam = effectiveBrokerFilter.value ? "&broker_filter=" + encodeURIComponent(effectiveBrokerFilter.value) : "";
     const r = await fetch(API.value + "&action=conv_list&status=offen" + brokerParam);
     const d = await r.json();
     unansweredList.value = (d.conversations || []).map(c => ({
@@ -614,7 +645,7 @@ async function loadFollowups(filter) {
   followupLoading.value = true;
   stage1Loading.value = true;
   try {
-    const brokerParam = (maklerFilter.value && maklerFilter.value !== 'all') ? "&broker_filter=" + maklerFilter.value : "";
+    const brokerParam = effectiveBrokerFilter.value ? "&broker_filter=" + encodeURIComponent(effectiveBrokerFilter.value) : "";
     const r = await fetch(API.value + "&action=conv_list&status=nachfassen&per_page=200" + brokerParam);
     const d = await r.json();
     const all = (d.conversations || []).map(c => {
@@ -845,7 +876,14 @@ async function loadBrokerList() {
   try {
     const r = await fetch(API.value + '&action=list_brokers');
     const d = await r.json();
-    brokerList.value = (d.brokers || []).filter(b => ['admin', 'makler'].includes(b.user_type));
+    brokerList.value = (d.brokers || []).filter((b) => {
+      const t = String(b.user_type || '').toLowerCase();
+      return ['admin', 'makler', 'assistenz', 'backoffice'].includes(t);
+    });
+    const defaultBrokerId = resolveDefaultBrokerId(brokerList.value);
+    if (defaultBrokerId) {
+      maklerFilter.value = defaultBrokerId;
+    }
   } catch {}
 }
 
@@ -2121,6 +2159,16 @@ watch(maklerFilter, () => {
   loadFollowups(followupFilter.value);
 });
 
+watch(brokerList, (list) => {
+  if (!Array.isArray(list) || !list.length) return;
+  const current = String(maklerFilter.value || '');
+  const valid = list.some((b) => String(b.id) === current);
+  if (!valid) {
+    const fallback = resolveDefaultBrokerId(list);
+    if (fallback) maklerFilter.value = fallback;
+  }
+}, { deep: true });
+
 watch(activeSubtab, (v) => {
   if (v === 'posteingang') { ehDirection.value = 'inbound'; ehShowUnmatched.value = false; ehPage.value = 1; loadEmailHistory(); }
   if (v === 'gesendet') { ehDirection.value = 'outbound'; ehPage.value = 1; loadEmailHistory(); }
@@ -2364,10 +2412,24 @@ onMounted(() => {
           </div>
         </div>
         <div v-if="isAssistenz && brokerList.length" class="px-3 pb-1 flex-shrink-0">
-          <select v-model="maklerFilter" class="h-6 rounded-md border border-zinc-100 bg-background px-2 text-[11px]">
-            <option value="all">Alle Makler</option>
-            <option v-for="b in brokerList" :key="b.id" :value="b.id">{{ b.name }}</option>
-          </select>
+          <Select
+            :model-value="String(maklerFilter || '')"
+            @update:model-value="maklerFilter = String($event || '')"
+          >
+            <SelectTrigger class="h-6 w-[130px] text-[11px] text-foreground font-semibold border-zinc-200">
+              <SelectValue placeholder="Makler wählen" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="b in brokerList"
+                :key="b.id"
+                :value="String(b.id)"
+                class="text-[11px]"
+              >
+                {{ brokerDisplayName(b) }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <!-- Anfragen -->

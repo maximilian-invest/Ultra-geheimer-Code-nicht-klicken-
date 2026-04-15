@@ -345,12 +345,18 @@ function onLinkPicked(link) {
   outline: none;
   background: transparent;
   font-size: 13px;
-  color: hsl(0 0% 15%);
+  color: hsl(0 0% 8%);
+  font-weight: 500;
+}
+.sr-field-input option {
+  color: hsl(0 0% 10%);
+  font-weight: 500;
 }
 .sr-field-readonly {
   flex: 1;
   font-size: 13px;
-  color: hsl(0 0% 35%);
+  color: hsl(0 0% 10%);
+  font-weight: 600;
 }
 .sr-field-toggle {
   font-size: 11px;

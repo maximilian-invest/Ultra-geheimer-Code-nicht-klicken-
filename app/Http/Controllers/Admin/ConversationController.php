@@ -92,6 +92,7 @@ class ConversationController extends Controller
 
         $brokerId = Auth::id();
         $userType = Auth::user()->user_type ?? 'makler';
+        $brokerFilterRaw = (string) $request->query('broker_filter', '');
 
         // Fall through to existing email_history for view-based queries (backward compat)
         if ($view === 'posteingang' || $view === 'gesendet') {
@@ -157,8 +158,23 @@ class ConversationController extends Controller
         // mail Max can see in that thread is from Susanne.
         $convService = app(ConversationService::class);
         $userAcctIds = $convService->currentUserAccountIds();
+        $scopedAcctIds = $userAcctIds;
+        $hasBrokerScopedFilter = false;
 
-        $conversations = collect($paginated->items())->map(function (Conversation $conv) use ($userAcctIds) {
+        if (in_array($userType, ['assistenz', 'backoffice'], true) && $brokerFilterRaw !== '') {
+            $targetBrokerId = is_numeric($brokerFilterRaw) ? (int) $brokerFilterRaw : 0;
+            if ($targetBrokerId > 0) {
+                $scopedAcctIds = DB::table('email_accounts')
+                    ->where('is_active', 1)
+                    ->where('user_id', $targetBrokerId)
+                    ->pluck('id')
+                    ->map(fn ($v) => (int) $v)
+                    ->all();
+                $hasBrokerScopedFilter = true;
+            }
+        }
+
+        $conversations = collect($paginated->items())->map(function (Conversation $conv) use ($scopedAcctIds, $hasBrokerScopedFilter) {
             $prop = $conv->property;
             $item = [
                 'id'               => $conv->id,
@@ -192,7 +208,7 @@ class ConversationController extends Controller
             // on this conversation that's in the current user's mailboxes,
             // and override the list title with that sender's name + subject.
             // Outbound mails don't count — the list shows who we talk TO.
-            $displayOverride = $this->resolveUserVisibleDisplay($conv, $userAcctIds);
+            $displayOverride = $this->resolveUserVisibleDisplay($conv, $scopedAcctIds);
             if ($displayOverride) {
                 if (!empty($displayOverride['from_name'])) {
                     $item['stakeholder'] = $displayOverride['from_name'];
@@ -217,6 +233,8 @@ class ConversationController extends Controller
                 if (!empty($displayOverride['email_date'])) {
                     $item['last_inbound_at'] = $displayOverride['email_date'];
                 }
+            } elseif ($hasBrokerScopedFilter) {
+                return null;
             }
 
             // Fallback: global conv last_email_id subject (only when we
@@ -227,7 +245,9 @@ class ConversationController extends Controller
             }
 
             return $item;
-        });
+        })->filter();
+
+        $totalCount = $hasBrokerScopedFilter ? $conversations->count() : $paginated->total();
 
         // For nachfassen, group by status in response
         if ($status === 'nachfassen') {
@@ -235,7 +255,7 @@ class ConversationController extends Controller
             return response()->json([
                 'conversations' => $conversations->values(),
                 'grouped'       => $grouped,
-                'total'         => $paginated->total(),
+                'total'         => $totalCount,
                 'page'          => $page,
                 'per_page'      => $perPage,
             ], 200, [], JSON_UNESCAPED_UNICODE);
@@ -243,7 +263,7 @@ class ConversationController extends Controller
 
         return response()->json([
             'conversations' => $conversations->values(),
-            'total'         => $paginated->total(),
+            'total'         => $totalCount,
             'page'          => $page,
             'per_page'      => $perPage,
         ], 200, [], JSON_UNESCAPED_UNICODE);

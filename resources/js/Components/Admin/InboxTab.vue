@@ -909,6 +909,17 @@ function openDetail(item, mode) {
     expandedAiLoading.value = false;
   } else if (mode === "gesendet") {
     expandedAiLoading.value = false;
+  } else {
+    // offen / nachfassen without a pre-cached draft. Still prepare an EMPTY
+    // draft immediately so the compose pane is visible and editable from
+    // the first frame — the AI fetch will overlay the draft_body when it
+    // returns. Without this, the user had to wait for the AI call before
+    // they could type a reply, which is a hard no-go for fast handling.
+    expandedAiDraft.value = {
+      body: "",
+      subject: "Re: " + (item.subject || ""),
+      to: item.contact_email || item.from_email || "",
+    };
   }
 
   // Load send accounts
@@ -998,21 +1009,39 @@ function openDetail(item, mode) {
     })
       .then(r => r.json())
       .then(d => {
-        if (d.draft_body) {
+        // Respect user input — if the user already started typing their own
+        // reply while the AI was still running, do NOT clobber it. Only fill
+        // in the AI body when the current draft body is still empty.
+        const current = expandedAiDraft.value || {};
+        const userHasTyped = typeof current.body === 'string' && current.body.trim().length > 0;
+        if (d.draft_body && !userHasTyped) {
           expandedAiDraft.value = {
             body: d.draft_body,
-            subject: d.draft_subject || item.subject || '',
-            to: d.draft_to || item.contact_email || '',
+            subject: d.draft_subject || current.subject || item.subject || '',
+            to: d.draft_to || current.to || item.contact_email || '',
           };
-        } else {
-          expandedAiDraft.value = { body: '', subject: item.subject || '', to: item.contact_email || '' };
+        } else if (!d.draft_body && !userHasTyped) {
+          // Keep the empty initial draft in place so the compose pane
+          // stays visible and editable.
+          expandedAiDraft.value = current.body !== undefined
+            ? current
+            : { body: '', subject: 'Re: ' + (item.subject || ''), to: item.contact_email || '' };
         }
+        // else: user has typed something — keep their draft untouched.
       })
       .catch(() => {
-        expandedAiDraft.value = { body: '', subject: item.subject || '', to: item.contact_email || '' };
+        // Keep whatever the compose pane already holds — either an empty
+        // scaffold from openDetail() or the user's own typing.
+        if (!expandedAiDraft.value) {
+          expandedAiDraft.value = { body: '', subject: 'Re: ' + (item.subject || ''), to: item.contact_email || '' };
+        }
       })
       .finally(() => { expandedAiLoading.value = false; });
     promises.push(aiPromise);
+  } else {
+    // No AI request will fire — flip loading off so the compose pane
+    // stops showing the "generating" state.
+    expandedAiLoading.value = false;
   }
 
   Promise.all(promises);

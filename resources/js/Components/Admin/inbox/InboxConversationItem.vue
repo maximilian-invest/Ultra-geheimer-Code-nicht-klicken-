@@ -152,10 +152,23 @@ const isIntern = computed(() => {
 });
 
 const hasBeenReplied = computed(() => {
-  // Conversations: outbound_count > 0 means we replied
-  if (props.item.outbound_count > 0) return true;
-  // Posteingang emails: has_reply flag
-  if (props.item.has_reply && props.item.direction === "inbound") return true;
+  const item = props.item;
+  // Posteingang: per-mail has_reply flag is correct (set when the reply
+  // was sent, scoped to that specific inbound mail).
+  if (item.direction === "inbound" && item.has_reply) return true;
+
+  // Conversations: the reply indicator must track "is the LATEST inbound
+  // mail answered yet?". A cumulative outbound_count > 0 check is wrong
+  // because the customer can always come back with a new question after
+  // we replied — in that case the indicator must disappear again.
+  // So we compare timestamps: last outbound must be strictly newer than
+  // last inbound.
+  const lastInRaw = item.last_inbound_at;
+  const lastOutRaw = item.last_outbound_at;
+  const lastIn = lastInRaw ? new Date(lastInRaw).getTime() : 0;
+  const lastOut = lastOutRaw ? new Date(lastOutRaw).getTime() : 0;
+  if (lastOut && lastIn && lastOut > lastIn) return true;
+
   return false;
 });
 

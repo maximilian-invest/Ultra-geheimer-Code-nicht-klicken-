@@ -275,7 +275,7 @@ const REPLY_ATTRIBUTION_RE = /(?:^|\n)\s*(?:>\s*)?(On|Am)\b[^\n]{0,240}\b(wrote|
 const BARE_ATTRIBUTION_RE = /\n\s*(?:>\s*)?[^\n<>]{1,120}\s(wrote|schrieb)\s*:\s*(?:\n|$)/i
 const OWN_DOMAIN_RE = /@sr-homes\.at$/i
 
-function splitForwardedMessage(msg) {
+function splitForwardedMessage(msg, threadSenders) {
   const bodyText = String(msg?.body_text || '')
   const htmlText = htmlToText(msg?.body_html || '')
   const body = normalizeForForwardSplit(bodyText || htmlText)
@@ -358,6 +358,20 @@ function splitForwardedMessage(msg) {
     return [msg]
   }
 
+  // Guard 3: if the forwarded block's original sender already appears as
+  // its own message in the thread (e.g. Susanne forwards a Baldinger mail
+  // to Max, but Baldinger's original mail is ALSO a separate row in the
+  // conversation), splitting the forward would just duplicate content we
+  // already show. Collapse to Susanne's wrapper instead.
+  if (forwardedFromEmail && threadSenders && threadSenders.has(forwardedFromEmail)) {
+    if (beforeText) {
+      return [{ ...msg, body_text: beforeText, body_html: null }]
+    }
+    // No wrapper text at all — the whole message is "just a forward".
+    // Drop it entirely since the real mail is already in the thread.
+    return []
+  }
+
   const baseMsg = { ...msg }
   if (beforeText) baseMsg.body_text = beforeText
 
@@ -389,7 +403,17 @@ const groupedMessages = computed(() => {
   const groups = []
   let currentKey = null
 
-  const flattened = props.messages.flatMap((m) => splitForwardedMessage(m))
+  // Collect every from_email that already appears as its own row in the
+  // thread. splitForwardedMessage uses this to avoid synthesising a
+  // duplicate "forwarded" bubble for a sender whose original mail is
+  // already present (Baldinger + Susanne's forward case).
+  const threadSenders = new Set()
+  for (const m of props.messages) {
+    const fe = (m.from_email || '').trim().toLowerCase()
+    if (fe) threadSenders.add(fe)
+  }
+
+  const flattened = props.messages.flatMap((m) => splitForwardedMessage(m, threadSenders))
 
   const sorted = [...flattened].sort((a, b) => {
     const da = new Date(a.email_date || a.activity_date || a.date || 0)

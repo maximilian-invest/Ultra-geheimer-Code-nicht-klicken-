@@ -20,7 +20,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import InboxConversationList from "./inbox/InboxConversationList.vue";
 import InboxChatView from "./inbox/InboxChatView.vue";
-import InboxAiDraft from "./inbox/InboxAiDraft.vue";
 import InboxComposeView from "./inbox/InboxComposeView.vue";
 import InboxMatchView from "./inbox/InboxMatchView.vue";
 
@@ -1238,33 +1237,6 @@ async function markHandled(stakeholder, propertyId) {
   } catch (e) { toast("Fehler: " + e.message); }
 }
 
-function onComposeReply(payload) {
-  // Focus the existing AI draft pane and prefill recipient/subject.
-  if (!expandedAiDraft.value) {
-    expandedAiDraft.value = {
-      body: '',
-      subject: payload.subject || '',
-      to: payload.toEmail || '',
-    };
-  } else {
-    expandedAiDraft.value = {
-      ...expandedAiDraft.value,
-      subject: payload.subject || expandedAiDraft.value.subject,
-      to: payload.toEmail || expandedAiDraft.value.to,
-    };
-  }
-  showEmailFields.value = true;
-}
-
-function onComposeForward(payload) {
-  expandedAiDraft.value = {
-    body: '',
-    subject: payload.subject || '',
-    to: '',
-  };
-  showEmailFields.value = true;
-}
-
 // ============================================================
 // SEND DRAFT (from PrioritiesTab.vue, sheetOpen → detailOpen)
 // ============================================================
@@ -1333,6 +1305,20 @@ async function sendDraft() {
     loadFollowups(followupFilter.value);
   }
 }
+
+// Shared compose state for InboxComposePane. Keeps sendDraft() and
+// friends working unchanged — the new pane just reaches in via inject.
+provide('inboxCompose', {
+    draft: expandedAiDraft,
+    sendAccountId,
+    selectedFiles: expandedSelectedFiles,
+    sendAccounts,
+    loading: expandedAiLoading,
+    regenerate: regenerateAiDraft,
+    improve: improveWithAi,
+    send: sendDraft,
+    toggleFile: toggleFileSelection,
+});
 
 
 // ============================================================
@@ -2643,45 +2629,9 @@ onMounted(() => {
         :mode="selectedMode"
         @close="selectedItem = null; detailOpen = false"
         @save-attachment="onSaveAttachment($event)"
-        @reply="onComposeReply($event)"
-        @reply-all="onComposeReply({ ...$event, replyAll: true })"
-        @forward="onComposeForward($event)"
         @match-draft="handleMatchDraft"
         @match-dismiss="handleMatchDismiss"
       >
-        <template #ai-draft>
-          <InboxAiDraft
-            v-if="expandedAiDraft || expandedAiLoading"
-            :draft="expandedAiDraft"
-            :loading="expandedAiLoading"
-            :mode="selectedMode"
-            :send-accounts="sendAccounts"
-            :send-account-id="sendAccountId"
-            :show-email-fields="showEmailFields"
-            :stage="selectedItem?._stage || 1"
-            :property-id="selectedItem?.property_id || null"
-            @update:draft="expandedAiDraft = $event"
-            @update:send-account-id="sendAccountId = $event"
-            @update:show-email-fields="showEmailFields = $event"
-            @regenerate="regenerateAiDraft"
-            @improve="improveWithAi"
-            @update:tone="setAiDetailLevel($event)"
-            @send="sendDraft"
-            @mark-handled="markHandled(selectedItem?.from_name || selectedItem?.stakeholder, selectedItem?.property_id)"
-            @toggle-attach="showAttachPopup = !showAttachPopup"
-            @toggle-file="toggleFileSelection($event)"
-            :files="expandedFiles"
-            :files-loading="expandedFilesLoading"
-            :selected-file-ids="expandedSelectedFiles"
-            @toggle-calendar="showCalendar = !showCalendar"
-            :sending="emailSending"
-            :can-send="!!(expandedAiDraft?.to && expandedAiDraft?.body)"
-            :attachment-count="expandedSelectedFiles?.length || 0"
-            :show-calendar="showCalendar"
-            :match-property-count="selectedItem?._matchFileIds?.length || 0"
-          />
-        </template>
-
       </InboxChatView>
       <div v-else class="hidden md:flex flex-1 items-center justify-center text-sm text-muted-foreground">
         Konversation auswählen

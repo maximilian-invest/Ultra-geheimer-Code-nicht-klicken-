@@ -999,13 +999,29 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         }
 
         $ids = array_map('intval', $ids);
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $convService = app(\App\Services\ConversationService::class);
 
+        // Resolve affected conversations BEFORE updating so the join predicates
+        // (which use from_email / to_email / stakeholder) still find them.
+        $affectedConvIds = $convService->findConversationIdsForMailIds($ids);
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
         DB::update("UPDATE portal_emails SET is_deleted = 1, deleted_at = NOW() WHERE id IN ({$placeholders})", $ids);
         // NOTE: We no longer re-categorize activities — that destroys analytics.
         // Unbeantwortet filters via portal_emails.is_deleted instead.
 
-        return response()->json(['ok' => true, 'trashed' => count($ids)]);
+        // Re-derive conversation counts/status from what remains live.
+        // A conversation whose last live mail just got trashed is set to
+        // 'erledigt' automatically so it disappears from Anfragen.
+        foreach ($affectedConvIds as $convId) {
+            $convService->rebuildFromEmails($convId);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'trashed' => count($ids),
+            'conversations_updated' => count($affectedConvIds),
+        ]);
     }
 
     /**
@@ -1019,11 +1035,23 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         }
 
         $ids = array_map('intval', $ids);
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $convService = app(\App\Services\ConversationService::class);
 
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
         $count = DB::update("UPDATE portal_emails SET is_deleted = 0, deleted_at = NULL WHERE id IN ({$placeholders})", $ids);
 
-        return response()->json(['ok' => true, 'restored' => $count]);
+        // Rebuild affected conversations so restored inbounds reopen the
+        // thread (flips 'erledigt' back to 'offen' when appropriate).
+        $affectedConvIds = $convService->findConversationIdsForMailIds($ids);
+        foreach ($affectedConvIds as $convId) {
+            $convService->rebuildFromEmails($convId);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'restored' => $count,
+            'conversations_updated' => count($affectedConvIds),
+        ]);
     }
 
     /**

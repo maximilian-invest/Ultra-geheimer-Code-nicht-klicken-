@@ -179,6 +179,8 @@ class ConversationController extends Controller
                 SELECT
                     pe.id, pe.direction,
                     CASE WHEN pe.direction = 'inbound' THEN pe.from_name ELSE pe.to_email END as from_name,
+                    pe.from_email,
+                    pe.to_email,
                     pe.subject,
                     SUBSTRING(pe.body_text, 1, 5000) as body_text,
                     pe.body_html,
@@ -189,7 +191,8 @@ class ConversationController extends Controller
                     a.followup_stage
                 FROM portal_emails pe
                 LEFT JOIN activities a ON a.source_email_id = pe.id
-                WHERE (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
+                WHERE pe.is_deleted = 0
+                  AND (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
                   AND (
                       LOWER(pe.stakeholder) = LOWER(?)
                       OR (
@@ -218,6 +221,8 @@ class ConversationController extends Controller
                 SELECT
                     pe.id, pe.direction,
                     CASE WHEN pe.direction = 'inbound' THEN pe.from_name ELSE pe.to_email END as from_name,
+                    pe.from_email,
+                    pe.to_email,
                     pe.subject,
                     SUBSTRING(pe.body_text, 1, 5000) as body_text,
                     pe.body_html,
@@ -228,7 +233,8 @@ class ConversationController extends Controller
                     a.followup_stage
                 FROM portal_emails pe
                 LEFT JOIN activities a ON a.source_email_id = pe.id
-                WHERE (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
+                WHERE pe.is_deleted = 0
+                  AND (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
                   AND (
                       LOWER(pe.from_email) = LOWER(?)
                       OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')

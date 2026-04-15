@@ -175,13 +175,27 @@ class ConversationService
     }
 
     /**
-     * Mark a conversation as done.
+     * Mark a conversation as done. Also trashes every portal_email that
+     * belongs to this conversation so the thread disappears consistently
+     * from Posteingang (previously the two views were out of sync — clicking
+     * "Erledigt" in Anfragen left the raw mails sitting in Posteingang, and
+     * vice versa).
      */
     public function markDone(Conversation $conv): void
     {
         $conv->status = 'erledigt';
         $conv->draft_body = null;
+        $conv->draft_subject = null;
+        $conv->draft_to = null;
+        $conv->draft_generated_at = null;
         $conv->save();
+
+        // Sync the underlying mails to Papierkorb.
+        $mailIds = $this->mailIdsForConversation($conv);
+        if (!empty($mailIds)) {
+            $placeholders = implode(',', array_fill(0, count($mailIds), '?'));
+            DB::update("UPDATE portal_emails SET is_deleted = 1, deleted_at = NOW() WHERE id IN ({$placeholders}) AND is_deleted = 0", $mailIds);
+        }
     }
 
     /**
@@ -364,6 +378,170 @@ class ConversationService
         }
 
         return 'direkt';
+    }
+
+    /**
+     * Return every portal_email id that belongs to a given conversation,
+     * using the same matching rules as conv_detail (contact_email on either
+     * side, stakeholder fallback, same property scope).
+     *
+     * @return int[]
+     */
+    public function mailIdsForConversation(Conversation $conv): array
+    {
+        $contactEmail = strtolower((string) $conv->contact_email);
+        $stakeholder = (string) ($conv->stakeholder ?? '');
+        $propertyId = $conv->property_id;
+
+        $rows = DB::select("
+            SELECT pe.id
+            FROM portal_emails pe
+            WHERE (pe.property_id = ? OR (pe.property_id IS NULL AND ? IS NULL))
+              AND (
+                  LOWER(pe.from_email) = LOWER(?)
+                  OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')
+                  OR LOWER(pe.stakeholder) = LOWER(?)
+                  OR pe.id = ?
+              )
+        ", [
+            $propertyId,
+            $propertyId,
+            $contactEmail,
+            $contactEmail,
+            $stakeholder,
+            $conv->last_email_id,
+        ]);
+
+        return array_values(array_unique(array_map(fn($r) => (int) $r->id, $rows)));
+    }
+
+    /**
+     * Rebuild a conversation's denormalised counters and status from the
+     * current set of NON-trashed portal_emails. Called after batch trash /
+     * restore actions so the Anfragen list reflects Papierkorb state.
+     *
+     * When all linked mails are trashed the conversation is forced into
+     * 'erledigt'. When restoring revives mails, an 'erledigt' conversation
+     * is flipped back to 'offen'.
+     */
+    public function rebuildFromEmails(int $convId): void
+    {
+        $conv = Conversation::find($convId);
+        if (!$conv) return;
+
+        $contactEmail = strtolower((string) $conv->contact_email);
+        $stakeholder = (string) ($conv->stakeholder ?? '');
+
+        $rows = DB::select("
+            SELECT id, direction, email_date
+            FROM portal_emails
+            WHERE is_deleted = 0
+              AND (property_id = ? OR (property_id IS NULL AND ? IS NULL))
+              AND (
+                  LOWER(from_email) = LOWER(?)
+                  OR LOWER(to_email) LIKE CONCAT('%', LOWER(?), '%')
+                  OR LOWER(stakeholder) = LOWER(?)
+              )
+            ORDER BY email_date ASC, id ASC
+        ", [
+            $conv->property_id,
+            $conv->property_id,
+            $contactEmail,
+            $contactEmail,
+            $stakeholder,
+        ]);
+
+        $inbound = 0;
+        $outbound = 0;
+        $lastIn = null;
+        $lastOut = null;
+        $lastEmailId = null;
+
+        foreach ($rows as $r) {
+            if (strtolower((string) $r->direction) === 'inbound') {
+                $inbound++;
+                $lastIn = $r->email_date;
+            } else {
+                $outbound++;
+                $lastOut = $r->email_date;
+            }
+            $lastEmailId = (int) $r->id;
+        }
+
+        if ($inbound === 0 && $outbound === 0) {
+            // Everything trashed — force erledigt and clear drafts so the
+            // conversation disappears from the active listings.
+            $conv->status = 'erledigt';
+            $conv->inbound_count = 0;
+            $conv->outbound_count = 0;
+            $conv->last_inbound_at = null;
+            $conv->last_outbound_at = null;
+            $conv->last_email_id = null;
+            $conv->draft_body = null;
+            $conv->draft_subject = null;
+            $conv->draft_to = null;
+            $conv->save();
+            return;
+        }
+
+        // Still has live mails. If a previously 'erledigt' conv now has
+        // inbound mails newer than any outbound, reopen it (typical case:
+        // user restored a trashed customer mail).
+        $conv->inbound_count = $inbound;
+        $conv->outbound_count = $outbound;
+        $conv->last_inbound_at = $lastIn;
+        $conv->last_outbound_at = $lastOut;
+        $conv->last_email_id = $lastEmailId;
+        $conv->last_activity_at = $lastOut && $lastIn
+            ? max($lastOut, $lastIn)
+            : ($lastOut ?: $lastIn);
+
+        if ($conv->status === 'erledigt' && $inbound > 0) {
+            if (!$lastOut || ($lastIn && $lastIn > $lastOut)) {
+                $conv->status = 'offen';
+            }
+        }
+
+        $conv->save();
+    }
+
+    /**
+     * Return the conversation ids that reference any of the given mail ids.
+     * Used by EmailController::trash / restore to know which conversations
+     * need rebuildFromEmails() after a batch trash.
+     *
+     * @param int[] $mailIds
+     * @return int[]
+     */
+    public function findConversationIdsForMailIds(array $mailIds): array
+    {
+        if (empty($mailIds)) return [];
+        $placeholders = implode(',', array_fill(0, count($mailIds), '?'));
+        $mails = DB::select("SELECT id, from_email, to_email, property_id, stakeholder FROM portal_emails WHERE id IN ({$placeholders})", $mailIds);
+
+        $convIds = [];
+        foreach ($mails as $m) {
+            $rows = DB::select("
+                SELECT id FROM conversations
+                WHERE (property_id = ? OR (property_id IS NULL AND ? IS NULL))
+                  AND (
+                      LOWER(contact_email) = LOWER(?)
+                      OR LOWER(contact_email) = LOWER(?)
+                      OR LOWER(stakeholder) = ?
+                  )
+            ", [
+                $m->property_id,
+                $m->property_id,
+                $m->from_email ?? '',
+                $m->to_email ?? '',
+                $m->stakeholder ?? '',
+            ]);
+            foreach ($rows as $r) $convIds[(int) $r->id] = true;
+            // Also any conversation whose last_email_id was exactly this mail
+            $lastHit = DB::select("SELECT id FROM conversations WHERE last_email_id = ?", [(int) $m->id]);
+            foreach ($lastHit as $r) $convIds[(int) $r->id] = true;
+        }
+        return array_keys($convIds);
     }
 
     /**

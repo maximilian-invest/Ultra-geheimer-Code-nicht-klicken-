@@ -5,7 +5,7 @@ import {
   Mail, Clock, Send, CheckCircle, X, ChevronDown, ChevronUp, CalendarDays,
   Paperclip, Loader2, Search, Sparkles, ArrowUp, ArrowDown,
   PenSquare, History, FileEdit, Trash2, Inbox, LayoutTemplate, Plus, Pencil,
-  ChevronLeft, ChevronRight, Reply, Save, MailQuestion, Settings2
+  ChevronLeft, ChevronRight, Reply, Save, MailQuestion, Settings2, RefreshCw
 } from "lucide-vue-next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -224,6 +224,8 @@ const selectedBrokerLabel = computed(() => {
   const b = brokerList.value.find((x) => String(x.id) === current);
   return b ? brokerDisplayName(b) : '';
 });
+
+const inboxRefreshing = ref(false);
 
 // ============================================================
 // COMMS STATE (from CommsTab.vue)
@@ -1092,6 +1094,121 @@ function openDetail(item, mode) {
   }
 
   Promise.all(promises);
+}
+
+async function reloadExpandedFiles(item) {
+  if (!item) return;
+  expandedFilesLoading.value = true;
+  try {
+    if (item.property_id) {
+      const r = await fetch(API.value + "&action=get_property_files&property_id=" + item.property_id);
+      const d = await r.json();
+      expandedFiles.value = (d.files || []).map((f) => (f.source === "global_files" ? { ...f, _matchProperty: "Allgemeine Dokumente" } : f));
+    } else {
+      const r = await fetch(API.value + "&action=list_global_files");
+      const d = await r.json();
+      expandedFiles.value = (d.files || []).map((f) => ({ ...f, id: "global_" + f.id, _matchProperty: "Allgemeine Dokumente" }));
+    }
+  } catch {
+    /* keep existing file list */
+  } finally {
+    expandedFilesLoading.value = false;
+  }
+}
+
+/** Reload thread + attachments only (does not reset draft or re-run KI). */
+async function reloadOpenDetailThread() {
+  if (!detailOpen.value || !selectedItem.value || composing.value) return;
+  const item = selectedItem.value;
+  const mode = sheetMode.value;
+  expandedLoading.value = true;
+  try {
+    const isEmailHistory = mode === "posteingang" || mode === "gesendet";
+    if (isEmailHistory) {
+      const r = await fetch(API.value + "&action=email_context&email_id=" + item.id);
+      const d = await r.json();
+      const convId = d.conversation_id;
+      if (convId && selectedItem.value) {
+        selectedItem.value._conv_id = convId;
+      }
+      let resolved = false;
+      if (convId) {
+        try {
+          const detailR = await fetch(API.value + "&action=conv_detail&id=" + convId);
+          const detailD = await detailR.json();
+          if (detailD.messages?.length) {
+            expandedDetail.value = { email: detailD.conversation || d.email, thread: detailD.messages || [] };
+            resolved = true;
+          }
+        } catch {
+          /* fall through */
+        }
+      }
+      if (!resolved && d.email?.property_id && (d.email?.from_email || d.email?.to_email || d.email?.stakeholder)) {
+        try {
+          const stakeholder = d.email.stakeholder || d.email.from_name || "";
+          const convListR = await fetch(
+            API.value + "&action=conv_list&search=" + encodeURIComponent(stakeholder) + "&property_id=" + d.email.property_id + "&per_page=1"
+          );
+          const convListD = await convListR.json();
+          const conv = (convListD.conversations || [])[0];
+          if (conv) {
+            const detailR = await fetch(API.value + "&action=conv_detail&id=" + conv.id);
+            const detailD = await detailR.json();
+            if (detailD.messages?.length) {
+              expandedDetail.value = { email: detailD.conversation || d.email, thread: detailD.messages || [] };
+              resolved = true;
+            }
+          }
+        } catch {
+          /* fall through */
+        }
+      }
+      if (!resolved) {
+        expandedDetail.value = { email: d.email || null, thread: d.thread || [] };
+      }
+    } else {
+      const r = await fetch(API.value + "&action=conv_detail&id=" + item.id);
+      const d = await r.json();
+      expandedDetail.value = { email: d.conversation || null, thread: d.messages || [] };
+    }
+    await reloadExpandedFiles(item);
+  } catch (e) {
+    toast("Aktualisieren fehlgeschlagen: " + (e.message || "Unbekannt"));
+  } finally {
+    expandedLoading.value = false;
+  }
+}
+
+async function refreshInbox() {
+  if (inboxRefreshing.value) return;
+  inboxRefreshing.value = true;
+  try {
+    refreshCounts();
+    const tab = activeSubtab.value;
+    if (tab === "offen") {
+      await Promise.all([loadUnanswered(unansweredFilter.value), loadAutoReplyLogs()]);
+    } else if (tab === "nachfassen") {
+      await loadFollowups(followupFilter.value);
+    } else if (tab === "posteingang" || tab === "gesendet") {
+      await loadEmailHistory();
+    } else if (tab === "entwuerfe") {
+      await loadDrafts();
+    } else if (tab === "templates") {
+      await loadTemplates();
+    } else if (tab === "papierkorb") {
+      await loadTrash();
+    } else if (tab === "matches") {
+      await loadMatchesTab();
+    } else if (tab === "compose") {
+      await loadSignature();
+    }
+    if (detailOpen.value && selectedItem.value && !composing.value) {
+      await reloadOpenDetailThread();
+    }
+  } finally {
+    inboxRefreshing.value = false;
+  }
 }
 
 function setAiDetailLevel(level) {
@@ -2289,7 +2406,8 @@ onMounted(() => {
         <div class="px-4 pt-3 pb-2 flex-shrink-0">
 
           <!-- Primary Pills: Anfragen / Nachfassen / Alle -->
-          <div class="flex gap-0.5 p-[3px] bg-[#f4f4f5] rounded-lg mb-2">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="flex flex-1 min-w-0 gap-0.5 p-[3px] bg-[#f4f4f5] rounded-lg">
             <button
               @click="activeSubtab = 'offen'"
               class="flex-1 flex items-center justify-center gap-1.5 px-3 py-[5px] text-[12px] rounded-md transition-all"
@@ -2331,6 +2449,19 @@ onMounted(() => {
                 class="text-[9px] font-bold px-1.5 py-0 rounded-md bg-violet-100 text-violet-700"
               >{{ matchItems.length }}</span>
             </button>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              class="h-8 shrink-0 px-2.5 text-[11px] gap-1 border-zinc-200 text-foreground font-medium"
+              :disabled="inboxRefreshing"
+              title="Listen und geöffnete Konversation neu laden"
+              @click="refreshInbox"
+            >
+              <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': inboxRefreshing }" />
+              <span class="hidden sm:inline">Aktualisieren</span>
+            </Button>
           </div>
 
           <!-- Secondary tabs (only visible when "Alle" is active) -->

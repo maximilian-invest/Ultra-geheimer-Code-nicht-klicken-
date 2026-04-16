@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from "vue";
-import { Search, Loader2, Plus } from "lucide-vue-next";
+import { Search, Loader2, Plus, RefreshCw } from "lucide-vue-next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,9 +16,12 @@ const props = defineProps({
   properties: { type: Array, default: () => [] },
   emptyMessage: { type: String, default: "Keine Konversationen" },
   groupedSections: { type: Array, default: () => [] },
+  /** Zeigt Aktualisieren neben dem Objekt-Filter (Inbox-Listen neu laden). */
+  showToolbarRefresh: { type: Boolean, default: true },
+  toolbarRefreshing: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["select", "update:searchQuery", "update:objectFilter", "compose", "delete", "batchDone", "batchTrash"]);
+const emit = defineEmits(["select", "update:searchQuery", "update:objectFilter", "compose", "delete", "batchDone", "batchTrash", "toolbarRefresh"]);
 
 const selectedIds = ref(new Set());
 const selectMode = ref(false);
@@ -86,6 +89,19 @@ function toggleSection(label) {
           </SelectItem>
         </SelectContent>
       </Select>
+
+      <Button
+        v-if="showToolbarRefresh"
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        class="h-8 w-8 shrink-0 border-zinc-200 text-foreground"
+        :disabled="toolbarRefreshing"
+        title="Aktualisieren — Listen und geöffnete Konversation neu laden"
+        @click="emit('toolbarRefresh')"
+      >
+        <RefreshCw class="h-3.5 w-3.5" :class="{ 'animate-spin': toolbarRefreshing }" />
+      </Button>
 
       <!-- Select Mode Toggle -->
       <Button

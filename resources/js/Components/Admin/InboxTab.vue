@@ -5,7 +5,7 @@ import {
   Mail, Clock, Send, CheckCircle, X, ChevronDown, ChevronUp, CalendarDays,
   Paperclip, Loader2, Search, Sparkles, ArrowUp, ArrowDown,
   PenSquare, History, FileEdit, Trash2, Inbox, LayoutTemplate, Plus, Pencil,
-  ChevronLeft, ChevronRight, Reply, Save, MailQuestion, Settings2, RefreshCw
+  ChevronLeft, ChevronRight, Reply, Save, MailQuestion, Settings2
 } from "lucide-vue-next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -2405,9 +2405,8 @@ onMounted(() => {
         <!-- Panel Header with Pill Tabs -->
         <div class="px-4 pt-3 pb-2 flex-shrink-0">
 
-          <!-- Primary Pills: Anfragen / Nachfassen / Alle (+ refresh: eigene Zeile unter sm, sonst rechts — verhindert Überlappung in der 400px-Spalte) -->
-          <div class="flex flex-col gap-2 mb-2 sm:flex-row sm:items-center sm:gap-1.5">
-            <div class="flex min-w-0 flex-1 gap-0.5 p-[3px] bg-[#f4f4f5] rounded-lg">
+          <!-- Primary Pills: Anfragen / Nachfassen / Alle -->
+          <div class="mb-2 flex gap-0.5 p-[3px] bg-[#f4f4f5] rounded-lg">
             <button
               @click="activeSubtab = 'offen'"
               class="flex min-w-0 flex-1 items-center justify-center gap-1 px-1.5 py-[5px] text-[11px] rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
@@ -2449,18 +2448,6 @@ onMounted(() => {
                 class="text-[9px] font-bold px-1.5 py-0 rounded-md bg-violet-100 text-violet-700"
               >{{ matchItems.length }}</span>
             </button>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              class="shrink-0 border-zinc-200 text-foreground self-end sm:self-auto"
-              :disabled="inboxRefreshing"
-              title="Aktualisieren — Listen und geöffnete Konversation neu laden"
-              @click="refreshInbox"
-            >
-              <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': inboxRefreshing }" />
-            </Button>
           </div>
 
           <!-- Secondary tabs (only visible when "Alle" is active) -->
@@ -2572,10 +2559,12 @@ onMounted(() => {
           :search-query="searchQuery"
           :object-filter="objectFilter"
           :properties="availableProperties"
+          :toolbar-refreshing="inboxRefreshing"
           empty-message="Keine offenen Konversationen"
           @select="(item) => openDetail(item, 'offen')"
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
+          @toolbar-refresh="refreshInbox"
           @compose="startCompose()" @delete="markConvDone($event.id)"
         />
 
@@ -2688,10 +2677,12 @@ onMounted(() => {
           :object-filter="objectFilter"
           :properties="availableProperties"
           :grouped-sections="nachfassenSections"
+          :toolbar-refreshing="inboxRefreshing"
           empty-message="Keine Nachfass-Konversationen"
           @select="(item) => openDetail(item, 'nachfassen')"
           @update:search-query="searchQuery = $event"
           @update:object-filter="objectFilter = $event"
+          @toolbar-refresh="refreshInbox"
           @compose="startCompose()" @delete="markConvDone($event.id)"
           @batch-done="batchMarkDone($event)"
         />
@@ -2706,10 +2697,12 @@ onMounted(() => {
           :search-query="searchQuery"
           :object-filter="objectFilter"
           :properties="properties || []"
+          :toolbar-refreshing="inboxRefreshing"
           empty-message="Keine E-Mails im Posteingang"
           @select="(item) => openDetail(item, 'posteingang')"
           @update:search-query="searchQuery = $event; ehSearch = $event; ehPage = 1; loadEmailHistory()"
           @update:object-filter="objectFilter = $event"
+          @toolbar-refresh="refreshInbox"
           @compose="startCompose()" @delete="trashEmail($event.id)"
           @batch-trash="batchTrash($event)"
         />
@@ -2729,10 +2722,12 @@ onMounted(() => {
           :search-query="searchQuery"
           :object-filter="objectFilter"
           :properties="properties || []"
+          :toolbar-refreshing="inboxRefreshing"
           empty-message="Keine gesendeten E-Mails"
           @select="(item) => openDetail(item, 'gesendet')"
           @update:search-query="searchQuery = $event; ehSearch = $event; ehPage = 1; loadEmailHistory()"
           @update:object-filter="objectFilter = $event"
+          @toolbar-refresh="refreshInbox"
           @compose="startCompose()" @delete="trashEmail($event.id)"
         />
 
@@ -2751,9 +2746,11 @@ onMounted(() => {
           :search-query="searchQuery"
           :object-filter="'all'"
           :properties="[]"
+          :toolbar-refreshing="inboxRefreshing"
           empty-message="Papierkorb ist leer"
           @select="(item) => openDetail(item, 'papierkorb')"
           @update:search-query="searchQuery = $event"
+          @toolbar-refresh="refreshInbox"
           @compose="startCompose()"
         />
 
@@ -2767,9 +2764,11 @@ onMounted(() => {
           :search-query="searchQuery"
           :object-filter="'all'"
           :properties="[]"
+          :toolbar-refreshing="inboxRefreshing"
           empty-message="Keine Entwuerfe"
           @select="(item) => loadDraftIntoCompose(item)"
           @update:search-query="searchQuery = $event"
+          @toolbar-refresh="refreshInbox"
           @compose="startCompose()" @delete="trashEmail($event.id)"
         />
 

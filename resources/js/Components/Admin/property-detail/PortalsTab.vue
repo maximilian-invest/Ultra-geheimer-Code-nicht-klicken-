@@ -328,7 +328,11 @@ onMounted(() => {
         <div class="text-sm font-medium">SR-Homes Website</div>
         <div class="text-xs text-muted-foreground">Auf sr-homes.at veröffentlichen</div>
       </div>
-      <Switch :checked="srHomesEnabled" @update:checked="toggleSrHomes" />
+      <Switch
+        :checked="srHomesEnabled"
+        class="scale-110 data-[state=checked]:bg-zinc-900 data-[state=unchecked]:bg-zinc-300"
+        @update:checked="toggleSrHomes"
+      />
     </div>
 
     <!-- Immoji Section -->

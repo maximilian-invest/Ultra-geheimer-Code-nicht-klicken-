@@ -183,6 +183,11 @@ async function deleteProperty(prop) {
     deleteLoading.value = false;
 }
 
+function requestDeleteProperty(prop, event = null) {
+    event?.stopPropagation?.();
+    deleteProperty(prop);
+}
+
 const kbOpen = ref(false);
 const kbPropertyId = ref(null);
 const kbPropertyLabel = ref("");
@@ -1853,7 +1858,15 @@ async function toggleWebsiteDownload(f) {
                   <span v-if="getPortalIcons(prop).length > 3" class="text-[10px] ml-0.5" style="color:hsl(240 3.8% 46.1%)">+{{ getPortalIcons(prop).length - 3 }}</span>
                 </div>
               </TableCell>
-              <TableCell></TableCell>
+              <TableCell class="text-right">
+                <button
+                  @click="requestDeleteProperty(prop, $event)"
+                  class="inline-flex items-center justify-center w-8 h-8 rounded-md text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                  title="Objekt löschen"
+                >
+                  <Trash2 class="w-4 h-4" />
+                </button>
+              </TableCell>
             </TableRow>
           </template>
         </TableBody>
@@ -1873,6 +1886,13 @@ async function toggleWebsiteDownload(f) {
             <img v-if="prop.thumbnail_url" :src="prop.thumbnail_url" class="w-full h-full object-cover" loading="lazy" />
             <span v-else style="font-size:22px;color:hsl(240 3.8% 46.1%)">⌂</span>
             <span class="absolute top-2 left-2 text-[10px] font-medium px-1.5 py-0.5 rounded" style="background:rgba(255,255,255,0.92);backdrop-filter:blur(4px)">{{ getCategoryLabel(prop.property_category) }}</span>
+            <button
+              @click="requestDeleteProperty(prop, $event)"
+              class="absolute top-2 right-2 inline-flex items-center justify-center w-8 h-8 rounded-md bg-white/90 text-red-600 hover:bg-red-50 hover:text-red-700 shadow-sm transition-colors"
+              title="Objekt löschen"
+            >
+              <Trash2 class="w-4 h-4" />
+            </button>
             <div class="absolute bottom-2 right-2 flex gap-0.5">
               <template v-for="(icon, i) in getPortalIcons(prop).slice(0, 3)" :key="i">
                 <div class="w-[18px] h-[18px] rounded flex items-center justify-center text-[7px] font-bold text-white" :style="'background:' + icon.color">{{ icon.key }}</div>
@@ -1913,6 +1933,13 @@ async function toggleWebsiteDownload(f) {
           </div>
           <div class="text-right flex-shrink-0">
             <div class="text-[13px] font-bold tabular-nums">{{ formatPriceMobile(prop.purchase_price || prop.price, prop.property_category === 'newbuild') }}</div>
+            <button
+              @click="requestDeleteProperty(prop, $event)"
+              class="mt-1 inline-flex items-center justify-center w-7 h-7 rounded-md text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+              title="Objekt löschen"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </template>
@@ -2724,6 +2751,7 @@ async function toggleWebsiteDownload(f) {
     <div v-if="deleteConfirm" class="fixed inset-0 z-[300] flex items-center justify-center bg-black/50" @click.self="deleteConfirm = null">
         <div class="bg-[white] rounded-xl shadow-xl p-6 max-w-md w-full mx-4 border border-[#e4e4e7]">
             <h3 class="text-base font-semibold text-red-600 mb-3">Objekt löschen?</h3>
+            <p class="text-sm text-[#71717a] mb-2">Alle Aktivitäten, Dateien und verknüpften Daten zu diesem Objekt werden unwiderruflich gelöscht.</p>
             <p class="text-sm text-[#71717a] mb-4">{{ deleteConfirm.message }}</p>
             <div class="flex items-center gap-2">
                 <button @click="deleteProperty({ id: deleteConfirm.id })" :disabled="deleteLoading" class="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-all duration-200 active:scale-[0.97]" style="background: #ef4444; color: white;">

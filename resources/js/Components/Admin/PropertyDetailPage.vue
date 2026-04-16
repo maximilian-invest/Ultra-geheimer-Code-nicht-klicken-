@@ -4,6 +4,7 @@ import { Pause, Play, ArrowLeft, CircleOff, Power, Trash2 } from "lucide-vue-nex
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import OverviewTab from '@/Components/Admin/property-detail/OverviewTab.vue';
 import EditTab from '@/Components/Admin/property-detail/EditTab.vue';
@@ -38,7 +39,9 @@ const toast = inject("toast");
 const switchTabFn = inject("switchTab", null);
 
 const activeTab = ref(localStorage.getItem("sr-property-tab") || "uebersicht");
-watch(activeTab, (v) => localStorage.setItem("sr-property-tab", v));
+const tabChangeGuardActive = ref(false);
+const pendingTabChange = ref(null);
+const showUnsavedChangesDialog = ref(false);
 
 const isNewbuild = computed(() => props.property?.property_category === 'newbuild');
 
@@ -172,6 +175,55 @@ function handleDiscard() {
   isDirty.value = false;
 }
 
+async function confirmSaveAndSwitch() {
+  const targetTab = pendingTabChange.value;
+  showUnsavedChangesDialog.value = false;
+  pendingTabChange.value = null;
+  await handleSave();
+  if (targetTab) {
+    tabChangeGuardActive.value = true;
+    activeTab.value = targetTab;
+    tabChangeGuardActive.value = false;
+    localStorage.setItem("sr-property-tab", targetTab);
+  }
+}
+
+function confirmDiscardAndSwitch() {
+  const targetTab = pendingTabChange.value;
+  showUnsavedChangesDialog.value = false;
+  pendingTabChange.value = null;
+  handleDiscard();
+  if (targetTab) {
+    tabChangeGuardActive.value = true;
+    activeTab.value = targetTab;
+    tabChangeGuardActive.value = false;
+    localStorage.setItem("sr-property-tab", targetTab);
+  }
+}
+
+function cancelTabChange() {
+  showUnsavedChangesDialog.value = false;
+  pendingTabChange.value = null;
+}
+
+watch(activeTab, async (newTab, oldTab) => {
+  if (tabChangeGuardActive.value) {
+    localStorage.setItem("sr-property-tab", newTab);
+    return;
+  }
+
+  if (oldTab === 'bearbeiten' && newTab !== oldTab && isDirty.value) {
+    tabChangeGuardActive.value = true;
+    pendingTabChange.value = newTab;
+    activeTab.value = oldTab;
+    tabChangeGuardActive.value = false;
+    showUnsavedChangesDialog.value = true;
+    return;
+  }
+
+  localStorage.setItem("sr-property-tab", newTab);
+});
+
 const showExposeParser = ref(false);
 const creatingFromType = ref(false);
 
@@ -223,6 +275,22 @@ function handleExposeParsed(result) {
 
 <template>
   <div class="flex flex-col h-full">
+    <Dialog :open="showUnsavedChangesDialog" @update:open="(open) => { if (!open) cancelTabChange(); }">
+      <DialogContent class="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Ungespeicherte Änderungen</DialogTitle>
+          <DialogDescription>
+            Du hast im Tab `Bearbeiten` noch nicht gespeicherte Änderungen. Möchtest du sie speichern, bevor du den Tab wechselst?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter class="gap-2 sm:justify-end">
+          <Button variant="outline" @click="cancelTabChange">Abbrechen</Button>
+          <Button variant="outline" @click="confirmDiscardAndSwitch">Verwerfen</Button>
+          <Button class="bg-zinc-900 text-white hover:bg-zinc-800" @click="confirmSaveAndSwitch">Speichern</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     <template v-if="showTypeSelector">
       <div class="px-6 py-3 flex items-center justify-between shrink-0" style="border-bottom:1px solid hsl(240 5.9% 90%)">
         <div>

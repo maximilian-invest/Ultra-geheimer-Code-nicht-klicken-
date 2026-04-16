@@ -26,7 +26,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <AccordionSection title="Preise" color="#ea580c" :default-open="true">
         <div>
           <label :class="labelCls">Kaufpreis / Miete</label>
-          <Input v-model="form.purchase_price" type="number" :disabled="isNewbuild" :class="inputCls" />
+          <Input v-model="form.purchase_price" type="number" :class="inputCls" />
         </div>
         <div>
           <label :class="labelCls">Preis/m²</label>

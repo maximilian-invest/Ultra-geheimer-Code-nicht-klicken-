@@ -149,9 +149,17 @@ const typeCategories = [
 
 const isNeubauprojekt = computed(() => {
   if (!property.value) return false;
+  if (String(property.value.property_category || "").toLowerCase() === "newbuild") return true;
   const t = (property.value.object_type || property.value.type || "").toLowerCase();
   return t === "neubauprojekt" || t === "neubau";
 });
+
+function enforceNeubauObjectType() {
+  if (!property.value) return;
+  if (String(property.value.property_category || "").toLowerCase() !== "newbuild") return;
+  property.value.object_type = "Neubauprojekt";
+  property.value.type = "Neubauprojekt";
+}
 
 // Dynamic wizard steps
 const isChildProperty = computed(() => !!property.value?.parent_id);
@@ -321,6 +329,8 @@ function selectType(cat) {
   property.value.type = cat.types[0];
   if (cat.key === "neubauprojekt") {
     property.value.property_category = "newbuild";
+    property.value.object_type = "Neubauprojekt";
+    property.value.type = "Neubauprojekt";
   } else if (cat.key === "haus") {
     property.value.property_category = "house";
   } else if (cat.key === "wohnung") {
@@ -331,6 +341,14 @@ function selectType(cat) {
   showTypeSelect.value = false;
   wizardStep.value = 0;
 }
+
+watch(() => property.value?.property_category, () => {
+  enforceNeubauObjectType();
+});
+
+watch(() => property.value?.object_type, () => {
+  enforceNeubauObjectType();
+});
 
 async function loadProperty(propId) {
   loading.value = true;
@@ -976,7 +994,12 @@ function formatLastExport(ts) {
                     <div class="grid grid-cols-2 gap-4">
                       <div>
                         <label class="block text-xs font-medium text-zinc-500 mb-1.5">Objekttyp</label>
-                        <select v-model="property.object_type" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all">
+                        <select
+                          v-model="property.object_type"
+                          :disabled="String(property.property_category || '').toLowerCase() === 'newbuild'"
+                          :class="String(property.property_category || '').toLowerCase() === 'newbuild' ? 'bg-zinc-100 cursor-not-allowed' : 'bg-zinc-50'"
+                          class="w-full px-3 py-2.5 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all"
+                        >
                           <option v-for="t in propertyTypes" :key="t" :value="t">{{ t }}</option>
                         </select>
                       </div>

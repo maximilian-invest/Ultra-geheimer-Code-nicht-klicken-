@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 const props = defineProps({
   defaultValue: { type: null, required: false },
   modelValue: { type: null, required: false },
+  checked: { type: null, required: false },
   disabled: { type: Boolean, required: false },
   id: { type: String, required: false },
   value: { type: String, required: false },
@@ -22,16 +23,20 @@ const props = defineProps({
   },
 });
 
-const emits = defineEmits(["update:modelValue"]);
+const emits = defineEmits(["update:modelValue", "update:checked"]);
 
-const delegatedProps = reactiveOmit(props, "class");
+const delegatedProps = reactiveOmit(props, "class", "checked");
 
-const forwarded = useForwardPropsEmits(delegatedProps, emits);
+const forwarded = useForwardPropsEmits({
+  ...delegatedProps,
+  modelValue: props.modelValue ?? props.checked,
+}, emits);
 </script>
 
 <template>
   <SwitchRoot
     v-bind="forwarded"
+    @update:modelValue="(value) => { emits('update:modelValue', value); emits('update:checked', value); }"
     :class="
       cn(
         'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input',

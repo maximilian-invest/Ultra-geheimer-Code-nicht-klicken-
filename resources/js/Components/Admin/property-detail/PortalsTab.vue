@@ -330,7 +330,7 @@ onMounted(() => {
       </div>
       <Switch
         :checked="srHomesEnabled"
-        class="scale-110 data-[state=checked]:bg-zinc-900 data-[state=unchecked]:bg-zinc-300"
+        class="scale-110 border border-zinc-400 data-[state=checked]:bg-zinc-900 data-[state=unchecked]:bg-white [&>span]:bg-zinc-700 [&>span]:shadow-md data-[state=checked]:[&>span]:bg-white"
         @update:checked="toggleSrHomes"
       />
     </div>

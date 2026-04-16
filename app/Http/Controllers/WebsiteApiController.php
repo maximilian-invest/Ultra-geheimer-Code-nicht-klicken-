@@ -22,15 +22,12 @@ class WebsiteApiController extends Controller
         $data = Cache::remember('website_properties', 120, function () {
             $properties = DB::table('properties')
                 ->where(function($q) {
-                    // Show if sr-homes portal toggle is enabled
-                    $q->whereExists(function($sub) {
-                        $sub->select(DB::raw(1))
-                            ->from('property_portals')
-                            ->whereColumn('property_portals.property_id', 'properties.id')
-                            ->where('property_portals.portal_name', 'sr-homes')
-                            ->where('property_portals.sync_enabled', 1);
+                    // Active website listings: only explicitly released objects.
+                    $q->where(function($sub) {
+                        $sub->where('show_on_website', 1)
+                            ->whereNotIn('realty_status', ['verkauft', 'inaktiv']);
                     })
-                    // Also show sold properties (for Referenzen page)
+                    // Sold objects are still exposed for the Referenzen page.
                     ->orWhere('realty_status', 'verkauft');
                 })
                 ->select([
@@ -307,13 +304,11 @@ class WebsiteApiController extends Controller
         $p = DB::table('properties')
             ->where('id', $id)
             ->where(function($q) {
-                $q->whereExists(function($sub) {
-                    $sub->select(DB::raw(1))
-                        ->from('property_portals')
-                        ->whereColumn('property_portals.property_id', 'properties.id')
-                        ->where('property_portals.portal_name', 'sr-homes')
-                        ->where('property_portals.sync_enabled', 1);
-                });
+                $q->where(function($sub) {
+                    $sub->where('show_on_website', 1)
+                        ->whereNotIn('realty_status', ['verkauft', 'inaktiv']);
+                })
+                ->orWhere('realty_status', 'verkauft');
             })
             ->first();
 

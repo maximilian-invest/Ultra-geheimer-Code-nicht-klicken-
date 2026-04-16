@@ -227,6 +227,8 @@ watch(() => form.object_type, (newType) => {
     form.property_category = 'land';
   } else if (['neubauprojekt', 'neubau'].includes(t)) {
     form.property_category = 'newbuild';
+  } else if (['gewerbe', 'buero', 'anlage', 'sonstiges'].includes(t)) {
+    form.property_category = 'gewerbe';
   }
 });
 
@@ -510,17 +512,20 @@ defineExpose({ save, discard });
     <!-- Subtab bar — flush under main tabs -->
     <div class="-mx-6 mb-6 sticky top-0 z-10 bg-white">
       <TabsList class="flex w-full justify-start bg-gradient-to-b from-zinc-50 to-zinc-100/50 border-b border-zinc-200 rounded-none h-auto p-0 px-6 gap-0">
-        <TabsTrigger value="allgemeines" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Allgemeines</TabsTrigger>
-        <TabsTrigger value="kosten" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Kosten</TabsTrigger>
-        <TabsTrigger value="flaechen" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Flaechen</TabsTrigger>
-        <TabsTrigger value="gebaeude" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Gebaeude</TabsTrigger>
-        <TabsTrigger value="beschreibung" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Beschreibung</TabsTrigger>
-        <TabsTrigger value="medien" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Medien</TabsTrigger>
-        <TabsTrigger v-if="!isNewbuild && !isChild" value="historie" class="flex-shrink-0 text-[11px] px-3.5 py-2 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Historie</TabsTrigger>
+        <TabsTrigger value="allgemeines" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Allgemeines</TabsTrigger>
+        <TabsTrigger value="kosten" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Kosten</TabsTrigger>
+        <TabsTrigger value="flaechen" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Flaechen</TabsTrigger>
+        <TabsTrigger value="gebaeude" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Gebaeude</TabsTrigger>
+        <TabsTrigger value="beschreibung" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Beschreibung</TabsTrigger>
+        <TabsTrigger value="medien" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Medien</TabsTrigger>
+        <TabsTrigger v-if="!isNewbuild && !isChild" value="historie" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Historie</TabsTrigger>
         <div class="flex-1"></div>
-        <button class="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground px-2 py-1.5 transition-colors" @click="parseOpen = !parseOpen; if (parseOpen && !parseFiles.length) loadParseFiles()">
-          <Sparkles class="w-3 h-3" />
-          Felder auslesen
+        <button
+          class="flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium rounded-md bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm transition-colors"
+          @click="parseOpen = !parseOpen; if (parseOpen && !parseFiles.length) loadParseFiles()"
+        >
+          <Sparkles class="w-3.5 h-3.5" />
+          Mit KI auslesen
         </button>
       </TabsList>
     </div>

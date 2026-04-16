@@ -116,9 +116,16 @@ class AdminApiController extends Controller
                 DB::table('properties')->where('id', intval($d['property_id'] ?? 0))->update(['broker_id' => intval($d['broker_id'] ?? 1)]);
                 return response()->json(['success' => true]);
             })(),
-            'list_properties'           => response()->json(['properties' => DB::table('properties')
-                ->select('id', 'ref_id', 'project_name', 'title', 'address', 'city', 'realty_status', 'property_category', 'customer_id', 'owner_name', 'owner_email', 'owner_phone', 'purchase_price', 'total_area', 'rooms_amount', 'object_type', 'broker_id', 'show_on_website', 'parent_id', 'property_history', 'created_at')
-                ->when(\Auth::id(), fn($q) => $q->where('broker_id', \Auth::id()))
+            'list_properties'           => (function() use ($brokerId, $userType) {
+                $query = DB::table('properties')
+                    ->select('id', 'ref_id', 'project_name', 'title', 'address', 'city', 'realty_status', 'property_category', 'customer_id', 'owner_name', 'owner_email', 'owner_phone', 'purchase_price', 'total_area', 'rooms_amount', 'object_type', 'broker_id', 'show_on_website', 'parent_id', 'property_history', 'created_at');
+
+                // Makler sees only own properties, admin/backoffice/assistenz can see all.
+                if ($userType === 'makler' && $brokerId) {
+                    $query->where('broker_id', $brokerId);
+                }
+
+                return response()->json(['properties' => $query
                 ->orderBy('id')
                 ->get()
                 ->map(function($p) {
@@ -162,7 +169,8 @@ class AdminApiController extends Controller
 
                     return $p;
                 })
-            ], 200, [], JSON_UNESCAPED_UNICODE),
+            ], 200, [], JSON_UNESCAPED_UNICODE);
+            })(),
 
             // Performance
             'performance'               => app(PerformanceController::class)->index($request),

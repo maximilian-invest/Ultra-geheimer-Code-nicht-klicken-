@@ -91,6 +91,8 @@ function handlePropertyCreated(createdProperty) {
     if (!exists) {
       allProps.unshift(createdProperty);
     }
+    openDetail(createdProperty);
+    return;
   }
   closeDetail();
 }

@@ -1,6 +1,10 @@
 <script setup>
 import { Building2, Home, LandPlot, Building, Warehouse } from "lucide-vue-next";
 
+const props = defineProps({
+  loading: { type: Boolean, default: false },
+});
+
 const emit = defineEmits(["selected"]);
 
 const typeCategories = [
@@ -11,9 +15,16 @@ const typeCategories = [
   { key: "sonstige", label: "Gewerbe / Sonstiges", icon: Warehouse, desc: "Buero, Anlage, Sonstiges", types: ["Gewerbe", "Buero", "Anlage", "Sonstiges"], color: "bg-zinc-50 border-zinc-200 hover:border-zinc-400 text-zinc-700" },
 ];
 
-const categoryMap = { neubauprojekt: 'newbuild', haus: 'house', wohnung: 'apartment', grundstueck: 'land' };
+const categoryMap = {
+  neubauprojekt: 'newbuild',
+  haus: 'house',
+  wohnung: 'apartment',
+  grundstueck: 'land',
+  sonstige: 'gewerbe',
+};
 
 function handleSelect(cat) {
+  if (props.loading) return;
   emit('selected', {
     ...cat,
     type: cat.types[0],
@@ -29,7 +40,12 @@ function handleSelect(cat) {
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
       <button v-for="cat in typeCategories" :key="cat.key"
         @click="handleSelect(cat)"
-        :class="['flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all cursor-pointer active:scale-[0.97]', cat.color]">
+        :disabled="loading"
+        :class="[
+          'flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all cursor-pointer active:scale-[0.97]',
+          cat.color,
+          loading ? 'opacity-60 cursor-not-allowed' : ''
+        ]">
         <div class="w-14 h-14 rounded-xl bg-white/80 flex items-center justify-center shadow-sm">
           <component :is="cat.icon" :size="28" />
         </div>
@@ -39,5 +55,6 @@ function handleSelect(cat) {
         </div>
       </button>
     </div>
+    <p v-if="loading" class="text-sm text-muted-foreground text-center mt-6">Objekt wird angelegt...</p>
   </div>
 </template>

@@ -144,6 +144,10 @@ function isExpanded(unit) {
   return expandedUnit.value === unitKey(unit);
 }
 
+function getExpandedUnit() {
+  return units.value.find((unit) => unitKey(unit) === expandedUnit.value) || null;
+}
+
 function formatPrice(val) {
   if (!val) return "—";
   return Number(val).toLocaleString("de-AT", { minimumFractionDigits: 0 });
@@ -301,6 +305,19 @@ async function saveUnit(unit) {
     toast("Fehler: " + e.message);
   }
   unitSaving.value[key] = false;
+}
+
+async function save() {
+  const unit = getExpandedUnit();
+  if (!unit) {
+    toast("Bitte zuerst eine Einheit öffnen");
+    return;
+  }
+  await saveUnit(unit);
+}
+
+function discard() {
+  expandedUnit.value = null;
 }
 
 async function inlineStatusChange(unit, newStatus) {
@@ -498,6 +515,8 @@ function addUnitRow() {
 onMounted(() => {
   loadUnits();
 });
+
+defineExpose({ save, discard });
 </script>
 
 <template>

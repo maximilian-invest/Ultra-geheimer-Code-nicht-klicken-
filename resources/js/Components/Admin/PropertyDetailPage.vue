@@ -57,8 +57,9 @@ const tabs = computed(() => {
   return t;
 });
 
-const editableTabs = ['bearbeiten', 'portale'];
-const showFooter = computed(() => editableTabs.includes(activeTab.value));
+const editableTabs = ['bearbeiten', 'einheiten', 'portale'];
+const showTypeSelector = computed(() => props.isNew && !props.property.object_type && !props.property.type);
+const showFooter = computed(() => !showTypeSelector.value && editableTabs.includes(activeTab.value));
 
 const title = computed(() => {
   if (props.isNew) return 'Neues Objekt';
@@ -79,7 +80,9 @@ if (props.isNew) activeTab.value = 'bearbeiten';
 const isDirty = ref(false);
 
 function handleBack() {
-  if (isDirty.value && !confirm('Ungespeicherte Änderungen verwerfen?')) return;
+  if (isDirty.value) {
+    handleDiscard();
+  }
   emit('back');
 }
 
@@ -144,11 +147,14 @@ function markClean() { isDirty.value = false; }
 
 const editTabRef = ref(null);
 const mediaTabRef = ref(null);
+const unitsTabRef = ref(null);
 const portalsTabRef = ref(null);
 
 async function handleSave() {
   if (activeTab.value === 'bearbeiten' && editTabRef.value?.save) {
     await editTabRef.value.save();
+  } else if (activeTab.value === 'einheiten' && unitsTabRef.value?.save) {
+    await unitsTabRef.value.save();
   } else if (activeTab.value === 'medien' && mediaTabRef.value?.save) {
     await mediaTabRef.value.save();
   } else if (activeTab.value === 'portale' && portalsTabRef.value?.save) {
@@ -160,17 +166,46 @@ async function handleSave() {
 function handleDiscard() {
   if (activeTab.value === 'bearbeiten' && editTabRef.value?.discard) {
     editTabRef.value.discard();
+  } else if (activeTab.value === 'einheiten' && unitsTabRef.value?.discard) {
+    unitsTabRef.value.discard();
   }
   isDirty.value = false;
 }
 
 const showExposeParser = ref(false);
+const creatingFromType = ref(false);
 
-const showTypeSelector = computed(() => props.isNew && !props.property.object_type && !props.property.type);
-
-function handleTypeSelected(typeInfo) {
+async function handleTypeSelected(typeInfo) {
+  if (creatingFromType.value) return;
   props.property.type = typeInfo.type;
+  props.property.object_type = typeInfo.type;
   props.property.property_category = typeInfo.category;
+  activeTab.value = 'bearbeiten';
+
+  if (!props.isNew) return;
+
+  creatingFromType.value = true;
+  try {
+    const payload = { ...props.property };
+    const r = await fetch(API.value + "&action=save_full_property", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (d.success && d.property?.id) {
+      Object.assign(props.property, d.property);
+      isDirty.value = false;
+      emit('saved', d.property);
+      emit('propertyCreated', d.property);
+    } else {
+      toast("Fehler: " + (d.error || "Unbekannt"));
+    }
+  } catch (e) {
+    toast("Fehler: " + e.message);
+  } finally {
+    creatingFromType.value = false;
+  }
 }
 
 function handleExposeParsed(result) {
@@ -188,6 +223,24 @@ function handleExposeParsed(result) {
 
 <template>
   <div class="flex flex-col h-full">
+    <template v-if="showTypeSelector">
+      <div class="px-6 py-3 flex items-center justify-between shrink-0" style="border-bottom:1px solid hsl(240 5.9% 90%)">
+        <div>
+          <div class="text-[17px] font-semibold">Neues Objekt</div>
+          <div class="text-xs text-muted-foreground mt-0.5">Wähle zuerst aus, was du anlegen möchtest.</div>
+        </div>
+        <Button variant="outline" size="sm" @click="handleBack">
+          <ArrowLeft class="w-3.5 h-3.5 mr-1.5" />
+          Zurück
+        </Button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto px-6 py-8">
+        <TypeSelector :loading="creatingFromType" @selected="handleTypeSelected" />
+      </div>
+    </template>
+
+    <template v-else>
     <!-- Detail Header -->
     <div class="px-6 py-3 flex items-center justify-between shrink-0" style="border-bottom:1px solid hsl(240 5.9% 90%)">
       <div class="flex items-center gap-3.5">
@@ -246,7 +299,7 @@ function handleExposeParsed(result) {
       </TabsList>
 
       <div class="flex-1 overflow-y-auto px-6 pb-6" :class="activeTab === 'bearbeiten' ? 'pt-0' : 'pt-6'">
-        <TypeSelector v-if="showTypeSelector" @selected="handleTypeSelected" />
+        <TypeSelector v-if="showTypeSelector" :loading="creatingFromType" @selected="handleTypeSelected" />
         <OverviewTab v-if="activeTab === 'uebersicht'" :property="property"
           @owner-changed="(data) => emit('ownerChanged', data)"
           @property-created="(data) => emit('propertyCreated', data)" />
@@ -259,7 +312,7 @@ function handleExposeParsed(result) {
           @saved="(p) => { isDirty = false; emit('saved', p); }"
           @property-created="(p) => { isDirty = false; emit('propertyCreated', p); }"
         />
-        <UnitsTab v-else-if="activeTab === 'einheiten'" :property="property" />
+        <UnitsTab v-else-if="activeTab === 'einheiten'" ref="unitsTabRef" :property="property" />
         <OffersTab v-else-if="activeTab === 'kaufanbote'" :property="property" />
         <!-- Medien & Beschreibung sind jetzt Subtabs im Bearbeiten-Tab -->
         <PortalsTab v-else-if="activeTab === 'portale'" ref="portalsTabRef" :property="property" @dirty="isDirty = true" />
@@ -276,12 +329,13 @@ function handleExposeParsed(result) {
       <div></div>
       <div class="flex gap-2">
         <Button variant="outline" size="sm" @click="handleDiscard">Verwerfen</Button>
-        <Button size="sm" @click="handleSave">Speichern</Button>
+        <Button size="sm" class="bg-zinc-900 text-white hover:bg-zinc-800 border border-zinc-900 shadow-sm" @click="handleSave">Speichern</Button>
       </div>
     </div>
 
     <!-- Expose Parser Panel -->
     <ExposeParser v-if="showExposeParser && !showTypeSelector" :property="property" :visible="showExposeParser"
       @parsed="handleExposeParsed" @close="showExposeParser = false" />
+    </template>
   </div>
 </template>

@@ -16,6 +16,8 @@
 
   function render() {
     const filtered = props.filter(p => {
+      // Listings page should only show currently active objects.
+      if (p.realty_status === 'verkauft' || p.realty_status === 'inaktiv') return false;
       if (activeCat !== 'alle' && p.property_category !== activeCat && (activeCat !== 'kauf' || p.property_category === 'miete')) return false;
       if (activeType !== 'alle') {
         const t = (p.type || '').toLowerCase();

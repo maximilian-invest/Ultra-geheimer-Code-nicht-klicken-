@@ -84,7 +84,14 @@ function openDetail(prop) { selectedProperty.value = prop; isNewProperty.value =
 function closeDetail() { selectedProperty.value = null; isNewProperty.value = false; }
 function openNewProperty() { selectedProperty.value = { on_hold: false, marketing_type: "kauf" }; isNewProperty.value = true; }
 
-function handlePropertyCreated() {
+function handlePropertyCreated(createdProperty) {
+  const allProps = (properties?.value ?? properties) || [];
+  if (createdProperty?.id && Array.isArray(allProps)) {
+    const exists = allProps.some((p) => Number(p.id) === Number(createdProperty.id));
+    if (!exists) {
+      allProps.unshift(createdProperty);
+    }
+  }
   closeDetail();
 }
 

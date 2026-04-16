@@ -19,7 +19,7 @@ const props = defineProps({
   isNew: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["dirty", "saved"]);
+const emit = defineEmits(["dirty", "saved", "propertyCreated"]);
 
 const API = inject("API");
 const toast = inject("toast");
@@ -416,6 +416,9 @@ async function save() {
       snapshot = JSON.parse(JSON.stringify(form));
       dirty.value = false;
       emit("saved", d.property || payload);
+      if (wasNew && d.property?.id) {
+        emit("propertyCreated", d.property);
+      }
 
       // Immoji sync happens explicitly via Portale tab — no auto-sync on save
       // This prevents duplicate creation when entities are deleted on immoji

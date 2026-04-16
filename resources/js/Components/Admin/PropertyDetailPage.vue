@@ -250,7 +250,15 @@ function handleExposeParsed(result) {
         <OverviewTab v-if="activeTab === 'uebersicht'" :property="property"
           @owner-changed="(data) => emit('ownerChanged', data)"
           @property-created="(data) => emit('propertyCreated', data)" />
-        <EditTab v-else-if="activeTab === 'bearbeiten'" ref="editTabRef" :property="property" :is-new="isNew" @dirty="isDirty = true" @saved="(p) => { isDirty = false; emit('saved', p); }" />
+        <EditTab
+          v-else-if="activeTab === 'bearbeiten'"
+          ref="editTabRef"
+          :property="property"
+          :is-new="isNew"
+          @dirty="isDirty = true"
+          @saved="(p) => { isDirty = false; emit('saved', p); }"
+          @property-created="(p) => { isDirty = false; emit('propertyCreated', p); }"
+        />
         <UnitsTab v-else-if="activeTab === 'einheiten'" :property="property" />
         <OffersTab v-else-if="activeTab === 'kaufanbote'" :property="property" />
         <!-- Medien & Beschreibung sind jetzt Subtabs im Bearbeiten-Tab -->

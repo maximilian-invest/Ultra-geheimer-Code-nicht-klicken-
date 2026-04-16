@@ -22,6 +22,7 @@ const toast = inject("toast");
 const units = ref([]);
 const unitsLoading = ref(false);
 const unitSaving = ref({});
+const parsingUnits = ref(false);
 // unitSyncing removed — no more per-unit auto-sync
 const unitSearch = ref("");
 const expandedUnit = ref(null);
@@ -203,6 +204,34 @@ async function loadUnits() {
     console.error("loadUnits error:", e);
   }
   unitsLoading.value = false;
+}
+
+async function parseUnitsFromExpose() {
+  if (!props.property?.id) return;
+  parsingUnits.value = true;
+  try {
+    const r = await fetch(API.value + "&action=parse_expose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ property_id: props.property.id }),
+    });
+    const d = await r.json();
+    if (!d || d.error) {
+      toast("Fehler: " + (d?.error || "Expose konnte nicht ausgelesen werden"));
+      return;
+    }
+    const created = Number(d.units_created || 0);
+    const updated = Number(d.units_updated || 0);
+    if (created + updated > 0) {
+      toast(created + " Einheiten importiert, " + updated + " aktualisiert");
+    } else {
+      toast("Expose ausgelesen, aber keine Einheiten gefunden");
+    }
+    await loadUnits();
+  } catch (e) {
+    toast("Fehler: " + (e.message || "Unbekannt"));
+  }
+  parsingUnits.value = false;
 }
 
 async function saveUnit(unit) {
@@ -466,6 +495,11 @@ onMounted(() => {
           <Loader2 v-if="syncing" class="w-3.5 h-3.5 mr-1.5 animate-spin" />
           <RefreshCw v-else class="w-3.5 h-3.5 mr-1.5" />
           Alle syncen
+        </Button>
+        <Button size="sm" variant="outline" @click="parseUnitsFromExpose" :disabled="parsingUnits || !property?.id" class="h-9 text-[13px]">
+          <Loader2 v-if="parsingUnits" class="w-3.5 h-3.5 mr-1.5 animate-spin" />
+          <Upload v-else class="w-3.5 h-3.5 mr-1.5" />
+          Einheiten auslesen
         </Button>
         <Button size="sm" variant="outline" @click="addUnitRow" class="h-9 text-[13px]">
           <Plus class="w-3.5 h-3.5 mr-1.5" /> Einheit

@@ -56,75 +56,75 @@ function toggleSection(label) {
 
 <template>
   <div class="flex flex-col h-full overflow-hidden">
-    <!-- Toolbar -->
-    <div class="flex items-center gap-1.5 px-3 py-1.5 border-b border-zinc-100 flex-shrink-0">
-      <!-- Search -->
-      <div class="relative flex-1 min-w-0">
+    <!-- Toolbar: Suche eigene Zeile, Filter/Aktionen darunter -->
+    <div class="flex flex-col gap-1.5 border-b border-zinc-100 px-3 py-1.5 flex-shrink-0">
+      <div class="relative w-full min-w-0">
         <Search class="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
         <Input
           :model-value="searchQuery"
           @update:model-value="emit('update:searchQuery', $event)"
           placeholder="Suchen..."
-          class="pl-7 h-8 text-[12px]"
+          class="w-full pl-7 h-8 text-[12px]"
         />
       </div>
 
-      <!-- Object Filter -->
-      <Select
-        :model-value="objectFilter"
-        @update:model-value="emit('update:objectFilter', $event)"
-      >
-        <SelectTrigger class="h-8 w-[110px] text-[11px] flex-shrink-0">
-          <SelectValue placeholder="Objekt" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all" class="text-[11px]">Alle Objekte</SelectItem>
-          <SelectItem
-            v-for="p in properties"
-            :key="p.id"
-            :value="String(p.id)"
-            class="text-[11px]"
-          >
-            {{ p.ref_id || 'Obj ' + p.id }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
+      <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+        <!-- Object Filter -->
+        <Select
+          :model-value="objectFilter"
+          @update:model-value="emit('update:objectFilter', $event)"
+        >
+          <SelectTrigger class="h-8 w-[110px] text-[11px] shrink-0">
+            <SelectValue placeholder="Objekt" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" class="text-[11px]">Alle Objekte</SelectItem>
+            <SelectItem
+              v-for="p in properties"
+              :key="p.id"
+              :value="String(p.id)"
+              class="text-[11px]"
+            >
+              {{ p.ref_id || 'Obj ' + p.id }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
 
-      <Button
-        v-if="showToolbarRefresh"
-        type="button"
-        variant="outline"
-        size="icon-sm"
-        class="h-8 w-8 shrink-0 border-zinc-200 text-foreground"
-        :disabled="toolbarRefreshing"
-        title="Aktualisieren — Listen und geöffnete Konversation neu laden"
-        @click="emit('toolbarRefresh')"
-      >
-        <RefreshCw class="h-3.5 w-3.5" :class="{ 'animate-spin': toolbarRefreshing }" />
-      </Button>
+        <div class="min-w-[2px] flex-1"></div>
 
-      <!-- Select Mode Toggle -->
-      <Button
-        
-        variant="ghost"
-        size="icon"
-        class="h-8 w-8 flex-shrink-0"
-        :class="selectMode ? 'bg-accent' : ''"
-        @click="selectMode = !selectMode; if (!selectMode) selectedIds = new Set()"
-        title="Mehrfachauswahl"
-      >
-        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-      </Button>
+        <Button
+          v-if="showToolbarRefresh"
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          class="h-8 w-8 shrink-0 border-zinc-200 text-foreground"
+          :disabled="toolbarRefreshing"
+          title="Aktualisieren — Listen und geöffnete Konversation neu laden"
+          @click="emit('toolbarRefresh')"
+        >
+          <RefreshCw class="h-3.5 w-3.5" :class="{ 'animate-spin': toolbarRefreshing }" />
+        </Button>
 
-      <!-- Compose Button -->
-      <Button
-        variant="ghost"
-        size="icon"
-        class="h-8 w-8 flex-shrink-0"
-        @click="emit('compose')"
-      >
-        <Plus class="h-4 w-4" />
-      </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-8 w-8 shrink-0"
+          :class="selectMode ? 'bg-accent' : ''"
+          @click="selectMode = !selectMode; if (!selectMode) selectedIds = new Set()"
+          title="Mehrfachauswahl"
+        >
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-8 w-8 shrink-0"
+          @click="emit('compose')"
+        >
+          <Plus class="h-4 w-4" />
+        </Button>
+      </div>
     </div>
 
     <slot name="under-toolbar" />

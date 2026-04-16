@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, inject, onMounted } from "vue";
-import { Plus, Save, Search, ChevronDown, ChevronRight, Upload, Loader2, RefreshCw } from "lucide-vue-next";
+import { Plus, Save, Search, ChevronDown, ChevronRight, Upload, Loader2, RefreshCw, X } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +23,10 @@ const units = ref([]);
 const unitsLoading = ref(false);
 const unitSaving = ref({});
 const parsingUnits = ref(false);
+const parseDialogOpen = ref(false);
+const parseFilesLoading = ref(false);
+const parseFiles = ref([]);
+const selectedParseFileId = ref(null);
 // unitSyncing removed — no more per-unit auto-sync
 const unitSearch = ref("");
 const expandedUnit = ref(null);
@@ -208,12 +212,16 @@ async function loadUnits() {
 
 async function parseUnitsFromExpose() {
   if (!props.property?.id) return;
+  if (!selectedParseFileId.value) {
+    toast("Bitte zuerst eine Datei auswählen");
+    return;
+  }
   parsingUnits.value = true;
   try {
     const r = await fetch(API.value + "&action=parse_expose", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ property_id: props.property.id }),
+      body: JSON.stringify({ property_id: props.property.id, file_ids: [selectedParseFileId.value] }),
     });
     const d = await r.json();
     if (!d || d.error) {
@@ -228,10 +236,32 @@ async function parseUnitsFromExpose() {
       toast("Expose ausgelesen, aber keine Einheiten gefunden");
     }
     await loadUnits();
+    parseDialogOpen.value = false;
   } catch (e) {
     toast("Fehler: " + (e.message || "Unbekannt"));
   }
   parsingUnits.value = false;
+}
+
+async function openParseDialog() {
+  if (!props.property?.id) return;
+  parseDialogOpen.value = true;
+  parseFilesLoading.value = true;
+  parseFiles.value = [];
+  selectedParseFileId.value = null;
+  try {
+    const r = await fetch(API.value + "&action=get_property_files&property_id=" + props.property.id);
+    const d = await r.json();
+    parseFiles.value = d.files || [];
+    const preferred = parseFiles.value.find(
+      (f) => /expos/i.test(String(f.filename || "")) || /expos/i.test(String(f.label || ""))
+    );
+    if (preferred?.id) selectedParseFileId.value = preferred.id;
+    else if (parseFiles.value[0]?.id) selectedParseFileId.value = parseFiles.value[0].id;
+  } catch (e) {
+    toast("Dateien konnten nicht geladen werden");
+  }
+  parseFilesLoading.value = false;
 }
 
 async function saveUnit(unit) {
@@ -496,14 +526,56 @@ onMounted(() => {
           <RefreshCw v-else class="w-3.5 h-3.5 mr-1.5" />
           Alle syncen
         </Button>
-        <Button size="sm" variant="outline" @click="parseUnitsFromExpose" :disabled="parsingUnits || !property?.id" class="h-9 text-[13px]">
-          <Loader2 v-if="parsingUnits" class="w-3.5 h-3.5 mr-1.5 animate-spin" />
-          <Upload v-else class="w-3.5 h-3.5 mr-1.5" />
+        <Button size="sm" variant="outline" @click="openParseDialog" :disabled="parsingUnits || !property?.id" class="h-9 text-[13px]">
+          <Upload class="w-3.5 h-3.5 mr-1.5" />
           Einheiten auslesen
         </Button>
         <Button size="sm" variant="outline" @click="addUnitRow" class="h-9 text-[13px]">
           <Plus class="w-3.5 h-3.5 mr-1.5" /> Einheit
         </Button>
+      </div>
+    </div>
+
+    <div v-if="parseDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="parseDialogOpen = false">
+      <div class="w-full max-w-lg rounded-xl border border-border bg-background shadow-xl">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div class="text-sm font-semibold">Datei für Einheiten-Auslese wählen</div>
+          <Button variant="ghost" size="icon" class="h-8 w-8" @click="parseDialogOpen = false">
+            <X class="w-4 h-4" />
+          </Button>
+        </div>
+        <div class="p-4">
+          <div v-if="parseFilesLoading" class="text-sm text-muted-foreground flex items-center gap-2">
+            <Loader2 class="w-4 h-4 animate-spin" /> Lade Dateien...
+          </div>
+          <div v-else-if="!parseFiles.length" class="text-sm text-muted-foreground">
+            Keine Dateien vorhanden. Bitte zuerst unter „Dateien“ ein Exposé hochladen.
+          </div>
+          <div v-else class="max-h-72 overflow-y-auto space-y-1">
+            <label
+              v-for="f in parseFiles"
+              :key="f.id"
+              class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted cursor-pointer"
+            >
+              <input
+                type="radio"
+                name="units-parse-file"
+                :value="f.id"
+                :checked="Number(selectedParseFileId) === Number(f.id)"
+                @change="selectedParseFileId = f.id"
+              />
+              <span class="text-sm truncate">{{ f.label || f.filename }}</span>
+            </label>
+          </div>
+        </div>
+        <div class="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
+          <Button variant="outline" size="sm" @click="parseDialogOpen = false">Abbrechen</Button>
+          <Button size="sm" :disabled="parsingUnits || !selectedParseFileId" @click="parseUnitsFromExpose">
+            <Loader2 v-if="parsingUnits" class="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            <Upload v-else class="w-3.5 h-3.5 mr-1.5" />
+            Einheiten auslesen
+          </Button>
+        </div>
       </div>
     </div>
 

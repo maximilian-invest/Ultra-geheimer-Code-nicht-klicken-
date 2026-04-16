@@ -191,7 +191,8 @@ const autoReplySaving = ref(false);
 const autoReplyPropertyIds = ref([]);
 
 // Broker filter
-const maklerFilter = ref('');
+const BROKER_FILTER_STORAGE_KEY = "sr-inbox-broker-filter";
+const maklerFilter = ref(localStorage.getItem(BROKER_FILTER_STORAGE_KEY) || '');
 const brokerList = ref([]);
 
 function resolveDefaultBrokerId(list) {
@@ -885,14 +886,16 @@ async function loadBrokerList() {
       const t = String(b.user_type || '').toLowerCase();
       return ['admin', 'makler', 'assistenz', 'backoffice'].includes(t);
     });
+    const savedBrokerId = String(maklerFilter.value || '');
+    const hasSavedBroker = savedBrokerId && brokerList.value.some((b) => String(b.id) === savedBrokerId);
     const defaultBrokerId = resolveDefaultBrokerId(brokerList.value);
-    if (defaultBrokerId) {
+    if (!hasSavedBroker && defaultBrokerId) {
       maklerFilter.value = defaultBrokerId;
     }
   } catch {}
 }
 
-async function loadSendAccounts(brokerId) {
+async function loadSendAccounts(brokerId, preferredAccountId = null) {
   sendAccounts.value = [];
   sendAccountId.value = null;
   try {
@@ -900,7 +903,19 @@ async function loadSendAccounts(brokerId) {
     const r = await fetch(API.value + "&action=email_accounts" + param);
     const d = await r.json();
     sendAccounts.value = (d.accounts || []).filter(a => a.is_active !== false);
-    if (sendAccounts.value.length) sendAccountId.value = sendAccounts.value[0].id;
+    const preferred = preferredAccountId == null ? null : Number(preferredAccountId);
+    const hasPreferred = preferred != null && sendAccounts.value.some((a) => Number(a.id) === preferred);
+    if (hasPreferred) {
+      sendAccountId.value = preferred;
+    } else if (sendAccounts.value.length) {
+      sendAccountId.value = sendAccounts.value[0].id;
+    }
+
+    // Keep both compose contexts aligned to one sender account.
+    if (sendAccountId.value) {
+      selectedAccountId.value = sendAccountId.value;
+      loadSignature(sendAccountId.value);
+    }
   } catch {}
 }
 
@@ -918,6 +933,7 @@ function openDetail(item, mode) {
   // Standard-Absender immer auf das Konto setzen, das die Mail empfangen hat.
   if (item?.account_id) {
     selectedAccountId.value = item.account_id;
+    sendAccountId.value = item.account_id;
     loadSignature(item.account_id);
   }
 
@@ -977,7 +993,7 @@ function openDetail(item, mode) {
   }
 
   // Load send accounts
-  loadSendAccounts(item.broker_id);
+  loadSendAccounts(item.broker_id, item?.account_id || null);
 
   // Load property files
   expandedFilesLoading.value = true;
@@ -2283,8 +2299,13 @@ const filteredTemplates = computed(() => {
 // WATCHERS (from PrioritiesTab.vue)
 // ============================================================
 watch(maklerFilter, () => {
+  localStorage.setItem(BROKER_FILTER_STORAGE_KEY, String(maklerFilter.value || ''));
   loadUnanswered(unansweredFilter.value);
   loadFollowups(followupFilter.value);
+  if (['posteingang', 'gesendet'].includes(activeSubtab.value)) {
+    ehPage.value = 1;
+    loadEmailHistory();
+  }
 });
 
 watch(brokerList, (list) => {
@@ -2310,6 +2331,13 @@ watch(activeSubtab, (v) => {
 
 watch(selectedAccountId, (id) => {
   if (id) loadSignature(id);
+});
+
+watch(sendAccountId, (id) => {
+  if (!id) return;
+  // Reply pane ("Von") uses sendAccountId; keep compose/signature in sync.
+  selectedAccountId.value = id;
+  loadSignature(id);
 });
 
 // ============================================================

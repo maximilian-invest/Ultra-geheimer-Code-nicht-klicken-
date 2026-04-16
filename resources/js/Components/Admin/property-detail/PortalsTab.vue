@@ -31,21 +31,39 @@ const immojiCapacity = ref(null);
 // ─── Computed ───
 
 // ─── Pflichtfelder für Veröffentlichung ───
-const REQUIRED_FIELDS = [
+const BASE_REQUIRED_FIELDS = [
   { key: 'ref_id', label: 'Ref-ID' },
   { key: 'address', label: 'Adresse' },
   { key: 'city', label: 'Stadt' },
   { key: 'object_type', label: 'Objekttyp' },
-  { key: 'purchase_price', label: 'Kaufpreis' },
-  { key: 'living_area', label: 'Wohnfläche' },
-  { key: 'rooms_amount', label: 'Zimmer' },
   { key: 'realty_description', label: 'Beschreibung' },
 ];
 
+const STANDARD_REQUIRED_FIELDS = [
+  { key: 'purchase_price', label: 'Kaufpreis' },
+  { key: 'living_area', label: 'Wohnfläche' },
+  { key: 'rooms_amount', label: 'Zimmer' },
+];
+
+const isNewbuild = computed(() => {
+  const category = String(props.property?.property_category || '').toLowerCase();
+  if (category === 'newbuild') return true;
+
+  const objectType = String(props.property?.object_type || props.property?.type || '').toLowerCase();
+  return objectType === 'neubauprojekt' || objectType === 'neubau';
+});
+
+const requiredFields = computed(() => {
+  if (isNewbuild.value) {
+    return BASE_REQUIRED_FIELDS;
+  }
+  return [...BASE_REQUIRED_FIELDS, ...STANDARD_REQUIRED_FIELDS];
+});
+
 const missingFields = computed(() => {
   const p = props.property;
-  if (!p) return REQUIRED_FIELDS.map(f => f.label);
-  return REQUIRED_FIELDS.filter(f => {
+  if (!p) return requiredFields.value.map(f => f.label);
+  return requiredFields.value.filter(f => {
     const v = p[f.key];
     const alt = f.altKey ? p[f.altKey] : null;
     return !v && v !== 0 && !alt && alt !== 0;

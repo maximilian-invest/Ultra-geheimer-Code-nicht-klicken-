@@ -252,6 +252,47 @@ class SettingsController extends Controller
         return response()->json(['rules' => $rules]);
     }
 
+    public function signatureForAccount(Request $request): JsonResponse
+    {
+        $accountId = intval($request->query('account_id', 0));
+        if ($accountId <= 0) {
+            return response()->json(['error' => 'account_id required'], 400);
+        }
+
+        $authUser = \Auth::user();
+        $authId = $authUser->id ?? 0;
+        $authType = $authUser->user_type ?? 'makler';
+
+        $account = DB::table('email_accounts')->where('id', $accountId)->first(['id', 'user_id']);
+        if (!$account) {
+            return response()->json(['error' => 'account not found'], 404);
+        }
+
+        $ownerId = intval($account->user_id ?? 0);
+        if (!in_array($authType, ['admin', 'assistenz', 'backoffice'], true) && $ownerId !== $authId) {
+            return response()->json(['error' => 'Keine Berechtigung'], 403);
+        }
+
+        $user = \App\Models\User::find($ownerId);
+        if (!$user) {
+            return response()->json(['error' => 'user not found'], 404);
+        }
+
+        $settings = DB::table('admin_settings')->where('user_id', $ownerId)->first();
+        $baseUrl = rtrim(config('app.url'), '/');
+
+        return response()->json([
+            'signature_name'    => $settings->signature_name ?? ($user->name ?? ''),
+            'signature_title'   => $settings->signature_title ?? ($user->signature_title ?? ''),
+            'signature_company' => $settings->signature_company ?? 'SR-Homes Immobilien GmbH',
+            'signature_phone'   => $settings->signature_phone ?? ($user->phone ?? ''),
+            'signature_website' => $settings->signature_website ?? 'www.sr-homes.at',
+            'signature_logo_url'   => ($settings->signature_logo_path ?? null) ? $baseUrl . '/storage/' . $settings->signature_logo_path : null,
+            'signature_banner_url' => ($settings->signature_banner_path ?? null) ? $baseUrl . '/storage/' . $settings->signature_banner_path : null,
+            'signature_photo_url'  => ($settings->signature_photo_path ?? null) ? $baseUrl . '/storage/' . $settings->signature_photo_path : null,
+        ]);
+    }
+
     public function saveInboxRule(Request $request): JsonResponse
     {
         $user = $this->resolvedUser();

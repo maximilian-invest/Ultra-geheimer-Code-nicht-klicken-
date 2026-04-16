@@ -96,6 +96,7 @@ class AdminApiController extends Controller
             'list_inbox_rules'          => app(SettingsController::class)->listInboxRules($request),
             'save_inbox_rule'           => app(SettingsController::class)->saveInboxRule($request),
             'delete_inbox_rule'         => app(SettingsController::class)->deleteInboxRule($request),
+            'signature_for_account'     => app(SettingsController::class)->signatureForAccount($request),
             'toggle_auto_reply'         => app(SettingsController::class)->toggleAutoReply($request),
             'reassign_email'            => $this->reassignEmail($request),
             'change_email_category'     => $this->changeEmailCategory($request),

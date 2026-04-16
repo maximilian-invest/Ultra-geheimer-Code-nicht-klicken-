@@ -548,9 +548,12 @@ function extractRealEmail(fromEmail, bodyText) {
 // ============================================================
 // SIGNATURE FUNCTIONS (from CommsTab.vue)
 // ============================================================
-async function loadSignature() {
+async function loadSignature(accountId = null) {
   try {
-    const r = await fetch(API.value + "&action=get_settings");
+    const query = accountId
+      ? "&action=signature_for_account&account_id=" + encodeURIComponent(accountId)
+      : "&action=get_settings";
+    const r = await fetch(API.value + query);
     const d = await r.json();
     if (d.signature_name) sigData.value = d;
   } catch {}
@@ -911,6 +914,12 @@ function openDetail(item, mode) {
   selectedMode.value = mode;
   composing.value = false;
   detailOpen.value = true;
+
+  // Standard-Absender immer auf das Konto setzen, das die Mail empfangen hat.
+  if (item?.account_id) {
+    selectedAccountId.value = item.account_id;
+    loadSignature(item.account_id);
+  }
 
   // Mark as read via conv_read
   if (!item.is_read && item.id && (mode === 'offen' || mode === 'nachfassen')) {
@@ -1560,6 +1569,7 @@ async function loadEmailAccountsSelect() {
     const d = await r.json();
     emailAccountsSelect.value = d.accounts || [];
     if (!selectedAccountId.value && emailAccountsSelect.value.length) selectedAccountId.value = emailAccountsSelect.value[0].id;
+    if (selectedAccountId.value) loadSignature(selectedAccountId.value);
   } catch (e) { /* silent */ }
 }
 
@@ -1699,7 +1709,8 @@ async function loadEmailHistory() {
     if (ehSearch.value.trim()) url += "&search=" + encodeURIComponent(ehSearch.value.trim());
     if (ehCategory.value) url += "&category=" + ehCategory.value;
     if (ehDirection.value) url += "&direction=" + ehDirection.value;
-    if (ehAccountId.value) url += "&account_id=" + ehAccountId.value;
+    const accountFilter = ehAccountId.value || (isAssistenz.value ? effectiveBrokerFilter.value : "");
+    if (accountFilter) url += "&account_id=" + accountFilter;
     if (ehShowUnmatched.value) url += "&unmatched=1";
     if (ehShowUnmatched.value && !inboxProps.value.length) loadInbox();
     const r = await fetch(url);
@@ -2295,6 +2306,10 @@ watch(activeSubtab, (v) => {
   if (v === 'entwuerfe') loadDrafts();
   if (v === 'templates' && !templates.value?.length) loadTemplates();
   if (v === 'matches') loadMatchesTab();
+});
+
+watch(selectedAccountId, (id) => {
+  if (id) loadSignature(id);
 });
 
 // ============================================================

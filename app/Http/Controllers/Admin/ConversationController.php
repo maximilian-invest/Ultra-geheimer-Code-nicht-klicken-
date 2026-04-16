@@ -63,7 +63,7 @@ class ConversationController extends Controller
      * inbound mails are in other colleagues' accounts or trashed).
      *
      * @param  int[]|null  $accountIds
-     * @return array{from_name: ?string, from_email: ?string, subject: ?string, email_date: ?string}|null
+     * @return array{from_name: ?string, from_email: ?string, subject: ?string, email_date: ?string, account_id: ?int}|null
      */
     private function resolveUserVisibleDisplay(Conversation $conv, ?array $accountIds): ?array
     {
@@ -86,7 +86,7 @@ class ConversationController extends Controller
         foreach ($accountIds as $aid) $params[] = (int) $aid;
 
         $row = DB::selectOne("
-            SELECT pe.from_name, pe.from_email, pe.subject, pe.email_date
+            SELECT pe.from_name, pe.from_email, pe.subject, pe.email_date, pe.account_id
             FROM portal_emails pe
             WHERE pe.is_deleted = 0
               AND pe.direction = 'inbound'
@@ -109,6 +109,7 @@ class ConversationController extends Controller
             'from_email' => $row->from_email ?? null,
             'subject'    => $row->subject ?? null,
             'email_date' => $row->email_date ?? null,
+            'account_id' => isset($row->account_id) ? (int) $row->account_id : null,
         ];
     }
 
@@ -236,6 +237,7 @@ class ConversationController extends Controller
                 'address'          => $prop?->address,
                 'from_name'        => $conv->stakeholder,
                 'subject'          => '',
+                'account_id'       => null,
             ];
 
             // Per-user display: look up the latest non-trashed inbound mail
@@ -266,6 +268,9 @@ class ConversationController extends Controller
                 }
                 if (!empty($displayOverride['email_date'])) {
                     $item['last_inbound_at'] = $displayOverride['email_date'];
+                }
+                if (!empty($displayOverride['account_id'])) {
+                    $item['account_id'] = (int) $displayOverride['account_id'];
                 }
             } elseif ($hasBrokerScopedFilter) {
                 return null;

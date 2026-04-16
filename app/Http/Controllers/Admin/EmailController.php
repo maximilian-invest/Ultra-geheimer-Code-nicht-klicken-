@@ -890,13 +890,13 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         $brokerId = \Auth::id();
         $userType = \Auth::user()->user_type ?? 'makler';
         // Assistenz sees all emails (no account filter), but can filter by broker
-        if ($brokerId && $userType !== 'assistenz') {
+        if ($brokerId && !in_array($userType, ['assistenz', 'backoffice'], true)) {
             $where[] = 'pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = ?)';
             $params[] = $brokerId;
         }
-        // Assistenz: optional broker filter
+        // Assistenz/Backoffice: optional broker filter
         $filterAccountId = intval($request->query('account_id', 0));
-        if ($filterAccountId && $userType === 'assistenz') {
+        if ($filterAccountId && in_array($userType, ['assistenz', 'backoffice'], true)) {
             $where[] = 'pe.account_id IN (SELECT id FROM email_accounts WHERE user_id = ?)';
             $params[] = $filterAccountId;
         }
@@ -917,7 +917,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
 
         $emails = DB::select("
             SELECT
-                pe.id, pe.direction, pe.from_email, pe.from_name, pe.to_email,
+                pe.id, pe.account_id, pe.direction, pe.from_email, pe.from_name, pe.to_email,
                 pe.subject, pe.body_text, pe.body_html, pe.email_date,
                 pe.category, pe.stakeholder, pe.ai_summary, pe.has_attachment,
                 pe.attachment_names, pe.property_id, pe.matched_ref_id,

@@ -2509,17 +2509,18 @@ onMounted(() => {
           @toolbar-refresh="refreshInbox"
           @compose="startCompose()" @delete="markConvDone($event.id)"
         >
+          <template #toolbar-inline>
+            <div class="flex min-w-0 max-w-[min(100%,14rem)] sm:max-w-[min(100%,18rem)] items-center gap-1.5">
+              <button v-if="autoReplyLogs.length" type="button" class="truncate text-left text-[10px] text-emerald-600 hover:text-emerald-800 hover:underline transition-colors" @click="autoReplyBannerOpen = !autoReplyBannerOpen">✓ {{ autoReplyLogs.length }} Auto-Replies (24h)</button>
+              <span v-else-if="autoReplyEnabled && autoReplyPropertyIds.length" class="line-clamp-2 text-[10px] text-emerald-600 leading-tight">Auto-Reply aktiv ({{ autoReplyPropertyIds.length }} {{ autoReplyPropertyIds.length === 1 ? 'Objekt' : 'Objekte' }})</span>
+              <Button variant="ghost" size="icon" class="h-8 w-8 shrink-0" @click="showAutoReplySettings = !showAutoReplySettings; if (showAutoReplySettings && !autoReplyText) loadAutoReplySettings()" title="Auto-Reply Einstellungen">
+                <Settings2 class="w-3.5 h-3.5 text-muted-foreground" />
+              </Button>
+            </div>
+          </template>
           <template #under-toolbar>
-            <div class="flex-shrink-0 border-b border-zinc-100 bg-zinc-50/50">
-              <div class="flex flex-wrap items-center gap-2 px-3 py-1.5">
-                <button v-if="autoReplyLogs.length" type="button" class="text-[10px] text-emerald-600 hover:text-emerald-800 hover:underline transition-colors cursor-pointer" @click="autoReplyBannerOpen = !autoReplyBannerOpen">✓ {{ autoReplyLogs.length }} Auto-Replies (24h)</button>
-                <span v-else-if="autoReplyEnabled && autoReplyPropertyIds.length" class="text-[10px] text-emerald-600">Auto-Reply aktiv für {{ autoReplyPropertyIds.length }} {{ autoReplyPropertyIds.length === 1 ? 'Objekt' : 'Objekte' }}</span>
-                <div class="min-w-[4px] flex-1"></div>
-                <Button variant="ghost" size="sm" class="h-6 w-6 shrink-0 p-0" @click="showAutoReplySettings = !showAutoReplySettings; if (showAutoReplySettings && !autoReplyText) loadAutoReplySettings()" title="Auto-Reply Einstellungen">
-                  <Settings2 class="w-3 h-3 text-muted-foreground" />
-                </Button>
-              </div>
-              <div v-if="autoReplyBannerOpen && autoReplyLogs.length" class="mx-3 mb-2 rounded-xl border border-emerald-200 bg-emerald-50/50 overflow-hidden">
+            <div v-if="autoReplyBannerOpen && autoReplyLogs.length" class="border-b border-zinc-100 bg-zinc-50/40 px-3 pb-2 pt-1">
+              <div class="rounded-xl border border-emerald-200 bg-emerald-50/50 overflow-hidden">
                 <div class="px-3 py-2 border-b border-emerald-100 flex items-center justify-between">
                   <span class="text-[11px] font-semibold text-emerald-800">Auto-Replies der letzten 24h</span>
                   <button type="button" class="text-[10px] text-emerald-600 hover:text-emerald-800" @click="autoReplyBannerOpen = false">Schließen</button>

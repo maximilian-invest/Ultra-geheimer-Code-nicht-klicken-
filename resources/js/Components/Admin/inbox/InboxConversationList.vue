@@ -90,7 +90,9 @@ function toggleSection(label) {
           </SelectContent>
         </Select>
 
-        <div class="min-w-[2px] flex-1"></div>
+        <slot name="toolbar-inline" />
+
+        <div class="min-w-[2px] min-h-[1px] flex-1 basis-0"></div>
 
         <Button
           v-if="showToolbarRefresh"

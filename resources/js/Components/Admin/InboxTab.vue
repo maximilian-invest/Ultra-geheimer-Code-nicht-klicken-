@@ -2510,13 +2510,15 @@ onMounted(() => {
           @compose="startCompose()" @delete="markConvDone($event.id)"
         >
           <template #toolbar-inline>
-            <div class="flex min-w-0 max-w-[min(100%,14rem)] sm:max-w-[min(100%,18rem)] items-center gap-1.5">
+            <div class="flex min-w-0 max-w-[min(100%,16rem)] sm:max-w-[min(100%,20rem)] items-center gap-1.5">
               <button v-if="autoReplyLogs.length" type="button" class="truncate text-left text-[10px] text-emerald-600 hover:text-emerald-800 hover:underline transition-colors" @click="autoReplyBannerOpen = !autoReplyBannerOpen">✓ {{ autoReplyLogs.length }} Auto-Replies (24h)</button>
               <span v-else-if="autoReplyEnabled && autoReplyPropertyIds.length" class="line-clamp-2 text-[10px] text-emerald-600 leading-tight">Auto-Reply aktiv ({{ autoReplyPropertyIds.length }} {{ autoReplyPropertyIds.length === 1 ? 'Objekt' : 'Objekte' }})</span>
-              <Button variant="ghost" size="icon" class="h-8 w-8 shrink-0" @click="showAutoReplySettings = !showAutoReplySettings; if (showAutoReplySettings && !autoReplyText) loadAutoReplySettings()" title="Auto-Reply Einstellungen">
-                <Settings2 class="w-3.5 h-3.5 text-muted-foreground" />
-              </Button>
             </div>
+          </template>
+          <template #toolbar-icons-end>
+            <Button variant="ghost" size="icon" class="h-8 w-8 shrink-0" @click="showAutoReplySettings = !showAutoReplySettings; if (showAutoReplySettings && !autoReplyText) loadAutoReplySettings()" title="Auto-Reply Einstellungen">
+              <Settings2 class="w-3.5 h-3.5 text-muted-foreground" />
+            </Button>
           </template>
           <template #under-toolbar>
             <div v-if="autoReplyBannerOpen && autoReplyLogs.length" class="border-b border-zinc-100 bg-zinc-50/40 px-3 pb-2 pt-1">

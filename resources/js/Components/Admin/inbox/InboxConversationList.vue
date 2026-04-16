@@ -126,6 +126,8 @@ function toggleSection(label) {
         >
           <Plus class="h-4 w-4" />
         </Button>
+
+        <slot name="toolbar-icons-end" />
       </div>
     </div>
 

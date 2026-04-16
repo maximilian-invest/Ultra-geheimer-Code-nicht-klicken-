@@ -2405,12 +2405,12 @@ onMounted(() => {
         <!-- Panel Header with Pill Tabs -->
         <div class="px-4 pt-3 pb-2 flex-shrink-0">
 
-          <!-- Primary Pills: Anfragen / Nachfassen / Alle -->
-          <div class="flex items-center gap-2 mb-2">
-            <div class="flex flex-1 min-w-0 gap-0.5 p-[3px] bg-[#f4f4f5] rounded-lg">
+          <!-- Primary Pills: Anfragen / Nachfassen / Alle (+ refresh: eigene Zeile unter sm, sonst rechts — verhindert Überlappung in der 400px-Spalte) -->
+          <div class="flex flex-col gap-2 mb-2 sm:flex-row sm:items-center sm:gap-1.5">
+            <div class="flex min-w-0 flex-1 gap-0.5 p-[3px] bg-[#f4f4f5] rounded-lg">
             <button
               @click="activeSubtab = 'offen'"
-              class="flex-1 flex items-center justify-center gap-1.5 px-3 py-[5px] text-[12px] rounded-md transition-all"
+              class="flex min-w-0 flex-1 items-center justify-center gap-1 px-1.5 py-[5px] text-[11px] rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
               :class="activeSubtab === 'offen'
                 ? 'bg-white text-foreground font-semibold shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'"
@@ -2419,7 +2419,7 @@ onMounted(() => {
             </button>
             <button
               @click="activeSubtab = 'nachfassen'"
-              class="flex-1 flex items-center justify-center gap-1.5 px-3 py-[5px] text-[12px] rounded-md transition-all"
+              class="flex min-w-0 flex-1 items-center justify-center gap-1 px-1.5 py-[5px] text-[11px] rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
               :class="activeSubtab === 'nachfassen'
                 ? 'bg-white text-foreground font-semibold shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'"
@@ -2429,7 +2429,7 @@ onMounted(() => {
             </button>
             <button
               @click="activeSubtab = 'posteingang'"
-              class="flex-1 flex items-center justify-center gap-1.5 px-3 py-[5px] text-[12px] rounded-md transition-all"
+              class="flex min-w-0 flex-1 items-center justify-center gap-1 px-1.5 py-[5px] text-[11px] rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
               :class="['posteingang','gesendet','entwuerfe','templates','papierkorb'].includes(activeSubtab)
                 ? 'bg-white text-foreground font-semibold shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'"
@@ -2438,7 +2438,7 @@ onMounted(() => {
             </button>
             <button
               @click="activeSubtab = 'matches'; loadMatchesTab()"
-              class="flex-1 flex items-center justify-center gap-1.5 px-3 py-[5px] text-[12px] rounded-md transition-all"
+              class="flex min-w-0 flex-1 items-center justify-center gap-1 px-1.5 py-[5px] text-[11px] rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
               :class="activeSubtab === 'matches'
                 ? 'bg-white text-foreground font-semibold shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'"
@@ -2453,14 +2453,13 @@ onMounted(() => {
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              class="h-8 shrink-0 px-2.5 text-[11px] gap-1 border-zinc-200 text-foreground font-medium"
+              size="icon-sm"
+              class="shrink-0 border-zinc-200 text-foreground self-end sm:self-auto"
               :disabled="inboxRefreshing"
-              title="Listen und geöffnete Konversation neu laden"
+              title="Aktualisieren — Listen und geöffnete Konversation neu laden"
               @click="refreshInbox"
             >
               <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': inboxRefreshing }" />
-              <span class="hidden sm:inline">Aktualisieren</span>
             </Button>
           </div>
 

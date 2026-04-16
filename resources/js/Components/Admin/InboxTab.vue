@@ -136,11 +136,11 @@ const allDetailMessages = computed(() => {
     if (!seen.has(key)) seen.set(key, current);
   }
 
-  // Sort by date ascending (oldest first — chat view)
+  // Newest first (matches reading-pane order in InboxChatView)
   return Array.from(seen.values()).sort((a, b) => {
     const da = new Date(a.date || a.activity_date || a.email_date || a.created_at || 0);
     const db = new Date(b.date || b.activity_date || b.email_date || b.created_at || 0);
-    return da - db;
+    return db - da;
   });
 });
 const expandedLoading = ref(false);

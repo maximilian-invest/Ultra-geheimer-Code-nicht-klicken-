@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, ref, watch } from 'vue'
+import { computed, inject, ref, watch, nextTick } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp, Sparkles, CheckCircle, Send, RefreshCw, Wand2, Link2 } from 'lucide-vue-next'
@@ -19,11 +19,11 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saveAttachment', 'matchDraft', 'matchDismiss', 'markHandled'])
 
 function latestInbound() {
-  for (let i = flatMessages.value.length - 1; i >= 0; i--) {
+  for (let i = 0; i < flatMessages.value.length; i++) {
     const m = flatMessages.value[i]
     if ((m.direction || '').toLowerCase() === 'inbound') return m
   }
-  return flatMessages.value[flatMessages.value.length - 1] || null
+  return flatMessages.value[0] || null
 }
 
 function onReply() {
@@ -47,7 +47,7 @@ function onReplyAll() {
 }
 
 function onForward() {
-  const m = flatMessages.value[flatMessages.value.length - 1]
+  const m = flatMessages.value[0]
   if (!m) return
   emit('forward', {
     subject: m.subject?.startsWith('WG: ') ? m.subject : 'WG: ' + (m.subject || ''),
@@ -71,7 +71,7 @@ const inboxComposeInject = inject('inboxCompose', null)
 
 function enterCompose(kind, withDraft) {
   const m = kind === 'forward'
-    ? flatMessages.value[flatMessages.value.length - 1]
+    ? flatMessages.value[0]
     : latestInbound()
   if (!m) return
 
@@ -178,6 +178,18 @@ watch(
     }
   }
 )
+
+/** Reading pane: newest messages are at the top — keep scroll pinned there when switching threads or after load. */
+const threadScrollEl = ref(null)
+async function scrollThreadToTop() {
+  await nextTick()
+  const el = threadScrollEl.value
+  if (el && typeof el.scrollTop === 'number') el.scrollTop = 0
+}
+watch(() => props.item?.id, () => { scrollThreadToTop() })
+watch(() => props.loading, (loading) => {
+  if (!loading) scrollThreadToTop()
+})
 
 const bgGradient = inject("inboxBgGradient", ref(""));
 const bgOpacity = inject("inboxBgOpacity", ref(0.15));
@@ -397,11 +409,11 @@ async function generateDraft() {
 const flatMessages = computed(() => {
   if (!props.messages?.length) return []
 
-  // Sort chronologically (oldest first).
+  // Newest first (like an inbox reading pane — latest mail at the top).
   const sorted = [...props.messages].sort((a, b) => {
     const da = new Date(a.email_date || a.activity_date || a.date || 0)
     const db = new Date(b.email_date || b.activity_date || b.date || 0)
-    return da - db
+    return db - da
   })
 
   // Collect thread senders for forward dedup — if the forwarded sender
@@ -430,8 +442,8 @@ const flatMessages = computed(() => {
 })
 
 const subjectLine = computed(() => {
-  const last = flatMessages.value[flatMessages.value.length - 1]
-  return last?.subject || last?.email_subject || ''
+  const newest = flatMessages.value[0]
+  return newest?.subject || newest?.email_subject || ''
 })
 
 const refIdLabel = computed(() => props.refId || props.item?.ref_id || null)
@@ -636,7 +648,7 @@ const statusBadge = computed(() => {
     </div>
 
     <!-- Chat area -->
-    <div class="flex-1 overflow-y-auto bg-white" :style="bgGradient ? { background: 'rgba(255,255,255,0.92)' } : {}">
+    <div ref="threadScrollEl" class="flex-1 overflow-y-auto bg-white" :style="bgGradient ? { background: 'rgba(255,255,255,0.92)' } : {}">
       <div v-if="loading" class="flex items-center justify-center h-full">
         <Loader2 class="w-5 h-5 animate-spin text-muted-foreground" />
       </div>
@@ -657,7 +669,7 @@ const statusBadge = computed(() => {
               :key="msg.id || ('idx-' + idx)"
               :message="msg"
               :sender-name="item.from_name || item.stakeholder || ''"
-              :is-initially-expanded="idx === flatMessages.length - 1"
+              :is-initially-expanded="idx === 0"
               @save-attachment="emit('saveAttachment', $event)"
             />
           </div>

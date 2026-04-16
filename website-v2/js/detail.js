@@ -216,7 +216,14 @@
   const relatedEl = document.getElementById('related');
   if (relatedEl) {
     const all = await fetchProperties();
-    const others = all.filter(o => o.id !== parseInt(id)).slice(0, 3).map(mapProperty);
+    const others = all
+      .filter(o =>
+        o.id !== parseInt(id) &&
+        o.realty_status !== 'verkauft' &&
+        o.realty_status !== 'inaktiv'
+      )
+      .slice(0, 3)
+      .map(mapProperty);
     if (others.length) {
       relatedEl.innerHTML = `<h2 class="font-display text-2xl md:text-3xl font-bold mb-8" style="color:#0A0A08">Weitere Objekte</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">${others.map(o => {

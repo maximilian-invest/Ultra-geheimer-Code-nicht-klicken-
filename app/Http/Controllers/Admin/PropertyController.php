@@ -8,6 +8,7 @@ use App\Helpers\StakeholderHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class PropertyController extends Controller
 {
@@ -446,6 +447,7 @@ class PropertyController extends Controller
             }
             // User confirmed -> set to inaktiv
             $property->update(['realty_status' => 'inaktiv']);
+            Cache::forget('website_properties');
             return response()->json([
                 'success' => true,
                 'set_inaktiv' => true,
@@ -479,6 +481,8 @@ class PropertyController extends Controller
             $property->delete();
         });
 
+        Cache::forget('website_properties');
+
         return response()->json([
             'success' => true,
             'message' => "Objekt {$property->ref_id} und alle zugehoerigen Daten geloescht",
@@ -493,6 +497,7 @@ class PropertyController extends Controller
         if ($brokerId) $query->where('broker_id', $brokerId);
         $property = $query->firstOrFail();
         $property->update(['realty_status' => 'inaktiv']);
+        Cache::forget('website_properties');
         return response()->json(['success' => true, 'message' => "Objekt {$property->ref_id} auf inaktiv gesetzt"]);
     }
 
@@ -505,6 +510,7 @@ class PropertyController extends Controller
         if ($brokerId) $query->where('broker_id', $brokerId);
         $property = $query->firstOrFail();
         $property->update(['realty_status' => $newStatus]);
+        Cache::forget('website_properties');
         return response()->json(['success' => true, 'message' => "Objekt {$property->ref_id} reaktiviert (Status: {$newStatus})"]);
     }
 

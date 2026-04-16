@@ -57,7 +57,7 @@ function toggleSection(label) {
 <template>
   <div class="flex flex-col h-full overflow-hidden">
     <!-- Toolbar -->
-    <div class="flex items-center gap-1.5 px-3 py-2 border-b border-zinc-100 flex-shrink-0">
+    <div class="flex items-center gap-1.5 px-3 py-1.5 border-b border-zinc-100 flex-shrink-0">
       <!-- Search -->
       <div class="relative flex-1 min-w-0">
         <Search class="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -126,6 +126,8 @@ function toggleSection(label) {
         <Plus class="h-4 w-4" />
       </Button>
     </div>
+
+    <slot name="under-toolbar" />
 
     <!-- List Area -->
     <div class="flex-1 overflow-y-auto min-h-0">

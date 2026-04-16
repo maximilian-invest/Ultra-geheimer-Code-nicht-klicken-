@@ -2470,64 +2470,6 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Auto-Reply Info + Settings -->
-        <div v-if="activeSubtab === 'offen'" class="px-4 pb-1 flex items-center gap-2">
-          <button v-if="autoReplyLogs.length" class="text-[10px] text-emerald-600 hover:text-emerald-800 hover:underline transition-colors cursor-pointer" @click="autoReplyBannerOpen = !autoReplyBannerOpen">✓ {{ autoReplyLogs.length }} Auto-Replies (24h)</button>
-
-          <!-- Auto-Reply Log Panel -->
-          <div v-if="autoReplyBannerOpen && autoReplyLogs.length" class="mx-4 mb-2 rounded-xl border border-emerald-200 bg-emerald-50/50 overflow-hidden">
-            <div class="px-3 py-2 border-b border-emerald-100 flex items-center justify-between">
-              <span class="text-[11px] font-semibold text-emerald-800">Auto-Replies der letzten 24h</span>
-              <button class="text-[10px] text-emerald-600 hover:text-emerald-800" @click="autoReplyBannerOpen = false">Schließen</button>
-            </div>
-            <div class="max-h-[200px] overflow-y-auto divide-y divide-emerald-100">
-              <div v-for="log in autoReplyLogs" :key="log.id" class="px-3 py-2 hover:bg-emerald-50 cursor-pointer" @click="() => { const conv = [...(unansweredList || []), ...(allFollowups || [])].find(c => c.stakeholder === log.stakeholder && c.property_id === log.property_id); if (conv) openDetail(conv, 'offen'); else { ehSearch = log.to_email || log.stakeholder; ehPage = 1; activeSubtab = 'gesendet'; loadEmailHistory(); } }">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="text-[12px] font-medium text-zinc-800 truncate">{{ log.stakeholder || log.to_email }}</span>
-                  <span class="text-[10px] text-muted-foreground flex-shrink-0">{{ log.created_at?.substring(11, 16) }}</span>
-                </div>
-                <div class="text-[11px] text-muted-foreground truncate mt-0.5">{{ log.subject }}</div>
-              </div>
-            </div>
-          </div>
-          <span v-else-if="autoReplyEnabled && autoReplyPropertyIds.length" class="text-[10px] text-emerald-600">Auto-Reply aktiv für {{ autoReplyPropertyIds.length }} {{ autoReplyPropertyIds.length === 1 ? 'Objekt' : 'Objekte' }}</span>
-          <div class="flex-1"></div>
-          <Button variant="ghost" size="sm" class="h-6 w-6 p-0" @click="showAutoReplySettings = !showAutoReplySettings; if (showAutoReplySettings && !autoReplyText) loadAutoReplySettings()" title="Auto-Reply Einstellungen">
-            <Settings2 class="w-3 h-3 text-muted-foreground" />
-          </Button>
-        </div>
-        <div v-if="showAutoReplySettings && activeSubtab === 'offen'" class="mx-4 mb-2 rounded-lg border border-zinc-100 bg-white/80 backdrop-blur-sm p-3 space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="text-[12px] font-semibold">Auto-Reply</div>
-            <button
-              @click="autoReplyEnabled = !autoReplyEnabled"
-              class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
-              :class="autoReplyEnabled ? 'bg-emerald-500' : 'bg-zinc-300'"
-            >
-              <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform" :class="autoReplyEnabled ? 'translate-x-4.5' : 'translate-x-0.5'" :style="{ transform: autoReplyEnabled ? 'translateX(18px)' : 'translateX(2px)' }" />
-            </button>
-          </div>
-          <div v-if="!autoReplyEnabled" class="text-[10px] text-red-600 bg-red-50 rounded px-2 py-1.5">Auto-Reply ist deaktiviert. Keine automatischen Antworten werden gesendet.</div>
-          <template v-if="autoReplyEnabled">
-          <div class="text-[10px] text-muted-foreground">Wähle Objekte für automatische Antworten:</div>
-          <div class="space-y-1 max-h-40 overflow-y-auto">
-            <label v-for="p in (properties || [])" :key="p.id" class="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-zinc-50 px-2 py-1.5 rounded">
-              <input type="checkbox" :value="p.id" v-model="autoReplyPropertyIds" class="rounded border-zinc-300" />
-              <span class="flex-1">{{ p.ref_id }} — {{ p.address }}</span>
-            </label>
-          </div>
-          <div>
-            <div class="text-[11px] font-medium mb-1">Antwort-Text (leer = KI generiert automatisch)</div>
-            <Textarea v-model="autoReplyText" class="text-[11px] min-h-[60px]" placeholder="Vielen Dank für Ihre Anfrage..." />
-          </div>
-          <div v-if="!autoReplyText" class="text-[10px] text-amber-600 bg-amber-50 rounded px-2 py-1">
-            Kein Text hinterlegt — es wird automatisch ein KI-Entwurf als Antwort generiert.
-          </div>
-          </template>
-          <div class="flex justify-end">
-            <Button size="sm" class="h-7 text-[11px]" :disabled="autoReplySaving" @click="saveAutoReplySettings">Speichern</Button>
-          </div>
-        </div>
         <div v-if="isAssistenz && brokerList.length" class="px-3 pb-1 flex-shrink-0">
           <Select
             :model-value="String(maklerFilter || '')"
@@ -2566,7 +2508,68 @@ onMounted(() => {
           @update:object-filter="objectFilter = $event"
           @toolbar-refresh="refreshInbox"
           @compose="startCompose()" @delete="markConvDone($event.id)"
-        />
+        >
+          <template #under-toolbar>
+            <div class="flex-shrink-0 border-b border-zinc-100 bg-zinc-50/50">
+              <div class="flex flex-wrap items-center gap-2 px-3 py-1.5">
+                <button v-if="autoReplyLogs.length" type="button" class="text-[10px] text-emerald-600 hover:text-emerald-800 hover:underline transition-colors cursor-pointer" @click="autoReplyBannerOpen = !autoReplyBannerOpen">✓ {{ autoReplyLogs.length }} Auto-Replies (24h)</button>
+                <span v-else-if="autoReplyEnabled && autoReplyPropertyIds.length" class="text-[10px] text-emerald-600">Auto-Reply aktiv für {{ autoReplyPropertyIds.length }} {{ autoReplyPropertyIds.length === 1 ? 'Objekt' : 'Objekte' }}</span>
+                <div class="min-w-[4px] flex-1"></div>
+                <Button variant="ghost" size="sm" class="h-6 w-6 shrink-0 p-0" @click="showAutoReplySettings = !showAutoReplySettings; if (showAutoReplySettings && !autoReplyText) loadAutoReplySettings()" title="Auto-Reply Einstellungen">
+                  <Settings2 class="w-3 h-3 text-muted-foreground" />
+                </Button>
+              </div>
+              <div v-if="autoReplyBannerOpen && autoReplyLogs.length" class="mx-3 mb-2 rounded-xl border border-emerald-200 bg-emerald-50/50 overflow-hidden">
+                <div class="px-3 py-2 border-b border-emerald-100 flex items-center justify-between">
+                  <span class="text-[11px] font-semibold text-emerald-800">Auto-Replies der letzten 24h</span>
+                  <button type="button" class="text-[10px] text-emerald-600 hover:text-emerald-800" @click="autoReplyBannerOpen = false">Schließen</button>
+                </div>
+                <div class="max-h-[200px] overflow-y-auto divide-y divide-emerald-100">
+                  <div v-for="log in autoReplyLogs" :key="log.id" class="px-3 py-2 hover:bg-emerald-50 cursor-pointer" @click="() => { const conv = [...(unansweredList || []), ...(allFollowups || [])].find(c => c.stakeholder === log.stakeholder && c.property_id === log.property_id); if (conv) openDetail(conv, 'offen'); else { ehSearch = log.to_email || log.stakeholder; ehPage = 1; activeSubtab = 'gesendet'; loadEmailHistory(); } }">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-[12px] font-medium text-zinc-800 truncate">{{ log.stakeholder || log.to_email }}</span>
+                      <span class="text-[10px] text-muted-foreground flex-shrink-0">{{ log.created_at?.substring(11, 16) }}</span>
+                    </div>
+                    <div class="text-[11px] text-muted-foreground truncate mt-0.5">{{ log.subject }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-if="showAutoReplySettings" class="mx-3 mb-2 rounded-lg border border-zinc-100 bg-white/80 backdrop-blur-sm p-3 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="text-[12px] font-semibold">Auto-Reply</div>
+                <button
+                  type="button"
+                  @click="autoReplyEnabled = !autoReplyEnabled"
+                  class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+                  :class="autoReplyEnabled ? 'bg-emerald-500' : 'bg-zinc-300'"
+                >
+                  <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform" :class="autoReplyEnabled ? 'translate-x-4.5' : 'translate-x-0.5'" :style="{ transform: autoReplyEnabled ? 'translateX(18px)' : 'translateX(2px)' }" />
+                </button>
+              </div>
+              <div v-if="!autoReplyEnabled" class="text-[10px] text-red-600 bg-red-50 rounded px-2 py-1.5">Auto-Reply ist deaktiviert. Keine automatischen Antworten werden gesendet.</div>
+              <template v-if="autoReplyEnabled">
+                <div class="text-[10px] text-muted-foreground">Wähle Objekte für automatische Antworten:</div>
+                <div class="space-y-1 max-h-40 overflow-y-auto">
+                  <label v-for="p in (properties || [])" :key="p.id" class="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-zinc-50 px-2 py-1.5 rounded">
+                    <input type="checkbox" :value="p.id" v-model="autoReplyPropertyIds" class="rounded border-zinc-300" />
+                    <span class="flex-1">{{ p.ref_id }} — {{ p.address }}</span>
+                  </label>
+                </div>
+                <div>
+                  <div class="text-[11px] font-medium mb-1">Antwort-Text (leer = KI generiert automatisch)</div>
+                  <Textarea v-model="autoReplyText" class="text-[11px] min-h-[60px]" placeholder="Vielen Dank für Ihre Anfrage..." />
+                </div>
+                <div v-if="!autoReplyText" class="text-[10px] text-amber-600 bg-amber-50 rounded px-2 py-1">
+                  Kein Text hinterlegt — es wird automatisch ein KI-Entwurf als Antwort generiert.
+                </div>
+              </template>
+              <div class="flex justify-end">
+                <Button size="sm" class="h-7 text-[11px]" :disabled="autoReplySaving" @click="saveAutoReplySettings">Speichern</Button>
+              </div>
+            </div>
+          </template>
+        </InboxConversationList>
 
         <!-- Nachfassen Settings + Alle Button -->
         <div v-if="activeSubtab === 'nachfassen'" class="px-4 pb-2 space-y-2">

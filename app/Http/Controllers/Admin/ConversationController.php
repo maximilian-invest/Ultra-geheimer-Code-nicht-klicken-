@@ -316,7 +316,18 @@ class ConversationController extends Controller
             $messages = DB::select("
                 SELECT
                     pe.id, pe.direction,
-                    CASE WHEN pe.direction = 'inbound' THEN pe.from_name ELSE pe.to_email END as from_name,
+                    CASE
+                        WHEN pe.direction = 'inbound' THEN pe.from_name
+                        ELSE COALESCE(
+                            sender_user.name,
+                            sender_account.label,
+                            sender_account.email_address,
+                            sender_acct_from.label,
+                            sender_acct_from.email_address,
+                            pe.from_email,
+                            pe.to_email
+                        )
+                    END as from_name,
                     pe.from_email,
                     pe.to_email,
                     pe.subject,
@@ -326,9 +337,35 @@ class ConversationController extends Controller
                     pe.category,
                     pe.has_attachment,
                     pe.attachment_names,
+                    CASE
+                        WHEN pe.direction = 'outbound' AND sender_user.profile_image IS NOT NULL AND TRIM(sender_user.profile_image) <> ''
+                            THEN CONCAT('/storage/', sender_user.profile_image)
+                        WHEN pe.direction = 'outbound'
+                            AND sender_settings.signature_photo_path IS NOT NULL AND TRIM(sender_settings.signature_photo_path) <> ''
+                            THEN CONCAT('/storage/', sender_settings.signature_photo_path)
+                        ELSE NULL
+                    END as sender_avatar_url,
                     a.followup_stage
                 FROM portal_emails pe
                 LEFT JOIN activities a ON a.source_email_id = pe.id
+                LEFT JOIN email_accounts sender_account ON sender_account.id = pe.account_id
+                LEFT JOIN email_accounts sender_acct_from ON pe.direction = 'outbound'
+                    AND (
+                        pe.account_id IS NULL OR pe.account_id = 0
+                        OR sender_account.user_id IS NULL OR sender_account.user_id = 0
+                    )
+                    AND sender_acct_from.id = (
+                        SELECT ea2.id FROM email_accounts ea2
+                        WHERE ea2.is_active = 1
+                          AND LOWER(TRIM(ea2.email_address)) = LOWER(TRIM(pe.from_email))
+                        ORDER BY ea2.id ASC
+                        LIMIT 1
+                    )
+                LEFT JOIN users sender_user ON sender_user.id = COALESCE(
+                    NULLIF(sender_account.user_id, 0),
+                    NULLIF(sender_acct_from.user_id, 0)
+                )
+                LEFT JOIN admin_settings sender_settings ON sender_settings.user_id = sender_user.id
                 WHERE pe.is_deleted = 0
                   AND (pe.property_id = ? OR pe.property_id IS NULL)
                   AND (
@@ -358,7 +395,18 @@ class ConversationController extends Controller
             $messages = DB::select("
                 SELECT
                     pe.id, pe.direction,
-                    CASE WHEN pe.direction = 'inbound' THEN pe.from_name ELSE pe.to_email END as from_name,
+                    CASE
+                        WHEN pe.direction = 'inbound' THEN pe.from_name
+                        ELSE COALESCE(
+                            sender_user.name,
+                            sender_account.label,
+                            sender_account.email_address,
+                            sender_acct_from.label,
+                            sender_acct_from.email_address,
+                            pe.from_email,
+                            pe.to_email
+                        )
+                    END as from_name,
                     pe.from_email,
                     pe.to_email,
                     pe.subject,
@@ -368,9 +416,35 @@ class ConversationController extends Controller
                     pe.category,
                     pe.has_attachment,
                     pe.attachment_names,
+                    CASE
+                        WHEN pe.direction = 'outbound' AND sender_user.profile_image IS NOT NULL AND TRIM(sender_user.profile_image) <> ''
+                            THEN CONCAT('/storage/', sender_user.profile_image)
+                        WHEN pe.direction = 'outbound'
+                            AND sender_settings.signature_photo_path IS NOT NULL AND TRIM(sender_settings.signature_photo_path) <> ''
+                            THEN CONCAT('/storage/', sender_settings.signature_photo_path)
+                        ELSE NULL
+                    END as sender_avatar_url,
                     a.followup_stage
                 FROM portal_emails pe
                 LEFT JOIN activities a ON a.source_email_id = pe.id
+                LEFT JOIN email_accounts sender_account ON sender_account.id = pe.account_id
+                LEFT JOIN email_accounts sender_acct_from ON pe.direction = 'outbound'
+                    AND (
+                        pe.account_id IS NULL OR pe.account_id = 0
+                        OR sender_account.user_id IS NULL OR sender_account.user_id = 0
+                    )
+                    AND sender_acct_from.id = (
+                        SELECT ea2.id FROM email_accounts ea2
+                        WHERE ea2.is_active = 1
+                          AND LOWER(TRIM(ea2.email_address)) = LOWER(TRIM(pe.from_email))
+                        ORDER BY ea2.id ASC
+                        LIMIT 1
+                    )
+                LEFT JOIN users sender_user ON sender_user.id = COALESCE(
+                    NULLIF(sender_account.user_id, 0),
+                    NULLIF(sender_acct_from.user_id, 0)
+                )
+                LEFT JOIN admin_settings sender_settings ON sender_settings.user_id = sender_user.id
                 WHERE pe.is_deleted = 0
                   AND (pe.property_id = ? OR pe.property_id IS NULL)
                   AND (

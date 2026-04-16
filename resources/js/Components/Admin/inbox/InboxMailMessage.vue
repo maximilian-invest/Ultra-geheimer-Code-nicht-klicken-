@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, inject } from 'vue'
+import { usePage } from '@inertiajs/vue3'
 import { ChevronDown, ChevronUp, Paperclip, FolderDown } from 'lucide-vue-next'
 import InboxMailBody from './InboxMailBody.vue'
 import { cleanEmailBody } from './mailText.js'
@@ -17,6 +18,15 @@ const expanded = ref(props.isInitiallyExpanded)
 // Injected from Dashboard.vue
 const openContact = inject('openContact', () => {})
 const currentUserAvatar = inject('currentUserAvatar', { url: null, initials: '??' })
+const inboxSignatureData = inject('inboxSignatureData', ref(null))
+
+const page = usePage()
+function normalizeAddr(raw) {
+  const s = String(raw || '').trim()
+  const angle = s.match(/<([^>]+)>/)
+  return (angle ? angle[1] : s).trim().toLowerCase()
+}
+const authEmailNorm = computed(() => normalizeAddr(page.props.auth?.user?.email))
 
 // ── Direction + category heuristics (unchanged from the old bubble)
 const isOutbound = computed(() => {
@@ -63,6 +73,13 @@ const avatarInitials = computed(() => {
 })
 const avatarImageUrl = computed(() => {
   if (!isOutbound.value) return null
+  const outboundAvatar = String(props.message.sender_avatar_url || '').trim()
+  if (outboundAvatar) return outboundAvatar
+  const fromNorm = normalizeAddr(props.message.from_email)
+  if (fromNorm && authEmailNorm.value && fromNorm === authEmailNorm.value) {
+    const sigUrl = String(inboxSignatureData?.value?.signature_photo_url || '').trim()
+    if (sigUrl) return sigUrl
+  }
   const avatar = currentUserAvatar
   return avatar?.url || null
 })
@@ -119,6 +136,7 @@ function toggle() {
 }
 
 function onNameClick() {
+  if (isOutbound.value) return
   if (displayName.value && displayName.value !== 'Unbekannt') {
     openContact(displayName.value)
   }
@@ -138,7 +156,7 @@ function onNameClick() {
           <button
             type="button"
             class="sr-sender-name"
-            :title="displayName + ' — Kontakt öffnen'"
+            :title="isOutbound ? displayName : (displayName + ' — Kontakt öffnen')"
             @click.stop="onNameClick"
           >{{ displayName }}</button>
           <span v-if="senderAddress" class="sr-sender-addr">&lt;{{ senderAddress }}&gt;</span>

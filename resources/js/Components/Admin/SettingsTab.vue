@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
-import { Save, Lock, User, Phone, Mail, FileSignature, Globe, Building, Image, Trash2, Upload } from "lucide-vue-next";
+import { Save, Lock, User, Phone, Mail, FileSignature, Globe, Building, Image, Trash2, Upload, Plus } from "lucide-vue-next";
 import EmailAccountsTab from "./EmailAccountsTab.vue";
 
 const API = inject("API");
@@ -40,8 +40,12 @@ const pwCurrent = ref("");
 const pwNew = ref("");
 const pwConfirm = ref("");
 const pwSaving = ref(false);
+const inboxRules = ref([]);
+const inboxRulesLoading = ref(false);
+const inboxRuleSaving = ref(false);
+const inboxRulePattern = ref("");
 
-onMounted(() => { loadSettings(); loadFeedStatus(); });
+onMounted(() => { loadSettings(); loadFeedStatus(); loadInboxRules(); });
 
 async function loadSettings() {
     loading.value = true;
@@ -213,6 +217,55 @@ async function changePassword() {
     } catch (e) { toast("Fehler: " + e.message); }
     pwSaving.value = false;
 }
+
+async function loadInboxRules() {
+    inboxRulesLoading.value = true;
+    try {
+        const r = await fetch(API.value + "&action=list_inbox_rules");
+        const d = await r.json();
+        inboxRules.value = d.rules || [];
+    } catch (e) { toast("Fehler: " + e.message); }
+    inboxRulesLoading.value = false;
+}
+
+async function addInboxRule() {
+    const pattern = inboxRulePattern.value.trim();
+    if (!pattern) return;
+    inboxRuleSaving.value = true;
+    try {
+        const r = await fetch(API.value + "&action=save_inbox_rule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pattern, action: "exclude_anfragen", enabled: true }),
+        });
+        const d = await r.json();
+        if (d.success) {
+            inboxRulePattern.value = "";
+            await loadInboxRules();
+            toast("Inbox-Regel gespeichert");
+        } else {
+            toast("Fehler: " + (d.error || "Unbekannt"));
+        }
+    } catch (e) { toast("Fehler: " + e.message); }
+    inboxRuleSaving.value = false;
+}
+
+async function deleteInboxRule(id) {
+    try {
+        const r = await fetch(API.value + "&action=delete_inbox_rule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id }),
+        });
+        const d = await r.json();
+        if (d.success) {
+            await loadInboxRules();
+            toast("Inbox-Regel gelöscht");
+        } else {
+            toast("Fehler: " + (d.error || "Unbekannt"));
+        }
+    } catch (e) { toast("Fehler: " + e.message); }
+}
 </script>
 
 <template>
@@ -345,6 +398,52 @@ async function changePassword() {
             </div>
 
             <!-- Auto-Reply moved to PrioritiesTab -->
+
+            <!-- Inbox Regeln -->
+            <div class="card">
+                <div class="px-6 py-3 border-b border-[var(--border)] flex items-center gap-2">
+                    <Mail class="w-4 h-4 text-[var(--muted-foreground)]" />
+                    <h3 class="text-sm font-semibold">Inbox-Regeln</h3>
+                </div>
+                <div class="p-6 space-y-4">
+                    <p class="text-xs text-[var(--muted-foreground)]">
+                        Absender, die hier hinterlegt sind, werden nicht mehr unter <strong>Anfragen</strong> gelistet.
+                        Beispiele: <code class="text-[11px]">newsletter@example.com</code> oder <code class="text-[11px]">@portal.com</code>
+                    </p>
+                    <div class="flex items-center gap-2">
+                        <input
+                            v-model="inboxRulePattern"
+                            class="form-input"
+                            placeholder="Absender oder Domain eingeben..."
+                            @keyup.enter="addInboxRule()"
+                        />
+                        <button @click="addInboxRule()" :disabled="inboxRuleSaving || !inboxRulePattern.trim()" class="btn btn-outline btn-sm whitespace-nowrap">
+                            <Plus class="w-4 h-4" />
+                            Hinzufügen
+                        </button>
+                    </div>
+
+                    <div v-if="inboxRulesLoading" class="text-center py-3"><span class="spinner"></span></div>
+                    <div v-else-if="!inboxRules.length" class="text-xs text-[var(--muted-foreground)] italic">
+                        Keine Regeln hinterlegt.
+                    </div>
+                    <div v-else class="space-y-2">
+                        <div
+                            v-for="rule in inboxRules"
+                            :key="rule.id"
+                            class="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 py-2"
+                        >
+                            <div class="min-w-0">
+                                <div class="text-sm font-medium break-all">{{ rule.pattern }}</div>
+                                <div class="text-[11px] text-[var(--muted-foreground)]">Aktion: nicht unter Anfragen listen</div>
+                            </div>
+                            <button @click="deleteInboxRule(rule.id)" class="btn btn-ghost btn-icon btn-sm text-red-500">
+                                <Trash2 class="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
 
             <!-- willhaben Feed / Portale -->

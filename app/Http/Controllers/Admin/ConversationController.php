@@ -19,6 +19,40 @@ use App\Services\AnthropicService;
 
 class ConversationController extends Controller
 {
+    private function shouldHideFromAnfragen(array $item, array $rules): bool
+    {
+        if (empty($rules)) return false;
+
+        $fromEmail = strtolower(trim((string) ($item['contact_email'] ?? '')));
+        $fromName = strtolower(trim((string) ($item['from_name'] ?? '')));
+        $stakeholder = strtolower(trim((string) ($item['stakeholder'] ?? '')));
+        $haystack = $fromEmail . ' ' . $fromName . ' ' . $stakeholder;
+
+        foreach ($rules as $rule) {
+            $pattern = strtolower(trim((string) ($rule->pattern ?? '')));
+            if ($pattern === '') continue;
+
+            // Domain rule: @domain.tld or domain.tld
+            if (str_starts_with($pattern, '@')) {
+                if ($fromEmail !== '' && str_ends_with($fromEmail, $pattern)) return true;
+                continue;
+            }
+            if (!str_contains($pattern, '@') && str_contains($pattern, '.')) {
+                if ($fromEmail !== '' && str_ends_with($fromEmail, '@' . $pattern)) return true;
+                continue;
+            }
+
+            // Exact email or substring fallback
+            if (str_contains($pattern, '@')) {
+                if ($fromEmail === $pattern) return true;
+            } elseif (str_contains($haystack, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Find the latest inbound non-trashed mail in the current user's
      * mailboxes for a given conversation, returning its display metadata.
@@ -246,6 +280,21 @@ class ConversationController extends Controller
 
             return $item;
         })->filter();
+
+        // Inbox-Regel: bestimmte Absender in "Anfragen" ausblenden.
+        if ($status === 'offen') {
+            $rules = DB::table('inbox_sender_rules')
+                ->where('user_id', Auth::id())
+                ->where('enabled', 1)
+                ->where('action', 'exclude_anfragen')
+                ->get(['pattern']);
+
+            if ($rules->isNotEmpty()) {
+                $conversations = $conversations
+                    ->filter(fn ($item) => !$this->shouldHideFromAnfragen($item, $rules->all()))
+                    ->values();
+            }
+        }
 
         $totalCount = $hasBrokerScopedFilter ? $conversations->count() : $paginated->total();
 

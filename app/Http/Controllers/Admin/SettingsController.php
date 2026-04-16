@@ -10,13 +10,19 @@ use Illuminate\Support\Facades\Hash;
 
 class SettingsController extends Controller
 {
-    public function get(Request $request): JsonResponse
+    private function resolvedUser()
     {
-        // Use authenticated user, fallback to first admin for API-key-based requests
         $user = \Auth::user();
         if (!$user || $user->user_type === 'eigentuemer') {
             $user = \App\Models\User::whereIn('user_type', ['admin', 'makler'])->first();
         }
+        return $user;
+    }
+
+    public function get(Request $request): JsonResponse
+    {
+        // Use authenticated user, fallback to first admin/makler for API-key-based requests
+        $user = $this->resolvedUser();
 
         $settings = DB::table('admin_settings')->where('user_id', $user->id ?? 1)->first();
 
@@ -52,10 +58,7 @@ class SettingsController extends Controller
     public function save(Request $request): JsonResponse
     {
         $input = $request->json()->all();
-        $user = \Auth::user();
-        if (!$user || $user->user_type === 'eigentuemer') {
-            $user = \App\Models\User::whereIn('user_type', ['admin', 'makler'])->first();
-        }
+        $user = $this->resolvedUser();
         $userId = $user->id ?? 1;
 
         // Update user name/email
@@ -121,10 +124,7 @@ class SettingsController extends Controller
             return response()->json(['error' => 'Nur Bilder (PNG, JPG, GIF, WebP) erlaubt'], 400);
         }
 
-        $user = \Auth::user();
-        if (!$user || $user->user_type === 'eigentuemer') {
-            $user = \App\Models\User::whereIn('user_type', ['admin', 'makler'])->first();
-        }
+        $user = $this->resolvedUser();
         $userId = $user->id ?? 1;
 
         // Store in public storage
@@ -166,10 +166,7 @@ class SettingsController extends Controller
             return response()->json(['error' => 'type must be logo or banner'], 400);
         }
 
-        $user = \Auth::user();
-        if (!$user || $user->user_type === 'eigentuemer') {
-            $user = \App\Models\User::whereIn('user_type', ['admin', 'makler'])->first();
-        }
+        $user = $this->resolvedUser();
         $userId = $user->id ?? 1;
 
         $column = match($type) { 'logo' => 'signature_logo_path', 'banner' => 'signature_banner_path', 'photo' => 'signature_photo_path' };
@@ -187,10 +184,7 @@ class SettingsController extends Controller
     public function changePassword(Request $request): JsonResponse
     {
         $input = $request->json()->all();
-        $user = \Auth::user();
-        if (!$user || $user->user_type === 'eigentuemer') {
-            $user = \App\Models\User::whereIn('user_type', ['admin', 'makler'])->first();
-        }
+        $user = $this->resolvedUser();
 
         $current = $input['current_password'] ?? '';
         $new = $input['new_password'] ?? '';
@@ -219,7 +213,7 @@ class SettingsController extends Controller
         $enabled = !empty($input['enabled']) ? 1 : 0;
         $text = trim($input['auto_reply_text'] ?? '') ?: null;
 
-        $user = \App\Models\User::where('user_type', 'admin')->first();
+        $user = $this->resolvedUser();
         $userId = $user->id ?? 1;
 
         $existing = DB::table('admin_settings')->where('user_id', $userId)->first();
@@ -243,5 +237,80 @@ class SettingsController extends Controller
             'success' => true,
             'auto_reply_enabled' => (bool) $enabled,
         ]);
+    }
+
+    public function listInboxRules(Request $request): JsonResponse
+    {
+        $user = $this->resolvedUser();
+        $userId = $user->id ?? 1;
+
+        $rules = DB::table('inbox_sender_rules')
+            ->where('user_id', $userId)
+            ->orderByDesc('id')
+            ->get(['id', 'pattern', 'action', 'enabled', 'created_at']);
+
+        return response()->json(['rules' => $rules]);
+    }
+
+    public function saveInboxRule(Request $request): JsonResponse
+    {
+        $user = $this->resolvedUser();
+        $userId = $user->id ?? 1;
+        $input = $request->json()->all();
+
+        $pattern = trim((string) ($input['pattern'] ?? ''));
+        if ($pattern === '') {
+            return response()->json(['error' => 'pattern required'], 400);
+        }
+
+        $action = (string) ($input['action'] ?? 'exclude_anfragen');
+        if ($action !== 'exclude_anfragen') {
+            return response()->json(['error' => 'unsupported action'], 400);
+        }
+
+        $enabled = array_key_exists('enabled', $input) ? !empty($input['enabled']) : true;
+        $id = intval($input['id'] ?? 0);
+
+        if ($id > 0) {
+            $exists = DB::table('inbox_sender_rules')->where('id', $id)->where('user_id', $userId)->exists();
+            if (!$exists) return response()->json(['error' => 'rule not found'], 404);
+
+            DB::table('inbox_sender_rules')
+                ->where('id', $id)
+                ->where('user_id', $userId)
+                ->update([
+                    'pattern' => $pattern,
+                    'action' => $action,
+                    'enabled' => $enabled ? 1 : 0,
+                    'updated_at' => now(),
+                ]);
+        } else {
+            DB::table('inbox_sender_rules')->insert([
+                'user_id' => $userId,
+                'pattern' => $pattern,
+                'action' => $action,
+                'enabled' => $enabled ? 1 : 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    public function deleteInboxRule(Request $request): JsonResponse
+    {
+        $user = $this->resolvedUser();
+        $userId = $user->id ?? 1;
+        $input = $request->json()->all();
+        $id = intval($input['id'] ?? 0);
+        if ($id <= 0) return response()->json(['error' => 'id required'], 400);
+
+        DB::table('inbox_sender_rules')
+            ->where('id', $id)
+            ->where('user_id', $userId)
+            ->delete();
+
+        return response()->json(['success' => true]);
     }
 }

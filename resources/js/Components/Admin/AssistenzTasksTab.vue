@@ -1,14 +1,52 @@
 <script setup>
 import { ref, computed, inject, onMounted } from "vue";
 import {
-  CheckCircle2, Circle, Plus, Sparkles, Trash2, Edit3, Calendar,
-  User, Home, ArrowUpRight, Clock, AlertTriangle, Filter, Send
+  CheckCircle2,
+  Circle,
+  Plus,
+  Sparkles,
+  Trash2,
+  Edit3,
+  Calendar,
+  User,
+  Home,
+  Clock,
+  Filter,
+  Send,
+  ChevronDown,
+  Loader2,
 } from "lucide-vue-next";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const API = inject("API");
 const toast = inject("toast");
 const userType = inject("userType", ref("makler"));
-const isAssistenz = computed(() => ["assistenz","backoffice"].includes(userType.value));
+const isAssistenz = computed(() =>
+  ["assistenz", "backoffice"].includes(userType.value),
+);
 
 const tasks = ref([]);
 const loading = ref(false);
@@ -16,12 +54,17 @@ const brokerFilter = ref("all");
 const brokerList = ref([]);
 const teamMembers = ref([]);
 const userId = inject("userId", ref(null));
-const showDone = ref(false);
 const showCompleted = ref(false);
 const showAddForm = ref(false);
 const aiLoading = ref(false);
 
-const newTask = ref({ text: "", priority: "medium", due_date: "", property_id: null, assigned_to: null });
+const newTask = ref({
+  text: "",
+  priority: "medium",
+  due_date: "",
+  property_id: null,
+  assigned_to: null,
+});
 
 const editingId = ref(null);
 const editAssignedTo = ref(null);
@@ -31,31 +74,52 @@ const editDueDate = ref("");
 
 const stats = computed(() => {
   const all = tasks.value;
-  const open = all.filter(t => !t.is_done);
+  const open = all.filter((t) => !t.is_done);
   const today = new Date().toISOString().slice(0, 10);
   return {
     open: open.length,
-    today: open.filter(t => t.due_date && t.due_date.slice(0, 10) === today).length,
-    overdue: open.filter(t => t.due_date && t.due_date.slice(0, 10) < today).length,
-    doneWeek: all.filter(t => t.is_done && t.updated_at && new Date(t.updated_at) > new Date(Date.now() - 7 * 86400000)).length,
+    today: open.filter(
+      (t) => t.due_date && t.due_date.slice(0, 10) === today,
+    ).length,
+    overdue: open.filter(
+      (t) => t.due_date && t.due_date.slice(0, 10) < today,
+    ).length,
+    doneWeek: all.filter(
+      (t) =>
+        t.is_done &&
+        t.updated_at &&
+        new Date(t.updated_at) > new Date(Date.now() - 7 * 86400000),
+    ).length,
   };
 });
 
-// Split tasks into "mine" and "delegated"
 const myTasks = computed(() => {
-  return tasks.value.filter(t => !t.is_done && (t.assigned_to == userId.value || (!t.assigned_to && t.created_by == userId.value)));
+  return tasks.value.filter(
+    (t) =>
+      !t.is_done &&
+      (t.assigned_to == userId.value ||
+        (!t.assigned_to && t.created_by == userId.value)),
+  );
 });
 
 const delegatedTasks = computed(() => {
-  return tasks.value.filter(t => !t.is_done && t.assigned_to && t.assigned_to != userId.value && (t.created_by == userId.value || t.assigned_by == userId.value));
+  return tasks.value.filter(
+    (t) =>
+      !t.is_done &&
+      t.assigned_to &&
+      t.assigned_to != userId.value &&
+      (t.created_by == userId.value || t.assigned_by == userId.value),
+  );
 });
 
 const completedTasks = computed(() => {
-  return tasks.value.filter(t => t.is_done).sort((a, b) => {
-    const da = a.completed_at || a.updated_at || '';
-    const db = b.completed_at || b.updated_at || '';
-    return db.localeCompare(da);
-  });
+  return tasks.value
+    .filter((t) => t.is_done)
+    .sort((a, b) => {
+      const da = a.completed_at || a.updated_at || "";
+      const db = b.completed_at || b.updated_at || "";
+      return db.localeCompare(da);
+    });
 });
 
 function groupByPriority(list) {
@@ -68,24 +132,72 @@ function groupByPriority(list) {
   return groups;
 }
 
-const priorityLabels = { critical: "Kritisch", high: "Hoch", medium: "Mittel", low: "Niedrig" };
-const priorityColors = {
-  critical: "bg-red-100 text-red-700 border-red-200",
-  high: "bg-orange-100 text-orange-700 border-orange-200",
-  medium: "bg-blue-100 text-blue-700 border-blue-200",
-  low: "bg-zinc-100 text-zinc-600 border-zinc-200",
+const priorityLabels = {
+  critical: "Kritisch",
+  high: "Hoch",
+  medium: "Mittel",
+  low: "Niedrig",
 };
-const priorityDots = { critical: "bg-red-500", high: "bg-orange-500", medium: "bg-blue-500", low: "bg-zinc-400" };
+const priorityDots = {
+  critical: "bg-destructive",
+  high: "bg-foreground",
+  medium: "bg-muted-foreground",
+  low: "bg-muted-foreground/50",
+};
+
+const myTaskSections = computed(() => {
+  const g = groupByPriority(myTasks.value);
+  return ["critical", "high", "medium", "low"]
+    .filter((p) => g[p].length)
+    .map((p) => ({ prio: p, items: g[p] }));
+});
+
+const delegatedTaskSections = computed(() => {
+  const g = groupByPriority(delegatedTasks.value);
+  return ["critical", "high", "medium", "low"]
+    .filter((p) => g[p].length)
+    .map((p) => ({ prio: p, items: g[p] }));
+});
+
+const brokerFilterModel = computed({
+  get: () =>
+    brokerFilter.value === "all" ? "all" : String(brokerFilter.value),
+  set: (v) => {
+    brokerFilter.value = v === "all" ? "all" : Number(v);
+  },
+});
+
+function setBrokerFilter(v) {
+  brokerFilterModel.value = v;
+  loadTasks();
+}
+
+function assignKey(v) {
+  return v == null || v === "" ? "__self__" : String(v);
+}
+
+function parseAssignKey(v) {
+  return v === "__self__" || v == null || v === "" ? null : Number(v);
+}
+
+function resolveAssignedTo(v) {
+  if (v == null || v === "") return userId?.value ?? null;
+  const numeric = Number(v);
+  return Number.isFinite(numeric) ? numeric : userId?.value ?? null;
+}
 
 async function loadTasks() {
   loading.value = true;
   try {
     let url = API.value + "&action=getTasks&done=1" + (isAssistenz.value ? "&scope=assistenz" : "");
-    if (brokerFilter.value !== "all") url += "&broker_filter=" + brokerFilter.value;
+    if (brokerFilter.value !== "all")
+      url += "&broker_filter=" + brokerFilter.value;
     const r = await fetch(url);
     const d = await r.json();
     tasks.value = d.tasks || [];
-  } catch (e) { toast("Fehler: " + e.message); }
+  } catch (e) {
+    toast("Fehler: " + e.message);
+  }
   loading.value = false;
 }
 
@@ -93,48 +205,69 @@ async function loadBrokers() {
   try {
     const r = await fetch(API.value + "&action=list_brokers");
     const d = await r.json();
-    brokerList.value = (d.brokers || []).filter(b => ["admin", "makler"].includes(b.user_type));
-    teamMembers.value = (d.brokers || []).filter(b => b.id !== userId?.value);
+    brokerList.value = (d.brokers || []).filter((b) =>
+      ["admin", "makler"].includes(b.user_type),
+    );
+    teamMembers.value = (d.brokers || []).filter((b) => b.id !== userId?.value);
   } catch (e) {}
 }
 
 async function addTask() {
   if (!newTask.value.text.trim()) return;
   try {
+    const payload = {
+      ...newTask.value,
+      assigned_to: resolveAssignedTo(newTask.value.assigned_to),
+    };
     const r = await fetch(API.value + "&action=addTask", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newTask.value),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
     const d = await r.json();
     if (d.success) {
       toast("Aufgabe erstellt");
-      newTask.value = { text: "", priority: "medium", due_date: "", property_id: null, assigned_to: null };
+      newTask.value = {
+        text: "",
+        priority: "medium",
+        due_date: "",
+        property_id: null,
+        assigned_to: null,
+      };
       showAddForm.value = false;
       loadTasks();
     }
-  } catch (e) { toast("Fehler: " + e.message); }
+  } catch (e) {
+    toast("Fehler: " + e.message);
+  }
 }
 
 async function completeTask(task) {
   try {
     await fetch(API.value + "&action=doneTask", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ task_id: task.id }),
     });
     loadTasks();
     toast("Erledigt");
-  } catch (e) { toast("Fehler: " + e.message); }
+  } catch (e) {
+    toast("Fehler: " + e.message);
+  }
 }
 
 async function deleteTask(task) {
   try {
     await fetch(API.value + "&action=delete_task", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: task.id }),
     });
-    tasks.value = tasks.value.filter(t => t.id !== task.id);
+    tasks.value = tasks.value.filter((t) => t.id !== task.id);
     toast("Geloescht");
-  } catch (e) { toast("Fehler: " + e.message); }
+  } catch (e) {
+    toast("Fehler: " + e.message);
+  }
 }
 
 function startEdit(task) {
@@ -148,20 +281,30 @@ function startEdit(task) {
 async function saveEdit() {
   try {
     await fetch(API.value + "&action=update_task", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: editingId.value, title: editTitle.value, priority: editPriority.value, due_date: editDueDate.value || null, assigned_to: editAssignedTo.value }),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: editingId.value,
+        title: editTitle.value,
+        priority: editPriority.value,
+        due_date: editDueDate.value || null,
+        assigned_to: resolveAssignedTo(editAssignedTo.value),
+      }),
     });
     editingId.value = null;
     loadTasks();
     toast("Aktualisiert");
-  } catch (e) { toast("Fehler: " + e.message); }
+  } catch (e) {
+    toast("Fehler: " + e.message);
+  }
 }
 
 async function generateAiTodos() {
   aiLoading.value = true;
   try {
     const r = await fetch(API.value + "&action=generateTodos", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
     const d = await r.json();
@@ -171,7 +314,9 @@ async function generateAiTodos() {
     } else {
       toast("Fehler: " + (d.error || "Unbekannt"));
     }
-  } catch (e) { toast("Fehler: " + e.message); }
+  } catch (e) {
+    toast("Fehler: " + e.message);
+  }
   aiLoading.value = false;
 }
 
@@ -191,246 +336,641 @@ function isToday(d) {
   return d.slice(0, 10) === new Date().toISOString().slice(0, 10);
 }
 
-onMounted(() => { loadBrokers(); loadTasks(); });
+onMounted(() => {
+  loadBrokers();
+  loadTasks();
+});
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto space-y-6">
-
-    <!-- Stats -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      <div class="bg-white border border-zinc-200/80 rounded-2xl p-4 text-center">
-        <div class="text-2xl font-bold text-zinc-900">{{ stats.open }}</div>
-        <div class="text-xs text-zinc-500 mt-0.5">Offen</div>
-      </div>
-      <div class="bg-white border border-zinc-200/80 rounded-2xl p-4 text-center">
-        <div class="text-2xl font-bold" :class="stats.today ? 'text-orange-600' : 'text-zinc-400'">{{ stats.today }}</div>
-        <div class="text-xs text-zinc-500 mt-0.5">Heute faellig</div>
-      </div>
-      <div class="bg-white border border-zinc-200/80 rounded-2xl p-4 text-center">
-        <div class="text-2xl font-bold" :class="stats.overdue ? 'text-red-600' : 'text-zinc-400'">{{ stats.overdue }}</div>
-        <div class="text-xs text-zinc-500 mt-0.5">Ueberfaellig</div>
-      </div>
-      <div class="bg-white border border-zinc-200/80 rounded-2xl p-4 text-center">
-        <div class="text-2xl font-bold text-emerald-600">{{ stats.doneWeek }}</div>
-        <div class="text-xs text-zinc-500 mt-0.5">Diese Woche erledigt</div>
-      </div>
+  <div class="mx-auto flex max-w-6xl flex-col gap-6 pt-4 md:pt-6">
+    <!-- Kennzahlen (shadcn Metric-Card Muster) -->
+    <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <Card>
+        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardDescription>Offen</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div class="text-2xl font-bold tabular-nums">
+            {{ stats.open }}
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardDescription>Heute fällig</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div
+            :class="
+              cn(
+                'text-2xl font-bold tabular-nums',
+                stats.today ? 'text-foreground' : 'text-muted-foreground',
+              )
+            "
+          >
+            {{ stats.today }}
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardDescription>Überfällig</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div
+            :class="
+              cn(
+                'text-2xl font-bold tabular-nums',
+                stats.overdue ? 'text-destructive' : 'text-muted-foreground',
+              )
+            "
+          >
+            {{ stats.overdue }}
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardDescription>Diese Woche erledigt</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div class="text-2xl font-bold tabular-nums text-foreground">
+            {{ stats.doneWeek }}
+          </div>
+        </CardContent>
+      </Card>
     </div>
 
-    <!-- Toolbar -->
-    <div class="flex items-center gap-3 flex-wrap">
-      <div v-if="isAssistenz" class="flex items-center gap-2">
-        <Filter class="w-4 h-4 text-zinc-400" />
-        <select v-model="brokerFilter" @change="loadTasks()" class="text-sm bg-white border border-zinc-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-zinc-900/10">
-          <option value="all">Alle Makler</option>
-          <option v-for="b in brokerList" :key="b.id" :value="b.id">{{ b.name }}</option>
-        </select>
-      </div>
-
-      <div class="flex-1"></div>
-
-      <button @click="generateAiTodos()" :disabled="aiLoading"
-        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200"
-        :class="aiLoading ? 'bg-zinc-100 text-zinc-400' : 'bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700 shadow-sm'">
-        <Sparkles class="w-4 h-4" :class="{ 'animate-spin': aiLoading }" />
-        {{ aiLoading ? 'Generiere...' : 'KI Aufgaben' }}
-      </button>
-
-      <button @click="showAddForm = !showAddForm"
-        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-all duration-200 shadow-sm">
-        <Plus class="w-4 h-4" />
-        Neue Aufgabe
-      </button>
-    </div>
-
-    <!-- Add form -->
-    <div v-if="showAddForm" class="bg-white border border-zinc-200/80 rounded-2xl p-5 space-y-3">
-      <input v-model="newTask.text" @keyup.enter="addTask()" type="text" placeholder="Aufgabe beschreiben..."
-        class="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" autofocus />
-      <div class="flex items-center gap-3">
-        <select v-model="newTask.priority" class="text-sm bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 focus:outline-none">
-          <option value="low">Niedrig</option>
-          <option value="medium">Mittel</option>
-          <option value="high">Hoch</option>
-          <option value="critical">Kritisch</option>
-        </select>
-        <input v-model="newTask.due_date" type="date" class="text-sm bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 focus:outline-none" />
-        <select v-model="newTask.assigned_to" class="text-sm bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 focus:outline-none">
-          <option :value="null">Mir selbst</option>
-          <option v-for="m in teamMembers" :key="m.id" :value="m.id">{{ m.name }}</option>
-        </select>
-        <div class="flex-1"></div>
-        <button @click="showAddForm = false" class="text-sm text-zinc-400 hover:text-zinc-600">Abbrechen</button>
-        <button @click="addTask()" class="px-4 py-2 text-sm font-medium bg-zinc-900 text-white rounded-xl hover:bg-zinc-800">Erstellen</button>
-      </div>
-    </div>
-
-    <!-- Loading -->
-    <div v-if="loading" class="text-center py-12 text-zinc-400 text-sm">Lade Aufgaben...</div>
-
-    <!-- Two-column layout -->
-    <div v-if="!loading" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-      <!-- Column 1: Meine Aufgaben -->
-      <div class="space-y-3">
-        <div class="flex items-center gap-2 px-1 mb-2">
-          <User class="w-4 h-4 text-zinc-500" />
-          <span class="text-sm font-semibold text-zinc-700">Meine Aufgaben</span>
-          <span class="text-xs text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded-full">{{ myTasks.length }}</span>
+    <!-- Aktionen -->
+    <div class="flex flex-wrap items-center gap-3">
+        <div v-if="isAssistenz" class="flex items-center gap-2">
+          <Filter class="size-4 shrink-0 text-muted-foreground" />
+          <Select
+            :model-value="brokerFilterModel"
+            @update:model-value="setBrokerFilter"
+          >
+            <SelectTrigger class="h-9 w-[200px]">
+              <SelectValue placeholder="Makler" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle Makler</SelectItem>
+              <SelectItem
+                v-for="b in brokerList"
+                :key="b.id"
+                :value="String(b.id)"
+              >
+                {{ b.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        <div v-if="myTasks.length === 0" class="bg-white border border-zinc-200/80 rounded-2xl p-8 text-center">
-          <CheckCircle2 class="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-          <p class="text-sm text-zinc-500">Keine offenen Aufgaben</p>
-        </div>
+        <div class="min-w-0 flex-1" />
 
-        <template v-for="(items, prio) in groupByPriority(myTasks)" :key="'my-' + prio">
-          <div v-if="items.length" class="space-y-1.5">
-            <div class="flex items-center gap-2 px-1">
-              <span class="w-2 h-2 rounded-full" :class="priorityDots[prio]"></span>
-              <span class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{{ priorityLabels[prio] }}</span>
-              <span class="text-xs text-zinc-400">({{ items.length }})</span>
-            </div>
-            <div v-for="task in items" :key="task.id"
-              class="group bg-white border border-zinc-200/60 rounded-xl px-4 py-3 flex items-start gap-3 hover:border-zinc-300 hover:shadow-sm transition-all duration-200">
-              <button @click="completeTask(task)" class="mt-0.5 flex-shrink-0 text-zinc-300 hover:text-emerald-500 transition-colors">
-                <Circle class="w-5 h-5" />
-              </button>
-              <div v-if="editingId !== task.id" class="flex-1 min-w-0">
-                <div class="text-sm text-zinc-900">{{ task.title }}</div>
-                <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-                  <span v-if="task.created_by_name && task.created_by != userId" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 bg-violet-50 text-violet-600 rounded-md border border-violet-100">
-                    <User class="w-2.5 h-2.5" />von {{ task.created_by_name }}
-                  </span>
-                  <span v-if="task.ref_id" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-md border border-amber-100">
-                    <Home class="w-2.5 h-2.5" />{{ task.ref_id }}
-                  </span>
-                  <span v-if="task.due_date" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md border"
-                    :class="isOverdue(task.due_date) ? 'bg-red-50 text-red-600 border-red-100' : isToday(task.due_date) ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-zinc-50 text-zinc-500 border-zinc-100'">
-                    <Calendar class="w-2.5 h-2.5" />{{ formatDate(task.due_date) }}
-                  </span>
-                  <span v-if="task.source === 'ai'" class="text-[10px] font-medium px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-md border border-purple-100">KI</span>
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          :disabled="aiLoading"
+          class="shrink-0 shadow-none bg-zinc-900 text-white hover:bg-zinc-800"
+          @click="generateAiTodos()"
+        >
+          <Loader2 v-if="aiLoading" class="animate-spin" />
+          <Sparkles v-else />
+          {{ aiLoading ? "Generiere…" : "KI Aufgaben" }}
+        </Button>
+
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          class="shrink-0 shadow-none bg-zinc-900 text-white hover:bg-zinc-800"
+          @click="showAddForm = !showAddForm"
+        >
+          <Plus />
+          Neue Aufgabe
+        </Button>
+    </div>
+
+    <!-- Neue Aufgabe -->
+    <Card v-if="showAddForm">
+      <CardHeader>
+        <CardTitle class="text-base">Neue Aufgabe</CardTitle>
+        <CardDescription>
+          Beschreibung, Priorität und Fälligkeit
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="flex flex-col gap-3">
+        <Input
+          v-model="newTask.text"
+          placeholder="Aufgabe beschreiben…"
+          @keyup.enter="addTask()"
+        />
+        <div class="flex flex-wrap items-center gap-3">
+          <Select v-model="newTask.priority">
+            <SelectTrigger class="h-9 w-[140px]">
+              <SelectValue placeholder="Priorität" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Niedrig</SelectItem>
+              <SelectItem value="medium">Mittel</SelectItem>
+              <SelectItem value="high">Hoch</SelectItem>
+              <SelectItem value="critical">Kritisch</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            v-model="newTask.due_date"
+            type="date"
+            class="h-9 w-[160px]"
+          />
+          <Select
+            :model-value="assignKey(newTask.assigned_to)"
+            @update:model-value="
+              (v) => (newTask.assigned_to = parseAssignKey(v))
+            "
+          >
+            <SelectTrigger class="h-9 min-w-[160px]">
+              <SelectValue placeholder="Zuweisen" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__self__">Mir selbst</SelectItem>
+              <SelectItem
+                v-for="m in teamMembers"
+                :key="m.id"
+                :value="String(m.id)"
+              >
+                {{ m.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <div class="min-w-0 flex-1" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            class="shadow-none"
+            @click="showAddForm = false"
+          >
+            Abbrechen
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            class="shadow-none bg-zinc-900 text-white hover:bg-zinc-800"
+            @click="addTask()"
+          >
+            Erstellen
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+
+    <!-- Laden -->
+    <Card v-if="loading">
+      <CardContent class="flex flex-col gap-4 p-6">
+        <p class="text-center text-sm text-muted-foreground">
+          Lade Aufgaben…
+        </p>
+        <div class="flex flex-col gap-2">
+          <Skeleton class="h-12 w-full" />
+          <Skeleton class="h-12 w-full" />
+          <Skeleton class="h-12 w-full" />
+        </div>
+      </CardContent>
+    </Card>
+
+    <!-- Listen -->
+    <div
+      v-if="!loading"
+      class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] lg:items-start"
+    >
+      <section class="flex min-h-0 flex-col">
+        <div class="flex flex-row flex-wrap items-center gap-2 pb-3">
+          <div class="flex items-center gap-2">
+            <User class="size-4 text-muted-foreground" />
+            <h3 class="text-base font-semibold">Meine Aufgaben</h3>
+          </div>
+          <Badge variant="secondary" class="font-normal tabular-nums">
+            {{ myTasks.length }}
+          </Badge>
+        </div>
+        <div>
+          <div
+            v-if="myTasks.length === 0"
+            class="flex flex-col items-center justify-center gap-2 py-12 text-center"
+          >
+            <CheckCircle2 class="size-8 text-muted-foreground/50" />
+            <p class="text-sm text-muted-foreground">Keine offenen Aufgaben</p>
+          </div>
+          <div v-else class="flex flex-col gap-2 px-2 pb-2">
+            <template v-for="section in myTaskSections" :key="'my-' + section.prio">
+              <div
+                class="flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground"
+              >
+                <span
+                  class="size-1.5 shrink-0 rounded-full"
+                  :class="priorityDots[section.prio]"
+                />
+                {{ priorityLabels[section.prio] }}
+                <span class="tabular-nums">({{ section.items.length }})</span>
+              </div>
+              <div
+                v-for="task in section.items"
+                :key="task.id"
+                class="group flex items-start gap-3 rounded-lg bg-zinc-100 px-3 py-3 transition-colors hover:bg-zinc-200"
+              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  class="mt-0.5 shrink-0"
+                  @click="completeTask(task)"
+                >
+                  <Circle />
+                </Button>
+                <div v-if="editingId !== task.id" class="min-w-0 flex-1">
+                  <p class="text-sm font-medium leading-snug text-foreground">
+                    {{ task.title }}
+                  </p>
+                  <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                    <Badge
+                      v-if="task.created_by_name && task.created_by != userId"
+                      variant="outline"
+                      class="gap-1 font-normal [&_svg]:size-3"
+                    >
+                      <User />
+                      von {{ task.created_by_name }}
+                    </Badge>
+                    <Badge
+                      v-if="task.ref_id"
+                      variant="outline"
+                      class="gap-1 border-zinc-300 bg-zinc-200 font-normal text-zinc-800 [&_svg]:size-3"
+                    >
+                      <Home />
+                      {{ task.ref_id }}
+                    </Badge>
+                    <Badge
+                      v-if="task.due_date"
+                      variant="outline"
+                      class="gap-1 font-normal [&_svg]:size-3"
+                      :class="
+                        isOverdue(task.due_date)
+                          ? 'border-red-300 bg-red-100 text-red-800'
+                          : isToday(task.due_date)
+                            ? 'border-amber-300 bg-amber-100 text-amber-800'
+                            : 'border-zinc-300 bg-zinc-200 text-zinc-800'
+                      "
+                    >
+                      <Calendar />
+                      {{ formatDate(task.due_date) }}
+                    </Badge>
+                    <Badge
+                      v-if="task.source === 'ai'"
+                      variant="outline"
+                      class="border-zinc-300 bg-zinc-200 font-normal text-zinc-800"
+                    >
+                      KI
+                    </Badge>
+                  </div>
+                </div>
+                <div v-else class="flex min-w-0 flex-1 flex-col gap-2">
+                  <Input v-model="editTitle" />
+                  <div class="flex flex-wrap items-center gap-2">
+                    <Select v-model="editPriority">
+                      <SelectTrigger class="h-8 w-[120px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Niedrig</SelectItem>
+                        <SelectItem value="medium">Mittel</SelectItem>
+                        <SelectItem value="high">Hoch</SelectItem>
+                        <SelectItem value="critical">Kritisch</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      v-model="editDueDate"
+                      type="date"
+                      class="h-8 w-[140px] text-xs"
+                    />
+                    <Select
+                      :model-value="assignKey(editAssignedTo)"
+                      @update:model-value="
+                        (v) => (editAssignedTo = parseAssignKey(v))
+                      "
+                    >
+                      <SelectTrigger class="h-8 min-w-[140px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__self__">Mir selbst</SelectItem>
+                        <SelectItem
+                          v-for="m in teamMembers"
+                          :key="m.id"
+                          :value="String(m.id)"
+                        >
+                          {{ m.name }}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      size="xs"
+                      class="bg-zinc-900 text-white hover:bg-zinc-800"
+                      @click="saveEdit()"
+                    >
+                      Speichern
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      @click="editingId = null"
+                    >
+                      Abbrechen
+                    </Button>
+                  </div>
+                </div>
+                <div
+                  v-if="editingId !== task.id"
+                  class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    @click="startEdit(task)"
+                  >
+                    <Edit3 />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    class="hover:text-destructive"
+                    @click="deleteTask(task)"
+                  >
+                    <Trash2 />
+                  </Button>
                 </div>
               </div>
-              <div v-else class="flex-1 space-y-2">
-                <input v-model="editTitle" class="w-full px-3 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-900/10" />
-                <div class="flex items-center gap-2 flex-wrap">
-                  <select v-model="editPriority" class="text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5">
-                    <option value="low">Niedrig</option><option value="medium">Mittel</option><option value="high">Hoch</option><option value="critical">Kritisch</option>
-                  </select>
-                  <input v-model="editDueDate" type="date" class="text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5" />
-                  <select v-model="editAssignedTo" class="text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5">
-                    <option :value="null">Mir selbst</option>
-                    <option v-for="m in teamMembers" :key="m.id" :value="m.id">{{ m.name }}</option>
-                  </select>
-                  <button @click="saveEdit()" class="text-xs px-2.5 py-1.5 bg-zinc-900 text-white rounded-lg">Speichern</button>
-                  <button @click="editingId = null" class="text-xs px-2 py-1.5 text-zinc-400">Abbrechen</button>
+            </template>
+          </div>
+        </div>
+      </section>
+
+      <div class="hidden lg:block w-px self-stretch bg-border/60" />
+
+      <section class="flex min-h-0 flex-col">
+        <div class="flex flex-row flex-wrap items-center gap-2 pb-3">
+          <div class="flex items-center gap-2">
+            <Send class="size-4 text-muted-foreground" />
+            <h3 class="text-base font-semibold">Delegierte Aufgaben</h3>
+          </div>
+          <Badge variant="secondary" class="font-normal tabular-nums">
+            {{ delegatedTasks.length }}
+          </Badge>
+        </div>
+        <div>
+          <div
+            v-if="delegatedTasks.length === 0"
+            class="flex flex-col items-center justify-center gap-2 py-12 text-center"
+          >
+            <Send class="size-8 text-muted-foreground/50" />
+            <p class="text-sm text-muted-foreground">
+              Keine delegierten Aufgaben
+            </p>
+          </div>
+          <div v-else class="flex flex-col gap-2 px-2 pb-2">
+            <template
+              v-for="section in delegatedTaskSections"
+              :key="'del-' + section.prio"
+            >
+              <div
+                class="flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground"
+              >
+                <span
+                  class="size-1.5 shrink-0 rounded-full"
+                  :class="priorityDots[section.prio]"
+                />
+                {{ priorityLabels[section.prio] }}
+                <span class="tabular-nums">({{ section.items.length }})</span>
+              </div>
+              <div
+                v-for="task in section.items"
+                :key="task.id"
+                class="group flex items-start gap-3 rounded-lg bg-zinc-100 px-3 py-3 transition-colors hover:bg-zinc-200"
+              >
+                <div
+                  class="mt-0.5 shrink-0 text-muted-foreground [&_svg]:size-4"
+                >
+                  <component :is="task.is_done ? CheckCircle2 : Clock" />
+                </div>
+                <div v-if="editingId !== task.id" class="min-w-0 flex-1">
+                  <p class="text-sm font-medium leading-snug text-foreground">
+                    {{ task.title }}
+                  </p>
+                  <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                    <Badge
+                      v-if="task.assigned_to_name"
+                      variant="outline"
+                      class="gap-1 border-zinc-300 bg-zinc-200 font-normal text-zinc-800 [&_svg]:size-3"
+                    >
+                      <User />
+                      {{ task.assigned_to_name }}
+                    </Badge>
+                    <Badge
+                      v-if="task.ref_id"
+                      variant="outline"
+                      class="gap-1 border-zinc-300 bg-zinc-200 font-normal text-zinc-800 [&_svg]:size-3"
+                    >
+                      <Home />
+                      {{ task.ref_id }}
+                    </Badge>
+                    <Badge
+                      v-if="task.due_date"
+                      variant="outline"
+                      class="gap-1 font-normal [&_svg]:size-3"
+                      :class="
+                        isOverdue(task.due_date)
+                          ? 'border-red-300 bg-red-100 text-red-800'
+                          : isToday(task.due_date)
+                            ? 'border-amber-300 bg-amber-100 text-amber-800'
+                            : 'border-zinc-300 bg-zinc-200 text-zinc-800'
+                      "
+                    >
+                      <Calendar />
+                      {{ formatDate(task.due_date) }}
+                    </Badge>
+                    <Badge
+                      v-if="task.source === 'ai'"
+                      variant="outline"
+                      class="border-zinc-300 bg-zinc-200 font-normal text-zinc-800"
+                    >
+                      KI
+                    </Badge>
+                  </div>
+                </div>
+                <div v-else class="flex min-w-0 flex-1 flex-col gap-2">
+                  <Input v-model="editTitle" />
+                  <div class="flex flex-wrap items-center gap-2">
+                    <Select v-model="editPriority">
+                      <SelectTrigger class="h-8 w-[120px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Niedrig</SelectItem>
+                        <SelectItem value="medium">Mittel</SelectItem>
+                        <SelectItem value="high">Hoch</SelectItem>
+                        <SelectItem value="critical">Kritisch</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      v-model="editDueDate"
+                      type="date"
+                      class="h-8 w-[140px] text-xs"
+                    />
+                    <Select
+                      :model-value="assignKey(editAssignedTo)"
+                      @update:model-value="
+                        (v) => (editAssignedTo = parseAssignKey(v))
+                      "
+                    >
+                      <SelectTrigger class="h-8 min-w-[140px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__self__">Mir selbst</SelectItem>
+                        <SelectItem
+                          v-for="m in teamMembers"
+                          :key="m.id"
+                          :value="String(m.id)"
+                        >
+                          {{ m.name }}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      size="xs"
+                      class="bg-zinc-900 text-white hover:bg-zinc-800"
+                      @click="saveEdit()"
+                    >
+                      Speichern
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      @click="editingId = null"
+                    >
+                      Abbrechen
+                    </Button>
+                  </div>
+                </div>
+                <div
+                  v-if="editingId !== task.id"
+                  class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    @click="startEdit(task)"
+                  >
+                    <Edit3 />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    class="hover:text-destructive"
+                    @click="deleteTask(task)"
+                  >
+                    <Trash2 />
+                  </Button>
                 </div>
               </div>
-              <div v-if="editingId !== task.id" class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                <button @click="startEdit(task)" class="p-1.5 text-zinc-400 hover:text-zinc-600 rounded-lg hover:bg-zinc-100 transition-colors"><Edit3 class="w-3.5 h-3.5" /></button>
-                <button @click="deleteTask(task)" class="p-1.5 text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"><Trash2 class="w-3.5 h-3.5" /></button>
+            </template>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Erledigt -->
+    <Card v-if="completedTasks.length" class="mb-4">
+      <Collapsible v-model:open="showCompleted">
+        <CollapsibleTrigger
+          class="flex w-full items-center justify-between gap-2 px-6 py-4 text-left text-sm font-medium transition-colors hover:bg-muted/50"
+        >
+          <span class="flex items-center gap-2 text-foreground">
+            <CheckCircle2 class="size-4 text-muted-foreground" />
+            {{ completedTasks.length }} erledigt
+          </span>
+          <ChevronDown
+            class="size-4 shrink-0 text-muted-foreground transition-transform"
+            :class="{ 'rotate-180': showCompleted }"
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div class="flex flex-col gap-2 px-2 pb-2">
+            <div
+              v-for="task in completedTasks"
+              :key="task.id"
+              class="flex items-center gap-3 rounded-lg bg-zinc-100 px-4 py-3 hover:bg-zinc-200"
+            >
+              <CheckCircle2 class="size-4 shrink-0 text-muted-foreground" />
+              <div class="min-w-0 flex-1">
+                <p class="text-sm text-muted-foreground line-through">
+                  {{ task.title }}
+                </p>
+                <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <span
+                    v-if="task.completed_by_name"
+                    class="text-xs text-muted-foreground"
+                    >Erledigt von {{ task.completed_by_name }}</span
+                  >
+                  <span
+                    v-else-if="task.is_done"
+                    class="text-xs text-muted-foreground"
+                    >Erledigt</span
+                  >
+                  <span
+                    v-if="task.completed_at"
+                    class="text-xs text-muted-foreground"
+                    >{{ formatDate(task.completed_at) }}</span
+                  >
+                  <Badge
+                    v-if="task.assigned_to_name"
+                    variant="outline"
+                    class="gap-1 border-zinc-300 bg-zinc-200 font-normal text-zinc-800 [&_svg]:size-3"
+                  >
+                    <User />
+                    {{ task.assigned_to_name }}
+                  </Badge>
+                  <Badge
+                    v-if="task.ref_id"
+                    variant="outline"
+                    class="gap-1 font-normal [&_svg]:size-3"
+                  >
+                    <Home />
+                    {{ task.ref_id }}
+                  </Badge>
+                </div>
               </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                class="shrink-0 hover:text-destructive"
+                @click="deleteTask(task)"
+              >
+                <Trash2 />
+              </Button>
             </div>
           </div>
-        </template>
-      </div>
-
-      <!-- Column 2: Delegierte Aufgaben -->
-      <div class="space-y-3">
-        <div class="flex items-center gap-2 px-1 mb-2">
-          <Send class="w-4 h-4 text-zinc-500" />
-          <span class="text-sm font-semibold text-zinc-700">Delegierte Aufgaben</span>
-          <span class="text-xs text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded-full">{{ delegatedTasks.length }}</span>
-        </div>
-
-        <div v-if="delegatedTasks.length === 0" class="bg-white border border-zinc-200/80 rounded-2xl p-8 text-center">
-          <Send class="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-          <p class="text-sm text-zinc-500">Keine delegierten Aufgaben</p>
-        </div>
-
-        <template v-for="(items, prio) in groupByPriority(delegatedTasks)" :key="'del-' + prio">
-          <div v-if="items.length" class="space-y-1.5">
-            <div class="flex items-center gap-2 px-1">
-              <span class="w-2 h-2 rounded-full" :class="priorityDots[prio]"></span>
-              <span class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{{ priorityLabels[prio] }}</span>
-              <span class="text-xs text-zinc-400">({{ items.length }})</span>
-            </div>
-            <div v-for="task in items" :key="task.id"
-              class="group bg-white border border-zinc-200/60 rounded-xl px-4 py-3 flex items-start gap-3 hover:border-zinc-300 hover:shadow-sm transition-all duration-200">
-              <div class="mt-0.5 flex-shrink-0 text-zinc-300">
-                <component :is="task.is_done ? CheckCircle2 : Clock" class="w-5 h-5" />
-              </div>
-              <div v-if="editingId !== task.id" class="flex-1 min-w-0">
-                <div class="text-sm text-zinc-900">{{ task.title }}</div>
-                <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-                  <span v-if="task.assigned_to_name" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded-md border border-emerald-100">
-                    <User class="w-2.5 h-2.5" />{{ task.assigned_to_name }}
-                  </span>
-                  <span v-if="task.ref_id" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-md border border-amber-100">
-                    <Home class="w-2.5 h-2.5" />{{ task.ref_id }}
-                  </span>
-                  <span v-if="task.due_date" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md border"
-                    :class="isOverdue(task.due_date) ? 'bg-red-50 text-red-600 border-red-100' : isToday(task.due_date) ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-zinc-50 text-zinc-500 border-zinc-100'">
-                    <Calendar class="w-2.5 h-2.5" />{{ formatDate(task.due_date) }}
-                  </span>
-                  <span v-if="task.source === 'ai'" class="text-[10px] font-medium px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-md border border-purple-100">KI</span>
-                </div>
-              </div>
-              <div v-else class="flex-1 space-y-2">
-                <input v-model="editTitle" class="w-full px-3 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-900/10" />
-                <div class="flex items-center gap-2 flex-wrap">
-                  <select v-model="editPriority" class="text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5">
-                    <option value="low">Niedrig</option><option value="medium">Mittel</option><option value="high">Hoch</option><option value="critical">Kritisch</option>
-                  </select>
-                  <input v-model="editDueDate" type="date" class="text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5" />
-                  <select v-model="editAssignedTo" class="text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5">
-                    <option :value="null">Mir selbst</option>
-                    <option v-for="m in teamMembers" :key="m.id" :value="m.id">{{ m.name }}</option>
-                  </select>
-                  <button @click="saveEdit()" class="text-xs px-2.5 py-1.5 bg-zinc-900 text-white rounded-lg">Speichern</button>
-                  <button @click="editingId = null" class="text-xs px-2 py-1.5 text-zinc-400">Abbrechen</button>
-                </div>
-              </div>
-              <div v-if="editingId !== task.id" class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                <button @click="startEdit(task)" class="p-1.5 text-zinc-400 hover:text-zinc-600 rounded-lg hover:bg-zinc-100 transition-colors"><Edit3 class="w-3.5 h-3.5" /></button>
-                <button @click="deleteTask(task)" class="p-1.5 text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"><Trash2 class="w-3.5 h-3.5" /></button>
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
-    </div>
-
-    <!-- Completed section -->
-    <div v-if="completedTasks.length" class="mt-8">
-      <button @click="showCompleted = !showCompleted"
-        class="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-600 transition-colors mb-3">
-        <CheckCircle2 class="w-4 h-4" />
-        <span>{{ completedTasks.length }} erledigt</span>
-        <svg class="w-3 h-3 transition-transform" :class="{ 'rotate-180': showCompleted }" viewBox="0 0 12 12"><path d="M3 5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-
-      <div v-if="showCompleted" class="space-y-1.5">
-        <div v-for="task in completedTasks" :key="task.id"
-          class="bg-zinc-50/50 border border-zinc-100 rounded-xl px-4 py-3 flex items-center gap-3 opacity-60">
-          <CheckCircle2 class="w-5 h-5 text-emerald-400 flex-shrink-0" />
-          <div class="flex-1 min-w-0">
-            <div class="text-sm text-zinc-500 line-through">{{ task.title }}</div>
-            <div class="flex items-center gap-2 mt-1">
-              <span v-if="task.completed_by_name" class="text-[10px] text-emerald-600 font-medium">Erledigt von {{ task.completed_by_name }}</span>
-              <span v-else-if="task.is_done" class="text-[10px] text-emerald-600 font-medium">Erledigt</span>
-              <span v-if="task.completed_at" class="text-[10px] text-zinc-400">{{ formatDate(task.completed_at) }}</span>
-              <span v-if="task.assigned_to_name" class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-500 rounded-md border border-emerald-100"><User class="w-2.5 h-2.5" />{{ task.assigned_to_name }}</span>
-              <span v-if="task.ref_id" class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-md border border-amber-100"><Home class="w-2.5 h-2.5" />{{ task.ref_id }}</span>
-            </div>
-          </div>
-          <button @click="deleteTask(task)" class="p-1.5 text-zinc-300 hover:text-red-400 rounded-lg transition-colors flex-shrink-0">
-            <Trash2 class="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-    </div>
-
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   </div>
 </template>

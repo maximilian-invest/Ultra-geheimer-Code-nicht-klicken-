@@ -13,7 +13,7 @@ const props = defineProps({
 <template>
   <div
     :class="
-      cn('rounded-xl border border-gray-200 bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden', props.class)
+      cn('rounded-xl border border-border/40 bg-card text-card-foreground shadow-sm', props.class)
     "
   >
     <slot />

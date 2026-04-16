@@ -196,44 +196,92 @@ async function loadNotifications() {
     notifLoaded.value = true;
     try {
         const items = [];
-        if (unansweredCount.value > 0) {
-            items.push({ id: 'unanswered', icon: 'mail', color: '#ef4444', text: unansweredCount.value + ' unbeantwortete Anfrage' + (unansweredCount.value > 1 ? 'n' : ''), tab: 'priorities' });
-        }
-        if (followupCount.value > 0) {
-            items.push({ id: 'followup', icon: 'clock', color: '#ee7606', text: followupCount.value + ' Kontakte zum Nachfassen', tab: 'priorities' });
-        }
-        if (unmatchedCount.value > 0) {
-            items.push({ id: 'unmatched', icon: 'inbox', color: '#3b82f6', text: unmatchedCount.value + ' nicht zugeordnete E-Mail' + (unmatchedCount.value > 1 ? 's' : ''), tab: 'inbox' });
-        }
-        try {
-            const r = await fetch(API.value + "&action=proactive_alerts");
-            const d = await r.json();
-            const alerts = d.alerts || [];
-            const urgent = alerts.filter(a => a.severity === 'urgent');
-            const warnings = alerts.filter(a => a.severity === 'warning');
-            if (urgent.length > 0) items.push({ id: 'alerts_urgent', icon: 'alert', color: '#ef4444', text: urgent.length + ' dringende' + (urgent.length > 1 ? ' Hinweise' : 'r Hinweis'), tab: 'priorities' });
-            if (warnings.length > 0) items.push({ id: 'alerts_warning', icon: 'alert', color: '#f59e0b', text: warnings.length + ' Warnung' + (warnings.length > 1 ? 'en' : ''), tab: 'priorities' });
-        } catch {}
-        try {
-            const r = await fetch(API.value + "&action=cross_property_matches");
-            const d = await r.json();
-            const matches = d.matches || [];
-            if (matches.length > 0) items.push({ id: 'matches', icon: 'users', color: '#8b5cf6', text: matches.length + ' moegliche Objekt-Matches', tab: 'priorities' });
-        } catch {}
-        try {
-            const r = await fetch(API.value + '&action=pending_viewings');
-            const d = await r.json();
-            const pending = d.pending || [];
-            pending.forEach(p => {
-                items.unshift({ id: 'viewing_' + p.id, icon: 'calendar', color: '#ef4444', text: 'TERMIN EINTRAGEN: ' + p.stakeholder + ' (' + p.ref_id + ')', tab: 'priorities', urgent: true, activityId: p.id });
+
+        // 1) x Aufgaben offen
+        const isAss = ['assistenz', 'backoffice'].includes(userType.value);
+        const tasksUrl = API.value + '&action=getTasks&done=1' + (isAss ? '&scope=assistenz' : '');
+        const tasksRes = await fetch(tasksUrl);
+        const tasksData = await tasksRes.json();
+        const openTasks = (tasksData.tasks || []).filter(t => !t.is_done);
+        if (openTasks.length > 0) {
+            items.push({
+                id: 'tasks_open_count',
+                icon: 'clock',
+                color: '#2563eb',
+                text: openTasks.length + ' Aufgaben offen',
+                tab: 'tasks',
             });
+        }
+
+        const now = new Date();
+        const today = now.toISOString().slice(0, 10);
+        const userIdValue = Number(userId.value || 0);
+
+        // 2) Neue Aufgabe von (nur wenn zugewiesen)
+        const assignedNewTasks = openTasks
+            .filter(t => Number(t.assigned_to || 0) === userIdValue && Number(t.created_by || 0) !== userIdValue)
+            .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+        assignedNewTasks.slice(0, 3).forEach((t) => {
+            items.push({
+                id: 'task_assigned_' + t.id,
+                icon: 'inbox',
+                color: '#7c3aed',
+                text: 'Neue Aufgabe von ' + (t.created_by_name || 'Unbekannt') + ': ' + (t.title || 'Ohne Titel'),
+                tab: 'tasks',
+            });
+        });
+
+        // 3) Deadline heute für Aufgabe X
+        const dueTodayTasks = openTasks
+            .filter(t => t.due_date && String(t.due_date).slice(0, 10) === today)
+            .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')));
+        dueTodayTasks.slice(0, 5).forEach((t) => {
+            items.push({
+                id: 'task_due_today_' + t.id,
+                icon: 'calendar',
+                color: '#d97706',
+                text: 'Deadline heute: ' + (t.title || 'Ohne Titel'),
+                tab: 'tasks',
+            });
+        });
+
+        // 4) Eingetragene Termine Reminder (24h, 15min)
+        try {
+            const calRes = await fetch(API.value + '&action=calendar_upcoming&limit=50');
+            const calData = await calRes.json();
+            const events = calData.events || [];
+            for (const ev of events) {
+                if (!ev.start) continue;
+                const start = new Date(ev.start);
+                const diffMs = start.getTime() - now.getTime();
+                if (diffMs <= 0) continue;
+                const diffMin = Math.floor(diffMs / 60000);
+                if (diffMin <= 15) {
+                    items.push({
+                        id: 'cal_15m_' + ev.id,
+                        icon: 'calendar',
+                        color: '#ef4444',
+                        text: 'Termin in 15 Min: ' + (ev.summary || 'Ohne Titel'),
+                        tab: 'calendar',
+                    });
+                } else if (diffMin <= 24 * 60) {
+                    items.push({
+                        id: 'cal_24h_' + ev.id,
+                        icon: 'calendar',
+                        color: '#f59e0b',
+                        text: 'Termin in 24h: ' + (ev.summary || 'Ohne Titel'),
+                        tab: 'calendar',
+                    });
+                }
+            }
         } catch {}
+
         const dismissed = JSON.parse(localStorage.getItem('sr-dismissed-notifs') || '{}');
-        const now = Date.now();
+        const nowTs = Date.now();
         let changed = false;
-        for (const key in dismissed) { if (now - dismissed[key] > 604800000) { delete dismissed[key]; changed = true; } }
+        for (const key in dismissed) { if (nowTs - dismissed[key] > 604800000) { delete dismissed[key]; changed = true; } }
         if (changed) localStorage.setItem('sr-dismissed-notifs', JSON.stringify(dismissed));
-        const nonDismissableIds = ['unanswered', 'followup', 'unmatched', 'matches', 'alerts_urgent', 'alerts_warning'];
+        const nonDismissableIds = ['tasks_open_count'];
         notifications.value = items.filter(n => nonDismissableIds.includes(n.id) || !dismissed[n.id]);
     } catch {}
     notifLoading.value = false;
@@ -294,7 +342,7 @@ async function submitViewingForm() {
 }
 
 function dismissNotification(n) {
-    const nonDismissable = ['unanswered', 'followup', 'unmatched', 'matches', 'alerts_urgent', 'alerts_warning'];
+    const nonDismissable = ['tasks_open_count'];
     if (nonDismissable.includes(n.id)) { notifications.value = notifications.value.filter(item => item.id !== n.id); return; }
     notifications.value = notifications.value.filter(item => item.id !== n.id);
     const dismissed = JSON.parse(localStorage.getItem('sr-dismissed-notifs') || '{}');
@@ -324,7 +372,7 @@ const navGroups = [
         { key: "admin", label: "Kontakte", icon: Users },
         { key: "website", label: "Website", icon: Globe, adminOnly: true },
         { key: "blog", label: "Blog", icon: FileText, adminOnly: true },
-        { key: "settings", label: "Einstellungen", icon: Settings, adminOnly: true },
+        { key: "settings", label: "Einstellungen", icon: Settings },
     ]},
 ];
 const filteredGroups = computed(() =>
@@ -397,7 +445,7 @@ function navBadge(key) {
                             <div class="flex-1 min-w-0">
                                 <div class="text-xs font-medium truncate">{{ userName }}</div>
                             </div>
-                            <Button v-if="isAdmin" variant="ghost" size="sm" class="h-7 w-7 p-0" @click="switchTab('settings')"><Settings class="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click="switchTab('settings')"><Settings class="w-3.5 h-3.5" /></Button>
                             <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click.prevent="useForm({}).post(route('logout'))"><LogOut class="w-3.5 h-3.5" /></Button>
                         </div>
                         <button @click="toggleDarkMode()" class="flex items-center gap-2 px-2 py-1 w-full text-left rounded-md hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors">
@@ -467,7 +515,7 @@ function navBadge(key) {
                     <div class="flex-1 min-w-0">
                         <div class="text-xs font-medium truncate">{{ userName }}</div>
                     </div>
-                    <Button v-if="isAdmin" variant="ghost" size="sm" class="h-7 w-7 p-0" @click="switchTab('settings')" title="Einstellungen"><Settings class="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click="switchTab('settings')" title="Einstellungen"><Settings class="w-3.5 h-3.5" /></Button>
                     <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click.prevent="useForm({}).post(route('logout'))" title="Abmelden"><LogOut class="w-3.5 h-3.5" /></Button>
                 </div>
                 <div v-if="sidebarEffective" class="flex flex-col items-center gap-1">

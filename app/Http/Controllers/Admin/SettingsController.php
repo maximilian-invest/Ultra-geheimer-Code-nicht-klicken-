@@ -52,7 +52,10 @@ class SettingsController extends Controller
     public function save(Request $request): JsonResponse
     {
         $input = $request->json()->all();
-        $user = \App\Models\User::where('user_type', 'admin')->first();
+        $user = \Auth::user();
+        if (!$user || $user->user_type === 'eigentuemer') {
+            $user = \App\Models\User::whereIn('user_type', ['admin', 'makler'])->first();
+        }
         $userId = $user->id ?? 1;
 
         // Update user name/email
@@ -118,7 +121,10 @@ class SettingsController extends Controller
             return response()->json(['error' => 'Nur Bilder (PNG, JPG, GIF, WebP) erlaubt'], 400);
         }
 
-        $user = \App\Models\User::where('user_type', 'admin')->first();
+        $user = \Auth::user();
+        if (!$user || $user->user_type === 'eigentuemer') {
+            $user = \App\Models\User::whereIn('user_type', ['admin', 'makler'])->first();
+        }
         $userId = $user->id ?? 1;
 
         // Store in public storage
@@ -160,7 +166,10 @@ class SettingsController extends Controller
             return response()->json(['error' => 'type must be logo or banner'], 400);
         }
 
-        $user = \App\Models\User::where('user_type', 'admin')->first();
+        $user = \Auth::user();
+        if (!$user || $user->user_type === 'eigentuemer') {
+            $user = \App\Models\User::whereIn('user_type', ['admin', 'makler'])->first();
+        }
         $userId = $user->id ?? 1;
 
         $column = match($type) { 'logo' => 'signature_logo_path', 'banner' => 'signature_banner_path', 'photo' => 'signature_photo_path' };
@@ -178,9 +187,9 @@ class SettingsController extends Controller
     public function changePassword(Request $request): JsonResponse
     {
         $input = $request->json()->all();
-        $user = \App\Models\User::where('user_type', 'admin')->first();
-        if (!$user) {
-            $user = \App\Models\User::find(1);
+        $user = \Auth::user();
+        if (!$user || $user->user_type === 'eigentuemer') {
+            $user = \App\Models\User::whereIn('user_type', ['admin', 'makler'])->first();
         }
 
         $current = $input['current_password'] ?? '';

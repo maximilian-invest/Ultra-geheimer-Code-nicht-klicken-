@@ -2449,10 +2449,10 @@ onMounted(() => {
         <div class="px-4 pt-3 pb-2 flex-shrink-0">
 
           <!-- Primary Pills: Anfragen / Nachfassen / Alle -->
-          <div class="mb-2 flex gap-0.5 p-[3px] bg-[#f4f4f5] rounded-lg">
+          <div class="mb-2 grid grid-cols-4 gap-1 p-[3px] bg-[#f4f4f5] rounded-lg">
             <button
               @click="activeSubtab = 'offen'"
-              class="flex min-w-0 flex-1 items-center justify-center gap-1 px-1.5 py-[5px] text-[11px] rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
+              class="flex min-w-0 items-center justify-center gap-1 overflow-hidden px-1.5 py-[5px] text-[11px] leading-none rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
               :class="activeSubtab === 'offen'
                 ? 'bg-white text-foreground font-semibold shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'"
@@ -2461,7 +2461,7 @@ onMounted(() => {
             </button>
             <button
               @click="activeSubtab = 'nachfassen'"
-              class="flex min-w-0 flex-1 items-center justify-center gap-1 px-1.5 py-[5px] text-[11px] rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
+              class="flex min-w-0 items-center justify-center gap-1 overflow-hidden px-1.5 py-[5px] text-[11px] leading-none rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
               :class="activeSubtab === 'nachfassen'
                 ? 'bg-white text-foreground font-semibold shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'"
@@ -2471,7 +2471,7 @@ onMounted(() => {
             </button>
             <button
               @click="activeSubtab = 'posteingang'"
-              class="flex min-w-0 flex-1 items-center justify-center gap-1 px-1.5 py-[5px] text-[11px] rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
+              class="flex min-w-0 items-center justify-center gap-1 overflow-hidden px-1.5 py-[5px] text-[11px] leading-none rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
               :class="['posteingang','gesendet','entwuerfe','templates','papierkorb'].includes(activeSubtab)
                 ? 'bg-white text-foreground font-semibold shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'"
@@ -2480,7 +2480,7 @@ onMounted(() => {
             </button>
             <button
               @click="activeSubtab = 'matches'; loadMatchesTab()"
-              class="flex min-w-0 flex-1 items-center justify-center gap-1 px-1.5 py-[5px] text-[11px] rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
+              class="flex min-w-0 items-center justify-center gap-1 overflow-hidden px-1.5 py-[5px] text-[11px] leading-none rounded-md transition-all sm:gap-1.5 sm:px-2 sm:text-[12px]"
               :class="activeSubtab === 'matches'
                 ? 'bg-white text-foreground font-semibold shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'"

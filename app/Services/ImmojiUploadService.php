@@ -72,12 +72,9 @@ class ImmojiUploadService
                 $this->updateRealty($immojiId, $property);
                 return ['action' => 'updated', 'immoji_id' => $immojiId];
             } catch (\RuntimeException $e) {
-                if (str_contains($e->getMessage(), 'Entity not found for ID')) {
-                    Log::warning("Immoji entity {$immojiId} was deleted. Re-creating.");
-                    // Fall through to createRealty below
-                } else {
-                    throw $e;
-                }
+                // Never auto-create when a fixed remote ID is configured.
+                // This avoids accidental duplicates in Immoji during normal "sync update" flows.
+                throw $e;
             }
         }
 
@@ -271,7 +268,7 @@ class ImmojiUploadService
     {
         $marketingType = match (strtolower($prop['marketing_type'] ?? '')) {
             'kauf' => 'PURCHASE',
-            'miete' => 'RENT',
+            'miete' => 'RENTAL',
             default => null,
         };
 
@@ -580,8 +577,10 @@ class ImmojiUploadService
         return match (strtolower(trim($srType))) {
             'eigentumswohnung', 'wohnung', 'apartment' => 'APARTMENT',
             'einfamilienhaus', 'haus', 'house', 'reihenhaus', 'doppelhaus', 'mehrfamilienhaus', 'bungalow', 'villa' => 'HOUSE',
-            'grundstueck', 'grundstück', 'land' => 'LAND',
-            'gewerbe', 'commercial', 'geschäft', 'geschaeft' => 'COMMERCIAL',
+            // Immoji enum currently accepts PROPERTY for lots/plots.
+            'grundstueck', 'grundstück', 'land' => 'PROPERTY',
+            // Immoji enum currently accepts OFFICE for commercial objects in this integration.
+            'gewerbe', 'commercial', 'geschäft', 'geschaeft' => 'OFFICE',
             'büro', 'buero', 'office' => 'OFFICE',
             'garage', 'stellplatz', 'parking' => 'GARAGE',
             default => 'APARTMENT',
@@ -670,6 +669,7 @@ class ImmojiUploadService
         $map = [
             1  => 'be606262-830c-4580-bd97-03f9da45b960', // Maximilian Hölzl (hoelzl@sr-homes.at)
             16 => '2e583e32-80a1-4e9a-aed8-3a017a5450bb', // Susanne Renzl (renzl@sr-homes.at)
+            21 => 'acf0a7b1-d22f-4c3d-a478-404e682d510a', // Roland Felfernig (felfernig@sr-homes.at)
         ];
 
         return $map[(int) $brokerId] ?? null;

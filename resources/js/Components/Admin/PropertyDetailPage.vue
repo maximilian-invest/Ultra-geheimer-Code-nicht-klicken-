@@ -377,6 +377,7 @@ function handleExposeParsed(result) {
           :property="property"
           :is-new="isNew"
           @dirty="isDirty = true"
+          @clean="isDirty = false"
           @saved="(p) => { isDirty = false; emit('saved', p); }"
           @property-created="(p) => { isDirty = false; emit('propertyCreated', p); }"
         />

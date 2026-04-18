@@ -19,7 +19,7 @@ const props = defineProps({
   isNew: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["dirty", "saved", "propertyCreated"]);
+const emit = defineEmits(["dirty", "clean", "saved", "propertyCreated"]);
 
 const API = inject("API");
 const toast = inject("toast");
@@ -310,10 +310,15 @@ async function saveHistory() {
 }
 
 // ─── Dirty tracking ───
+// Compare form vs snapshot so programmatic updates (copyPropertyToForm during
+// init, props.property changes, parse-fields refresh) don't produce false
+// dirty signals that would trigger the unsaved-changes popup.
 const dirty = ref(false);
 watch(form, () => {
-  dirty.value = true;
-  emit("dirty");
+  const isNowDirty = JSON.stringify(form) !== JSON.stringify(snapshot);
+  if (isNowDirty === dirty.value) return;
+  dirty.value = isNowDirty;
+  emit(isNowDirty ? "dirty" : "clean");
 }, { deep: true });
 
 // ─── Live Preview ───

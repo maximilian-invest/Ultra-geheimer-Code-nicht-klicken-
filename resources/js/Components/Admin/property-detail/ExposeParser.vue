@@ -79,6 +79,8 @@ async function uploadFiles(event) {
   const files = event.target.files;
   if (!files?.length) return;
   uploading.value = true;
+  const total = files.length;
+  let uploaded = 0;
   for (const file of files) {
     try {
       const fd = new FormData();
@@ -90,12 +92,15 @@ async function uploadFiles(event) {
       if (d.success && d.file) {
         availableFiles.value.push(d.file);
         selectedFileIds.value.push(d.file.id);
+        uploaded++;
       }
     } catch(e) { console.error(e); }
   }
   event.target.value = '';
   uploading.value = false;
-  toast(files.length + ' Datei(en) hochgeladen');
+  toast(uploaded === total
+    ? uploaded + ' Datei(en) hochgeladen'
+    : uploaded + ' von ' + total + ' Datei(en) hochgeladen');
 }
 </script>
 

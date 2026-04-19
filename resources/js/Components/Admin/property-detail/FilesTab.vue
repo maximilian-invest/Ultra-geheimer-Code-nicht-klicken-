@@ -44,6 +44,8 @@ async function handleUpload(e) {
   if (!inputFiles || !inputFiles.length || !props.property?.id) return;
   dragOver.value = false;
   uploading.value = true;
+  const total = inputFiles.length;
+  let uploaded = 0;
   const propId = props.property.id;
   for (const file of inputFiles) {
     try {
@@ -55,6 +57,7 @@ async function handleUpload(e) {
       const d = await r.json();
       if (d.success && d.file) {
         files.value.push(d.file);
+        uploaded++;
       }
     } catch (err) {
       console.error('Upload failed:', err);
@@ -62,7 +65,9 @@ async function handleUpload(e) {
   }
   uploading.value = false;
   if (e.target) e.target.value = '';
-  toast(inputFiles.length + ' Datei(en) hochgeladen');
+  toast(uploaded === total
+    ? uploaded + ' Datei(en) hochgeladen'
+    : uploaded + ' von ' + total + ' Datei(en) hochgeladen');
 }
 
 async function toggleWebsiteDownload(f) {

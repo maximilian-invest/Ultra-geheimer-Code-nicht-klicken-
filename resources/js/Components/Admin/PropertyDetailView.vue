@@ -271,6 +271,8 @@ async function uploadExposeFiles(event) {
   const files = event.target.files;
   if (!files || !files.length) return;
   exposeUploading.value = true;
+  const total = files.length;
+  let uploaded = 0;
   const propId = props.property.id;
   for (const file of files) {
     try {
@@ -283,12 +285,15 @@ async function uploadExposeFiles(event) {
       if (d.success && d.file) {
         exposeFiles.value.push(d.file);
         exposeSelectedFiles.value.push(d.file.id);
+        uploaded++;
       }
     } catch(e) { console.error('Upload failed:', e); }
   }
   exposeUploading.value = false;
   event.target.value = '';
-  toast(files.length + ' Datei(en) hochgeladen');
+  toast(uploaded === total
+    ? uploaded + ' Datei(en) hochgeladen'
+    : uploaded + ' von ' + total + ' Datei(en) hochgeladen');
 }
 
 async function toggleWebsiteDownload(f) {

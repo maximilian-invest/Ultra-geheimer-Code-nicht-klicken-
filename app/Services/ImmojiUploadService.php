@@ -217,39 +217,56 @@ class ImmojiUploadService
     }
 
     /**
-     * Update an existing realty in Immoji with all mapped data.
+     * @param string   $immojiId  Immoji realty ID.
+     * @param array    $property  Mapped SR-Homes property row.
+     * @param string[]|null $sections  Whitelist of sections to include. Valid:
+     *                                 ['general','costs','areas','descriptions','building','files'].
+     *                                 null or empty => include all (legacy full-sync).
      */
-    public function updateRealty(string $immojiId, array $property): void
+    public function updateRealty(string $immojiId, array $property, ?array $sections = null): void
     {
-        $generalInput = self::mapPropertyToImmojiGeneral($property);
-        $costsInput = self::mapPropertyToImmojiCosts($property);
-        $areasInput = self::mapPropertyToImmojiAreas($property);
-        $descriptionsInput = self::mapPropertyToImmojiDescriptions($property);
-        $buildingInput = self::mapPropertyToImmojiBuilding($property);
+        $wantsAll = $sections === null || $sections === [];
+        $wants = fn(string $s) => $wantsAll || in_array($s, $sections, true);
+
+        $input = ['id' => $immojiId];
+
+        if ($wants('general')) {
+            $input['generalInput'] = self::mapPropertyToImmojiGeneral($property);
+        }
+        if ($wants('costs')) {
+            $input['costsInput'] = self::mapPropertyToImmojiCosts($property);
+        }
+        if ($wants('areas')) {
+            $input['areasInput'] = self::mapPropertyToImmojiAreas($property);
+        }
+        if ($wants('descriptions')) {
+            $input['descriptionsInput'] = self::mapPropertyToImmojiDescriptions($property);
+        }
+        if ($wants('building')) {
+            $building = self::mapPropertyToImmojiBuilding($property);
+            if ($building !== null) {
+                $input['buildingInput'] = $building;
+            }
+        }
+        if ($wants('files')) {
+            $filesInput = $this->uploadAndMapImages($property);
+            if ($filesInput !== null) {
+                $input['filesInput'] = $filesInput;
+            }
+        }
 
         $query = 'mutation($input: UpdateRealtyInput!) { updateRealty(updateRealtyInput: $input) { id } }';
-
-        $filesInput = $this->uploadAndMapImages($property);
-
         $variables = [
-            'input' => array_filter([
-                'id' => $immojiId,
-                'generalInput' => $generalInput,
-                'costsInput' => $costsInput,
-                'areasInput' => $areasInput,
-                'descriptionsInput' => $descriptionsInput,
-                'filesInput' => $filesInput,
-                'buildingInput' => $buildingInput,
-            ], fn($v) => $v !== null),
+            'input' => array_filter($input, fn($v) => $v !== null),
         ];
 
         $result = $this->query($query, $variables);
 
         if (isset($result['errors'])) {
             $errorMsg = json_encode($result['errors']);
-            // Immoji's tmp/UUID file refs are consumed one-shot after a successful
-            // mutation. On the next sync, reusing stale refs triggers "No media
-            // found". Clear the cached immoji_source values and re-upload fresh.
+
+            // Media-error recovery: stale tmp/ tokens are consumed one-shot.
+            // Clear the cached immoji_source for this property and re-upload fresh.
             if (str_contains($errorMsg, 'media') || str_contains($errorMsg, 'file') || str_contains($errorMsg, 'image')) {
                 Log::warning("Immoji updateRealty: media error, clearing stale tmp refs and re-uploading. Error: {$errorMsg}");
                 $propertyId = $property['id'] ?? null;
@@ -269,7 +286,6 @@ class ImmojiUploadService
                 $result = $this->query($query, $variables);
 
                 if (isset($result['errors'])) {
-                    // Last resort: drop files so at least metadata updates
                     Log::warning("Immoji updateRealty: re-upload retry still failing, updating metadata only. Error: " . json_encode($result['errors']));
                     unset($variables['input']['filesInput']);
                     $result = $this->query($query, $variables);

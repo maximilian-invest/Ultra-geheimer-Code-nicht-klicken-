@@ -13,7 +13,7 @@ import MediaTab from "@/Components/Admin/property-detail/MediaTab.vue";
 import EditTabAllgemeines from "@/Components/Admin/property-detail/EditTabAllgemeines.vue";
 import EditTabKosten from "@/Components/Admin/property-detail/EditTabKosten.vue";
 import EditTabFlaechen from "@/Components/Admin/property-detail/EditTabFlaechen.vue";
-import EditTabGebaeude from "@/Components/Admin/property-detail/EditTabGebaeude.vue";
+import EditTabEnergie from "@/Components/Admin/property-detail/EditTabEnergie.vue";
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -589,7 +589,7 @@ defineExpose({ save, discard });
         <TabsTrigger value="allgemeines" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Allgemeines</TabsTrigger>
         <TabsTrigger value="kosten" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Kosten</TabsTrigger>
         <TabsTrigger value="flaechen" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Flaechen</TabsTrigger>
-        <TabsTrigger value="gebaeude" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Gebaeude</TabsTrigger>
+        <TabsTrigger value="energie" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Energie</TabsTrigger>
         <TabsTrigger value="beschreibung" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Beschreibung</TabsTrigger>
         <TabsTrigger value="medien" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Medien</TabsTrigger>
         <TabsTrigger v-if="!isNewbuild && !isChild" value="historie" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Historie</TabsTrigger>
@@ -647,8 +647,8 @@ defineExpose({ save, discard });
         <EditTabFlaechen :form="form" :is-newbuild="isNewbuild" />
       </TabsContent>
 
-      <TabsContent value="gebaeude" class="mt-0 px-1">
-        <EditTabGebaeude :form="form" />
+      <TabsContent value="energie" class="mt-0 px-1">
+        <EditTabEnergie :form="form" />
       </TabsContent>
 
       <!-- REMOVED: old objekt inline content below — kept for reference until sub-components verified -->

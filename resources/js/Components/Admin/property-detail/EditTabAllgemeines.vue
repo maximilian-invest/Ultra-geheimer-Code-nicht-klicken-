@@ -113,53 +113,6 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
       </AccordionSection>
 
-      <!-- Energieausweis -->
-      <AccordionSection title="Energieausweis" color="#22c55e" :default-open="false">
-        <div>
-          <label :class="labelCls">Ausweistyp</label>
-          <Select v-model="form.energy_certificate">
-            <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Verbrauch">Verbrauch</SelectItem>
-              <SelectItem value="Bedarf">Bedarf</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label :class="labelCls">Energieklasse</label>
-          <Select v-model="form.heating_demand_class">
-            <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="A++">A++</SelectItem>
-              <SelectItem value="A+">A+</SelectItem>
-              <SelectItem value="A">A</SelectItem>
-              <SelectItem value="B">B</SelectItem>
-              <SelectItem value="C">C</SelectItem>
-              <SelectItem value="D">D</SelectItem>
-              <SelectItem value="E">E</SelectItem>
-              <SelectItem value="F">F</SelectItem>
-              <SelectItem value="G">G</SelectItem>
-              <SelectItem value="H">H</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label :class="labelCls">HWB kWh/m²a</label>
-          <Input v-model="form.heating_demand_value" type="number" :class="inputCls" />
-        </div>
-        <div>
-          <label :class="labelCls">fGEE</label>
-          <Input v-model="form.energy_efficiency_value" type="number" :class="inputCls" />
-        </div>
-        <div>
-          <label :class="labelCls">Energieträger</label>
-          <Input v-model="form.energy_primary_source" :class="inputCls" />
-        </div>
-        <div>
-          <label :class="labelCls">Gültig bis</label>
-          <Input v-model="form.energy_valid_until" type="date" :class="inputCls" />
-        </div>
-      </AccordionSection>
     </div>
 
     <!-- Right column -->
@@ -328,22 +281,6 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         <div>
           <label :class="labelCls">Sanierungsjahr</label>
           <Input v-model="form.year_renovated" type="number" :class="inputCls" />
-        </div>
-        <div>
-          <label :class="labelCls">Küche</label>
-          <Select v-model="form.kitchen_type">
-            <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="einbaukueche">Einbauküche</SelectItem>
-              <SelectItem value="pantry">Pantry</SelectItem>
-              <SelectItem value="offen">Offen</SelectItem>
-              <SelectItem value="keine">Keine</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label :class="labelCls">Heizung</label>
-          <Input v-model="form.heating" :class="inputCls" />
         </div>
         <div>
           <label :class="labelCls">Bodenbelag</label>

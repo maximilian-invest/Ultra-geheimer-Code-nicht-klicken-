@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import MediaTab from "@/Components/Admin/property-detail/MediaTab.vue";
 import EditTabAllgemeines from "@/Components/Admin/property-detail/EditTabAllgemeines.vue";
 import EditTabKosten from "@/Components/Admin/property-detail/EditTabKosten.vue";
@@ -515,18 +516,41 @@ async function runParseFields() {
 
 // ─── AI description generation ───
 const aiGenerating = ref(null); // 'objekt' | 'lage' | null
+const aiOverwriteDialog = ref(false);
+const aiPendingType = ref(null); // 'objekt' | 'lage'
+const aiPendingPreview = ref(''); // existing text shown in the dialog
 
-async function generateDescription(type) {
+function requestGenerateDescription(type) {
   if (aiGenerating.value) return;
   if (!form.id) { toast("Bitte zuerst Objekt speichern."); return; }
 
   const targetKey = type === 'lage' ? 'location_description' : 'realty_description';
   const currentText = (form[targetKey] || '').trim();
   if (currentText !== '') {
-    const confirmLabel = type === 'lage' ? 'Lagebeschreibung' : 'Objektbeschreibung';
-    if (!confirm(confirmLabel + ' existiert bereits. Überschreiben?')) return;
+    aiPendingType.value = type;
+    aiPendingPreview.value = currentText;
+    aiOverwriteDialog.value = true;
+    return;
   }
+  runGenerateDescription(type);
+}
 
+function cancelGenerateDescription() {
+  aiOverwriteDialog.value = false;
+  aiPendingType.value = null;
+  aiPendingPreview.value = '';
+}
+
+async function confirmGenerateDescription() {
+  const type = aiPendingType.value;
+  aiOverwriteDialog.value = false;
+  aiPendingType.value = null;
+  aiPendingPreview.value = '';
+  if (type) await runGenerateDescription(type);
+}
+
+async function runGenerateDescription(type) {
+  const targetKey = type === 'lage' ? 'location_description' : 'realty_description';
   aiGenerating.value = type;
   try {
     const body = { property_id: form.id, type };
@@ -1317,7 +1341,7 @@ defineExpose({ save, discard });
                 class="h-6 text-[11px] gap-1"
                 :disabled="aiGenerating !== null || !form.id"
                 :title="!form.id ? 'Objekt zuerst speichern' : f.aiHint"
-                @click="generateDescription(f.aiType)"
+                @click="requestGenerateDescription(f.aiType)"
               >
                 <Sparkles class="w-3 h-3" />
                 <span v-if="aiGenerating === f.aiType">Generiere…</span>
@@ -1419,4 +1443,32 @@ defineExpose({ save, discard });
       </Transition>
     </template>
   </Tabs>
+
+  <!-- AI description overwrite confirmation -->
+  <Dialog :open="aiOverwriteDialog" @update:open="(v) => { if (!v) cancelGenerateDescription() }">
+    <DialogContent class="max-w-md">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2">
+          <Sparkles class="w-4 h-4" style="color:#8b5cf6" />
+          <template v-if="aiPendingType === 'lage'">Lagebeschreibung überschreiben?</template>
+          <template v-else>Objektbeschreibung überschreiben?</template>
+        </DialogTitle>
+        <DialogDescription>
+          Der bestehende Text wird durch die KI-generierte Version ersetzt. Diese Aktion kann nicht rückgängig gemacht werden.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div class="max-h-40 overflow-y-auto rounded-md border border-border/50 bg-zinc-50 p-3 text-xs text-zinc-700 whitespace-pre-wrap">
+        {{ aiPendingPreview }}
+      </div>
+
+      <DialogFooter class="gap-2">
+        <Button variant="outline" size="sm" @click="cancelGenerateDescription">Abbrechen</Button>
+        <Button size="sm" @click="confirmGenerateDescription" style="background:#8b5cf6;color:white">
+          <Sparkles class="w-3.5 h-3.5 mr-1" />
+          Neu generieren
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

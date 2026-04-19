@@ -318,8 +318,9 @@ class AdminApiController extends Controller
                         ]);
                     }
 
-                    // Normal properties: push the property itself
-                    $result = $service->pushProperty((array) $property);
+                    // Normal properties: push the property itself (diff-sync by default)
+                    $forceFullSync = (bool) $request->input('force_full_sync', false);
+                    $result = $service->pushProperty((array) $property, $forceFullSync);
 
                     // Save the immoji_id back to the property if newly created
                     if ($result['action'] === 'created' && !empty($result['immoji_id'])) {
@@ -329,17 +330,30 @@ class AdminApiController extends Controller
                         ]);
                     }
 
-                    // Update portal entry
-                    \DB::table('property_portals')->updateOrInsert(
-                        ['property_id' => $propertyId, 'portal_name' => 'immoji'],
-                        ['sync_enabled' => 1, 'status' => 'active', 'external_id' => $result['immoji_id'], 'last_synced_at' => now(), 'updated_at' => now()]
-                    );
+                    // Update portal entry only when something actually synced
+                    if ($result['action'] !== 'skipped') {
+                        \DB::table('property_portals')->updateOrInsert(
+                            ['property_id' => $propertyId, 'portal_name' => 'immoji'],
+                            ['sync_enabled' => 1, 'status' => 'active', 'external_id' => $result['immoji_id'], 'last_synced_at' => now(), 'updated_at' => now()]
+                        );
+                    }
+
+                    $sectionsSynced = $result['sections_synced'] ?? [];
+                    $message = match ($result['action']) {
+                        'created' => 'Objekt in Immoji erstellt',
+                        'skipped' => 'Keine Änderungen — nichts zu syncen',
+                        default => count($sectionsSynced) === count(\App\Services\ImmojiSyncStateService::SECTIONS)
+                            ? 'Objekt in Immoji aktualisiert (alle Bereiche)'
+                            : 'Objekt in Immoji aktualisiert (' . implode(', ', $sectionsSynced) . ')',
+                    };
 
                     return response()->json([
                         'success' => true,
                         'action' => $result['action'],
                         'immoji_id' => $result['immoji_id'],
-                        'message' => $result['action'] === 'created' ? 'Objekt in Immoji erstellt' : 'Objekt in Immoji aktualisiert',
+                        'sections_synced' => $sectionsSynced,
+                        'force_full_sync' => $forceFullSync,
+                        'message' => $message,
                     ]);
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Immoji push failed', ['error' => $e->getMessage(), 'property_id' => $propertyId]);

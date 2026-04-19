@@ -113,7 +113,7 @@ function formatDate(s) {
                 <div class="flex items-center gap-2 flex-shrink-0">
                     <button @click="openModal(account)" class="btn btn-outline btn-sm"><Pencil class="w-3.5 h-3.5" /> Bearbeiten</button>
                     <button @click="emailAccountForm = {...account, imap_password:'', smtp_password:''}; testAccount();" class="btn btn-outline btn-sm"><Wifi class="w-3.5 h-3.5" /> Testen</button>
-                    <button @click="deleteAccount(account.id)" class="btn btn-outline btn-icon btn-sm" style="color:var(--destructive)"><Trash2 class="w-3.5 h-3.5" /></button>
+                    <button @click="deleteAccount(account.id)" class="btn btn-outline btn-icon btn-sm" style="color:hsl(var(--destructive))"><Trash2 class="w-3.5 h-3.5" /></button>
                 </div>
             </div>
         </div>

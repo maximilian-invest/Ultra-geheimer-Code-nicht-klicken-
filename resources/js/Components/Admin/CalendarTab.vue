@@ -480,7 +480,7 @@ const dayNamesFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag",
                     <!-- Modal footer -->
                     <div class="px-6 py-4 flex items-center justify-between border-t border-[var(--border)]">
                         <div>
-                            <button v-if="modalMode === 'edit'" @click="deleteEvent()" class="btn btn-ghost btn-sm" style="color:var(--destructive)" :disabled="saving">
+                            <button v-if="modalMode === 'edit'" @click="deleteEvent()" class="btn btn-ghost btn-sm" style="color:hsl(var(--destructive))" :disabled="saving">
                                 <Trash2 class="w-3.5 h-3.5" /><span>Löschen</span>
                             </button>
                         </div>

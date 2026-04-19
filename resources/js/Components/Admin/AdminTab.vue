@@ -538,7 +538,7 @@ async function deletePortalUser() {
                             </button>
                             <button @click="openTimeline(c)" class="btn btn-outline btn-sm" title="Zeitstrahl anzeigen"><Clock class="w-3.5 h-3.5" /><span class="hidden sm:inline">Timeline</span></button>
                             <button @click="startEditContact(c)" class="btn btn-outline btn-sm"><Pencil class="w-3.5 h-3.5" /></button>
-                            <button @click="deleteContact(c)" class="btn btn-ghost btn-icon btn-sm" style="color:var(--destructive)"><Trash2 class="w-3.5 h-3.5" /></button>
+                            <button @click="deleteContact(c)" class="btn btn-ghost btn-icon btn-sm" style="color:hsl(var(--destructive))"><Trash2 class="w-3.5 h-3.5" /></button>
                         </div>
                     </div>
                     <!-- Lead-Profil Panel (aufklappbar) -->
@@ -693,7 +693,7 @@ async function deletePortalUser() {
                                 <span v-for="(alias, idx) in editingContact.aliases" :key="idx"
                                     class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-[var(--muted)]">
                                     {{ alias }}
-                                    <button @click="editingContact.aliases.splice(idx, 1)" class="text-[var(--destructive)]"><X class="w-3 h-3" /></button>
+                                    <button @click="editingContact.aliases.splice(idx, 1)" class="text-[hsl(var(--destructive))]"><X class="w-3 h-3" /></button>
                                 </span>
                             </div>
                             <div class="flex gap-2">

@@ -687,7 +687,7 @@ function navBadge(key) {
     --secondary: #f1f5f9; --secondary-foreground: #0f172a;
     --muted: #f1f5f9; --muted-foreground: #64748b;
     --accent: #f1f5f9; --accent-foreground: #0f172a;
-    --destructive: #dc2626;
+    --destructive: 0 72% 51%; --destructive-foreground: 0 0% 98%;
     --border: #e9ecf1; --input: #e2e8f0; --ring: #94a3b8;
     --radius: 0.625rem;
     --brand: #f97316; --brand-light: #fff7ed;
@@ -699,7 +699,7 @@ html.dark {
     --secondary: #1e293b; --secondary-foreground: #f8fafc;
     --muted: #1e293b; --muted-foreground: #94a3b8;
     --accent: #1e293b; --accent-foreground: #f8fafc;
-    --destructive: #ef4444;
+    --destructive: 0 84% 60%; --destructive-foreground: 0 0% 98%;
     --border: rgba(255,255,255,0.1); --input: rgba(255,255,255,0.15); --ring: #475569;
     --brand-light: rgba(249,115,22,0.08);
 }
@@ -718,7 +718,7 @@ html.dark .stat-tile { box-shadow: none; }
 .btn-outline:hover { background: var(--accent); }
 .btn-ghost { color: var(--muted-foreground); box-shadow: none; background: transparent; }
 .btn-ghost:hover { background: var(--accent); }
-.btn-destructive { background: var(--destructive); color: #fff; }
+.btn-destructive { background: hsl(var(--destructive)); color: hsl(var(--destructive-foreground)); }
 .btn-brand { background: var(--brand); color: white; }
 .btn-secondary { background: var(--secondary); color: var(--secondary-foreground); }
 .btn-sm { height: 32px; padding: 0 12px; font-size: 12px; }

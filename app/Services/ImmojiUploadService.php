@@ -680,28 +680,7 @@ class ImmojiUploadService
      */
     public static function mapPropertyToImmojiBuilding(array $prop): ?array
     {
-        // SCHEMA-STATUS (Stand 2026-04-19, gegen Immoji-API probed):
-        //
-        // Das Input-Schema UpdateRealtyBuildingInput akzeptiert AKTUELL KEINE
-        // der Felder die der alte Mapper zu senden versuchte:
-        //   - 'heating' / 'heatings'        → "Field is not defined"
-        //   - 'refurbishments' / 'renovation' → "Field is not defined"
-        //   - 'construction' / 'facade' / 'electrical' / 'telecom' /
-        //     'roof' / 'windows' / 'floors' → alle "Field is not defined"
-        //
-        // Immoji scheint diese Informationen jetzt unter 'interiorsInput'
-        // bzw. 'exteriorsInput' zu verwalten, mit komplett anderen Feld-
-        // namen (z.B. RealtyInterior.connections, RealtyExterior.water).
-        // Das echte Mapping ist noch nicht ermittelt — bis dahin NICHT zu
-        // Immoji pushen, sondern die Daten nur lokal speichern.
-        //
-        // Die Daten bleiben weiterhin in der DB (building_details,
-        // property_history) verfuegbar fuer die Edit-UI und den Kunden-
-        // portal-View. Nur die Uebertragung an Immoji ist bis zum korrekten
-        // Schema-Mapping deaktiviert.
-        //
-        // JSON-Decode lassen wir trotzdem stehen, damit zukuenftige Felder
-        // (sobald wir die richtigen Namen kennen) sauber an Board sind.
+        // building_details kommt aus DB als JSON-String — zuerst dekodieren.
         $bd = $prop['building_details'] ?? null;
         if (is_string($bd)) {
             $decoded = json_decode($bd, true);
@@ -709,9 +688,109 @@ class ImmojiUploadService
         }
         if (!is_array($bd)) $bd = [];
 
-        // Derzeit keine mappbaren Felder -> null => buildingInput wird nicht
-        // an Immoji gesendet und die Mutation laeuft sauber durch.
-        return null;
+        $result = [];
+
+        // ─── Heizung, Befeuerung, Warmwasser (buildingInput.heatingWarmWater) ───
+        // Schema-Discovery (gegen Immojis GraphQL-API, mit Network-Trace der
+        // Immoji-Admin-UI: Feldnamen heatingWarmWater.heatingType/firing/warmWater).
+        //   type: RealtyHeatingWarmWaterInput {
+        //     heatingType: [RealtyHeating!]   — Multi-Select Array
+        //     firing:      RealtyFiring       — Single Enum (Befeuerung)
+        //     warmWater:   RealtyWarmWater    — Single Enum
+        //   }
+        $heatingWW = self::mapHeatingWarmWater($bd);
+        if ($heatingWW !== null) {
+            $result['heatingWarmWater'] = $heatingWW;
+        }
+
+        return !empty($result) ? $result : null;
+    }
+
+    /**
+     * Maps building_details.heating (aus dem Energie-Tab) auf Immojis
+     * RealtyHeatingWarmWaterInput. Deutsche UI-Labels werden zu den
+     * Enum-Werten gemappt die per Brute-Force gegen die GraphQL-API
+     * verifiziert wurden. Unmappable Werte werden still gedroppt.
+     */
+    private static function mapHeatingWarmWater(array $bd): ?array
+    {
+        $heating = is_array($bd['heating'] ?? null) ? $bd['heating'] : [];
+
+        // UI-Label -> Enum RealtyHeating (Multi-Select)
+        $heatingTypeMap = [
+            'Zentralheizung'   => 'CENTRAL_HEATING',
+            'Fernwärme'        => 'DISTRICT_HEATING',
+            'Etagenheizung'    => 'STOREY_HEATING',
+            'Kamin'            => 'FIREPLACE',
+            'Fußbodenheizung'  => 'FLOOR_HEATING',
+            'Offener Kamin'    => 'OPEN_FIREPLACE',
+            'Heizkörper'       => 'RADIATOR',
+            'Heizofen'         => 'STOVE',
+            'Kachelofen'       => 'TILE_STOVE',
+            'Wandheizung'      => 'WALL_HEATING',
+        ];
+
+        // UI-Label -> Enum RealtyFiring (Befeuerung)
+        $firingMap = [
+            'Luftwärmepumpe'           => 'AIR_HEAT_PUMP',
+            'Sole-Wasser-Wärmepumpe'   => 'HEAT_PUMP',
+            'Wasser-Wasser-Wärmepumpe' => 'HEAT_PUMP',
+            'Erdwärme'                 => 'GEOTHERMAL',
+            'Gas'                      => 'GAS',
+            'Öl'                       => 'OIL',
+            'Holz'                     => 'WOOD',
+            'Solar'                    => 'SOLAR_ENERGY',
+            'Fernwärme'                => 'DISTRICT_HEATING',
+            'Blockheizkraftwerk'       => 'BLOCK_HEATING_POWER_PLANT',
+            'Elektro'                  => 'ELECTRIC',
+            'Kohle'                    => 'COAL',
+            'Alternativ'               => 'ALTERNATIVE',
+            // Brennwerttechnik und Pellets haben (Stand jetzt) keine
+            // passende Enum-Entsprechung — diese Auswahlen werden fuer
+            // den Sync gedroppt, bleiben aber in der DB/UI sichtbar.
+        ];
+
+        // UI-Label -> Enum RealtyWarmWater
+        $warmWaterMap = [
+            'Boiler'                   => 'BOILER',
+            'Brauchwasserwärmepumpe'   => 'BRAUCHWASSERWARMEPUMPE',
+            'Fernwärme'                => 'DISTRICT_HEATING',
+            'Durchlauferhitzer Strom'  => 'ELECTRIC_BOILER',
+            'Durchlauferhitzer Gas'    => 'GAS_WATER_HEATER',
+            'Frischwasserstation'      => 'FRESH_WATER_STATION',
+            'Gaskessel'                => 'GAS_BOILER',
+            'Ölkessel'                 => 'OIL_BOILER',
+            // Zentral / Solar / Wärmepumpe haben aktuell keine saubere
+            // Enum-Entsprechung in RealtyWarmWater — werden gedroppt.
+        ];
+
+        $out = [];
+
+        // Heizungsart: Multi-Select (bd.heating.types = Array von UI-Labels)
+        if (!empty($heating['types']) && is_array($heating['types'])) {
+            $enumList = [];
+            foreach ($heating['types'] as $label) {
+                $key = trim((string) $label);
+                if ($key === '') continue;
+                if (isset($heatingTypeMap[$key])) $enumList[] = $heatingTypeMap[$key];
+            }
+            $enumList = array_values(array_unique($enumList));
+            if (!empty($enumList)) $out['heatingType'] = $enumList;
+        }
+
+        // Befeuerung: Single
+        if (!empty($heating['fuel'])) {
+            $key = trim((string) $heating['fuel']);
+            if (isset($firingMap[$key])) $out['firing'] = $firingMap[$key];
+        }
+
+        // Warmwasser: Single
+        if (!empty($heating['hot_water'])) {
+            $key = trim((string) $heating['hot_water']);
+            if (isset($warmWaterMap[$key])) $out['warmWater'] = $warmWaterMap[$key];
+        }
+
+        return !empty($out) ? $out : null;
     }
 
     /**

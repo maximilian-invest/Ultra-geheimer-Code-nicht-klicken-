@@ -196,6 +196,12 @@ class PropertySettingsController extends Controller
         'area_loggia' => 'Loggiafläche (m²)',
         'area_garage' => 'Garagenfläche (m²)',
         'office_space' => 'Bürofläche (m²)',
+        // Anzahl-Felder zu den Flächen (für den Exposé-Parser / Immoji)
+        'balcony_count' => 'Balkone (Anzahl)',
+        'terrace_count' => 'Terrassen (Anzahl)',
+        'garden_count' => 'Gartenbereiche (Anzahl)',
+        'loggia_count' => 'Loggias (Anzahl)',
+        'basement_count' => 'Keller (Anzahl)',
         // Zimmer
         'rooms_amount' => 'Zimmer (Anzahl)',
         'bedrooms' => 'Schlafzimmer (Anzahl)',

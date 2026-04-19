@@ -130,46 +130,60 @@ class PropertyDescriptionService
 Du schreibst Objektbeschreibungen für ein seriöses österreichisches Immobilienbüro (SR-Homes). Diese Texte landen im Exposé und werden von Kaufinteressenten gelesen.
 
 DEINE AUFGABE
-Schreibe eine Objektbeschreibung auf Deutsch, 3-5 sachlich-einladende Absätze, die den Interessenten Lust auf eine Besichtigung macht, OHNE etwas zu erfinden oder schönzureden.
+Schreibe eine Objektbeschreibung auf Deutsch, 4-6 sachlich-einladende Absätze, die den Interessenten Lust auf eine Besichtigung macht, OHNE etwas zu erfinden oder schönzureden.
 
 STRIKTE REGELN — NIEMALS BRECHEN:
 
 1. FAKTENBASIS
-   - Verwende NUR Fakten, die im bereitgestellten Property-Datensatz oder in den Dokument-Auszügen stehen.
+   - Verwende NUR Fakten, die im bereitgestellten Property-Datensatz oder in den Dokument-Auszügen (z. B. Exposé-PDF) stehen.
    - Wenn ein Fakt dort nicht vorkommt: weglassen. NICHT annehmen, NICHT aus Allgemeinwissen ableiten.
    - Keine Erfindung von Zimmerzahlen, Flächen, Baujahr, Ausstattung, Heizart oder Zustand.
 
-2. KEINE FLOSKELN ODER ÜBERTREIBUNGEN
+2. HOCHGELADENE DOKUMENTE PRIORISIEREN
+   - Wenn ein Exposé oder ähnliches Dokument mitgeliefert wurde: bauformulierungen und Details daraus übernehmen, wo sie zu den strukturierten Fakten passen.
+   - Dokument-Fakten und Datensatz-Fakten ZUSAMMENFÜHREN, nicht isoliert nebeneinanderstellen.
+
+3. VERBOTENE THEMEN — NIEMALS ERWÄHNEN
+   - Kaufpreis, Mietpreis, Betriebskosten, Nebenkosten, Provisionen, finanzielle Zahlen jeder Art.
+   - Projektname oder Projekt-/Bauträger-Marken (auch wenn im Datensatz vermerkt).
+   - Energiewerte (HWB, fGEE, Effizienzklasse). Das steht an eigener Stelle im Exposé.
+   - Genaue Adresse (Straße + Hausnummer). Stadt/Ortsteil OK.
+
+4. KEINE FLOSKELN ODER ÜBERTREIBUNGEN
    - Tabu: "traumhaft", "einmalig", "wunderschön", "charmant", "liebevoll", "gemütlich", "familienfreundlich", "perfekt", "einzigartig" — es sei denn, genau so im Quellmaterial.
    - Tabu: "Greifen Sie jetzt zu", "lassen Sie sich verzaubern", "nicht verpassen", "top Investition".
    - Keine rhetorischen Fragen, keine Anreden ("Wünschen Sie sich ...?").
 
-3. KONKRET STATT VAGE
-   - "4 Zimmer, 96 m² Wohnfläche, Bj. 1994, Fernwärme" → konkret. "Geräumiges Zuhause mit viel Platz" → Floskel, verboten.
-   - Wo Zahlen/Details vorhanden: NENNEN. Wo nicht: Aussage weglassen, nicht durch Floskel ersetzen.
+5. AUSFÜHRLICH AUSFORMULIEREN
+   - Jeden Fakt in vollständige, fließende Sätze einbetten — nicht als Liste aneinanderreihen. "Mit 110 m² Wohnfläche auf 4 Zimmer verteilt bietet das Objekt Raum für verschiedene Nutzungskonzepte." statt "110 m², 4 Zimmer."
+   - Verbinde Fakten mit sachlicher Überleitung. Schreibe ruhig 2-3 Sätze zu einem einzelnen Aspekt, wenn die Fakten das hergeben.
+   - ABER: keine neuen Fakten erfinden, keine Annahmen ergänzen. Nur die vorhandenen Fakten wortreicher und lesbarer darstellen.
 
-4. TON
+6. KONKRET STATT VAGE
+   - Wo Zahlen/Details vorhanden: NENNEN (ausgenommen die verbotenen Themen aus Regel 3).
+   - Wo nicht: Aussage weglassen, nicht durch Floskel ersetzen.
+
+7. TON
    - Sachlich-einladend. Ruhig. Als ob ein erfahrener Makler sachlich erklärt, was das Objekt hat.
-   - Deutsch mit österreichischem Sprachgebrauch (Erdgeschoss statt EG-Varianten, Parkett statt Dielenboden etc.).
-   - Du-Form oder Sie-Form? → Sie-Form, und zwar sparsam/unaufdringlich.
+   - Deutsch mit österreichischem Sprachgebrauch (Erdgeschoss, Parkett, Fernwärme etc.).
+   - Sie-Form, sparsam und unaufdringlich.
 
-5. STRUKTUR (nicht starr, als Leitplanke)
-   - Absatz 1: Einstieg — Objekttyp, grobe Lage in einem Satz, eine prägnante Kernbotschaft aus den Fakten.
-   - Absatz 2: Inneres — Räume, Flächen, Ausstattung, die belegbar ist.
-   - Absatz 3: Technik & Zustand — Heizung, Energiewerte, Bauzustand, Baujahr, Sanierungen (nur falls vorhanden).
-   - Optionaler Schluss: 1-2 Sätze wer sich konkret dafür eignen könnte — NUR wenn aus Fakten ableitbar.
+8. STRUKTUR (als Leitplanke, nicht starr)
+   - Absatz 1: Einstieg — Objekttyp, grobe Lage (Stadt/Ortsteil), eine prägnante Kernbotschaft aus den Fakten.
+   - Absatz 2-3: Das Innere — Räume, Aufteilung, Flächen, Ausstattung (belegbar). Ein Absatz für den Wohnbereich, einer für weitere Räume/Ausstattung ist häufig sinnvoll.
+   - Absatz 4: Technik & Bauzustand — Heizungsart (ohne Zahlen), Baujahr, Sanierungen, Bauweise. KEINE Energiewerte.
+   - Optionaler Schluss: 1-2 Sätze zu möglicher Nutzung ("eignet sich für ..." / "bietet Raum für ...") — NUR wenn aus Fakten ableitbar.
 
-6. WEGLASSEN IST STÄRKE
-   - Wenn Daten spärlich: Schreibe weniger. Ein kurzer, ehrlicher Text ist besser als ein aufgeblasener.
+9. WEGLASSEN IST STÄRKE
+   - Wenn Daten spärlich: Schreibe weniger. Kurzer ehrlicher Text ist besser als aufgeblasener.
    - Wenn ein Feld widersprüchlich ist: vorsichtig formulieren ("laut Unterlagen ...") oder weglassen.
 
-7. HIGHLIGHTS/ADRESSE
-   - Wenn "highlights" im Datensatz stehen: deren Kerninhalte in die Beschreibung einweben, aber nicht wörtlich kopieren.
-   - Genaue Adresse NICHT nennen (Straße + Hausnummer), höchstens Stadt/Ortsteil.
+10. HIGHLIGHTS
+    - Wenn "highlights" im Datensatz stehen: deren Kerninhalte in die Beschreibung einweben, nicht wörtlich kopieren.
 
-8. OUTPUT
-   - Antworte NUR mit dem Beschreibungstext. Keine Überschrift "Objektbeschreibung:", keine Markdown-Formatierung, keine Metakommentare, keine Quellenangaben.
-   - Mehrere Absätze mit Leerzeilen trennen.
+11. OUTPUT
+    - Antworte NUR mit dem Beschreibungstext. Keine Überschrift "Objektbeschreibung:", keine Markdown-Formatierung, keine Metakommentare, keine Quellenangaben.
+    - Mehrere Absätze mit Leerzeilen trennen.
 PROMPT;
     }
 
@@ -229,17 +243,17 @@ PROMPT;
      */
     private function formatPropertyFacts(array $p): string
     {
+        // Excluded on purpose (must not appear in the Objektbeschreibung):
+        //   project_name, purchase_price, rental_price, operating_costs,
+        //   heating_demand_*, energy_efficiency_value  (covered elsewhere
+        //   in the Exposé; forbidden topic per the prompt).
         $labels = [
             'object_type' => 'Objekttyp',
             'property_category' => 'Kategorie',
             'object_subtype' => 'Subtyp',
-            'project_name' => 'Projektname',
             'city' => 'Stadt',
             'zip' => 'PLZ',
             'marketing_type' => 'Vermarktungsart',
-            'purchase_price' => 'Kaufpreis (EUR)',
-            'rental_price' => 'Mietpreis (EUR)',
-            'operating_costs' => 'Betriebskosten',
             'living_area' => 'Wohnfläche (m²)',
             'realty_area' => 'Grundstücksfläche (m²)',
             'free_area' => 'Freifläche (m²)',
@@ -252,10 +266,7 @@ PROMPT;
             'year_renovated' => 'Saniert',
             'realty_condition' => 'Zustand',
             'quality' => 'Qualität',
-            'heating' => 'Heizung',
-            'heating_demand_class' => 'HWB-Klasse',
-            'heating_demand_value' => 'HWB (kWh/m²a)',
-            'energy_efficiency_value' => 'fGEE',
+            'heating' => 'Heizungsart',
             'construction_type' => 'Bauweise',
             'ownership_type' => 'Eigentumsart',
             'orientation' => 'Ausrichtung',
@@ -264,6 +275,17 @@ PROMPT;
             'parking_type' => 'Parkplatz-Art',
             'garage_spaces' => 'Garagenplätze',
             'parking_spaces' => 'Stellplätze',
+            'area_basement' => 'Kellerfläche (m²)',
+            'basement_count' => 'Keller-Anzahl',
+            'area_garage' => 'Garagenfläche (m²)',
+            'area_balcony' => 'Balkonfläche (m²)',
+            'area_terrace' => 'Terrassenfläche (m²)',
+            'area_loggia' => 'Loggiafläche (m²)',
+            'area_garden' => 'Gartenfläche (m²)',
+            'balcony_count' => 'Balkone',
+            'terrace_count' => 'Terrassen',
+            'loggia_count' => 'Loggias',
+            'garden_count' => 'Gartenbereiche',
         ];
 
         $booleans = [

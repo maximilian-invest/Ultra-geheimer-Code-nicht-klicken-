@@ -1,5 +1,6 @@
 <script setup>
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AccordionSection from "./AccordionSection.vue";
 
 defineProps({
@@ -18,9 +19,21 @@ const areaFields = [
   { key: "area_terrace", label: "Terrasse", countKey: "terrace_count" },
   { key: "area_garden", label: "Garten", countKey: "garden_count" },
   { key: "area_loggia", label: "Loggia", countKey: "loggia_count" },
-  { key: "area_basement", label: "Keller" },
+  { key: "area_basement", label: "Keller", countKey: "basement_count" },
   { key: "area_garage", label: "Garage" },
   { key: "office_space", label: "Büro" },
+];
+
+// Stellplatzart-Optionen (angelehnt an Immoji's parkingSpaces.type enum).
+// Gespeichert wird der slug, angezeigt das deutsche Label.
+const parkingTypeOptions = [
+  { value: "outdoor", label: "Außenstellplatz" },
+  { value: "garage", label: "Garage" },
+  { value: "underground_garage", label: "Tiefgarage" },
+  { value: "carport", label: "Carport" },
+  { value: "duplex_garage", label: "Duplex-Garage" },
+  { value: "car_park", label: "Parkhaus" },
+  { value: "other", label: "Sonstiges" },
 ];
 </script>
 
@@ -96,8 +109,17 @@ const areaFields = [
           <Input v-model="form.parking_spaces" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Parkplatz-Typ</label>
-          <Input v-model="form.parking_type" :class="inputCls" />
+          <label :class="labelCls">Stellplatzart</label>
+          <Select v-model="form.parking_type">
+            <SelectTrigger :class="inputCls">
+              <SelectValue placeholder="Wählen..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="opt in parkingTypeOptions" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </AccordionSection>
     </div>

@@ -184,7 +184,7 @@ const form = reactive({
   furnishing: "", orientation: "", noise_level: "",
   has_basement: false, has_garden: false, has_elevator: false,
   has_balcony: false, has_terrace: false, has_loggia: false,
-  balcony_count: null, terrace_count: null, loggia_count: null, garden_count: null,
+  balcony_count: null, terrace_count: null, loggia_count: null, garden_count: null, basement_count: null,
   has_fitted_kitchen: false, has_air_conditioning: false,
   has_pool: false, has_sauna: false, has_fireplace: false,
   has_alarm: false, has_barrier_free: false, has_guest_wc: false,

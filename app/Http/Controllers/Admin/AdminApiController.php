@@ -1883,6 +1883,19 @@ class AdminApiController extends Controller
         if (!$prop) return response()->json(['error' => 'Not found'], 404);
         $prop->children_count = DB::table('properties')->where('parent_id', $id)->count();
         $prop->unit_count = DB::table('property_units')->where('property_id', $id)->where('is_parking', 0)->count();
+
+        // properties.owner_name / owner_email / owner_phone are cached at
+        // assign-time. If the owner is linked via customer_id, always serve
+        // the live values from the customers table so edits in the Kontakte
+        // tab are reflected immediately in the property detail view.
+        if (!empty($prop->customer_id)) {
+            $customer = DB::table('customers')->where('id', $prop->customer_id)->first();
+            if ($customer) {
+                $prop->owner_name = $customer->name ?? $prop->owner_name;
+                $prop->owner_email = $customer->email ?? $prop->owner_email;
+                $prop->owner_phone = $customer->phone ?? $prop->owner_phone;
+            }
+        }
         return response()->json(['property' => $prop], 200, [], JSON_UNESCAPED_UNICODE);
     }
 

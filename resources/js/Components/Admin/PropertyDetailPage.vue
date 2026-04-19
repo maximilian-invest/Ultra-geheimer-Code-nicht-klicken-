@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, inject, watch } from "vue";
+import { ref, computed, inject, watch, onMounted } from "vue";
 import { Pause, Play, ArrowLeft, CircleOff, Power, Trash2 } from "lucide-vue-next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +44,25 @@ const pendingTabChange = ref(null);
 const showUnsavedChangesDialog = ref(false);
 
 const isNewbuild = computed(() => props.property?.property_category === 'newbuild');
+
+// The property list feeds us a partial row (only the columns the list SELECTs).
+// Fetch the full row on open so Übersicht and Bearbeiten see every field —
+// and so the owner contact info reflects the current customers.* values
+// rather than whatever was cached on the properties row at list time.
+async function refreshFullProperty() {
+  const id = props.property?.id;
+  if (!id) return;
+  try {
+    const r = await fetch(API.value + '&action=get_property&property_id=' + id);
+    const d = await r.json();
+    if (d && d.property) {
+      Object.assign(props.property, d.property);
+    }
+  } catch (e) { /* silent — existing partial data stays */ }
+}
+
+onMounted(refreshFullProperty);
+watch(() => props.property?.id, refreshFullProperty);
 
 const tabs = computed(() => {
   const t = [

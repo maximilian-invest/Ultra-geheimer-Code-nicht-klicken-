@@ -367,9 +367,16 @@ STRIKTE REGELN — NIEMALS BRECHEN:
    - Kaufpreis, Mietpreis, Betriebskosten, Nebenkosten, Provisionen, finanzielle Zahlen jeder Art.
    - Projektname oder Projekt-/Bauträger-Marken (auch wenn im Datensatz vermerkt).
    - Energiewerte (HWB, fGEE, Effizienzklasse). Das steht an eigener Stelle im Exposé.
-   - Genaue Adresse (Straße + Hausnummer). Stadt/Ortsteil OK.
+   - Genaue Adresse (Straße + Hausnummer). Stadt OK.
+   - PLZ / Postleitzahl — niemals im Text erwähnen. "Salzburg" ja, "Salzburg (PLZ 5020)" nein.
 
-4. KEINE FLOSKELN ODER ÜBERTREIBUNGEN
+4. KEINE WERTUNGS-ADJEKTIVE OHNE BELEG IM DATENSATZ
+   - "gehoben", "hochwertig", "luxuriös", "modern", "exklusiv", "großzügig", "lichtdurchflutet", "einladend", "geräumig", "wohnlich", "komfortabel", "stilvoll", "elegant", "besondere Qualität", "besondere Ausstattung" — NIEMALS schreiben, außer das passende Feld ist im Datensatz EXAKT mit diesem Wort belegt (z. B. quality=gehoben) oder das Exposé-Dokument nennt es wortwörtlich.
+   - "Klare Raumaufteilung", "durchdachtes Konzept", "harmonisches Zusammenspiel" und ähnliche inhaltsleere Werturteile sind ebenfalls tabu.
+   - Fakt: "74 m² auf 2 Zimmer" — erlaubt. Werturteil dazu ("großzügig geschnittene 74 m²") — verboten.
+   - Im Zweifel: Fakt nennen, Wertung weglassen.
+
+5. KEINE FLOSKELN ODER ÜBERTREIBUNGEN
    - Tabu: "traumhaft", "einmalig", "wunderschön", "charmant", "liebevoll", "gemütlich", "familienfreundlich", "perfekt", "einzigartig" — es sei denn, genau so im Quellmaterial.
    - Tabu: "Greifen Sie jetzt zu", "lassen Sie sich verzaubern", "nicht verpassen", "top Investition".
    - Keine rhetorischen Fragen, keine Anreden ("Wünschen Sie sich ...?").
@@ -500,7 +507,6 @@ PROMPT;
             'property_category' => 'Kategorie',
             'object_subtype' => 'Subtyp',
             'city' => 'Stadt',
-            'zip' => 'PLZ',
             'marketing_type' => 'Vermarktungsart',
             'living_area' => 'Wohnfläche (m²)',
             'realty_area' => 'Grundstücksfläche (m²)',

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, reactive, computed, watch, inject, onMounted } from "vue";
-import { Plus, Trash2, Sparkles, Upload, X, Globe, Users, Lock, Eye } from "lucide-vue-next";
+import { Plus, Trash2, Sparkles, Upload, X, Globe, Users, Lock, Eye, Wand2 } from "lucide-vue-next";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -574,6 +574,38 @@ async function runGenerateDescription(type) {
     toast('Generierung fehlgeschlagen: ' + e.message);
   } finally {
     aiGenerating.value = null;
+  }
+}
+
+// ─── Wording polish ───
+const aiPolishing = ref(null); // 'objekt' | 'lage' | null
+
+async function polishDescription(type) {
+  if (aiPolishing.value || aiGenerating.value) return;
+  const targetKey = type === 'lage' ? 'location_description' : 'realty_description';
+  const current = (form[targetKey] || '').trim();
+  if (current === '') {
+    toast('Kein Text zum Verbessern vorhanden.');
+    return;
+  }
+  aiPolishing.value = type;
+  try {
+    const r = await fetch(API.value + "&action=polish_property_description", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ type, text: current }),
+    });
+    const d = await r.json().catch(() => ({ success: false, error: 'Ungültige Serverantwort (HTTP ' + r.status + ')' }));
+    if (d.success && d.text) {
+      form[targetKey] = d.text;
+      toast('Wording verbessert');
+    } else {
+      toast('Fehler: ' + (d.error || 'Unbekannt'));
+    }
+  } catch (e) {
+    toast('Verbesserung fehlgeschlagen: ' + e.message);
+  } finally {
+    aiPolishing.value = null;
   }
 }
 
@@ -1331,19 +1363,32 @@ defineExpose({ save, discard });
           ]" :key="f.key" class="space-y-1.5">
             <div class="flex items-center justify-between gap-2">
               <label class="block text-[12px] font-medium text-muted-foreground">{{ f.label }}</label>
-              <Button
-                v-if="f.aiType"
-                variant="outline"
-                size="xs"
-                class="h-6 text-[11px] gap-1"
-                :disabled="aiGenerating !== null || !form.id"
-                :title="!form.id ? 'Objekt zuerst speichern' : f.aiHint"
-                @click="requestGenerateDescription(f.aiType)"
-              >
-                <Sparkles class="w-3 h-3" />
-                <span v-if="aiGenerating === f.aiType">Generiere…</span>
-                <span v-else>KI generieren</span>
-              </Button>
+              <div v-if="f.aiType" class="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="xs"
+                  class="h-6 text-[11px] gap-1"
+                  :disabled="aiGenerating !== null || aiPolishing !== null || !(form[f.key] || '').trim()"
+                  :title="(form[f.key] || '').trim() === '' ? 'Erst einen Text schreiben oder generieren' : 'Wording & Formatierung verbessern (keine neuen Fakten)'"
+                  @click="polishDescription(f.aiType)"
+                >
+                  <Wand2 class="w-3 h-3" />
+                  <span v-if="aiPolishing === f.aiType">Verbessere…</span>
+                  <span v-else>Wording</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  class="h-6 text-[11px] gap-1"
+                  :disabled="aiGenerating !== null || aiPolishing !== null || !form.id"
+                  :title="!form.id ? 'Objekt zuerst speichern' : f.aiHint"
+                  @click="requestGenerateDescription(f.aiType)"
+                >
+                  <Sparkles class="w-3 h-3" />
+                  <span v-if="aiGenerating === f.aiType">Generiere…</span>
+                  <span v-else>KI generieren</span>
+                </Button>
+              </div>
             </div>
             <Textarea
               v-model="form[f.key]"

@@ -687,6 +687,7 @@ class AdminApiController extends Controller
             'parse_property_fields'     => $this->handleParsePropertyFields($request),
             'parse_units'               => $this->handleParseUnits($request),
             'generate_property_description' => $this->handleGeneratePropertyDescription($request),
+            'polish_property_description' => $this->handlePolishPropertyDescription($request),
             'link_offer_to_unit'        => app(PropertySettingsController::class)->linkOfferToUnit($request),
             'bulk_create_parking'       => app(PropertySettingsController::class)->bulkCreateParking($request),
             'upload_kaufanbot_pdf'      => app(PropertySettingsController::class)->uploadKaufanbotPdf($request),
@@ -989,7 +990,7 @@ class AdminApiController extends Controller
                     'set_on_hold','fix_activity','fix_expose_categories','create_property','delete_property','set_inactive','reactivate_property','analyze_file',
                     'list_knowledge','add_knowledge','update_knowledge','delete_knowledge',
                     'delete_knowledge_permanent','knowledge_summary','ai_categorize_knowledge','extract_file_text','ai_bulk_categorize','ai_extract_from_file','list_activities','update_activity','delete_activity',
-                    'ingest_document','bulk_extract_knowledge','parse_property_fields','parse_units','generate_property_description',
+                    'ingest_document','bulk_extract_knowledge','parse_property_fields','parse_units','generate_property_description','polish_property_description',
                     // 'followup_recommendation',  // deprecated
                     'cross_property_matches','proactive_alerts',
                     'upload_portal_document','list_portal_documents','delete_portal_document',
@@ -3944,6 +3945,47 @@ PY;
                 'error' => $e->getMessage(),
             ]);
             return response()->json(['success' => false, 'error' => 'KI-Generierung fehlgeschlagen: ' . $e->getMessage()], 500);
+        }
+
+        $status = !empty($result['success']) ? 200 : 422;
+        return response()->json($result, $status, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Polish an existing Objekt- or Lagebeschreibung:
+     *   - fix formatting / paragraph breaks / weird copy-paste line wrapping
+     *   - clean up wording without inventing facts
+     *   - enforce the same topic bans as generate (no PLZ, no prices, etc.)
+     *
+     * Input:
+     *   - type: 'objekt' | 'lage'
+     *   - text: current draft
+     *
+     * Output: { success: bool, text?: string, error?: string }
+     */
+    private function handlePolishPropertyDescription(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $type = (string) $request->input('type', 'objekt');
+        if (!in_array($type, ['objekt', 'lage'], true)) {
+            return response()->json(['success' => false, 'error' => 'type must be objekt or lage'], 400);
+        }
+
+        $text = (string) $request->input('text', '');
+        if (trim($text) === '') {
+            return response()->json(['success' => false, 'error' => 'Kein Text zum Verbessern'], 400);
+        }
+
+        /** @var \App\Services\PropertyDescriptionService $service */
+        $service = app(\App\Services\PropertyDescriptionService::class);
+
+        try {
+            $result = $service->polish($type, $text);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('polish_property_description failed', [
+                'type' => $type,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json(['success' => false, 'error' => 'Fehler: ' . $e->getMessage()], 500);
         }
 
         $status = !empty($result['success']) ? 200 : 422;

@@ -354,6 +354,188 @@ class PropertyDescriptionService
         return (mb_strlen($last) >= 5) ? $last : '';
     }
 
+    /**
+     * Polish an existing description text: fix formatting / paragraph breaks
+     * / weird line breaks from copy-paste, correct wording and spelling, but
+     * NEVER invent new facts. Unwanted content (banned topics, marketing
+     * filler, Sie-Form for Lage, etc.) is removed or neutralised.
+     *
+     * @param string $type 'objekt' | 'lage'
+     * @param string $text the current draft
+     * @return array{success: bool, text?: string, error?: string}
+     */
+    public function polish(string $type, string $text): array
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return ['success' => false, 'error' => 'Kein Text zum Verbessern'];
+        }
+        if (!in_array($type, ['objekt', 'lage'], true)) {
+            return ['success' => false, 'error' => 'type must be objekt or lage'];
+        }
+
+        $systemPrompt = $type === 'lage'
+            ? $this->polishLageSystemPrompt()
+            : $this->polishObjektSystemPrompt();
+
+        $improved = $this->anthropic->chat($systemPrompt, $text, maxTokens: 3000, model: self::MODEL);
+
+        if (!$improved) {
+            Log::warning("polish: no text returned for type={$type}");
+            return ['success' => false, 'error' => 'KI-Antwort leer. Bitte erneut versuchen.'];
+        }
+
+        $improved = $this->sanitizeAnyOutput($improved);
+        if ($type === 'lage') {
+            // Enforce 3-paragraph cap same as generateLage.
+            $paragraphs = preg_split('/\n\s*\n+/', $improved);
+            if (count($paragraphs) > 3) {
+                $paragraphs = array_slice($paragraphs, 0, 3);
+                $improved = implode("\n\n", $paragraphs);
+            }
+        }
+
+        if ($improved === '') {
+            return ['success' => false, 'error' => 'Text konnte nicht bereinigt werden.'];
+        }
+
+        return ['success' => true, 'text' => $improved];
+    }
+
+    /**
+     * Cleanup common to both polish modes: strip meta-commentary, drop
+     * markdown emphasis/bullets, collapse blank-line runs.
+     */
+    private function sanitizeAnyOutput(string $text): string
+    {
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+        $text = trim($text);
+
+        // Drop a leading markdown separator block if present.
+        if (preg_match('/.*(?:^|\n)\s*-{3,}\s*(?:\n|$)/s', $text, $m, PREG_OFFSET_CAPTURE)) {
+            $text = substr($text, $m[0][1] + strlen($m[0][0]));
+            $text = trim($text);
+        }
+
+        // Peel off leading meta paragraphs.
+        $metaPatterns = [
+            '/^\s*(?:Hier\s+ist|Here\s+is|Der\s+(?:verbesserte|polierte))\b/i',
+            '/^\s*(?:Polierter|Verbesserter|Finaler)\s+Text\s*[:\-]/i',
+            '/^\s*Ich\s+(?:habe|werde)\b/i',
+            '/^\s*(?:Basierend|Based)\s+auf\b/i',
+        ];
+        $paragraphs = preg_split('/\n\s*\n+/', $text);
+        while (!empty($paragraphs)) {
+            $first = ltrim($paragraphs[0]);
+            if ($first === '') { array_shift($paragraphs); continue; }
+            $looksMeta = false;
+            foreach ($metaPatterns as $pat) {
+                if (preg_match($pat, $first)) { $looksMeta = true; break; }
+            }
+            if ($looksMeta) { array_shift($paragraphs); continue; }
+            break;
+        }
+        $text = implode("\n\n", $paragraphs);
+
+        // Strip markdown emphasis / bullets.
+        $text = preg_replace('/\*\*([^*]+)\*\*/', '$1', $text);
+        $text = preg_replace('/(?<!\*)\*([^*]+)\*(?!\*)/', '$1', $text);
+        $text = preg_replace('/^\s*[-•]\s+/m', '', $text);
+
+        // Normalise blank lines.
+        $lines = array_map(fn ($l) => rtrim($l), explode("\n", $text));
+        $cleaned = [];
+        $blank = 0;
+        foreach ($lines as $line) {
+            if (trim($line) === '') {
+                $blank++;
+                if ($blank === 1) $cleaned[] = '';
+            } else {
+                $blank = 0;
+                $cleaned[] = $line;
+            }
+        }
+        return trim(implode("\n", $cleaned));
+    }
+
+    private function polishObjektSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+Du bekommst einen Entwurf einer Objektbeschreibung für ein Immobilien-Exposé. Deine Aufgabe: formatiere und poliere ihn, OHNE Fakten hinzuzufügen oder zu entfernen.
+
+REGELN — NIEMALS BRECHEN:
+
+1. ERHALTE ALLE FAKTEN
+   - Jeder Fakt, jede Zahl, jede Eigenschaft aus dem Entwurf muss im polierten Text erhalten bleiben.
+   - KEINE neuen Fakten erfinden. Wenn eine Formulierung unklar ist, formuliere sie behutsam um — ergänze aber keine Details, die nicht schon im Entwurf stehen.
+
+2. INHALT AUS DEM TEXT ENTFERNEN, falls vorhanden (verbotene Themen)
+   - Kaufpreis, Mietpreis, Betriebskosten, Nebenkosten, Provisionen — alle finanziellen Zahlen.
+   - Projektname oder Bauträger-Marken.
+   - Energiewerte (HWB, fGEE, Effizienzklasse). Die stehen an eigener Stelle im Exposé.
+   - Straßenname, Hausnummer, PLZ — Stadt allein ist OK.
+
+3. FORMATIERUNG
+   - Text in saubere Absätze gliedern, mit GENAU EINER Leerzeile dazwischen.
+   - Komische Zeilenumbrüche (z. B. nach kurzer Zeichenlänge aus PDF-Copypaste) entfernen; Absätze wieder zu fließendem Text zusammenfügen.
+   - Wenn der Entwurf eine einzige lange Textwurst ist: an inhaltlichen Grenzen (Raum → Ausstattung → Technik → Zielgruppe) neue Absätze einfügen.
+   - KEIN Markdown (kein **bold**, kein *italic*, keine Bullet-Lists, keine Überschriften).
+
+4. WORDING
+   - Grammatik, Rechtschreibung und Interpunktion korrigieren.
+   - Sachlich-einladender Ton, Sie-Form, österreichisches Deutsch.
+   - Satzbau verbessern wo umständlich.
+   - Füllfloskeln streichen: "traumhaft", "einmalig", "Filetstück", "Juwel", "Greifen Sie zu", "keine Wünsche offen lässt", "Wohnen mit Stil".
+   - Inhaltslose Wertungs-Adjektive streichen oder neutralisieren: "gehoben", "hochwertig", "modern", "luxuriös", "lichtdurchflutet", "einladend", "großzügig geschnitten", "klare Raumaufteilung", "harmonisches Zusammenspiel" — ENTFERNEN, außer ein Fakt im Text stützt sie konkret (z. B. eine im Text genannte Ausstattungsstufe).
+
+5. AUSGABE
+   - Antworte NUR mit dem polierten Text. Keine Einleitung ("Hier ist der verbesserte Text:"), keine Metakommentare, keine Markdown-Syntax.
+   - Mehrere Absätze, durch je eine Leerzeile getrennt.
+PROMPT;
+    }
+
+    private function polishLageSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+Du bekommst einen Entwurf einer Lagebeschreibung für ein Immobilien-Exposé. Deine Aufgabe: formatiere und poliere ihn, OHNE Fakten hinzuzufügen oder zu entfernen.
+
+REGELN — NIEMALS BRECHEN:
+
+1. ERHALTE ALLE FAKTEN
+   - Jeder Ortsname, jede Entfernung, jede Linie aus dem Entwurf bleibt erhalten.
+   - KEINE neuen Fakten erfinden — auch keine Linien-Nummern, Distanzen, Geschäftsnamen, Stadtteile. Wenn du unsicher bist, formuliere allgemein um ("in fußläufiger Nähe", "gute Anbindung") statt zu spezifizieren.
+
+2. STRUKTUR (ZWINGEND)
+   Der polierte Text besteht aus GENAU 3 ABSÄTZEN in dieser Reihenfolge:
+   1) Makrolage — Stadt/Gemeinde (+ Stadtteil falls im Entwurf vorhanden), sachliche Einordnung (Wohngebiet / Mischgebiet / Stadtrand / Zentrum / ländlich).
+   2) Mikrolage — Nahversorgung, Schulen, Kindergärten, Ärzte, Grünraum, Aktivitäten.
+   3) Erreichbarkeit — Autobahn / Hauptstraße + ÖPNV.
+   Wenn der Entwurf anders gegliedert ist: umstrukturieren. Inhalte, die in keine der 3 Kategorien passen, weglassen.
+
+3. LÄNGE
+   - 80-160 Wörter gesamt. Kürzen wo Entwurf zu lang. NICHT künstlich erweitern wenn kurz — keine neuen Fakten erfinden.
+
+4. TON
+   - Sachlich, nüchtern, Notariatstext-artig. DRITTE PERSON. Kein "Sie", keine direkte Ansprache.
+   - Keine Fragen, keine rhetorischen Figuren. Keine Ausrufezeichen.
+   - Präsens, Aktiv.
+
+5. AUS DEM TEXT STREICHEN
+   - Marketing-Floskeln: "traumhaft", "einmalig", "Filetstück", "Juwel", "pulsierendes Leben", "grünes Herz", "Wohnen mit Stil", "keine Wünsche offen lässt", "das Beste aus zwei Welten", "hier lässt es sich leben", "zum Wohlfühlen".
+   - Superlative ohne Beleg im Entwurf.
+   - Trivia ohne Relevanz für Kaufinteressenten: Bewohnerzahlen, Altersverteilungen, Öffnungszeiten, Trägernamen, historische Gründungsjahre, Preisstatistiken.
+   - Straßennamen, Hausnummern, PLZ.
+
+6. FORMATIERUNG
+   - Zwischen den 3 Absätzen genau EINE Leerzeile.
+   - Komische Zeilenumbrüche aus Copypaste entfernen.
+   - KEIN Markdown (kein **bold**, keine Bullets, keine Überschriften).
+
+7. AUSGABE
+   - Antworte NUR mit dem polierten Text. 3 Absätze. Nichts sonst.
+PROMPT;
+    }
+
     // ─── Prompts ───────────────────────────────────────────────────────
 
     private function objektSystemPrompt(): string

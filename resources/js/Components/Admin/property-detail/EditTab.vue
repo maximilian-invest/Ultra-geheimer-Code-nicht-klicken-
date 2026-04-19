@@ -1324,16 +1324,13 @@ defineExpose({ save, discard });
       </template><!-- end v-if="false" old inline blocks -->
 
       <TabsContent value="beschreibung" class="mt-0">
-        <div class="space-y-4">
+        <div class="space-y-6">
           <div v-for="f in [
             { key: 'realty_description', label: 'Objektbeschreibung', placeholder: 'Allgemeine Beschreibung des Objekts...', aiType: 'objekt', aiHint: 'Aus Property-Daten + hochgeladenen Dokumenten' },
             { key: 'location_description', label: 'Lagebeschreibung', placeholder: 'Beschreibung der Lage und Umgebung...', aiType: 'lage', aiHint: 'Web-Recherche zu Adresse, Infrastruktur & Umgebung' },
-            { key: 'equipment_description', label: 'Ausstattungsbeschreibung', placeholder: 'Detaillierte Ausstattung...' },
-            { key: 'other_description', label: 'Sonstige Angaben', placeholder: 'Weitere relevante Informationen...' },
-            { key: 'highlights', label: 'Highlights', placeholder: 'Besondere Highlights (zeilenweise)...' },
-          ]" :key="f.key" class="space-y-1">
+          ]" :key="f.key" class="space-y-1.5">
             <div class="flex items-center justify-between gap-2">
-              <label class="block text-[11px] font-medium text-muted-foreground">{{ f.label }}</label>
+              <label class="block text-[12px] font-medium text-muted-foreground">{{ f.label }}</label>
               <Button
                 v-if="f.aiType"
                 variant="outline"
@@ -1351,8 +1348,8 @@ defineExpose({ save, discard });
             <Textarea
               v-model="form[f.key]"
               :placeholder="f.placeholder"
-              rows="4"
-              class="w-full resize-y text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border transition-colors"
+              rows="14"
+              class="w-full resize-y text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border transition-colors leading-relaxed"
             />
           </div>
         </div>

@@ -260,47 +260,113 @@ const activeFeatureCount = computed(() =>
   features.filter(f => form[f.key]).length
 );
 
-// ─── History ───
-const historyItems = ref([]);
-const historyAdding = ref(false);
-const historyNew = ref({ year: "", title: "", description: "" });
-const historySaving = ref(false);
+// ─── Sanierungen (structured, 1:1 zu Immoji refurbishments) ───
+// Storage format stays array of {category, year, title, description} so the
+// existing timeline displays on OverviewTab and website-v2 keep working
+// (they read year/title/description).
+const SANIERUNGEN_CATEGORIES = [
+  { key: 'general',   label: 'Generalsanierung',      hasYear: true },
+  { key: 'windows',   label: 'Fenster',               hasYear: true },
+  { key: 'doors',     label: 'Türen',                 hasYear: true },
+  { key: 'floors',    label: 'Fußböden',              hasYear: true },
+  { key: 'heating',   label: 'Heizung',               hasYear: true },
+  { key: 'pipes',     label: 'Leitungssystem',        hasYear: true },
+  { key: 'connections', label: 'Anschlüsse',          hasYear: true },
+  { key: 'facade',    label: 'Fassade',               hasYear: true },
+  { key: 'bathrooms', label: 'Bäder',                 hasYear: true },
+  { key: 'kitchen',   label: 'Küche',                 hasYear: true },
+  { key: 'other',     label: 'Sonstige Sanierungen',  hasYear: true },
+  { key: 'required',  label: 'Erforderliche Maßnahmen', hasYear: false },
+];
 
-function loadHistory() {
+// Per-category form state: { [categoryKey]: { year, note } }
+const sanierungenInputs = reactive({});
+for (const c of SANIERUNGEN_CATEGORIES) {
+  sanierungenInputs[c.key] = { year: '', note: '' };
+}
+
+const historySaving = ref(false);
+let sanierungenSaveTimer = null;
+
+function loadSanierungen() {
   let d = form.property_history;
   if (typeof d === "string") { try { d = JSON.parse(d); } catch { d = []; } }
-  historyItems.value = Array.isArray(d) ? JSON.parse(JSON.stringify(d)) : [];
+  const arr = Array.isArray(d) ? d : [];
+
+  for (const c of SANIERUNGEN_CATEGORIES) {
+    sanierungenInputs[c.key] = { year: '', note: '' };
+  }
+  for (const entry of arr) {
+    // New-shape entries carry an explicit category key.
+    let catKey = entry.category;
+    // Legacy entries only have title/description — match title to a known
+    // category label, else file under "other".
+    if (!catKey) {
+      const match = SANIERUNGEN_CATEGORIES.find(c => c.label === entry.title);
+      catKey = match ? match.key : 'other';
+    }
+    if (!sanierungenInputs[catKey]) continue;
+    // If multiple legacy rows map to the same category we just keep the
+    // most recent one — data loss is acceptable on the migration path
+    // (legacy was a free-text timeline, new storage has one row/category).
+    sanierungenInputs[catKey] = {
+      year: String(entry.year ?? ''),
+      note: String(entry.description ?? ''),
+    };
+  }
 }
 
-const historyCount = computed(() => historyItems.value.length);
+const sanierungenCount = computed(() => {
+  let n = 0;
+  for (const c of SANIERUNGEN_CATEGORIES) {
+    const v = sanierungenInputs[c.key];
+    if ((c.hasYear && String(v.year).trim() !== '') || String(v.note).trim() !== '') n++;
+  }
+  return n;
+});
 
-function historyAddEntry() {
-  if (!historyNew.value.year || !historyNew.value.title) return;
-  historyItems.value.push({ ...historyNew.value });
-  historyItems.value.sort((a, b) => String(a.year).localeCompare(String(b.year)));
-  historyNew.value = { year: "", title: "", description: "" };
-  historyAdding.value = false;
-  saveHistory();
+function buildSanierungenArray() {
+  const out = [];
+  for (const c of SANIERUNGEN_CATEGORIES) {
+    const v = sanierungenInputs[c.key];
+    const year = String(v.year || '').trim();
+    const note = String(v.note || '').trim();
+    if (year === '' && note === '') continue;
+    out.push({
+      category: c.key,
+      year: c.hasYear ? year : '',
+      title: c.label,
+      description: note,
+    });
+  }
+  // Sort by year ascending (empty years last) so the timeline reads in order.
+  out.sort((a, b) => {
+    const ay = parseInt(a.year, 10) || 99999;
+    const by = parseInt(b.year, 10) || 99999;
+    return ay - by;
+  });
+  return out;
 }
 
-function historyDeleteEntry(idx) {
-  historyItems.value.splice(idx, 1);
-  saveHistory();
+function scheduleSanierungenSave() {
+  clearTimeout(sanierungenSaveTimer);
+  sanierungenSaveTimer = setTimeout(() => saveSanierungen(), 800);
 }
 
-async function saveHistory() {
+async function saveSanierungen() {
   if (!form.id) return;
+  const items = buildSanierungenArray();
   historySaving.value = true;
   try {
     const r = await fetch(API.value + "&action=update_property", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ property_id: form.id, property_history: JSON.stringify(historyItems.value) }),
+      body: JSON.stringify({ property_id: form.id, property_history: JSON.stringify(items) }),
     });
     const d = await r.json();
     if (d.success) {
-      form.property_history = JSON.stringify(historyItems.value);
-      toast("Historie gespeichert");
+      form.property_history = JSON.stringify(items);
+      toast("Sanierungen gespeichert");
     } else {
       toast("Fehler: " + (d.error || "Unbekannt"));
     }
@@ -390,14 +456,14 @@ onMounted(async () => {
       }
     } catch (e) { console.error('Failed to load full property', e); }
   }
-  loadHistory();
+  loadSanierungen();
   dirty.value = false;
 });
 
 watch(() => props.property, (p) => {
   if (p) {
     copyPropertyToForm(p);
-    loadHistory();
+    loadSanierungen();
     dirty.value = false;
   }
 }, { deep: true });
@@ -442,7 +508,7 @@ async function save() {
 // ─── Discard ───
 function discard() {
   Object.assign(form, JSON.parse(JSON.stringify(snapshot)));
-  loadHistory();
+  loadSanierungen();
   dirty.value = false;
 }
 
@@ -624,7 +690,7 @@ defineExpose({ save, discard });
         <TabsTrigger value="energie" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Energie</TabsTrigger>
         <TabsTrigger value="beschreibung" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Beschreibung</TabsTrigger>
         <TabsTrigger value="medien" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Medien</TabsTrigger>
-        <TabsTrigger v-if="!isNewbuild && !isChild" value="historie" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Historie</TabsTrigger>
+        <TabsTrigger v-if="!isNewbuild && !isChild" value="historie" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Sanierungen</TabsTrigger>
         <div class="flex-1"></div>
         <button
           class="flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium rounded-md bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm transition-colors"
@@ -1405,42 +1471,39 @@ defineExpose({ save, discard });
       </TabsContent>
 
       <TabsContent v-if="!isNewbuild && !isChild" value="historie" class="mt-0">
-        <div class="space-y-3">
-          <Button variant="outline" size="sm" @click="historyAdding = !historyAdding" class="text-xs h-7">
-            <Plus class="w-3 h-3 mr-1" />
-            {{ historyAdding ? 'Abbrechen' : 'Eintrag hinzufuegen' }}
-          </Button>
-
-          <div v-if="historyAdding" class="p-3 rounded-lg space-y-2" style="background:hsl(240 4.8% 95.9% / 0.5)">
-            <div class="flex gap-2">
-              <Input v-model="historyNew.year" placeholder="Jahr" class="h-8 text-[13px] w-20" />
-              <Input v-model="historyNew.title" placeholder="Titel" class="h-8 text-[13px] flex-1" />
-            </div>
-            <Input v-model="historyNew.description" placeholder="Beschreibung (optional)" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
-            <Button size="sm" @click="historyAddEntry()" :disabled="!historyNew.year || !historyNew.title" class="text-xs h-7">
-              Hinzufuegen
+        <div class="space-y-2">
+          <p class="text-[11px] text-muted-foreground mb-2">
+            Nur ausgefüllte Kategorien werden gespeichert und synchronisiert. Eingaben werden automatisch gesichert.
+          </p>
+          <div
+            v-for="cat in SANIERUNGEN_CATEGORIES"
+            :key="cat.key"
+            class="grid grid-cols-[120px_90px_1fr] max-sm:grid-cols-1 gap-2 items-center py-1.5 border-b border-border/40 last:border-0"
+          >
+            <label class="text-[12px] font-medium text-zinc-900">{{ cat.label }}</label>
+            <Input
+              v-if="cat.hasYear"
+              v-model="sanierungenInputs[cat.key].year"
+              @input="scheduleSanierungenSave"
+              placeholder="Jahr"
+              class="h-8 text-[13px]"
+              inputmode="numeric"
+              maxlength="4"
+            />
+            <div v-else class="text-[11px] text-muted-foreground italic max-sm:hidden">ohne Jahr</div>
+            <Input
+              v-model="sanierungenInputs[cat.key].note"
+              @input="scheduleSanierungenSave"
+              placeholder="Anmerkung (optional)"
+              class="h-8 text-[13px]"
+            />
+          </div>
+          <div class="flex items-center justify-between pt-2">
+            <span class="text-[11px] text-muted-foreground">{{ sanierungenCount }} Kategorie(n) ausgefüllt</span>
+            <Button variant="outline" size="sm" :disabled="historySaving" @click="saveSanierungen" class="text-xs h-7">
+              {{ historySaving ? 'Speichere…' : 'Jetzt speichern' }}
             </Button>
           </div>
-
-          <div v-if="historyItems.length" class="relative pl-6 space-y-4">
-            <div class="absolute left-[11px] top-0 bottom-0 w-[2px]" style="background:hsl(240 5.9% 90%)"></div>
-            <div v-for="(h, i) in historyItems" :key="i" class="group relative flex items-start gap-3">
-              <div class="absolute left-[-17px] top-1.5 w-3 h-3 rounded-full border-2 border-background z-10" style="background:hsl(240 5.9% 10%)"></div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="text-xs font-bold">{{ h.year }}</span>
-                  <span class="text-xs font-medium">{{ h.title }}</span>
-                </div>
-                <p v-if="h.description" class="text-[11px] text-muted-foreground mt-0.5">{{ h.description }}</p>
-              </div>
-              <button @click="historyDeleteEntry(i)"
-                class="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-destructive rounded shrink-0">
-                <Trash2 class="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          <p v-else class="text-xs text-muted-foreground">Keine Historie-Eintraege vorhanden.</p>
         </div>
       </TabsContent>
 

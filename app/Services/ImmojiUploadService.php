@@ -723,7 +723,59 @@ class ImmojiUploadService
             }
         }
 
+        // Refurbishments / Sanierungen — driven by property_history which
+        // the Bearbeiten/Sanierungen subtab maintains as {category, year,
+        // title, description} entries.
+        $refurbishments = self::mapRefurbishments($prop['property_history'] ?? null);
+        if (!empty($refurbishments)) {
+            $result['refurbishments'] = $refurbishments;
+        }
+
         return !empty($result) ? $result : null;
+    }
+
+    /**
+     * Map SR-Homes property_history entries to Immoji's refurbishments array.
+     * Each entry becomes { type: ENUM, year: INT, note: STRING } — fields
+     * with no value are dropped. Entries without a mapped category are
+     * silently skipped (legacy free-text history stays local).
+     */
+    private static function mapRefurbishments($history): array
+    {
+        if (is_string($history)) {
+            $decoded = json_decode($history, true);
+            $history = is_array($decoded) ? $decoded : [];
+        }
+        if (!is_array($history)) return [];
+
+        $typeMap = [
+            'general'     => 'COMPLETE',
+            'windows'     => 'WINDOWS',
+            'doors'       => 'DOORS',
+            'floors'      => 'FLOORS',
+            'heating'     => 'HEATING',
+            'pipes'       => 'PIPES',
+            'connections' => 'CONNECTIONS',
+            'facade'      => 'FACADE',
+            'bathrooms'   => 'BATHROOMS',
+            'kitchen'     => 'KITCHEN',
+            'other'       => 'OTHER',
+            'required'    => 'REQUIRED_ACTIONS',
+        ];
+
+        $out = [];
+        foreach ($history as $entry) {
+            if (!is_array($entry)) continue;
+            $cat = $entry['category'] ?? null;
+            if (!$cat || !isset($typeMap[$cat])) continue;
+            $item = ['type' => $typeMap[$cat]];
+            $year = (int) ($entry['year'] ?? 0);
+            if ($year > 0) $item['year'] = $year;
+            $note = trim((string) ($entry['description'] ?? ''));
+            if ($note !== '') $item['note'] = $note;
+            $out[] = $item;
+        }
+        return $out;
     }
 
     /**

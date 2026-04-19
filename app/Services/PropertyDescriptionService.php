@@ -92,18 +92,34 @@ class PropertyDescriptionService
             . trim($zip . ' ' . $city)
         );
 
+        // Ground the neighbourhood with OpenStreetMap's geocoder so the model
+        // can't hallucinate a wrong Stadtteil from stray search hits.
+        $lat = isset($property->latitude) ? (float) $property->latitude : null;
+        $lon = isset($property->longitude) ? (float) $property->longitude : null;
+        if ($lat === 0.0) $lat = null;
+        if ($lon === 0.0) $lon = null;
+        $district = $this->resolveNeighbourhood($address, $zip, $city, $lat, $lon);
+
+        $districtLine = $district
+            ? "BESTÄTIGTER STADTTEIL / ORTSTEIL (via Geocoding): {$district}\n"
+                . "  → Wenn du einen Stadtteilnamen im Text nennst, MUSS es genau dieser sein. Kein anderer. Auch nicht wenn deine Suche einen anderen Namen vorschlägt.\n"
+            : "STADTTEIL: konnte nicht verifiziert werden.\n"
+                . "  → NENNE KEINEN Stadtteilnamen im Text. Erwähne höchstens die Gemeinde/Stadt '{$city}'. Auch wenn deine Suche Stadtteile vorschlägt — NICHT verwenden.\n";
+
         $systemPrompt = $this->lageSystemPrompt();
         $userMessage = "Recherchiere und schreibe die Lagebeschreibung für folgende Adresse (die Adresse selbst ist intern — im Text darf sie NICHT vorkommen, auch die Straße nicht):\n\n"
-            . "Gemeinde/Ortsteil: " . ($city !== '' ? $city : '(unbekannt)') . "\n"
+            . "Gemeinde: " . ($city !== '' ? $city : '(unbekannt)') . "\n"
             . "PLZ: " . ($zip !== '' ? $zip : '(unbekannt)') . "\n"
-            . "Interne Adresse (nur zur Recherche, NICHT erwähnen): {$fullAddress}\n\n"
+            . "Interne Adresse (nur zur Recherche, NICHT erwähnen): {$fullAddress}\n"
+            . $districtLine
+            . "\n"
             . "RECHERCHE-AUFTRAG (führe die Suchen in dieser Reihenfolge aus):\n\n"
-            . "1. HIGHLIGHTS DER REGION: Wofür ist die Gemeinde / der Ortsteil / die Region bekannt? Was sind die zwei bis drei stärksten Argumente, dort zu wohnen? (z. B. Nähe zu einem Fluss/See/Berg, hohe Lebensqualität, bekannte Landmarks, Stadtnähe bei ländlichem Flair)\n"
+            . "1. HIGHLIGHTS DER REGION: Wofür ist die Gemeinde" . ($district ? " / der Stadtteil {$district}" : '') . " bekannt? Was sind die zwei bis drei stärksten Argumente, dort zu wohnen? (z. B. Nähe zu einem Fluss/See/Berg, hohe Lebensqualität, bekannte Landmarks, Stadtnähe bei ländlichem Flair)\n"
             . "2. VERKEHR: Konkrete Bus-/Bahnlinien mit Namen, Entfernung zum nächsten Bahnhof, Fahrzeit zu Salzburg-Zentrum oder der nächsten Großstadt, Autobahnauffahrten.\n"
             . "3. VERSORGUNG: Konkrete Supermärkte (Spar, Billa, Hofer, Lidl, Denn's), Drogerien, Bäcker — mit Namen/Marken, wenn auffindbar.\n"
             . "4. FAMILIE: Kindergärten, Volksschulen, weiterführende Schulen, Ärzte, Apotheken in der Gemeinde.\n"
             . "5. FREIZEIT & NATUR: Wander-, Bade-, Ski-, Sport-, Kulturmöglichkeiten mit konkreten Namen (Berge, Seen, Bäder, Sportplätze, Wanderwege).\n\n"
-            . "Nach der Recherche: Schreibe die Lagebeschreibung nach den Regeln im System-Prompt. Start mit dem stärksten Highlight als Hook. Konkret, energiegeladen, überzeugend — aber jedes Detail muss aus der Suche kommen.";
+            . "Nach der Recherche: Schreibe die Lagebeschreibung nach den Regeln im System-Prompt. Start mit dem stärksten Highlight als Hook. Konkret, energiegeladen, überzeugend — aber jedes Detail muss aus der Suche kommen, und der Stadtteilname muss exakt dem bestätigten Namen oben entsprechen (oder gar nicht genannt werden).";
 
         $text = $this->anthropic->chatWithWebSearch(
             $systemPrompt,
@@ -220,6 +236,81 @@ class PropertyDescriptionService
         $text = trim(implode("\n", $cleaned));
 
         return $text;
+    }
+
+    /**
+     * Resolve the Stadtteil / suburb for the given address via OpenStreetMap's
+     * Nominatim geocoder, so the prompt can hand Claude the real district
+     * name as a hard fact instead of letting it guess from search hits.
+     *
+     * Prefers reverse geocode (via stored lat/lon) when available, falls back
+     * to forward geocode via the full address string. Returns null on any
+     * error or when no district-level field comes back. Austria-only.
+     */
+    private function resolveNeighbourhood(string $address, string $zip, string $city, ?float $lat = null, ?float $lon = null): ?string
+    {
+        $userAgent = 'SR-Homes-Admin/1.0 (office@sr-homes.at)';
+
+        try {
+            // 1) Reverse geocode — most accurate when coords exist.
+            if ($lat !== null && $lon !== null && abs($lat) > 0.0001 && abs($lon) > 0.0001) {
+                $resp = \Illuminate\Support\Facades\Http::withHeaders([
+                    'User-Agent' => $userAgent,
+                    'Accept-Language' => 'de',
+                ])->timeout(10)->get('https://nominatim.openstreetmap.org/reverse', [
+                    'lat' => $lat,
+                    'lon' => $lon,
+                    'format' => 'json',
+                    'addressdetails' => 1,
+                    'zoom' => 16,
+                ]);
+                if ($resp->successful()) {
+                    $d = $this->pickDistrict(($resp->json()['address'] ?? []));
+                    if ($d) return $d;
+                }
+            }
+
+            // 2) Forward geocode from the address string.
+            $query = trim(
+                ($address !== '' ? $address . ', ' : '') .
+                trim($zip . ' ' . $city)
+            );
+            if ($query === '') return null;
+
+            $resp = \Illuminate\Support\Facades\Http::withHeaders([
+                'User-Agent' => $userAgent,
+                'Accept-Language' => 'de',
+            ])->timeout(10)->get('https://nominatim.openstreetmap.org/search', [
+                'q' => $query,
+                'format' => 'json',
+                'addressdetails' => 1,
+                'limit' => 1,
+                'countrycodes' => 'at',
+            ]);
+            if (!$resp->successful()) return null;
+
+            $json = $resp->json();
+            if (empty($json) || empty($json[0]['address'])) return null;
+            return $this->pickDistrict($json[0]['address']);
+        } catch (\Throwable $e) {
+            Log::warning('resolveNeighbourhood failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Pick the most specific neighbourhood-level name from a Nominatim
+     * address object. Nominatim uses different keys depending on how OSM
+     * tagged the area (suburb / city_district / quarter / neighbourhood …).
+     */
+    private function pickDistrict(array $osmAddress): ?string
+    {
+        foreach (['suburb', 'city_district', 'quarter', 'neighbourhood', 'borough', 'town_district', 'hamlet'] as $key) {
+            if (!empty($osmAddress[$key])) {
+                return (string) $osmAddress[$key];
+            }
+        }
+        return null;
     }
 
     /**
@@ -340,8 +431,14 @@ REGELN — NIEMALS BRECHEN:
 
 3. KEINE STRASSENNAMEN, KEINE HAUSNUMMERN — AUSNAHMSLOS
    - NIEMALS die Straße, Hausnummer oder spezifische Postadresse erwähnen, auch nicht indirekt ("am Weiherweg", "in der XY-Gasse").
-   - Erlaubt: Gemeinde, Ortsteil, Bezirk, Region, Flüsse, Berge, bekannte Plätze, Bahnhöfe, Schulen, Einkaufszentren, Seen, Wahrzeichen.
-   - Faustregel: Wer die Beschreibung liest, darf den konkreten Standort NICHT finden können. Die Gemeinde/der Ortsteil ist die genauste Angabe, die du machst.
+   - Erlaubt: Gemeinde, der BESTÄTIGTE Stadtteil (falls im User-Prompt angegeben), Bezirk, Region, Flüsse, Berge, bekannte Plätze, Bahnhöfe, Schulen, Einkaufszentren, Seen, Wahrzeichen.
+   - Faustregel: Wer die Beschreibung liest, darf den konkreten Standort NICHT finden können.
+
+3a. STADTTEIL-REGEL (zwingend)
+   - Im User-Prompt steht entweder "BESTÄTIGTER STADTTEIL: XYZ" oder "STADTTEIL: konnte nicht verifiziert werden".
+   - Wenn ein bestätigter Stadtteil angegeben ist: Verwende EXAKT diesen Namen, wenn du einen Stadtteil nennst. KEINEN anderen. Auch nicht wenn deine Web-Suche einen anderen Namen (z. B. einen historischen oder benachbarten) vorschlägt.
+   - Wenn KEIN bestätigter Stadtteil angegeben ist: Nenne KEINEN Stadtteilnamen — auch dann nicht, wenn deine Suche einen findet. Sprich nur von der Gemeinde/Stadt als Ganzem.
+   - Konflikte zwischen dem bestätigten Stadtteil und abweichenden Such-Treffern: Der bestätigte Name gewinnt. Immer.
 
 4. NUR BELEGTE FAKTEN
    - Jede Entfernungsangabe, jeder Name, jedes Highlight muss aus der Web-Suche stammen. Niemals raten.

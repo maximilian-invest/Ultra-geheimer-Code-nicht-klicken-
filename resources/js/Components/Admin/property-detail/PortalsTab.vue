@@ -209,7 +209,7 @@ async function disconnectImmoji() {
   } catch (e) { /* silent */ }
 }
 
-async function pushToImmoji() {
+async function pushToImmoji(forceFullSync = false) {
   if (!props.property?.id) return;
   if (!validateBeforePublish()) return;
   immojiPushing.value = true;
@@ -217,7 +217,10 @@ async function pushToImmoji() {
     const r = await fetch(API.value + "&action=immoji_push", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ property_id: props.property.id }),
+      body: JSON.stringify({
+        property_id: props.property.id,
+        force_full_sync: forceFullSync,
+      }),
     });
     const d = await r.json();
     if (d.success) {
@@ -366,9 +369,19 @@ onMounted(() => {
             v-if="property?.id"
             size="sm"
             :disabled="immojiPushing"
-            @click="pushToImmoji"
+            @click="pushToImmoji(false)"
           >
             {{ immojiPushing ? "Sync..." : (property?.openimmo_id ? "Erneut syncen" : "Zu Immoji hochladen") }}
+          </Button>
+          <Button
+            v-if="property?.id && property?.openimmo_id"
+            variant="ghost"
+            size="sm"
+            :disabled="immojiPushing"
+            :title="'Alle Bereiche zwingend neu pushen — überschreibt auch manuelle Immoji-Änderungen'"
+            @click="pushToImmoji(true)"
+          >
+            Voll-Sync
           </Button>
         </div>
 

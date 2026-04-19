@@ -39,7 +39,7 @@ const forwarded = useForwardPropsEmits({
     @update:modelValue="(value) => { emits('update:modelValue', value); emits('update:checked', value); }"
     :class="
       cn(
-        'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-zinc-300 dark:data-[state=unchecked]:bg-zinc-700',
+        'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 border-zinc-900 data-[state=checked]:bg-zinc-900 data-[state=unchecked]:bg-white dark:border-zinc-100 dark:data-[state=checked]:bg-zinc-100 dark:data-[state=unchecked]:bg-zinc-900',
         props.class,
       )
     "
@@ -47,7 +47,7 @@ const forwarded = useForwardPropsEmits({
     <SwitchThumb
       :class="
         cn(
-          'pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0',
+          'pointer-events-none block h-3.5 w-3.5 rounded-full shadow ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0 data-[state=checked]:bg-white data-[state=unchecked]:bg-zinc-900 dark:data-[state=checked]:bg-zinc-900 dark:data-[state=unchecked]:bg-zinc-100',
         )
       "
     >

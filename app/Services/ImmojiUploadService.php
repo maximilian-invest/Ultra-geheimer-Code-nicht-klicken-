@@ -60,26 +60,95 @@ class ImmojiUploadService
     }
 
     /**
-     * Main method: create or update a property in Immoji.
-     * If property has openimmo_id (= Immoji UUID), update; else create.
+     * Push a property to Immoji. Uses section-level diff against the last
+     * successful sync to minimise traffic. Falls back to full sync if:
+     *   - the property has no Immoji ID yet (createRealty path)
+     *   - there is no prior sync state
+     *   - the stored immoji_id no longer matches the property's openimmo_id
+     *   - $forceFullSync is true
+     *
+     * Returns: [
+     *   'action' => 'created'|'updated'|'skipped',
+     *   'immoji_id' => string|null,
+     *   'sections_synced' => string[],
+     * ]
      */
-    public function pushProperty(array $property): array
+    public function pushProperty(array $property, bool $forceFullSync = false): array
     {
+        $propertyId = $property['id'] ?? null;
         $immojiId = $property['openimmo_id'] ?? null;
+        $stateService = app(\App\Services\ImmojiSyncStateService::class);
 
-        if ($immojiId) {
-            try {
-                $this->updateRealty($immojiId, $property);
-                return ['action' => 'updated', 'immoji_id' => $immojiId];
-            } catch (\RuntimeException $e) {
-                // Never auto-create when a fixed remote ID is configured.
-                // This avoids accidental duplicates in Immoji during normal "sync update" flows.
-                throw $e;
+        // ─── CREATE path ───
+        if (!$immojiId) {
+            $immojiId = $this->createRealty($property);
+            // Snapshot everything on initial create so the next sync can diff.
+            if ($propertyId) {
+                $hashes = $this->computeAllHashes($property, $stateService);
+                $stateService->saveState($propertyId, $immojiId, $hashes);
             }
+            return [
+                'action' => 'created',
+                'immoji_id' => $immojiId,
+                'sections_synced' => \App\Services\ImmojiSyncStateService::SECTIONS,
+            ];
         }
 
-        $immojiId = $this->createRealty($property);
-        return ['action' => 'created', 'immoji_id' => $immojiId];
+        // ─── UPDATE path ───
+        $newHashes = $this->computeAllHashes($property, $stateService);
+        $oldState = $propertyId ? $stateService->loadState($propertyId) : null;
+
+        $sections = \App\Services\ImmojiSyncStateService::SECTIONS;
+        if (!$forceFullSync && $oldState && $oldState['immoji_id'] === $immojiId) {
+            $sections = $stateService->diffSections($oldState, $newHashes);
+        }
+
+        if (empty($sections) && !$forceFullSync) {
+            return [
+                'action' => 'skipped',
+                'immoji_id' => $immojiId,
+                'sections_synced' => [],
+            ];
+        }
+
+        $this->updateRealty($immojiId, $property, $sections);
+
+        // Snapshot: only update hashes for sections that were actually pushed,
+        // so untouched sections keep their last-known-good fingerprint.
+        $partialHashes = array_intersect_key($newHashes, array_flip($sections));
+        if ($propertyId) {
+            $stateService->saveState($propertyId, $immojiId, $partialHashes);
+        }
+
+        return [
+            'action' => 'updated',
+            'immoji_id' => $immojiId,
+            'sections_synced' => $sections,
+        ];
+    }
+
+    /**
+     * Compute hashes for all sections of the property as Immoji sees them.
+     * Image rows are fetched fresh so we reflect the current DB state.
+     */
+    private function computeAllHashes(array $property, \App\Services\ImmojiSyncStateService $stateService): array
+    {
+        $propertyId = $property['id'] ?? null;
+        $images = $propertyId
+            ? \Illuminate\Support\Facades\DB::table('property_images')
+                ->where('property_id', $propertyId)
+                ->orderBy('sort_order')
+                ->get()
+            : collect();
+
+        return [
+            'general' => $stateService->hashSection(self::mapPropertyToImmojiGeneral($property)),
+            'costs' => $stateService->hashSection(self::mapPropertyToImmojiCosts($property)),
+            'areas' => $stateService->hashSection(self::mapPropertyToImmojiAreas($property)),
+            'descriptions' => $stateService->hashSection(self::mapPropertyToImmojiDescriptions($property)),
+            'building' => $stateService->hashSection(self::mapPropertyToImmojiBuilding($property)),
+            'files' => $stateService->filesSignature($images),
+        ];
     }
 
     /**

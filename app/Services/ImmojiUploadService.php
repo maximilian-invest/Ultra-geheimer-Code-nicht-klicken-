@@ -654,9 +654,76 @@ class ImmojiUploadService
         return array_filter([
             'realtyDescription' => self::textToHtml($prop['realty_description'] ?? null),
             'locationDescription' => self::textToHtml($prop['location_description'] ?? null),
-            'equipmentDescription' => self::textToHtml($prop['equipment_description'] ?? null),
+            'equipmentDescription' => self::buildEquipmentDescription($prop),
             'otherDescription' => self::textToHtml($prop['other_description'] ?? null),
         ], fn($v) => $v !== null);
+    }
+
+    /**
+     * Baut equipmentDescription aus zwei Quellen:
+     *   1) Einem automatisch generierten "Haustechnik"-HTML-Block aus
+     *      building_details.heating (Heizungsart / Befeuerung / Warmwasser).
+     *      Immojis aktuelles Schema hat KEIN strukturiertes Feld fuer Heizung
+     *      (mehrfach probed — weder in buildingInput, interiorsInput,
+     *      exteriorsInput noch generalInput). Damit die Infos trotzdem auf
+     *      ImmoScout/Willhaben/Immowelt sichtbar sind, rendern wir sie in
+     *      equipmentDescription (das Feld wird auf den Portalen angezeigt).
+     *   2) Dem freien equipment_description-Text aus der DB, der von der
+     *      Exposé-Extraktion oder manuellen Eingabe stammt — kommt unter
+     *      den automatischen Haustechnik-Block.
+     *
+     * Der automatische Block wird pro Sync frisch gebaut — Aenderungen im
+     * Energie-Tab schlagen beim naechsten Sync automatisch durch.
+     */
+    private static function buildEquipmentDescription(array $prop): ?string
+    {
+        // building_details decoden (kommt aus DB als JSON-String).
+        $bd = $prop['building_details'] ?? null;
+        if (is_string($bd)) {
+            $decoded = json_decode($bd, true);
+            $bd = is_array($decoded) ? $decoded : null;
+        }
+        $heating = is_array($bd['heating'] ?? null) ? $bd['heating'] : [];
+
+        // Heizungsart: Multi-Select types[] → kommasepariert. Fallback-Kette.
+        $heatingType = null;
+        if (!empty($heating['types']) && is_array($heating['types'])) {
+            $cleaned = array_values(array_filter(
+                array_map(fn($v) => trim((string) $v), $heating['types']),
+                fn($v) => $v !== ''
+            ));
+            if (!empty($cleaned)) $heatingType = implode(', ', $cleaned);
+        } elseif (!empty($heating['type'])) {
+            $heatingType = trim((string) $heating['type']);
+        } elseif (!empty($prop['heating'])) {
+            $heatingType = trim((string) $prop['heating']);
+        }
+
+        $items = [];
+        if ($heatingType !== null && $heatingType !== '') {
+            $items[] = '<li><strong>Heizungsart:</strong> ' . e($heatingType) . '</li>';
+        }
+        if (!empty($heating['fuel'])) {
+            $items[] = '<li><strong>Befeuerung:</strong> ' . e(trim((string) $heating['fuel'])) . '</li>';
+        }
+        if (!empty($heating['hot_water'])) {
+            $items[] = '<li><strong>Warmwasser:</strong> ' . e(trim((string) $heating['hot_water'])) . '</li>';
+        }
+
+        $techBlock = '';
+        if (!empty($items)) {
+            $techBlock = '<p><strong>Haustechnik</strong></p><ul>'
+                . implode('', $items)
+                . '</ul>';
+        }
+
+        // User-Content (Exposé-Extraktion / manuelle Eingabe). Bleibt in der
+        // DB unveraendert — wir rendern hier nur die Kombination fuer Immoji.
+        $userHtml = self::textToHtml($prop['equipment_description'] ?? null);
+
+        if ($techBlock && $userHtml) return $techBlock . $userHtml;
+        if ($techBlock) return $techBlock;
+        return $userHtml; // null wenn auch das leer ist
     }
 
     /**

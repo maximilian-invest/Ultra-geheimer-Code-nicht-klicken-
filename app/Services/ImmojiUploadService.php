@@ -11,9 +11,22 @@ class ImmojiUploadService
 
     private string $token;
 
+    /**
+     * Set to true by updateRealty when the media-error recovery falls through
+     * to the metadata-only last-resort path. pushProperty reads this after
+     * each call so it can keep the files hash stale (i.e. not snapshot a
+     * "synced" state for files that never actually reached Immoji).
+     */
+    private bool $lastSyncDroppedFiles = false;
+
     public function __construct(string $token)
     {
         $this->token = $token;
+    }
+
+    public function didLastSyncDropFiles(): bool
+    {
+        return $this->lastSyncDroppedFiles;
     }
 
     /**
@@ -113,17 +126,25 @@ class ImmojiUploadService
 
         $this->updateRealty($immojiId, $property, $sections);
 
+        // If the media-error fallback dropped files, do NOT snapshot the files
+        // hash — next sync must retry the images instead of skipping them.
+        $snapshotSections = $sections;
+        if ($this->lastSyncDroppedFiles) {
+            Log::warning("Immoji pushProperty: files were dropped during sync; keeping stale files hash so next sync retries.", ['property_id' => $propertyId]);
+            $snapshotSections = array_values(array_diff($sections, ['files']));
+        }
+
         // Snapshot: only update hashes for sections that were actually pushed,
         // so untouched sections keep their last-known-good fingerprint.
-        $partialHashes = array_intersect_key($newHashes, array_flip($sections));
-        if ($propertyId) {
+        $partialHashes = array_intersect_key($newHashes, array_flip($snapshotSections));
+        if ($propertyId && !empty($partialHashes)) {
             $stateService->saveState($propertyId, $immojiId, $partialHashes);
         }
 
         return [
             'action' => 'updated',
             'immoji_id' => $immojiId,
-            'sections_synced' => $sections,
+            'sections_synced' => $snapshotSections,
         ];
     }
 
@@ -294,6 +315,8 @@ class ImmojiUploadService
      */
     public function updateRealty(string $immojiId, array $property, ?array $sections = null): void
     {
+        $this->lastSyncDroppedFiles = false;
+
         $wantsAll = $sections === null || $sections === [];
         $wants = fn(string $s) => $wantsAll || in_array($s, $sections, true);
 
@@ -361,6 +384,9 @@ class ImmojiUploadService
                     if (isset($result['errors'])) {
                         throw new \RuntimeException('Immoji updateRealty failed (final retry without files): ' . json_encode($result['errors']));
                     }
+                    // Metadata succeeded but images were dropped. Flag it so
+                    // pushProperty keeps the files hash stale and next sync retries.
+                    $this->lastSyncDroppedFiles = true;
                 }
                 return;
             }

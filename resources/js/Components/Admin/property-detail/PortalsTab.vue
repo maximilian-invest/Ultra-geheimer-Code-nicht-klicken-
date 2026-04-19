@@ -4,6 +4,8 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Upload, Zap, KeyRound } from "lucide-vue-next";
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -209,10 +211,38 @@ async function disconnectImmoji() {
   } catch (e) { /* silent */ }
 }
 
+// ─── Sync confirmation dialog ───
+const SECTION_LABELS = {
+  general: { label: "Stammdaten", hint: "Titel, Adresse, Objekttyp, Status" },
+  costs: { label: "Kosten", hint: "Kaufpreis, Nebenkosten, Provisionen" },
+  areas: { label: "Flächen & Zimmer", hint: "Wohnfläche, Zimmeranzahl, Balkon, Terrasse" },
+  descriptions: { label: "Beschreibungen", hint: "Objekt-, Lage-, Ausstattungstexte" },
+  building: { label: "Gebäudedaten", hint: "Baujahr, Heizung, Energiewerte" },
+  files: { label: "Bilder", hint: "Alle Objekt-Bilder neu hochladen" },
+};
+
+const syncDialogOpen = ref(false);
+const syncDialogLoading = ref(false);
+const syncDialogData = ref(null); // { action, sections_synced, force_full_sync, message }
+
+function sectionLabel(key) {
+  return SECTION_LABELS[key]?.label || key;
+}
+
+function sectionHint(key) {
+  return SECTION_LABELS[key]?.hint || "";
+}
+
 async function pushToImmoji(forceFullSync = false) {
   if (!props.property?.id) return;
   if (!validateBeforePublish()) return;
-  immojiPushing.value = true;
+
+  // First call: dry-run preview → shows a dialog so the user can see what
+  // will actually be sent before we hit Immoji.
+  syncDialogLoading.value = true;
+  syncDialogOpen.value = true;
+  syncDialogData.value = null;
+
   try {
     const r = await fetch(API.value + "&action=immoji_push", {
       method: "POST",
@@ -220,6 +250,46 @@ async function pushToImmoji(forceFullSync = false) {
       body: JSON.stringify({
         property_id: props.property.id,
         force_full_sync: forceFullSync,
+        dry_run: true,
+      }),
+    });
+    const d = await r.json();
+    if (!d.success) {
+      syncDialogOpen.value = false;
+      toast(d.message || "Fehler bei der Sync-Vorschau");
+      return;
+    }
+
+    // Nothing to sync → skip dialog entirely.
+    if (d.action === "skipped") {
+      syncDialogOpen.value = false;
+      toast(d.message || "Keine Änderungen — nichts zu syncen");
+      return;
+    }
+
+    syncDialogData.value = { ...d, force_full_sync: forceFullSync };
+  } catch (e) {
+    syncDialogOpen.value = false;
+    toast("Vorschau fehlgeschlagen: " + e.message);
+  } finally {
+    syncDialogLoading.value = false;
+  }
+}
+
+async function confirmSync() {
+  if (!syncDialogData.value) return;
+  const force = !!syncDialogData.value.force_full_sync;
+  syncDialogOpen.value = false;
+  immojiPushing.value = true;
+
+  try {
+    const r = await fetch(API.value + "&action=immoji_push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        property_id: props.property.id,
+        force_full_sync: force,
+        dry_run: false,
       }),
     });
     const d = await r.json();
@@ -236,6 +306,12 @@ async function pushToImmoji(forceFullSync = false) {
     toast("Upload fehlgeschlagen");
   }
   immojiPushing.value = false;
+  syncDialogData.value = null;
+}
+
+function cancelSync() {
+  syncDialogOpen.value = false;
+  syncDialogData.value = null;
 }
 
 async function loadImmojiPortals() {
@@ -434,6 +510,62 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Sync confirmation dialog -->
+    <Dialog :open="syncDialogOpen" @update:open="(v) => { if (!v && !immojiPushing) cancelSync(); }">
+      <DialogContent class="max-w-md">
+        <DialogHeader>
+          <DialogTitle class="flex items-center gap-2">
+            <component :is="syncDialogData?.action === 'would_create' ? Upload : (syncDialogData?.force_full_sync ? Zap : KeyRound)" class="w-4 h-4" :style="syncDialogData?.force_full_sync ? 'color:#ea580c' : 'color:#8b5cf6'" />
+            <template v-if="syncDialogData?.action === 'would_create'">Objekt neu bei Immoji anlegen?</template>
+            <template v-else-if="syncDialogData?.force_full_sync">Voll-Sync zu Immoji?</template>
+            <template v-else>Sync zu Immoji?</template>
+          </DialogTitle>
+          <DialogDescription v-if="syncDialogData?.force_full_sync">
+            Voll-Sync überschreibt <span class="font-medium text-red-600">auch manuelle Änderungen</span> die direkt auf Immoji gemacht wurden.
+          </DialogDescription>
+          <DialogDescription v-else-if="syncDialogData?.action === 'would_create'">
+            Das Objekt wird erstmalig bei Immoji angelegt. Alle Daten werden übertragen.
+          </DialogDescription>
+          <DialogDescription v-else>
+            Folgende Bereiche haben sich seit dem letzten Sync geändert:
+          </DialogDescription>
+        </DialogHeader>
+
+        <div v-if="syncDialogLoading" class="flex items-center gap-2 text-sm text-muted-foreground py-4">
+          <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          Vorschau wird geladen…
+        </div>
+
+        <ul v-else-if="syncDialogData?.sections_synced?.length" class="rounded-md border border-border/50 divide-y divide-border/50 text-sm max-h-64 overflow-y-auto">
+          <li
+            v-for="key in syncDialogData.sections_synced"
+            :key="key"
+            class="px-3 py-2.5"
+          >
+            <div class="font-medium text-zinc-900">{{ sectionLabel(key) }}</div>
+            <div class="text-xs text-muted-foreground mt-0.5">{{ sectionHint(key) }}</div>
+          </li>
+        </ul>
+
+        <DialogFooter class="gap-2">
+          <Button variant="outline" size="sm" :disabled="syncDialogLoading" @click="cancelSync">Abbrechen</Button>
+          <Button
+            size="sm"
+            :disabled="syncDialogLoading || !syncDialogData"
+            :variant="syncDialogData?.force_full_sync ? 'destructive' : 'default'"
+            @click="confirmSync"
+          >
+            <template v-if="syncDialogData?.action === 'would_create'">Hochladen</template>
+            <template v-else-if="syncDialogData?.force_full_sync">Voll-Sync ausführen</template>
+            <template v-else>Syncen</template>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
   </div>
 </template>

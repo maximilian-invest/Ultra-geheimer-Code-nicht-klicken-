@@ -81,12 +81,17 @@ class ImmojiUploadService
      *   - $forceFullSync is true
      *
      * Returns: [
-     *   'action' => 'created'|'updated'|'skipped',
+     *   'action' => 'created'|'updated'|'skipped'|'would_create'|'would_update',
      *   'immoji_id' => string|null,
      *   'sections_synced' => string[],
      * ]
+     *
+     * With $dryRun = true, no network calls are made; the result reflects what
+     * WOULD happen on a real sync. 'would_create' / 'would_update' replace the
+     * normal 'created' / 'updated' actions so the caller can distinguish a
+     * preview from an executed sync. 'skipped' is returned in both modes.
      */
-    public function pushProperty(array $property, bool $forceFullSync = false): array
+    public function pushProperty(array $property, bool $forceFullSync = false, bool $dryRun = false): array
     {
         $propertyId = $property['id'] ?? null;
         $immojiId = $property['openimmo_id'] ?? null;
@@ -94,6 +99,14 @@ class ImmojiUploadService
 
         // ─── CREATE path ───
         if (!$immojiId) {
+            if ($dryRun) {
+                return [
+                    'action' => 'would_create',
+                    'immoji_id' => null,
+                    'sections_synced' => \App\Services\ImmojiSyncStateService::SECTIONS,
+                ];
+            }
+
             $immojiId = $this->createRealty($property);
             // Snapshot everything on initial create so the next sync can diff.
             if ($propertyId) {
@@ -121,6 +134,14 @@ class ImmojiUploadService
                 'action' => 'skipped',
                 'immoji_id' => $immojiId,
                 'sections_synced' => [],
+            ];
+        }
+
+        if ($dryRun) {
+            return [
+                'action' => 'would_update',
+                'immoji_id' => $immojiId,
+                'sections_synced' => $sections,
             ];
         }
 

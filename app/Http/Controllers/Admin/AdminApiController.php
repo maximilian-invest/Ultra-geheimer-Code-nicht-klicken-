@@ -320,9 +320,11 @@ class AdminApiController extends Controller
 
                     // Normal properties: push the property itself (diff-sync by default)
                     $forceFullSync = (bool) $request->input('force_full_sync', false);
-                    $result = $service->pushProperty((array) $property, $forceFullSync);
+                    $dryRun = (bool) $request->input('dry_run', false);
+                    $result = $service->pushProperty((array) $property, $forceFullSync, $dryRun);
 
                     // Save the immoji_id back to the property if newly created
+                    // (skipped for dry-run — no actual create happened)
                     if ($result['action'] === 'created' && !empty($result['immoji_id'])) {
                         \DB::table('properties')->where('id', $propertyId)->update([
                             'openimmo_id' => $result['immoji_id'],
@@ -330,8 +332,8 @@ class AdminApiController extends Controller
                         ]);
                     }
 
-                    // Update portal entry only when something actually synced
-                    if ($result['action'] !== 'skipped') {
+                    // Update portal entry only on a real, non-skipped sync
+                    if (!$dryRun && !in_array($result['action'], ['skipped', 'would_create', 'would_update'], true)) {
                         \DB::table('property_portals')->updateOrInsert(
                             ['property_id' => $propertyId, 'portal_name' => 'immoji'],
                             ['sync_enabled' => 1, 'status' => 'active', 'external_id' => $result['immoji_id'], 'last_synced_at' => now(), 'updated_at' => now()]
@@ -339,10 +341,15 @@ class AdminApiController extends Controller
                     }
 
                     $sectionsSynced = $result['sections_synced'] ?? [];
+                    $isFull = count($sectionsSynced) === count(\App\Services\ImmojiSyncStateService::SECTIONS);
                     $message = match ($result['action']) {
                         'created' => 'Objekt in Immoji erstellt',
                         'skipped' => 'Keine Änderungen — nichts zu syncen',
-                        default => count($sectionsSynced) === count(\App\Services\ImmojiSyncStateService::SECTIONS)
+                        'would_create' => 'Objekt wird in Immoji neu angelegt',
+                        'would_update' => $isFull
+                            ? 'Folgende Bereiche werden aktualisiert: alle'
+                            : 'Folgende Bereiche werden aktualisiert: ' . implode(', ', $sectionsSynced),
+                        default => $isFull
                             ? 'Objekt in Immoji aktualisiert (alle Bereiche)'
                             : 'Objekt in Immoji aktualisiert (' . implode(', ', $sectionsSynced) . ')',
                     };
@@ -353,6 +360,7 @@ class AdminApiController extends Controller
                         'immoji_id' => $result['immoji_id'],
                         'sections_synced' => $sectionsSynced,
                         'force_full_sync' => $forceFullSync,
+                        'dry_run' => $dryRun,
                         'message' => $message,
                     ]);
                 } catch (\Exception $e) {

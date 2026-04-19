@@ -1,9 +1,10 @@
 <script setup>
-import { ref, onMounted, watch, inject } from "vue";
+import { ref, computed, onMounted, watch, inject } from "vue";
 import { FileText, Upload, Trash2, Download } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -17,6 +18,12 @@ const uploading = ref(false);
 const dragOver = ref(false);
 const fileInput = ref(null);
 
+// Selection + delete dialog state.
+const selectedIds = ref(new Set());
+const showDeleteDialog = ref(false);
+const deleteCandidates = ref([]); // array of file objects about to be deleted
+const deleting = ref(false);
+
 function fileIcon(ext) {
   const map = { pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊', jpg: '🖼️', jpeg: '🖼️', png: '🖼️' };
   return map[ext?.toLowerCase()] || '📎';
@@ -28,14 +35,50 @@ function getExt(filename) {
   return parts.length > 1 ? parts.pop().toLowerCase() : '';
 }
 
+// Only real property_files can be deleted via this tab. Global or
+// portal_documents arrive here with string-prefixed ids (e.g. "global_5")
+// and must be managed in their own sections.
+function isDeletable(f) {
+  return typeof f.id === 'number' || /^\d+$/.test(String(f.id));
+}
+
+const deletableFiles = computed(() => files.value.filter(isDeletable));
+const allSelected = computed(() =>
+  deletableFiles.value.length > 0 && deletableFiles.value.every(f => selectedIds.value.has(f.id))
+);
+const anySelected = computed(() => selectedIds.value.size > 0);
+const selectedCount = computed(() => selectedIds.value.size);
+
+function toggleSelect(f) {
+  const next = new Set(selectedIds.value);
+  if (next.has(f.id)) next.delete(f.id); else next.add(f.id);
+  selectedIds.value = next;
+}
+
+function toggleSelectAll() {
+  if (allSelected.value) {
+    selectedIds.value = new Set();
+  } else {
+    selectedIds.value = new Set(deletableFiles.value.map(f => f.id));
+  }
+}
+
+function clearSelection() {
+  selectedIds.value = new Set();
+}
+
 async function loadFiles() {
   if (!props.property?.id) return;
   try {
     const r = await fetch(API.value + "&action=get_property_files&property_id=" + props.property.id);
     const d = await r.json();
     files.value = d.files || [];
+    // Drop any now-stale selections.
+    const alive = new Set(files.value.filter(isDeletable).map(f => f.id));
+    selectedIds.value = new Set([...selectedIds.value].filter(id => alive.has(id)));
   } catch (e) {
     files.value = [];
+    selectedIds.value = new Set();
   }
 }
 
@@ -87,28 +130,59 @@ async function toggleWebsiteDownload(f) {
   }
 }
 
-async function deleteFile(f) {
-  if (!confirm('Datei wirklich löschen?')) return;
-  try {
-    const r = await fetch(API.value + '&action=delete_property_file', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ file_id: f.id }),
-    });
-    const d = await r.json();
-    if (d.success) {
-      files.value = files.value.filter(x => x.id !== f.id);
-      toast('Datei gelöscht');
-    } else {
-      toast('Fehler: ' + (d.error || 'Unbekannt'));
+function askDeleteOne(f) {
+  deleteCandidates.value = [f];
+  showDeleteDialog.value = true;
+}
+
+function askDeleteSelected() {
+  const byId = new Map(files.value.map(f => [f.id, f]));
+  const picked = [...selectedIds.value].map(id => byId.get(id)).filter(Boolean);
+  if (!picked.length) return;
+  deleteCandidates.value = picked;
+  showDeleteDialog.value = true;
+}
+
+async function confirmDelete() {
+  if (!deleteCandidates.value.length) return;
+  deleting.value = true;
+  let ok = 0;
+  let failed = 0;
+  for (const f of deleteCandidates.value) {
+    try {
+      const r = await fetch(API.value + '&action=delete_property_file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_id: f.id }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        ok++;
+        files.value = files.value.filter(x => x.id !== f.id);
+        const next = new Set(selectedIds.value);
+        next.delete(f.id);
+        selectedIds.value = next;
+      } else {
+        failed++;
+      }
+    } catch (e) {
+      failed++;
     }
-  } catch (e) {
-    toast('Fehler: ' + e.message);
+  }
+  deleting.value = false;
+  showDeleteDialog.value = false;
+  deleteCandidates.value = [];
+  if (failed === 0) {
+    toast(ok === 1 ? 'Datei gelöscht' : ok + ' Dateien gelöscht');
+  } else if (ok === 0) {
+    toast('Löschen fehlgeschlagen');
+  } else {
+    toast(ok + ' gelöscht, ' + failed + ' fehlgeschlagen');
   }
 }
 
 onMounted(() => loadFiles());
-watch(() => props.property?.id, () => loadFiles());
+watch(() => props.property?.id, () => { clearSelection(); loadFiles(); });
 </script>
 
 <template>
@@ -165,13 +239,51 @@ watch(() => props.property?.id, () => loadFiles());
       Lade hoch...
     </div>
 
+    <!-- Bulk action bar -->
+    <div v-if="anySelected" class="flex items-center justify-between rounded-lg border border-border/50 bg-zinc-50 px-4 py-2.5">
+      <div class="flex items-center gap-3">
+        <span class="text-sm font-medium text-zinc-900">{{ selectedCount }} ausgewählt</span>
+        <button class="text-xs text-zinc-500 hover:text-zinc-900" @click="clearSelection">Abwählen</button>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        class="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+        @click="askDeleteSelected"
+      >
+        <Trash2 class="w-3.5 h-3.5 mr-1.5" />
+        Löschen
+      </Button>
+    </div>
+
     <!-- File list -->
     <div v-if="files.length" class="divide-y divide-border/50 rounded-lg border border-border/50 overflow-hidden">
+      <!-- List header (select-all) -->
+      <div v-if="deletableFiles.length" class="flex items-center gap-3 px-4 py-2 bg-zinc-50/70 text-[11px] uppercase tracking-wide text-muted-foreground">
+        <input
+          type="checkbox"
+          :checked="allSelected"
+          :indeterminate.prop="anySelected && !allSelected"
+          class="w-4 h-4 accent-zinc-900 cursor-pointer"
+          @change="toggleSelectAll"
+        />
+        <span>Alle auswählen</span>
+      </div>
       <div
         v-for="f in files"
         :key="f.id"
         class="group flex items-center gap-3 px-4 py-3 bg-background hover:bg-zinc-50 transition-colors"
       >
+        <!-- Checkbox (only for real property_files) -->
+        <input
+          v-if="isDeletable(f)"
+          type="checkbox"
+          :checked="selectedIds.has(f.id)"
+          class="w-4 h-4 accent-zinc-900 cursor-pointer shrink-0"
+          @change="toggleSelect(f)"
+        />
+        <div v-else class="w-4 h-4 shrink-0"></div>
+
         <!-- Icon -->
         <span class="text-lg shrink-0">{{ fileIcon(getExt(f.original_name || f.filename)) }}</span>
 
@@ -201,13 +313,15 @@ watch(() => props.property?.id, () => loadFiles());
 
         <!-- Delete -->
         <Button
+          v-if="isDeletable(f)"
           variant="ghost"
           size="icon"
           class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600 hover:bg-red-50 shrink-0"
-          @click="deleteFile(f)"
+          @click="askDeleteOne(f)"
         >
           <Trash2 class="w-4 h-4" />
         </Button>
+        <div v-else class="h-8 w-8 shrink-0"></div>
       </div>
     </div>
 
@@ -216,6 +330,40 @@ watch(() => props.property?.id, () => loadFiles());
       <FileText class="w-8 h-8 text-zinc-300 mb-2" />
       <p class="text-sm text-zinc-400">Keine Dateien vorhanden.</p>
     </div>
-  </template>
+    </template>
+
+    <!-- Delete confirmation dialog -->
+    <Dialog :open="showDeleteDialog" @update:open="(v) => { if (!v && !deleting) showDeleteDialog = false; }">
+      <DialogContent class="max-w-md">
+        <DialogHeader>
+          <DialogTitle class="flex items-center gap-2">
+            <Trash2 class="w-4 h-4 text-red-500" />
+            {{ deleteCandidates.length === 1 ? 'Datei löschen?' : deleteCandidates.length + ' Dateien löschen?' }}
+          </DialogTitle>
+          <DialogDescription>
+            Diese Aktion kann nicht rückgängig gemacht werden.
+          </DialogDescription>
+        </DialogHeader>
+
+        <ul class="max-h-56 overflow-y-auto rounded-md border border-border/50 divide-y divide-border/50 text-sm">
+          <li v-for="f in deleteCandidates" :key="f.id" class="flex items-center gap-2 px-3 py-2">
+            <span class="shrink-0">{{ fileIcon(getExt(f.original_name || f.filename)) }}</span>
+            <span class="truncate">{{ f.label || f.original_name || f.filename }}</span>
+          </li>
+        </ul>
+
+        <DialogFooter class="gap-2">
+          <Button variant="outline" size="sm" :disabled="deleting" @click="showDeleteDialog = false">Abbrechen</Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            :disabled="deleting"
+            @click="confirmDelete"
+          >
+            {{ deleting ? 'Lösche…' : (deleteCandidates.length === 1 ? 'Löschen' : deleteCandidates.length + ' löschen') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

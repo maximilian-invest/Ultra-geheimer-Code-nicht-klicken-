@@ -9,6 +9,7 @@ use App\Services\PropertyLinkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 class PropertyLinkController extends Controller
@@ -27,7 +28,7 @@ class PropertyLinkController extends Controller
             ->get()
             ->map(fn (PropertyLink $link) => $this->serialize($link));
 
-        $files = DB::table('property_files')
+        $propertyFiles = DB::table('property_files')
             ->where('property_id', $property->id)
             ->orderBy('sort_order')
             ->orderBy('id')
@@ -38,10 +39,116 @@ class PropertyLinkController extends Controller
                 'filename' => $f->filename,
                 'mime_type' => $f->mime_type,
                 'file_size' => $f->file_size,
-            ])
-            ->values();
+                'source' => 'property_files',
+            ]);
+
+        // Allgemeine (globale) Dokumente stehen jedem Objekt zur Verfügung.
+        // Beim Speichern des Links werden sie automatisch in property_files
+        // für dieses Objekt materialisiert (siehe resolveFileIds).
+        $globalFiles = Schema::hasTable('global_files')
+            ? DB::table('global_files')
+                ->orderByDesc('created_at')
+                ->get(['id', 'label', 'original_name', 'filename', 'mime_type', 'file_size'])
+                ->map(fn ($g) => [
+                    'id' => 'global_' . (int) $g->id,
+                    'label' => $g->label ?: ($g->original_name ?: $g->filename),
+                    'filename' => $g->original_name ?: $g->filename,
+                    'mime_type' => $g->mime_type,
+                    'file_size' => $g->file_size,
+                    'source' => 'global_files',
+                ])
+            : collect();
+
+        $files = $propertyFiles->concat($globalFiles)->values();
 
         return response()->json(['links' => $links, 'files' => $files]);
+    }
+
+    /**
+     * Resolve incoming file_ids (mix of numeric property_files.id and
+     * "global_N" strings) into a flat list of property_files.id for this
+     * property. Global files are copied into property_files on first use
+     * (same storage path, reused on subsequent links).
+     *
+     * Throws ValidationException if any id is bogus or doesn't belong.
+     */
+    private function resolveFileIds(Property $property, array $rawIds): array
+    {
+        $resolved = [];
+        $propertyFileIds = [];
+        $globalFileIds = [];
+
+        foreach ($rawIds as $raw) {
+            if (is_int($raw) || (is_string($raw) && ctype_digit($raw))) {
+                $propertyFileIds[] = (int) $raw;
+            } elseif (is_string($raw) && preg_match('/^global_(\d+)$/', $raw, $m)) {
+                $globalFileIds[] = (int) $m[1];
+            } else {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'file_ids' => ['Ungültige Datei-ID: ' . (string) $raw],
+                ]);
+            }
+        }
+
+        if (!empty($propertyFileIds)) {
+            $validIds = DB::table('property_files')
+                ->where('property_id', $property->id)
+                ->whereIn('id', $propertyFileIds)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            if (count($validIds) !== count(array_unique($propertyFileIds))) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'file_ids' => ['Ein oder mehrere Dokumente gehoeren nicht zu dieser Property.'],
+                ]);
+            }
+
+            foreach ($propertyFileIds as $id) {
+                $resolved[] = $id;
+            }
+        }
+
+        if (!empty($globalFileIds) && !Schema::hasTable('global_files')) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'file_ids' => ['Globale Dokumente sind hier nicht verfügbar.'],
+            ]);
+        }
+
+        foreach (array_unique($globalFileIds) as $gid) {
+            $global = DB::table('global_files')->where('id', $gid)->first();
+            if (!$global) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'file_ids' => ['Globale Datei ' . $gid . ' nicht gefunden.'],
+                ]);
+            }
+
+            // Reuse an existing property_files row if we've already materialised
+            // this global file for this property (same path).
+            $existing = DB::table('property_files')
+                ->where('property_id', $property->id)
+                ->where('path', $global->path)
+                ->value('id');
+
+            if ($existing) {
+                $resolved[] = (int) $existing;
+                continue;
+            }
+
+            $newId = DB::table('property_files')->insertGetId([
+                'property_id' => $property->id,
+                'label' => $global->label ?: pathinfo($global->original_name ?: $global->filename, PATHINFO_FILENAME),
+                'filename' => $global->original_name ?: $global->filename,
+                'path' => $global->path,
+                'mime_type' => $global->mime_type,
+                'file_size' => $global->file_size,
+                'created_at' => now(),
+            ]);
+            $resolved[] = (int) $newId;
+        }
+
+        // Preserve input order as much as possible while deduplicating.
+        return array_values(array_unique($resolved));
     }
 
     public function store(Request $request, Property $property): JsonResponse
@@ -51,22 +158,10 @@ class PropertyLinkController extends Controller
             'is_default' => ['sometimes', 'boolean'],
             'expires_at' => ['nullable', 'date'],
             'file_ids' => ['required', 'array', 'min:1'],
-            'file_ids.*' => ['integer'],
+            'file_ids.*' => ['required'],
         ]);
 
-        $data['file_ids'] = array_values(array_unique($data['file_ids']));
-
-        $validFileIds = DB::table('property_files')
-            ->where('property_id', $property->id)
-            ->whereIn('id', $data['file_ids'])
-            ->pluck('id')
-            ->all();
-
-        if (count($validFileIds) !== count($data['file_ids'])) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'file_ids' => ['Ein oder mehrere Dokumente gehoeren nicht zu dieser Property.'],
-            ]);
-        }
+        $validFileIds = $this->resolveFileIds($property, $data['file_ids']);
 
         $link = DB::transaction(function () use ($data, $property, $validFileIds) {
             $link = PropertyLink::create([
@@ -160,22 +255,10 @@ class PropertyLinkController extends Controller
             'is_default' => ['sometimes', 'boolean'],
             'expires_at' => ['nullable', 'date'],
             'file_ids' => ['required', 'array', 'min:1'],
-            'file_ids.*' => ['integer'],
+            'file_ids.*' => ['required'],
         ]);
 
-        $data['file_ids'] = array_values(array_unique($data['file_ids']));
-
-        $validFileIds = DB::table('property_files')
-            ->where('property_id', $property->id)
-            ->whereIn('id', $data['file_ids'])
-            ->pluck('id')
-            ->all();
-
-        if (count($validFileIds) !== count($data['file_ids'])) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'file_ids' => ['Ein oder mehrere Dokumente gehoeren nicht zu dieser Property.'],
-            ]);
-        }
+        $validFileIds = $this->resolveFileIds($property, $data['file_ids']);
 
         DB::transaction(function () use ($link, $data, $validFileIds) {
             $link->update([

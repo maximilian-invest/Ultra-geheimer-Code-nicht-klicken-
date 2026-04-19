@@ -55,6 +55,39 @@ function formatNum(val) {
   return new Intl.NumberFormat("de-AT").format(val);
 }
 
+function formatPct(val) {
+  if (val === null || val === undefined || val === "") return "";
+  const n = Number(val);
+  if (!isFinite(n)) return "";
+  return new Intl.NumberFormat("de-AT", { maximumFractionDigits: 2 }).format(n) + "%";
+}
+
+// Calculated commission for the Übersicht tile: prefers an explicit EUR
+// total if entered; otherwise computes purchase_price × percent using
+// whichever percentage field is set (seller preferred, else buyer).
+const commissionSum = computed(() => {
+  const p = props.property || {};
+  const totalFixed = Number(p.commission_total) || 0;
+  if (totalFixed > 0) return totalFixed;
+
+  const price = Number(p.purchase_price) || 0;
+  const sellerPct = Number(p.commission_percent) || 0;
+  const buyerPct = Number(p.buyer_commission_percent) || 0;
+  const pct = sellerPct || buyerPct;
+  if (price > 0 && pct > 0) return price * pct / 100;
+  return 0;
+});
+
+const commissionBreakdown = computed(() => {
+  const p = props.property || {};
+  const sellerPct = Number(p.commission_percent) || 0;
+  const buyerPct = Number(p.buyer_commission_percent) || 0;
+  const parts = [];
+  if (sellerPct > 0) parts.push(formatPct(sellerPct) + " Verkäufer");
+  if (buyerPct > 0) parts.push(formatPct(buyerPct) + " Käufer");
+  return parts.join(" · ");
+});
+
 // ─── Init ────────────────────────────────────────────────
 onMounted(() => {
   loadPortalAccess();
@@ -258,10 +291,10 @@ function ownerInitials(name) {
       <div class="rounded-lg px-4 py-3" style="border:1px solid hsl(240 5.9% 90%)">
         <div class="text-[10px] font-medium uppercase tracking-wider mb-1" style="color:hsl(240 3.8% 46.1%)">Provision</div>
         <div class="text-[15px] sm:text-[17px] font-bold tabular-nums leading-tight" style="color:hsl(240 10% 3.9%)">
-          {{ property.commission_percent ? property.commission_percent + '%' : '–' }}
+          {{ commissionSum > 0 ? formatPrice(commissionSum) : '–' }}
         </div>
-        <div v-if="property.buyer_commission_percent" class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">
-          Käufer: {{ property.buyer_commission_percent }}%
+        <div v-if="commissionBreakdown" class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">
+          {{ commissionBreakdown }}
         </div>
       </div>
 

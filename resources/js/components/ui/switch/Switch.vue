@@ -1,6 +1,7 @@
 <script setup>
 import { reactiveOmit } from "@vueuse/core";
-import { SwitchRoot, SwitchThumb, useForwardPropsEmits } from "reka-ui";
+import { SwitchRoot, SwitchThumb } from "reka-ui";
+import { computed } from "vue";
 import { cn } from "@/lib/utils";
 
 const props = defineProps({
@@ -25,18 +26,23 @@ const props = defineProps({
 
 const emits = defineEmits(["update:modelValue", "update:checked"]);
 
-const delegatedProps = reactiveOmit(props, "class", "checked");
+// Exclude `checked` and `modelValue` — we bind modelValue reactively below.
+const delegatedProps = reactiveOmit(props, "class", "checked", "modelValue");
 
-const forwarded = useForwardPropsEmits({
-  ...delegatedProps,
-  modelValue: props.modelValue ?? props.checked,
-}, emits);
+// Reactive bridge so `:checked` from the parent always reaches SwitchRoot.
+const modelValue = computed(() => props.modelValue ?? props.checked);
+
+function handleUpdate(value) {
+  emits("update:modelValue", value);
+  emits("update:checked", value);
+}
 </script>
 
 <template>
   <SwitchRoot
-    v-bind="forwarded"
-    @update:modelValue="(value) => { emits('update:modelValue', value); emits('update:checked', value); }"
+    v-bind="delegatedProps"
+    :model-value="modelValue"
+    @update:model-value="handleUpdate"
     :class="
       cn(
         'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 border-zinc-900 data-[state=checked]:bg-zinc-900 data-[state=unchecked]:bg-white dark:border-zinc-100 dark:data-[state=checked]:bg-zinc-100 dark:data-[state=unchecked]:bg-zinc-900',

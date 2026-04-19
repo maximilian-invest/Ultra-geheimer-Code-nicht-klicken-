@@ -680,15 +680,26 @@ class ImmojiUploadService
      */
     public static function mapPropertyToImmojiBuilding(array $prop): ?array
     {
+        // building_details wird in der DB als JSON-String abgelegt und kommt
+        // aus DB::table()->first() auch als String zurueck. Hier dekodieren,
+        // damit der Mapper wie erwartet ein Array sieht. OHNE diesen Decode
+        // liefert der Mapper NULL — und damit verschwindet die GESAMTE
+        // buildingInput-Section (Heizung, Befeuerung, Warmwasser, sogar die
+        // Refurbishments) aus dem GraphQL-Request an Immoji.
         $bd = $prop['building_details'] ?? null;
-        if (empty($bd) || !is_array($bd)) return null;
+        if (is_string($bd)) {
+            $decoded = json_decode($bd, true);
+            $bd = is_array($decoded) ? $decoded : null;
+        }
+        if (!is_array($bd)) $bd = [];
 
         $result = [];
 
+        // Strukturierte Sections — Heating wird weiter unten gesondert
+        // behandelt (Plural "types" Array aus dem Energie-Tab).
         $sections = [
             'construction' => ['method', 'condition', 'expansionStage' => 'expansion'],
             'facade' => ['type', 'exteriorCondition' => 'exterior_condition', 'masonryCondition' => 'masonry_condition', 'basementMasonry' => 'basement_masonry', 'insulation'],
-            'heating' => ['type', 'fuel', 'hotWater' => 'hot_water'],
             'electrical' => ['type', 'condition', 'ventilationType' => 'ventilation_type', 'ventilationCondition' => 'ventilation_condition'],
             'telecom' => ['tv', 'phone', 'internet', 'techEquipment' => 'tech_equipment'],
             'roof' => ['shape', 'covering', 'insulation', 'dormers', 'skylights', 'gutters', 'framework', 'chimney'],
@@ -713,9 +724,39 @@ class ImmojiUploadService
             }
         }
 
-        // Refurbishments / Sanierungen — driven by property_history which
-        // the Bearbeiten/Sanierungen subtab maintains as {category, year,
-        // title, description} entries.
+        // Heizung — das Energie-Tab speichert Heizungsart als ARRAY unter
+        // `types` (Multi-Select), Befeuerung unter `fuel`, Warmwasser unter
+        // `hot_water`. Immoji's heating.type ist ein Skalar — wir joinen
+        // die Array-Werte kommasepariert. Fallback-Kette:
+        //   bd.heating.types (Array, neuer Energie-Tab)
+        //   bd.heating.type  (String, Alt-Backfills)
+        //   $prop['heating']  (flaches Freitext-Feld)
+        $heating = is_array($bd['heating'] ?? null) ? $bd['heating'] : [];
+        $heatingBlock = [];
+        if (!empty($heating['types']) && is_array($heating['types'])) {
+            $cleaned = array_values(array_filter(array_map('strval', $heating['types']), fn($v) => $v !== ''));
+            if (!empty($cleaned)) {
+                $heatingBlock['type'] = implode(', ', $cleaned);
+            }
+        } elseif (!empty($heating['type'])) {
+            $heatingBlock['type'] = (string) $heating['type'];
+        } elseif (!empty($prop['heating'])) {
+            $heatingBlock['type'] = (string) $prop['heating'];
+        }
+        if (!empty($heating['fuel'])) {
+            $heatingBlock['fuel'] = (string) $heating['fuel'];
+        }
+        if (!empty($heating['hot_water'])) {
+            $heatingBlock['hotWater'] = (string) $heating['hot_water'];
+        }
+        if (!empty($heatingBlock)) {
+            $result['heating'] = $heatingBlock;
+        }
+
+        // Refurbishments / Sanierungen — getrieben von property_history
+        // (Bearbeiten/Sanierungen-Subtab). Muss AUCH dann laufen wenn
+        // building_details leer ist — die Sanierungen haengen nicht von den
+        // Gebaeude-Details ab.
         $refurbishments = self::mapRefurbishments($prop['property_history'] ?? null);
         if (!empty($refurbishments)) {
             $result['refurbishments'] = $refurbishments;

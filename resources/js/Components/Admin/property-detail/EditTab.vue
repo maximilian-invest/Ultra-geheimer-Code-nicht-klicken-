@@ -513,6 +513,46 @@ async function runParseFields() {
   parseLoading.value = false;
 }
 
+// ─── AI description generation ───
+const aiGenerating = ref(null); // 'objekt' | 'lage' | null
+
+async function generateDescription(type) {
+  if (aiGenerating.value) return;
+  if (!form.id) { toast("Bitte zuerst Objekt speichern."); return; }
+
+  const targetKey = type === 'lage' ? 'location_description' : 'realty_description';
+  const currentText = (form[targetKey] || '').trim();
+  if (currentText !== '') {
+    const confirmLabel = type === 'lage' ? 'Lagebeschreibung' : 'Objektbeschreibung';
+    if (!confirm(confirmLabel + ' existiert bereits. Überschreiben?')) return;
+  }
+
+  aiGenerating.value = type;
+  try {
+    const body = { property_id: form.id, type };
+    if (type === 'objekt') {
+      // Use all property_files for context — the backend trims if needed.
+      body.file_ids = (parseFiles.value || []).map(f => f.id).filter(Boolean);
+    }
+    const r = await fetch(API.value + "&action=generate_property_description", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json().catch(() => ({ success: false, error: 'Ungültige Serverantwort (HTTP ' + r.status + ')' }));
+    if (d.success && d.text) {
+      form[targetKey] = d.text;
+      toast(type === 'lage' ? 'Lagebeschreibung generiert' : 'Objektbeschreibung generiert');
+    } else {
+      toast('Fehler: ' + (d.error || 'Unbekannt'));
+    }
+  } catch (e) {
+    toast('Generierung fehlgeschlagen: ' + e.message);
+  } finally {
+    aiGenerating.value = null;
+  }
+}
+
 // ─── Expose methods to parent via template ref ───
 defineExpose({ save, discard });
 </script>
@@ -1262,13 +1302,28 @@ defineExpose({ save, discard });
       <TabsContent value="beschreibung" class="mt-0">
         <div class="space-y-4">
           <div v-for="f in [
-            { key: 'realty_description', label: 'Objektbeschreibung', placeholder: 'Allgemeine Beschreibung des Objekts...' },
-            { key: 'location_description', label: 'Lagebeschreibung', placeholder: 'Beschreibung der Lage und Umgebung...' },
+            { key: 'realty_description', label: 'Objektbeschreibung', placeholder: 'Allgemeine Beschreibung des Objekts...', aiType: 'objekt', aiHint: 'Aus Property-Daten + hochgeladenen Dokumenten' },
+            { key: 'location_description', label: 'Lagebeschreibung', placeholder: 'Beschreibung der Lage und Umgebung...', aiType: 'lage', aiHint: 'Web-Recherche zu Adresse, Infrastruktur & Umgebung' },
             { key: 'equipment_description', label: 'Ausstattungsbeschreibung', placeholder: 'Detaillierte Ausstattung...' },
             { key: 'other_description', label: 'Sonstige Angaben', placeholder: 'Weitere relevante Informationen...' },
             { key: 'highlights', label: 'Highlights', placeholder: 'Besondere Highlights (zeilenweise)...' },
           ]" :key="f.key" class="space-y-1">
-            <label class="block text-[11px] font-medium text-muted-foreground">{{ f.label }}</label>
+            <div class="flex items-center justify-between gap-2">
+              <label class="block text-[11px] font-medium text-muted-foreground">{{ f.label }}</label>
+              <Button
+                v-if="f.aiType"
+                variant="outline"
+                size="xs"
+                class="h-6 text-[11px] gap-1"
+                :disabled="aiGenerating !== null || !form.id"
+                :title="!form.id ? 'Objekt zuerst speichern' : f.aiHint"
+                @click="generateDescription(f.aiType)"
+              >
+                <Sparkles class="w-3 h-3" />
+                <span v-if="aiGenerating === f.aiType">Generiere…</span>
+                <span v-else>KI generieren</span>
+              </Button>
+            </div>
             <Textarea
               v-model="form[f.key]"
               :placeholder="f.placeholder"

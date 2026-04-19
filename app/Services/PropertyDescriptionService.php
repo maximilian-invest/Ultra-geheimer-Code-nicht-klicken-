@@ -1,0 +1,369 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * Generates honest, non-hallucinating German Exposé descriptions for SR-Homes
+ * properties.
+ *
+ *   - Objektbeschreibung: synthesised from the property row + optional
+ *     uploaded documents (PDF/DOCX/XLSX text extracted via
+ *     DocumentParserService).
+ *   - Lagebeschreibung: grounded in Claude's web-search tool, so the text
+ *     only claims what actually turned up for the address, zip and city.
+ *
+ * Prompts are intentionally strict: no marketing clichés, no invented
+ * facts, no superlatives without source, sachlich-einladender Ton.
+ */
+class PropertyDescriptionService
+{
+    /**
+     * Use a stronger model for prose generation than the project default
+     * (haiku) — quality matters here and latency isn't a concern since the
+     * user triggered the action explicitly.
+     */
+    private const MODEL = 'claude-sonnet-4-6';
+
+    public function __construct(
+        private AnthropicService $anthropic,
+        private DocumentParserService $docs,
+    ) {}
+
+    /**
+     * Generate the Objektbeschreibung from property fields + uploaded files.
+     *
+     * @param int   $propertyId
+     * @param int[] $fileIds  property_files.id of documents to feed into the
+     *                        model. Empty = no documents, just the row.
+     * @return array{success: bool, text?: string, error?: string}
+     */
+    public function generateObjekt(int $propertyId, array $fileIds = []): array
+    {
+        $property = DB::table('properties')->where('id', $propertyId)->first();
+        if (!$property) {
+            return ['success' => false, 'error' => 'Objekt nicht gefunden'];
+        }
+        $property = (array) $property;
+
+        $propertyFacts = $this->formatPropertyFacts($property);
+        $documentText = $this->extractDocumentText($propertyId, $fileIds);
+
+        $systemPrompt = $this->objektSystemPrompt();
+        $userMessage = "PROPERTY-DATENSATZ:\n" . $propertyFacts
+            . ($documentText !== '' ? "\n\n---\n\nDOKUMENT-AUSZÜGE:\n" . $documentText : '')
+            . "\n\n---\n\nSchreibe jetzt die Objektbeschreibung.";
+
+        $text = $this->anthropic->chat($systemPrompt, $userMessage, maxTokens: 2000, model: self::MODEL);
+
+        if (!$text) {
+            Log::warning("generateObjekt: no text for property {$propertyId}");
+            return ['success' => false, 'error' => 'KI-Antwort leer. Bitte erneut versuchen.'];
+        }
+
+        return ['success' => true, 'text' => trim($text)];
+    }
+
+    /**
+     * Generate the Lagebeschreibung using Claude's web_search tool so the
+     * output is grounded in real, current information about the address.
+     *
+     * @return array{success: bool, text?: string, error?: string}
+     */
+    public function generateLage(int $propertyId): array
+    {
+        $property = DB::table('properties')->where('id', $propertyId)->first();
+        if (!$property) {
+            return ['success' => false, 'error' => 'Objekt nicht gefunden'];
+        }
+
+        $address = trim((string) ($property->address ?? ''));
+        $zip = trim((string) ($property->zip ?? ''));
+        $city = trim((string) ($property->city ?? ''));
+
+        if ($city === '' && $zip === '' && $address === '') {
+            return ['success' => false, 'error' => 'Adresse/PLZ/Ort fehlt — Recherche nicht möglich.'];
+        }
+
+        $fullAddress = trim(
+            ($address !== '' ? $address . ', ' : '')
+            . trim($zip . ' ' . $city)
+        );
+
+        $systemPrompt = $this->lageSystemPrompt();
+        $userMessage = "Recherchiere konkrete Fakten über diese Lage und schreibe eine Lagebeschreibung:\n\n"
+            . "Adresse: {$fullAddress}\n"
+            . "Stadt/Gemeinde: " . ($city !== '' ? $city : '(unbekannt)') . "\n"
+            . "PLZ: " . ($zip !== '' ? $zip : '(unbekannt)') . "\n\n"
+            . "Suche gezielt nach:\n"
+            . "- Öffentlicher Verkehr / Bushaltestellen / Bahnhöfen in der Nähe (mit Namen und — wenn findbar — Entfernungen)\n"
+            . "- Einkaufsmöglichkeiten (Supermärkte, Drogerie, Bäcker) im Umkreis\n"
+            . "- Schulen und Kindergärten in der Gemeinde\n"
+            . "- Ärzte, Apotheken, wichtige Einrichtungen\n"
+            . "- Erholungs- und Freizeitmöglichkeiten (Wälder, Seen, Sportplätze)\n"
+            . "- Besonderheiten der Gemeinde/Region, falls für einen Kaufinteressenten relevant\n\n"
+            . "Schreibe danach die Lagebeschreibung nach den Regeln im System-Prompt.";
+
+        $text = $this->anthropic->chatWithWebSearch(
+            $systemPrompt,
+            $userMessage,
+            maxSearches: 6,
+            maxTokens: 3000,
+            model: self::MODEL,
+        );
+
+        if (!$text) {
+            Log::warning("generateLage: no text for property {$propertyId}");
+            return ['success' => false, 'error' => 'KI-Antwort leer. Bitte erneut versuchen.'];
+        }
+
+        return ['success' => true, 'text' => trim($text)];
+    }
+
+    // ─── Prompts ───────────────────────────────────────────────────────
+
+    private function objektSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+Du schreibst Objektbeschreibungen für ein seriöses österreichisches Immobilienbüro (SR-Homes). Diese Texte landen im Exposé und werden von Kaufinteressenten gelesen.
+
+DEINE AUFGABE
+Schreibe eine Objektbeschreibung auf Deutsch, 3-5 sachlich-einladende Absätze, die den Interessenten Lust auf eine Besichtigung macht, OHNE etwas zu erfinden oder schönzureden.
+
+STRIKTE REGELN — NIEMALS BRECHEN:
+
+1. FAKTENBASIS
+   - Verwende NUR Fakten, die im bereitgestellten Property-Datensatz oder in den Dokument-Auszügen stehen.
+   - Wenn ein Fakt dort nicht vorkommt: weglassen. NICHT annehmen, NICHT aus Allgemeinwissen ableiten.
+   - Keine Erfindung von Zimmerzahlen, Flächen, Baujahr, Ausstattung, Heizart oder Zustand.
+
+2. KEINE FLOSKELN ODER ÜBERTREIBUNGEN
+   - Tabu: "traumhaft", "einmalig", "wunderschön", "charmant", "liebevoll", "gemütlich", "familienfreundlich", "perfekt", "einzigartig" — es sei denn, genau so im Quellmaterial.
+   - Tabu: "Greifen Sie jetzt zu", "lassen Sie sich verzaubern", "nicht verpassen", "top Investition".
+   - Keine rhetorischen Fragen, keine Anreden ("Wünschen Sie sich ...?").
+
+3. KONKRET STATT VAGE
+   - "4 Zimmer, 96 m² Wohnfläche, Bj. 1994, Fernwärme" → konkret. "Geräumiges Zuhause mit viel Platz" → Floskel, verboten.
+   - Wo Zahlen/Details vorhanden: NENNEN. Wo nicht: Aussage weglassen, nicht durch Floskel ersetzen.
+
+4. TON
+   - Sachlich-einladend. Ruhig. Als ob ein erfahrener Makler sachlich erklärt, was das Objekt hat.
+   - Deutsch mit österreichischem Sprachgebrauch (Erdgeschoss statt EG-Varianten, Parkett statt Dielenboden etc.).
+   - Du-Form oder Sie-Form? → Sie-Form, und zwar sparsam/unaufdringlich.
+
+5. STRUKTUR (nicht starr, als Leitplanke)
+   - Absatz 1: Einstieg — Objekttyp, grobe Lage in einem Satz, eine prägnante Kernbotschaft aus den Fakten.
+   - Absatz 2: Inneres — Räume, Flächen, Ausstattung, die belegbar ist.
+   - Absatz 3: Technik & Zustand — Heizung, Energiewerte, Bauzustand, Baujahr, Sanierungen (nur falls vorhanden).
+   - Optionaler Schluss: 1-2 Sätze wer sich konkret dafür eignen könnte — NUR wenn aus Fakten ableitbar.
+
+6. WEGLASSEN IST STÄRKE
+   - Wenn Daten spärlich: Schreibe weniger. Ein kurzer, ehrlicher Text ist besser als ein aufgeblasener.
+   - Wenn ein Feld widersprüchlich ist: vorsichtig formulieren ("laut Unterlagen ...") oder weglassen.
+
+7. HIGHLIGHTS/ADRESSE
+   - Wenn "highlights" im Datensatz stehen: deren Kerninhalte in die Beschreibung einweben, aber nicht wörtlich kopieren.
+   - Genaue Adresse NICHT nennen (Straße + Hausnummer), höchstens Stadt/Ortsteil.
+
+8. OUTPUT
+   - Antworte NUR mit dem Beschreibungstext. Keine Überschrift "Objektbeschreibung:", keine Markdown-Formatierung, keine Metakommentare, keine Quellenangaben.
+   - Mehrere Absätze mit Leerzeilen trennen.
+PROMPT;
+    }
+
+    private function lageSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+Du schreibst Lagebeschreibungen für ein seriöses österreichisches Immobilienbüro (SR-Homes). Du hast Zugriff auf die Web-Suche und musst sie nutzen.
+
+DEINE AUFGABE
+Recherchiere die Lage über die Web-Suche und schreibe eine Lagebeschreibung auf Deutsch, 2-4 sachlich-einladende Absätze.
+
+STRIKTE REGELN — NIEMALS BRECHEN:
+
+1. NUR WAS DIE SUCHE ERGIBT
+   - Schreibe AUSSCHLIESSLICH über Infrastruktur, Verkehr, Versorgung, Einrichtungen und Umgebung, die du in den Suchergebnissen konkret bestätigt findest.
+   - Wenn du zu etwas nichts findest: weglassen. Keine Vermutungen, keine Allgemeinplätze aus dem Trainingswissen.
+   - "Die Lage ist gut angebunden" ist verboten ohne konkrete Belege aus der Suche (Buslinie X, Bahnhof Y in Z Minuten, Autobahnauffahrt, etc.).
+
+2. KEINE FLOSKELN, KEIN MARKETING-SPRECH
+   - Tabu: "beliebte Lage", "begehrte Gegend", "gefragte Wohnumgebung", "idyllisch", "traumhaft", "charmant".
+   - Tabu: Vage Superlative ohne konkrete Quelle.
+   - Keine "Willkommen in ..."-Einstiege.
+
+3. KONKRETE DETAILS SIND KÖNIG
+   - "2 Gehminuten zur Bushaltestelle Hauptplatz" > "gut angebunden".
+   - "Supermärkte Spar und Billa im Ortszentrum" > "alle Geschäfte des täglichen Bedarfs".
+   - "Volksschule Grödig, BG Hallein 10 km" > "Schulen in der Nähe".
+
+4. TON
+   - Sachlich-einladend, als ob ein erfahrener Makler die Gegend nüchtern beschreibt.
+   - Deutsch mit österreichischem Sprachgebrauch.
+   - Sie-Form, sparsam.
+
+5. STRUKTUR (als Leitplanke)
+   - Absatz 1: Allgemeine Einordnung — in welcher Gemeinde/welchem Bezirk/welcher Region liegt die Immobilie, welcher Charakter (ländlich/städtisch/suburban), wenn belegbar.
+   - Absatz 2: Verkehr & Erreichbarkeit — ÖPNV, wichtige Straßenverbindungen.
+   - Absatz 3: Versorgung & Infrastruktur — Einkauf, Bildung, Gesundheit.
+   - Optional Absatz 4: Umgebung, Freizeit, Naherholung.
+
+6. EHRLICHKEIT
+   - Wenn die Suche wenig hergibt: kurzen, ehrlichen Text schreiben.
+   - Wenn die Gemeinde schwer zu recherchieren ist (kleines Dorf): sag was du findest, nicht mehr.
+   - Keine Schönfärberei.
+
+7. OUTPUT
+   - Antworte NUR mit der Lagebeschreibung. Keine Überschrift "Lagebeschreibung:", keine Quellenliste, keine Markdown-Syntax, keine Metakommentare ("Ich habe recherchiert ...").
+   - Mehrere Absätze mit Leerzeilen trennen.
+PROMPT;
+    }
+
+    // ─── Helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Convert the property row into a compact, labeled fact list for the
+     * prompt. Empty fields are omitted entirely so the model doesn't try to
+     * fabricate around them.
+     */
+    private function formatPropertyFacts(array $p): string
+    {
+        $labels = [
+            'object_type' => 'Objekttyp',
+            'property_category' => 'Kategorie',
+            'object_subtype' => 'Subtyp',
+            'project_name' => 'Projektname',
+            'city' => 'Stadt',
+            'zip' => 'PLZ',
+            'marketing_type' => 'Vermarktungsart',
+            'purchase_price' => 'Kaufpreis (EUR)',
+            'rental_price' => 'Mietpreis (EUR)',
+            'operating_costs' => 'Betriebskosten',
+            'living_area' => 'Wohnfläche (m²)',
+            'realty_area' => 'Grundstücksfläche (m²)',
+            'free_area' => 'Freifläche (m²)',
+            'rooms_amount' => 'Zimmer',
+            'bedrooms' => 'Schlafzimmer',
+            'bathrooms' => 'Badezimmer',
+            'floor_number' => 'Geschoss',
+            'floor_count' => 'Stockwerke',
+            'construction_year' => 'Baujahr',
+            'year_renovated' => 'Saniert',
+            'realty_condition' => 'Zustand',
+            'quality' => 'Qualität',
+            'heating' => 'Heizung',
+            'heating_demand_class' => 'HWB-Klasse',
+            'heating_demand_value' => 'HWB (kWh/m²a)',
+            'energy_efficiency_value' => 'fGEE',
+            'construction_type' => 'Bauweise',
+            'ownership_type' => 'Eigentumsart',
+            'orientation' => 'Ausrichtung',
+            'kitchen_type' => 'Küche',
+            'flooring' => 'Bodenbelag',
+            'parking_type' => 'Parkplatz-Art',
+            'garage_spaces' => 'Garagenplätze',
+            'parking_spaces' => 'Stellplätze',
+        ];
+
+        $booleans = [
+            'has_balcony' => 'Balkon',
+            'has_terrace' => 'Terrasse',
+            'has_loggia' => 'Loggia',
+            'has_garden' => 'Garten',
+            'has_basement' => 'Keller',
+            'has_elevator' => 'Aufzug',
+            'has_pool' => 'Pool',
+            'has_sauna' => 'Sauna',
+            'has_fireplace' => 'Kamin',
+            'has_fitted_kitchen' => 'Einbauküche',
+            'has_air_conditioning' => 'Klimaanlage',
+            'has_barrier_free' => 'Barrierefrei',
+            'has_guest_wc' => 'Gäste-WC',
+        ];
+
+        $lines = [];
+        foreach ($labels as $key => $label) {
+            $v = $p[$key] ?? null;
+            if ($v === null || $v === '' || $v === 0 || $v === '0') continue;
+            $lines[] = "- {$label}: {$v}";
+        }
+
+        $flags = [];
+        foreach ($booleans as $key => $label) {
+            if (!empty($p[$key])) {
+                $flags[] = $label;
+            }
+        }
+        if (!empty($flags)) {
+            $lines[] = "- Ausstattungsmerkmale: " . implode(', ', $flags);
+        }
+
+        // Free-text notes that may already exist
+        foreach (['highlights', 'other_description'] as $freeKey) {
+            $v = trim((string) ($p[$freeKey] ?? ''));
+            if ($v !== '') {
+                $lines[] = "- " . ($freeKey === 'highlights' ? 'Highlights (bestehend)' : 'Sonstiges (bestehend)') . ": {$v}";
+            }
+        }
+
+        return $lines ? implode("\n", $lines) : "(keine strukturierten Daten)";
+    }
+
+    /**
+     * Extract text from the requested uploaded files. Returns "" when no
+     * files were provided or none yielded usable text.
+     */
+    private function extractDocumentText(int $propertyId, array $fileIds): string
+    {
+        if (empty($fileIds)) {
+            return '';
+        }
+
+        try {
+            $paths = $this->resolveFilePaths($propertyId, $fileIds);
+            if (empty($paths)) return '';
+
+            $parts = [];
+            foreach ($paths as $path) {
+                $c = $this->docs->extractContent($path);
+                $text = trim((string) ($c['text'] ?? ''));
+                if ($text !== '') {
+                    $parts[] = $text;
+                }
+            }
+            $joined = implode("\n\n---\n\n", $parts);
+            // Keep the prompt bounded — models drift with too much context.
+            if (mb_strlen($joined) > 40000) {
+                $joined = mb_substr($joined, 0, 40000) . "\n\n[... Text gekürzt ...]";
+            }
+            return $joined;
+        } catch (\Exception $e) {
+            Log::warning('extractDocumentText failed: ' . $e->getMessage());
+            return '';
+        }
+    }
+
+    /**
+     * Look up absolute file paths on disk for the given property_files ids.
+     */
+    private function resolveFilePaths(int $propertyId, array $fileIds): array
+    {
+        $cleaned = array_values(array_filter(array_map('intval', $fileIds), fn ($x) => $x > 0));
+        if (empty($cleaned)) return [];
+
+        $rows = DB::table('property_files')
+            ->where('property_id', $propertyId)
+            ->whereIn('id', $cleaned)
+            ->pluck('path')
+            ->all();
+
+        $base = storage_path('app/public/');
+        $paths = [];
+        foreach ($rows as $relPath) {
+            $abs = $base . $relPath;
+            if (is_file($abs)) $paths[] = $abs;
+        }
+        return $paths;
+    }
+}

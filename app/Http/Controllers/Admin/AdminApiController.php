@@ -686,6 +686,7 @@ class AdminApiController extends Controller
             'parse_expose'              => app(PropertySettingsController::class)->parseExpose($request),
             'parse_property_fields'     => $this->handleParsePropertyFields($request),
             'parse_units'               => $this->handleParseUnits($request),
+            'generate_property_description' => $this->handleGeneratePropertyDescription($request),
             'link_offer_to_unit'        => app(PropertySettingsController::class)->linkOfferToUnit($request),
             'bulk_create_parking'       => app(PropertySettingsController::class)->bulkCreateParking($request),
             'upload_kaufanbot_pdf'      => app(PropertySettingsController::class)->uploadKaufanbotPdf($request),
@@ -988,7 +989,7 @@ class AdminApiController extends Controller
                     'set_on_hold','fix_activity','fix_expose_categories','create_property','delete_property','set_inactive','reactivate_property','analyze_file',
                     'list_knowledge','add_knowledge','update_knowledge','delete_knowledge',
                     'delete_knowledge_permanent','knowledge_summary','ai_categorize_knowledge','extract_file_text','ai_bulk_categorize','ai_extract_from_file','list_activities','update_activity','delete_activity',
-                    'ingest_document','bulk_extract_knowledge','parse_property_fields','parse_units',
+                    'ingest_document','bulk_extract_knowledge','parse_property_fields','parse_units','generate_property_description',
                     // 'followup_recommendation',  // deprecated
                     'cross_property_matches','proactive_alerts',
                     'upload_portal_document','list_portal_documents','delete_portal_document',
@@ -3892,6 +3893,48 @@ PY;
             return response()->json($result, 400);
         }
         return response()->json($result, 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Generate an AI-written Objekt- or Lagebeschreibung for a property.
+     *
+     * Input:
+     *   - property_id: int
+     *   - type: 'objekt' | 'lage'
+     *   - file_ids: int[]  (only used for type=objekt)
+     *
+     * Output: { success: bool, text?: string, error?: string }
+     */
+    private function handleGeneratePropertyDescription(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $propertyId = intval($request->input('property_id', $request->query('property_id', 0)));
+        if (!$propertyId) return response()->json(['error' => 'property_id required'], 400);
+
+        $type = (string) $request->input('type', 'objekt');
+        if (!in_array($type, ['objekt', 'lage'], true)) {
+            return response()->json(['error' => 'type must be objekt or lage'], 400);
+        }
+
+        $fileIds = (array) $request->input('file_ids', []);
+
+        /** @var \App\Services\PropertyDescriptionService $service */
+        $service = app(\App\Services\PropertyDescriptionService::class);
+
+        try {
+            $result = $type === 'lage'
+                ? $service->generateLage($propertyId)
+                : $service->generateObjekt($propertyId, $fileIds);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('generate_property_description failed', [
+                'property_id' => $propertyId,
+                'type' => $type,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json(['success' => false, 'error' => 'KI-Generierung fehlgeschlagen: ' . $e->getMessage()], 500);
+        }
+
+        $status = !empty($result['success']) ? 200 : 422;
+        return response()->json($result, $status, [], JSON_UNESCAPED_UNICODE);
     }
 
 }

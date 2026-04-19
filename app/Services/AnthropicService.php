@@ -16,7 +16,7 @@ class AnthropicService
         $this->model = config('portal.anthropic_model', 'claude-haiku-4-5-20251001');
     }
 
-    public function chat(string $systemPrompt, string $userMessage, int $maxTokens = 2000): ?string
+    public function chat(string $systemPrompt, string $userMessage, int $maxTokens = 2000, ?string $model = null): ?string
     {
         try {
             $response = Http::withHeaders([
@@ -24,7 +24,7 @@ class AnthropicService
                 'anthropic-version' => '2023-06-01',
                 'content-type' => 'application/json',
             ])->timeout(120)->post('https://api.anthropic.com/v1/messages', [
-                'model' => $this->model,
+                'model' => $model ?? $this->model,
                 'max_tokens' => $maxTokens,
                 'system' => $systemPrompt,
                 'messages' => [
@@ -44,6 +44,62 @@ class AnthropicService
             return null;
         } catch (\Exception $e) {
             Log::error('Anthropic API exception: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Chat with Anthropic's server-side web_search tool enabled. Claude
+     * performs up to $maxSearches web lookups on its own during reasoning
+     * and returns a final text answer. Use when you need fresh, grounded
+     * facts (e.g. researching a property's neighbourhood).
+     *
+     * The returned string is the concatenation of every text block from
+     * the final assistant message. Tool-use / search-result blocks in the
+     * response are dropped.
+     */
+    public function chatWithWebSearch(string $systemPrompt, string $userMessage, int $maxSearches = 5, int $maxTokens = 4000, ?string $model = null): ?string
+    {
+        try {
+            $response = Http::withHeaders([
+                'x-api-key' => $this->apiKey,
+                'anthropic-version' => '2023-06-01',
+                'content-type' => 'application/json',
+            ])->timeout(180)->post('https://api.anthropic.com/v1/messages', [
+                'model' => $model ?? $this->model,
+                'max_tokens' => $maxTokens,
+                'system' => $systemPrompt,
+                'messages' => [
+                    ['role' => 'user', 'content' => $userMessage],
+                ],
+                'tools' => [
+                    [
+                        'type' => 'web_search_20250305',
+                        'name' => 'web_search',
+                        'max_uses' => $maxSearches,
+                    ],
+                ],
+            ]);
+
+            if (!$response->successful()) {
+                Log::error('Anthropic API web-search error', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return null;
+            }
+
+            $data = $response->json();
+            $parts = [];
+            foreach ($data['content'] ?? [] as $block) {
+                if (($block['type'] ?? null) === 'text' && !empty($block['text'])) {
+                    $parts[] = $block['text'];
+                }
+            }
+            $text = trim(implode("\n\n", $parts));
+            return $text !== '' ? $text : null;
+        } catch (\Exception $e) {
+            Log::error('Anthropic API web-search exception: ' . $e->getMessage());
             return null;
         }
     }

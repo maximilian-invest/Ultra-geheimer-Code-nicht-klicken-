@@ -247,13 +247,35 @@ class ImmojiUploadService
 
         if (isset($result['errors'])) {
             $errorMsg = json_encode($result['errors']);
-            // If error is about media/files, retry without filesInput
+            // Immoji's tmp/UUID file refs are consumed one-shot after a successful
+            // mutation. On the next sync, reusing stale refs triggers "No media
+            // found". Clear the cached immoji_source values and re-upload fresh.
             if (str_contains($errorMsg, 'media') || str_contains($errorMsg, 'file') || str_contains($errorMsg, 'image')) {
-                Log::warning("Immoji updateRealty: media error, retrying without files. Error: {$errorMsg}");
-                unset($variables['input']['filesInput']);
+                Log::warning("Immoji updateRealty: media error, clearing stale tmp refs and re-uploading. Error: {$errorMsg}");
+                $propertyId = $property['id'] ?? null;
+                if ($propertyId) {
+                    \Illuminate\Support\Facades\DB::table('property_images')
+                        ->where('property_id', $propertyId)
+                        ->update(['immoji_source' => null]);
+                }
+
+                $property['_forceUploadImages'] = true;
+                $retryFilesInput = $this->uploadAndMapImages($property);
+                if ($retryFilesInput !== null) {
+                    $variables['input']['filesInput'] = $retryFilesInput;
+                } else {
+                    unset($variables['input']['filesInput']);
+                }
                 $result = $this->query($query, $variables);
+
                 if (isset($result['errors'])) {
-                    throw new \RuntimeException('Immoji updateRealty failed (retry without files): ' . json_encode($result['errors']));
+                    // Last resort: drop files so at least metadata updates
+                    Log::warning("Immoji updateRealty: re-upload retry still failing, updating metadata only. Error: " . json_encode($result['errors']));
+                    unset($variables['input']['filesInput']);
+                    $result = $this->query($query, $variables);
+                    if (isset($result['errors'])) {
+                        throw new \RuntimeException('Immoji updateRealty failed (final retry without files): ' . json_encode($result['errors']));
+                    }
                 }
                 return;
             }

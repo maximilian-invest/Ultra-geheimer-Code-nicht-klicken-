@@ -237,6 +237,8 @@ class AdminApiController extends Controller
                 $portalName = $data['portal_name'] ?? '';
                 if (!$propId || !$portalName) return response()->json(['error' => 'property_id and portal_name required'], 400);
                 $existing = \DB::table('property_portals')->where('property_id', $propId)->where('portal_name', $portalName)->first();
+                $wasEnabled = $existing ? (bool) $existing->sync_enabled : false;
+                $nowEnabled = (bool) ($data['sync_enabled'] ?? 0);
                 $pd = ['property_id' => $propId, 'portal_name' => $portalName, 'sync_enabled' => $data['sync_enabled'] ?? 0, 'external_id' => $data['external_id'] ?? null, 'external_url' => $data['external_url'] ?? null, 'status' => $data['status'] ?? 'draft', 'updated_at' => now()];
                 if ($existing) { \DB::table('property_portals')->where('id', $existing->id)->update($pd); } else { $pd['created_at'] = now(); \DB::table('property_portals')->insert($pd); }
                 // If sr-homes portal, also update show_on_website
@@ -244,6 +246,27 @@ class AdminApiController extends Controller
                     \DB::table('properties')->where('id', $propId)->update(['show_on_website' => ($data['sync_enabled'] ?? 0) ? 1 : 0]);
                     \Illuminate\Support\Facades\Cache::forget('website_properties');
                 }
+
+                // Kundensichtbare Aktivitaet bei Toggle-Change
+                if ($wasEnabled !== $nowEnabled) {
+                    $portalLbl = match ($portalName) {
+                        'sr-homes'  => 'SR-Homes Website',
+                        'immoji'    => 'Immoji',
+                        'willhaben' => 'Willhaben',
+                        'immowelt'  => 'Immowelt',
+                        'immoscout' => 'ImmoScout',
+                        'immo-sn'   => 'immo.sn.at',
+                        'kurier'    => 'Kurier',
+                        'dibeo'     => 'DIBEO',
+                        'alleskralle' => 'Alleskralle',
+                        default     => ucfirst($portalName),
+                    };
+                    $text = $nowEnabled
+                        ? "Portal aktiviert: {$portalLbl}"
+                        : "Portal deaktiviert: {$portalLbl}";
+                    app(\App\Services\PropertyActivityLogger::class)->logEvent($propId, $text);
+                }
+
                 return response()->json(['success' => true]);
             })(),
 
@@ -354,6 +377,19 @@ class AdminApiController extends Controller
                             ? 'Objekt in Immoji aktualisiert (alle Bereiche)'
                             : 'Objekt in Immoji aktualisiert (' . implode(', ', $sectionsSynced) . ')',
                     };
+
+                    // Kundensichtbare Aktivitaet: Immoji-Sync als "Datenpflege"
+                    // eintragen (nicht fuer dry_run / skipped). Debouncing im
+                    // Logger verhindert, dass 3 schnelle Re-Syncs 3 Eintraege
+                    // produzieren — wird gemergt.
+                    if (!$dryRun && !in_array($result['action'], ['skipped', 'would_create', 'would_update'], true)) {
+                        $text = $result['action'] === 'created'
+                            ? 'Objekt auf Immoji-Portalen veröffentlicht'
+                            : ($isFull
+                                ? 'Inserat auf Immoji-Portalen aktualisiert'
+                                : 'Inserat-Bereiche auf Immoji aktualisiert: ' . implode(', ', array_map(fn($s) => self::sectionLabel($s), $sectionsSynced)));
+                        app(\App\Services\PropertyActivityLogger::class)->logEvent($propertyId, $text);
+                    }
 
                     return response()->json([
                         'success' => true,
@@ -1254,6 +1290,22 @@ class AdminApiController extends Controller
 
         $contact = DB::selectOne('SELECT * FROM contacts WHERE id = ?', [$id]);
         return response()->json(['success' => true, 'contact' => $contact], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Human-friendly German label fuer Immoji-Sync-Sections (Kundenansicht).
+     */
+    private static function sectionLabel(string $section): string
+    {
+        return match ($section) {
+            'general'      => 'Allgemeines',
+            'costs'        => 'Kosten',
+            'areas'        => 'Flächen',
+            'descriptions' => 'Beschreibungen',
+            'building'     => 'Gebäudedetails',
+            'files'        => 'Fotos & Dokumente',
+            default        => $section,
+        };
     }
 
     private function listActivities(\Illuminate\Http\Request $request): \Illuminate\Http\JsonResponse

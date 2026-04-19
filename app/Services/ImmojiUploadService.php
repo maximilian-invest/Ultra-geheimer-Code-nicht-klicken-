@@ -633,20 +633,10 @@ class ImmojiUploadService
             $otherAreas['sauna'] = ['amount' => 1, 'area' => null];
         }
 
-        // Parking spaces
-        $parkingSpaces = [];
-        if (!empty($prop['parking_spaces'])) {
-            $parkingSpaces[] = [
-                'type' => 'CAR_PARKING_SPACE',
-                'amount' => (int) $prop['parking_spaces'],
-            ];
-        }
-        if (!empty($prop['garage_spaces'])) {
-            $parkingSpaces[] = [
-                'type' => 'GARAGE',
-                'amount' => (int) $prop['garage_spaces'],
-            ];
-        }
+        // Parking spaces — structured Stellplatz-Entries aus building_details
+        // (neuer Flow). Legacy-Fallback für Property-Datensätze, in denen
+        // noch die flachen Felder parking_spaces / garage_spaces gefüllt sind.
+        $parkingSpaces = self::mapParkingSpaces($prop);
 
         return [
             'generalAreas' => $generalAreas ?: null,
@@ -732,6 +722,79 @@ class ImmojiUploadService
         }
 
         return !empty($result) ? $result : null;
+    }
+
+    /**
+     * Map Stellplatz-Entries (building_details.parking_spaces) to Immoji's
+     * parkingSpaces[] array. Each entry becomes one object with type + amount
+     * + optional maxWidth / area / suitableFor / description. Falls back to
+     * the legacy flat columns parking_spaces / garage_spaces for properties
+     * that haven't been touched under the new structured UI yet.
+     */
+    private static function mapParkingSpaces(array $prop): array
+    {
+        $bd = $prop['building_details'] ?? null;
+        if (is_string($bd)) {
+            $decoded = json_decode($bd, true);
+            $bd = is_array($decoded) ? $decoded : null;
+        }
+        $entries = is_array($bd) && is_array($bd['parking_spaces'] ?? null)
+            ? $bd['parking_spaces']
+            : null;
+
+        // Structured path: use the array from the new Stellplätze UI.
+        if (is_array($entries) && !empty($entries)) {
+            $typeMap = [
+                'barn'                => 'BARN',
+                'outdoor'             => 'OUTDOOR_PARKING_SPACE',
+                'carport'             => 'CARPORT',
+                'duplex_garage'       => 'DUPLEX_GARAGE',
+                'garage'              => 'GARAGE',
+                'general'             => 'GENERAL_PARKING_SPACE',
+                'hall'                => 'HALL',
+                'underground_garage'  => 'UNDERGROUND_GARAGE',
+                'car_park'            => 'CAR_PARK',
+                'other'               => 'OTHER',
+            ];
+            $suitableMap = [
+                'car'        => 'CAR',
+                'truck'      => 'TRUCK',
+                'motorcycle' => 'MOTORCYCLE',
+                'bike'       => 'BIKE',
+                'motorhome'  => 'MOTORHOME',
+                'boat'       => 'BOAT',
+            ];
+
+            $out = [];
+            foreach ($entries as $e) {
+                if (!is_array($e)) continue;
+                $typeKey = $e['type'] ?? null;
+                if (!$typeKey) continue;
+                $enum = $typeMap[$typeKey] ?? 'OTHER';
+                $row = [
+                    'type' => $enum,
+                    'amount' => (int) ($e['count'] ?? 1) ?: 1,
+                ];
+                if (!empty($e['area'])) $row['area'] = (float) $e['area'];
+                if (!empty($e['max_vehicle_width'])) $row['maxWidth'] = (float) $e['max_vehicle_width'];
+                if (!empty($e['suitable_for'])) {
+                    $row['suitableFor'] = $suitableMap[$e['suitable_for']] ?? strtoupper((string) $e['suitable_for']);
+                }
+                if (!empty($e['description'])) $row['description'] = (string) $e['description'];
+                $out[] = $row;
+            }
+            if (!empty($out)) return $out;
+        }
+
+        // Legacy-Fallback aus flachen Spalten.
+        $out = [];
+        if (!empty($prop['parking_spaces'])) {
+            $out[] = ['type' => 'OUTDOOR_PARKING_SPACE', 'amount' => (int) $prop['parking_spaces']];
+        }
+        if (!empty($prop['garage_spaces'])) {
+            $out[] = ['type' => 'GARAGE', 'amount' => (int) $prop['garage_spaces']];
+        }
+        return $out;
     }
 
     /**

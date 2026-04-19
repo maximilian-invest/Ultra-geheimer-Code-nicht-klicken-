@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\PropertyActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -927,6 +928,11 @@ class AdminApiController extends Controller
                         'sort_order' => $maxSort,
                     ];
                 }
+                if (!empty($uploaded)) {
+                    $n = count($uploaded);
+                    $text = $n === 1 ? 'Neues Foto hinzugefügt' : "Neue Fotos hinzugefügt ({$n})";
+                    app(PropertyActivityLogger::class)->logEvent($propId, $text);
+                }
                 return response()->json(['images' => $uploaded, 'count' => count($uploaded)]);
             })(),
 
@@ -935,11 +941,15 @@ class AdminApiController extends Controller
                 $id = intval($data['id'] ?? 0);
                 if (!$id) return response()->json(['error' => 'id required'], 400);
                 $update = [];
+                $titleFlipped = false;
+                $propertyIdForLog = null;
                 if (isset($data['is_title_image']) && $data['is_title_image']) {
                     $img = DB::table('property_images')->where('id', $id)->first();
                     if ($img) {
                         DB::table('property_images')->where('property_id', $img->property_id)->update(['is_title_image' => 0]);
                         $update['is_title_image'] = 1;
+                        $titleFlipped = true;
+                        $propertyIdForLog = (int) $img->property_id;
                     }
                 }
                 if (isset($data['category'])) $update['category'] = $data['category'];
@@ -948,6 +958,11 @@ class AdminApiController extends Controller
                 if ($update) {
                     $update['updated_at'] = now();
                     DB::table('property_images')->where('id', $id)->update($update);
+                }
+                // Nur echte "Titelbild geaendert"-Events loggen, nicht jede Drag-&-Drop-
+                // Umsortierung (sort_order wird waehrend Drag dutzende Male aufgerufen).
+                if ($titleFlipped && $propertyIdForLog) {
+                    app(PropertyActivityLogger::class)->logEvent($propertyIdForLog, 'Titelbild geändert');
                 }
                 return response()->json(['success' => true]);
             })(),
@@ -961,6 +976,7 @@ class AdminApiController extends Controller
                     $filePath = storage_path('app/public/' . $img->path);
                     if (file_exists($filePath)) @unlink($filePath);
                     DB::table('property_images')->where('id', $id)->delete();
+                    app(PropertyActivityLogger::class)->logEvent((int) $img->property_id, 'Foto entfernt');
                 }
                 return response()->json(['success' => true]);
             })(),
@@ -1821,6 +1837,9 @@ class AdminApiController extends Controller
             'created_at' => now(),
         ]);
 
+        $displayLabel = $label ?: $originalName;
+        app(PropertyActivityLogger::class)->logEvent($propertyId, "Dokument hinzugefügt: {$displayLabel}");
+
         return response()->json([
             'success' => true,
             'file' => [
@@ -1848,6 +1867,8 @@ class AdminApiController extends Controller
             $full = storage_path('app/public/' . $file->path);
             if (file_exists($full)) unlink($full);
             DB::table('property_files')->where('id', $fileId)->delete();
+            $lbl = $file->label ?: $file->filename;
+            app(PropertyActivityLogger::class)->logEvent((int) $file->property_id, "Dokument entfernt: {$lbl}");
         }
         return response()->json(['success' => true]);
     }
@@ -1940,7 +1961,12 @@ class AdminApiController extends Controller
         }
 
         $update['updated_at'] = now();
+
+        // Altzustand laden, Update ausfuehren, dann kundensichtbare Aktivitaet loggen.
+        $oldRow = (array) (DB::table('properties')->where('id', $id)->first() ?: []);
         DB::table('properties')->where('id', $id)->update($update);
+        app(PropertyActivityLogger::class)->logFieldChanges($id, $oldRow, $update);
+
         return response()->json(['success' => true]);
     }
 

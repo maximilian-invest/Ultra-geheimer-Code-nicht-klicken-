@@ -47,6 +47,7 @@ const categories = [
   { value: "eigentuemer", label: "Eigentuemer", color: "hsl(330 80% 50%)", bg: "hsl(330 80% 95%)" },
   { value: "sonstiges", label: "Sonstiges", color: "hsl(240 3.8% 46%)", bg: "hsl(240 4.8% 95.9%)" },
   { value: "update", label: "Update", color: "hsl(240 3.8% 46%)", bg: "hsl(240 4.8% 95.9%)" },
+  { value: "objekt_edit", label: "Datenpflege", color: "hsl(210 70% 50%)", bg: "hsl(210 70% 95%)" },
   { value: "partner", label: "Partner", color: "hsl(160 60% 45%)", bg: "hsl(160 60% 95%)" },
   { value: "bounce", label: "Bounce", color: "hsl(0 50% 55%)", bg: "hsl(0 50% 95%)" },
   { value: "intern", label: "Intern", color: "hsl(240 20% 50%)", bg: "hsl(240 20% 95%)" },

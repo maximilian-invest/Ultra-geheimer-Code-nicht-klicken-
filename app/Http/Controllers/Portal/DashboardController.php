@@ -1164,25 +1164,30 @@ class DashboardController extends Controller
             $firstName = explode(' ', trim($stakeholder))[0] ?: 'Interessent';
 
             // Map category to clean customer-facing label
-            $act->activity = match($cat) {
-                'anfrage'      => "Erstanfrage erhalten von {$firstName}",
-                'email-in'     => "Nachricht erhalten von {$firstName}",
-                'email-out'    => "Antwort gesendet an {$firstName}",
-                'expose'       => "Exposé gesendet an {$firstName}",
-                'nachfassen'   => "Follow-up gesendet an {$firstName}",
-                'besichtigung' => "Besichtigungsanfrage von {$firstName}",
-                'kaufanbot'    => "Kaufanbot eingegangen von {$firstName}",
-                'absage'       => "Absage von {$firstName}",
-                'eigentuemer'  => "Eigentümer-Nachricht",
-                'update'       => "Status aktualisiert",
-                'bounce'       => "E-Mail unzustellbar",
-                'partner'      => "Partner-Nachricht",
-                'intern'       => "Interne Notiz",
-                'feedback_positiv'       => "Positives Feedback von {$firstName}",
-                'feedback_negativ'       => "Feedback von {$firstName}",
-                'feedback_besichtigung'  => "Besichtigungs-Feedback von {$firstName}",
-                default        => "Aktivität",
-            };
+            // 'objekt_edit' ist ein Sonderfall: der activity-Text wurde vom
+            // PropertyActivityLogger bereits kuratiert (enthaelt nur Feld-Labels,
+            // keine Werte oder PII) — einfach durchreichen.
+            if ($cat !== 'objekt_edit') {
+                $act->activity = match($cat) {
+                    'anfrage'      => "Erstanfrage erhalten von {$firstName}",
+                    'email-in'     => "Nachricht erhalten von {$firstName}",
+                    'email-out'    => "Antwort gesendet an {$firstName}",
+                    'expose'       => "Exposé gesendet an {$firstName}",
+                    'nachfassen'   => "Follow-up gesendet an {$firstName}",
+                    'besichtigung' => "Besichtigungsanfrage von {$firstName}",
+                    'kaufanbot'    => "Kaufanbot eingegangen von {$firstName}",
+                    'absage'       => "Absage von {$firstName}",
+                    'eigentuemer'  => "Eigentümer-Nachricht",
+                    'update'       => "Status aktualisiert",
+                    'bounce'       => "E-Mail unzustellbar",
+                    'partner'      => "Partner-Nachricht",
+                    'intern'       => "Interne Notiz",
+                    'feedback_positiv'       => "Positives Feedback von {$firstName}",
+                    'feedback_negativ'       => "Feedback von {$firstName}",
+                    'feedback_besichtigung'  => "Besichtigungs-Feedback von {$firstName}",
+                    default        => "Aktivität",
+                };
+            }
 
             // Remove detailed AI summaries / email content from result
             // Only keep result for specific categories where it adds value

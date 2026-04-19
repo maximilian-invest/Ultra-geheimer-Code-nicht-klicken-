@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\PropertyActivityLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -543,8 +544,17 @@ class PropertySettingsController extends Controller
             $update['customer_id'] = $cid ?: null;
         }
 
+        // Altzustand laden bevor wir speichern — der PropertyActivityLogger
+        // vergleicht danach alt vs. neu und schreibt nur echte Diffs.
+        $oldRow = (array) (DB::table('properties')->where('id', $propId)->first() ?: []);
+
         try {
             DB::table('properties')->where('id', $propId)->update($update);
+
+            // Kundensichtbare Aktivitaet protokollieren ("Objektdaten aktualisiert: …").
+            // Fehlschlaege hier duerfen den Save nicht abbrechen — der Logger
+            // swallowed Exceptions selbst und loggt per Log::warning.
+            app(PropertyActivityLogger::class)->logFieldChanges($propId, $oldRow, $update);
 
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
@@ -596,6 +606,7 @@ class PropertySettingsController extends Controller
         }
 
         try {
+            $isNew = !$unitId;
             if ($unitId) {
                 DB::table('property_units')->where('id', $unitId)->update($unitData);
             } else {
@@ -605,6 +616,11 @@ class PropertySettingsController extends Controller
 
             // Update total_units on property
             $this->recalcUnitStats($propId);
+
+            // Kundensichtbare Aktivitaet
+            $unitLabel = $unitData['unit_number'] . (($unitData['unit_label'] ?? null) ? " · {$unitData['unit_label']}" : '');
+            $text = $isNew ? "Einheit hinzugefügt: {$unitLabel}" : "Einheit aktualisiert: {$unitLabel}";
+            app(PropertyActivityLogger::class)->logEvent($propId, $text);
 
             return response()->json(['success' => true, 'unit_id' => $unitId]);
         } catch (\Throwable $e) {
@@ -628,6 +644,9 @@ class PropertySettingsController extends Controller
         DB::table('activities')->where('unit_id', $unitId)->update(['unit_id' => null]);
 
         $this->recalcUnitStats($unit->property_id);
+
+        $unitLabel = $unit->unit_number . ($unit->unit_label ? " · {$unit->unit_label}" : '');
+        app(PropertyActivityLogger::class)->logEvent((int) $unit->property_id, "Einheit entfernt: {$unitLabel}");
 
         return response()->json(['success' => true]);
     }

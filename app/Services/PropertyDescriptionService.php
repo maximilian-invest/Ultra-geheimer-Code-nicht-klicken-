@@ -385,15 +385,9 @@ class PropertyDescriptionService
             return ['success' => false, 'error' => 'KI-Antwort leer. Bitte erneut versuchen.'];
         }
 
+        // Polish preserves the user's structure — no paragraph cap, no
+        // forced length. sanitizeAnyOutput only strips meta and markdown.
         $improved = $this->sanitizeAnyOutput($improved);
-        if ($type === 'lage') {
-            // Enforce 3-paragraph cap same as generateLage.
-            $paragraphs = preg_split('/\n\s*\n+/', $improved);
-            if (count($paragraphs) > 3) {
-                $paragraphs = array_slice($paragraphs, 0, 3);
-                $improved = implode("\n\n", $paragraphs);
-            }
-        }
 
         if ($improved === '') {
             return ['success' => false, 'error' => 'Text konnte nicht bereinigt werden.'];
@@ -461,78 +455,79 @@ class PropertyDescriptionService
     private function polishObjektSystemPrompt(): string
     {
         return <<<'PROMPT'
-Du bekommst einen Entwurf einer Objektbeschreibung für ein Immobilien-Exposé. Deine Aufgabe: formatiere und poliere ihn, OHNE Fakten hinzuzufügen oder zu entfernen.
+Du bekommst einen Entwurf einer Objektbeschreibung. Deine Aufgabe: den Text VERBESSERN, aber NICHT VERÄNDERN.
 
-REGELN — NIEMALS BRECHEN:
+Inhalte, Aussagen und Ton des Entwurfs müssen im polierten Text erhalten bleiben. Du machst den Text lesbarer und sprachlich sauberer — du schreibst ihn NICHT neu.
 
-1. ERHALTE ALLE FAKTEN
-   - Jeder Fakt, jede Zahl, jede Eigenschaft aus dem Entwurf muss im polierten Text erhalten bleiben.
-   - KEINE neuen Fakten erfinden. Wenn eine Formulierung unklar ist, formuliere sie behutsam um — ergänze aber keine Details, die nicht schon im Entwurf stehen.
+WAS DU TUN SOLLST:
 
-2. INHALT AUS DEM TEXT ENTFERNEN, falls vorhanden (verbotene Themen)
-   - Kaufpreis, Mietpreis, Betriebskosten, Nebenkosten, Provisionen — alle finanziellen Zahlen.
-   - Projektname oder Bauträger-Marken.
-   - Energiewerte (HWB, fGEE, Effizienzklasse). Die stehen an eigener Stelle im Exposé.
-   - Straßenname, Hausnummer, PLZ — Stadt allein ist OK.
+1. GRAMMATIK & RECHTSCHREIBUNG
+   - Tippfehler, Grammatikfehler, Zeichensetzung korrigieren.
+   - Umständliche Satzkonstruktionen leicht entflechten (Satz teilen, Bezüge klären) — ohne den Inhalt zu verändern.
 
-3. FORMATIERUNG
-   - Text in saubere Absätze gliedern, mit GENAU EINER Leerzeile dazwischen.
-   - Komische Zeilenumbrüche (z. B. nach kurzer Zeichenlänge aus PDF-Copypaste) entfernen; Absätze wieder zu fließendem Text zusammenfügen.
-   - Wenn der Entwurf eine einzige lange Textwurst ist: an inhaltlichen Grenzen (Raum → Ausstattung → Technik → Zielgruppe) neue Absätze einfügen.
+2. FORMATIERUNG
+   - Komische Zeilenumbrüche (z. B. aus PDF-Copypaste nach kurzer Zeichenlänge) entfernen; den betroffenen Absatz wieder zu fließendem Text zusammenfügen.
+   - Wenn der Entwurf eine einzige lange Textwurst ist: an natürlichen inhaltlichen Grenzen ein oder zwei Absätze einfügen — NUR dort wo Sinn-Einschnitt.
+   - Wenn der Entwurf schon sauber in Absätze gegliedert ist: Absatzanzahl und Reihenfolge BEIBEHALTEN.
+   - Zwischen Absätzen genau EINE Leerzeile, nicht mehr.
    - KEIN Markdown (kein **bold**, kein *italic*, keine Bullet-Lists, keine Überschriften).
 
-4. WORDING
-   - Grammatik, Rechtschreibung und Interpunktion korrigieren.
-   - Sachlich-einladender Ton, Sie-Form, österreichisches Deutsch.
-   - Satzbau verbessern wo umständlich.
-   - Füllfloskeln streichen: "traumhaft", "einmalig", "Filetstück", "Juwel", "Greifen Sie zu", "keine Wünsche offen lässt", "Wohnen mit Stil".
-   - Inhaltslose Wertungs-Adjektive streichen oder neutralisieren: "gehoben", "hochwertig", "modern", "luxuriös", "lichtdurchflutet", "einladend", "großzügig geschnitten", "klare Raumaufteilung", "harmonisches Zusammenspiel" — ENTFERNEN, außer ein Fakt im Text stützt sie konkret (z. B. eine im Text genannte Ausstattungsstufe).
+3. WAS DU ABSOLUT NICHT VERÄNDERST
+   - Inhalte, Aussagen, Fakten, Zahlen, Namen — alles bleibt so wie der User es geschrieben hat.
+   - Formulierungen, Adjektive, Ton — wenn der User "niveauvoll" oder "gehoben" schreibt, bleibt das stehen. Das ist seine Stimme, nicht deine.
+   - Reihenfolge der Inhalte.
+   - Ansprache-Form (Sie/Du/dritte Person) — übernimm was der User benutzt.
 
-5. AUSGABE
-   - Antworte NUR mit dem polierten Text. Keine Einleitung ("Hier ist der verbesserte Text:"), keine Metakommentare, keine Markdown-Syntax.
-   - Mehrere Absätze, durch je eine Leerzeile getrennt.
+WAS DU AUSNAHMSWEISE STILL ENTFERNST (ohne zu kommentieren):
+   Nur diese HARTEN Verstöße fliegen raus — alles andere bleibt:
+   - Straßenname, Hausnummer, Postleitzahl (aus Datenschutzgründen).
+   - Expliziter Kaufpreis / Mietpreis / Betriebskosten / Provisionssätze — diese Zahlen erscheinen andernorts im Exposé.
+   - Projektname / Bauträger-Markenname.
+   - Energiewerte als Zahl (HWB, fGEE, Effizienzklasse-Buchstabe).
+
+Wenn der User NICHTS davon geschrieben hat: Text bleibt exakt wie er ist, abgesehen von Grammatik/Formatierung.
+
+AUSGABE
+Antworte NUR mit dem polierten Text. Keine Einleitung, keine Metakommentare, kein Markdown. Absätze durch je eine Leerzeile getrennt.
 PROMPT;
     }
 
     private function polishLageSystemPrompt(): string
     {
         return <<<'PROMPT'
-Du bekommst einen Entwurf einer Lagebeschreibung für ein Immobilien-Exposé. Deine Aufgabe: formatiere und poliere ihn, OHNE Fakten hinzuzufügen oder zu entfernen.
+Du bekommst einen Entwurf einer Lagebeschreibung. Deine Aufgabe: den Text VERBESSERN, aber NICHT VERÄNDERN.
 
-REGELN — NIEMALS BRECHEN:
+Inhalte, Aussagen und Ton des Entwurfs müssen im polierten Text erhalten bleiben. Du machst den Text lesbarer und sprachlich sauberer — du schreibst ihn NICHT neu und strukturierst ihn NICHT um.
 
-1. ERHALTE ALLE FAKTEN
-   - Jeder Ortsname, jede Entfernung, jede Linie aus dem Entwurf bleibt erhalten.
-   - KEINE neuen Fakten erfinden — auch keine Linien-Nummern, Distanzen, Geschäftsnamen, Stadtteile. Wenn du unsicher bist, formuliere allgemein um ("in fußläufiger Nähe", "gute Anbindung") statt zu spezifizieren.
+WAS DU TUN SOLLST:
 
-2. STRUKTUR (ZWINGEND)
-   Der polierte Text besteht aus GENAU 3 ABSÄTZEN in dieser Reihenfolge:
-   1) Makrolage — Stadt/Gemeinde (+ Stadtteil falls im Entwurf vorhanden), sachliche Einordnung (Wohngebiet / Mischgebiet / Stadtrand / Zentrum / ländlich).
-   2) Mikrolage — Nahversorgung, Schulen, Kindergärten, Ärzte, Grünraum, Aktivitäten.
-   3) Erreichbarkeit — Autobahn / Hauptstraße + ÖPNV.
-   Wenn der Entwurf anders gegliedert ist: umstrukturieren. Inhalte, die in keine der 3 Kategorien passen, weglassen.
+1. GRAMMATIK & RECHTSCHREIBUNG
+   - Tippfehler, Grammatikfehler, Zeichensetzung korrigieren.
+   - Umständliche Satzkonstruktionen leicht entflechten — ohne Inhalt zu ändern.
 
-3. LÄNGE
-   - 80-160 Wörter gesamt. Kürzen wo Entwurf zu lang. NICHT künstlich erweitern wenn kurz — keine neuen Fakten erfinden.
-
-4. TON
-   - Sachlich, nüchtern, Notariatstext-artig. DRITTE PERSON. Kein "Sie", keine direkte Ansprache.
-   - Keine Fragen, keine rhetorischen Figuren. Keine Ausrufezeichen.
-   - Präsens, Aktiv.
-
-5. AUS DEM TEXT STREICHEN
-   - Marketing-Floskeln: "traumhaft", "einmalig", "Filetstück", "Juwel", "pulsierendes Leben", "grünes Herz", "Wohnen mit Stil", "keine Wünsche offen lässt", "das Beste aus zwei Welten", "hier lässt es sich leben", "zum Wohlfühlen".
-   - Superlative ohne Beleg im Entwurf.
-   - Trivia ohne Relevanz für Kaufinteressenten: Bewohnerzahlen, Altersverteilungen, Öffnungszeiten, Trägernamen, historische Gründungsjahre, Preisstatistiken.
-   - Straßennamen, Hausnummern, PLZ.
-
-6. FORMATIERUNG
-   - Zwischen den 3 Absätzen genau EINE Leerzeile.
-   - Komische Zeilenumbrüche aus Copypaste entfernen.
+2. FORMATIERUNG
+   - Komische Zeilenumbrüche (z. B. aus Copypaste) entfernen, Absätze zu fließendem Text zusammenfügen.
+   - Wenn der Entwurf eine Textwurst ist: an natürlichen inhaltlichen Grenzen Absätze einfügen. Wenn er schon in Absätze gegliedert ist: Absätze BEIBEHALTEN.
+   - Zwischen Absätzen genau EINE Leerzeile.
    - KEIN Markdown (kein **bold**, keine Bullets, keine Überschriften).
 
-7. AUSGABE
-   - Antworte NUR mit dem polierten Text. 3 Absätze. Nichts sonst.
+3. WAS DU ABSOLUT NICHT VERÄNDERST
+   - Inhalte, Landmarks (z. B. "Hellbrunner Schlosspark", "Gaisberg", "Universität Salzburg"), Entfernungen, Linien-Nummern, Geschäftsnamen — alles was der User geschrieben hat, bleibt drin.
+   - Formulierungen, Adjektive, Ton — übernimm die Stimme des Users.
+   - Reihenfolge der Inhalte und Anzahl der Absätze.
+   - Wörter die der User gewählt hat (auch "ruhig", "niveauvoll", "besonders attraktiv" etc. — seine Wahl).
+   - Ansprache-Form — übernimm sie.
+   - Länge: KEINE Kürzung auf bestimmte Wortzahl, KEINE künstliche Erweiterung.
+
+WAS DU AUSNAHMSWEISE STILL ENTFERNST (ohne zu kommentieren):
+   Nur diese HARTEN Verstöße fliegen raus — alles andere bleibt:
+   - Straßenname, Hausnummer, Postleitzahl.
+     Beispiel: Wenn der User "Die Enzingergasse selbst ist eine ruhige Wohnstraße" schreibt, ersetze das durch eine gleichwertige Formulierung ohne Straßennamen: "Die direkte Wohnumgebung ist eine ruhige Wohnstraße". Sinn bleibt, Straße raus.
+
+Wenn der User keine Straße / Hausnummer / PLZ nennt: der Text bleibt exakt wie er ist, abgesehen von Grammatik/Formatierung.
+
+AUSGABE
+Antworte NUR mit dem polierten Text. Keine Einleitung, keine Metakommentare, kein Markdown. Absätze durch je eine Leerzeile getrennt.
 PROMPT;
     }
 

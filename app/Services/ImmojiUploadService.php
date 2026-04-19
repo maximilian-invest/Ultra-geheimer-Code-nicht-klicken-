@@ -555,8 +555,13 @@ class ImmojiUploadService
      */
     public static function mapPropertyToImmojiAreas(array $prop): array
     {
+        // totalArea wird bewusst NICHT mehr an Immoji gesendet — das Feld ist
+        // bei Einzelobjekten redundant (Immoji summiert die Einzelflaechen
+        // selbst) und wir haben in SR-Homes keine UI zur expliziten Pflege.
+        // Bestandsdaten aus alten Exposé-Imports fuehren sonst zu unerwarteten
+        // Werten im Immoji-Inserat (z.B. Klessheimer Allee 74: 166 m² aus
+        // Altbestand, obwohl nie manuell gesetzt).
         $generalAreas = array_filter([
-            'totalArea' => isset($prop['total_area']) ? (float) $prop['total_area'] : null,
             'livingArea' => isset($prop['living_area']) ? (float) $prop['living_area'] : null,
             'realtyArea' => isset($prop['realty_area']) ? (float) $prop['realty_area'] : null,
             'freeArea' => isset($prop['free_area']) ? (float) $prop['free_area'] : null,

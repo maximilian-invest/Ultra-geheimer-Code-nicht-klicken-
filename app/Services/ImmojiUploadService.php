@@ -473,7 +473,10 @@ class ImmojiUploadService
                 'objectSubtype' => self::mapObjectSubtype($prop['object_subtype'] ?? null),
                 'objectNumber' => $prop['ref_id'] ?? null,
                 'constructionType' => self::mapConstructionType($prop['construction_type'] ?? null),
-                'ownershipType' => self::mapOwnershipType($prop['ownership_type'] ?? null),
+                // ownershipType removed — Immoji's current RealtyGeneralInfoInput
+                //   schema rejects it ("Field 'ownershipType' is not defined").
+                //   We still keep ownership_type in our DB; it just no longer
+                //   travels to Immoji until/unless they restore the field.
                 'residentialUnits' => isset($prop['unit_count']) ? (int) $prop['unit_count'] : null,
                 'realtyCondition' => self::mapCondition($prop['realty_condition'] ?? null),
                 'constructionYear' => isset($prop['construction_year']) ? (int) $prop['construction_year'] : null,

@@ -1,7 +1,13 @@
 <script setup>
 import { catBadgeStyle, catLabel } from '@/utils/categoryBadge.js';
-import { ref, inject, onMounted, watch } from "vue";
-import { Search, Users, Pencil, Trash2, Plus, X, ChevronRight, Building, Clock } from "lucide-vue-next";
+import { ref, inject, onMounted, watch, computed } from "vue";
+import { Search, Users, Pencil, Trash2, Plus, X, ChevronRight, Building, Clock, KeyRound, Mail, MapPin, Phone } from "lucide-vue-next";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const API = inject("API");
 const toast = inject("toast");
@@ -403,14 +409,32 @@ async function createOwner() {
     newOwnerSaving.value = false;
 }
 
-// === PORTAL USER ===
-const portalEditing = ref(null); // owner.id being edited
+// === PORTAL USER (Dialog) ===
+const portalDialogOwner = ref(null);
 const portalForm = ref({ password: '', email: '' });
 const portalSaving = ref(false);
-const portalCreating = ref(null); // owner.id being created
+const portalDeleteConfirm = ref(false);
 
-async function createPortalUser(owner) {
-    if (!portalForm.value.password) return;
+const portalDialogMode = computed(() => portalDialogOwner.value?.portal_user ? 'edit' : 'create');
+
+function openPortalDialog(owner) {
+    portalDialogOwner.value = owner;
+    portalDeleteConfirm.value = false;
+    portalForm.value = {
+        password: '',
+        email: owner.portal_user?.email || owner.email || '',
+    };
+}
+
+function closePortalDialog() {
+    portalDialogOwner.value = null;
+    portalDeleteConfirm.value = false;
+    portalForm.value = { password: '', email: '' };
+}
+
+async function createPortalUser() {
+    const owner = portalDialogOwner.value;
+    if (!owner || !portalForm.value.password) return;
     portalSaving.value = true;
     try {
         const r = await fetch(API.value + "&action=create_portal_user", {
@@ -419,13 +443,14 @@ async function createPortalUser(owner) {
         });
         const d = await r.json();
         if (d.error) { toast("Fehler: " + d.error); }
-        else { toast(d.message || "Portalzugang erstellt"); portalCreating.value = null; portalForm.value = { password: '', email: '' }; loadOwners(); }
+        else { toast(d.message || "Portalzugang erstellt"); closePortalDialog(); loadOwners(); }
     } catch (e) { toast("Fehler: " + e.message); }
     portalSaving.value = false;
 }
 
-async function savePortalUser(owner) {
-    if (!owner.portal_user) return;
+async function savePortalUser() {
+    const owner = portalDialogOwner.value;
+    if (!owner?.portal_user) return;
     portalSaving.value = true;
     const payload = { user_id: owner.portal_user.id };
     if (portalForm.value.password) payload.password = portalForm.value.password;
@@ -437,14 +462,15 @@ async function savePortalUser(owner) {
         });
         const d = await r.json();
         if (d.error) { toast("Fehler: " + d.error); }
-        else { toast("Portalzugang aktualisiert"); portalEditing.value = null; portalForm.value = { password: '', email: '' }; loadOwners(); }
+        else { toast("Portalzugang aktualisiert"); closePortalDialog(); loadOwners(); }
     } catch (e) { toast("Fehler: " + e.message); }
     portalSaving.value = false;
 }
 
-async function deletePortalUser(owner) {
-    if (!owner.portal_user) return;
-    if (!confirm("Portalzugang für " + owner.name + " wirklich löschen?")) return;
+async function deletePortalUser() {
+    const owner = portalDialogOwner.value;
+    if (!owner?.portal_user) return;
+    portalSaving.value = true;
     try {
         const r = await fetch(API.value + "&action=delete_portal_user", {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -452,8 +478,9 @@ async function deletePortalUser(owner) {
         });
         const d = await r.json();
         if (d.error) { toast("Fehler: " + d.error); }
-        else { toast("Portalzugang gelöscht"); loadOwners(); }
+        else { toast("Portalzugang gelöscht"); closePortalDialog(); loadOwners(); }
     } catch (e) { toast("Fehler: " + e.message); }
+    portalSaving.value = false;
 }
 </script>
 
@@ -476,12 +503,12 @@ async function deletePortalUser(owner) {
 
         <!-- CONTACTS -->
         <div v-if="adminSubTab === 'contacts'">
-            <div class="flex items-center gap-3 mb-4">
+            <div class="flex items-center gap-2 mb-4">
                 <div class="relative flex-1">
-                    <Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
-                    <input v-model="contactSearch" @keyup.enter="loadContacts()" class="form-input pl-9" placeholder="Kontakt suchen..." />
+                    <Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <Input v-model="contactSearch" @keyup.enter="loadContacts()" class="pl-9" placeholder="Kontakt suchen..." />
                 </div>
-                <button @click="loadContacts()" class="btn btn-outline btn-sm">Suchen</button>
+                <Button variant="outline" size="sm" @click="loadContacts()">Suchen</Button>
             </div>
 
             <div v-if="contactsLoading" class="text-center py-8"><span class="spinner"></span></div>
@@ -866,193 +893,228 @@ async function deletePortalUser(owner) {
         </div>
 
         <!-- OWNERS -->
-        <div v-if="adminSubTab === 'owners'">
-            <!-- Neuen Eigentümer Button -->
-            <div class="flex items-center justify-between mb-4">
-                <span class="text-sm font-semibold">{{ ownersList.length }} Eigentümer</span>
-                <button @click="showNewOwnerForm = !showNewOwnerForm" class="btn btn-sm" style="background:#ee7606;color:white;border:none">
-                    <Plus class="w-3.5 h-3.5" /> Neuer Eigentümer
-                </button>
+        <div v-if="adminSubTab === 'owners'" class="mx-auto max-w-5xl space-y-4">
+            <!-- Header -->
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-semibold">Eigentümer</h3>
+                    <p class="text-xs text-muted-foreground mt-0.5">{{ ownersList.length }} gesamt</p>
+                </div>
+                <Button size="sm" @click="showNewOwnerForm = !showNewOwnerForm" style="background:#ee7606;color:white">
+                    <Plus class="w-4 h-4" /> Neuer Eigentümer
+                </Button>
             </div>
 
-            <!-- Neuen Eigentümer Formular -->
-            <div v-if="showNewOwnerForm" class="card mb-4">
-                <div class="px-5 py-3 border-b border-[var(--border)] flex items-center justify-between" style="background:rgba(238,118,6,0.05)">
-                    <span class="text-xs font-semibold" style="color:#ee7606">Neuen Eigentümer anlegen</span>
-                    <button @click="showNewOwnerForm = false" class="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"><X class="w-4 h-4" /></button>
-                </div>
-                <div class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- New Owner Form -->
+            <Card v-if="showNewOwnerForm">
+                <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-4">
                     <div>
-                        <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">Name *</label>
-                        <input v-model="newOwnerForm.name" class="form-input mt-1" placeholder="Vor- und Nachname" />
+                        <CardTitle class="text-base">Neuen Eigentümer anlegen</CardTitle>
+                        <CardDescription>Alle Felder ausser Name sind optional.</CardDescription>
                     </div>
-                    <div>
-                        <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">E-Mail</label>
-                        <input v-model="newOwnerForm.email" type="email" class="form-input mt-1" placeholder="email@beispiel.at" />
+                    <Button variant="ghost" size="icon-sm" @click="showNewOwnerForm = false"><X class="w-4 h-4" /></Button>
+                </CardHeader>
+                <CardContent class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium">Name <span class="text-red-500">*</span></label>
+                        <Input v-model="newOwnerForm.name" placeholder="Vor- und Nachname" />
                     </div>
-                    <div>
-                        <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">Telefon</label>
-                        <input v-model="newOwnerForm.phone" class="form-input mt-1" placeholder="+43 ..." />
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium">E-Mail</label>
+                        <Input v-model="newOwnerForm.email" type="email" placeholder="email@beispiel.at" />
                     </div>
-                    <div>
-                        <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">Adresse</label>
-                        <input v-model="newOwnerForm.address" class="form-input mt-1" placeholder="Straße Nr." />
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium">Telefon</label>
+                        <Input v-model="newOwnerForm.phone" placeholder="+43 ..." />
                     </div>
-                    <div>
-                        <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">PLZ</label>
-                        <input v-model="newOwnerForm.zip" class="form-input mt-1" placeholder="5020" />
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium">Adresse</label>
+                        <Input v-model="newOwnerForm.address" placeholder="Straße Nr." />
                     </div>
-                    <div>
-                        <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">Ort</label>
-                        <input v-model="newOwnerForm.city" class="form-input mt-1" placeholder="Salzburg" />
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium">PLZ</label>
+                        <Input v-model="newOwnerForm.zip" placeholder="5020" />
                     </div>
-                    <div class="sm:col-span-2">
-                        <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">Notizen</label>
-                        <textarea v-model="newOwnerForm.notes" class="form-input mt-1" rows="2" placeholder="Interne Notizen..."></textarea>
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium">Ort</label>
+                        <Input v-model="newOwnerForm.city" placeholder="Salzburg" />
                     </div>
-                    <div class="sm:col-span-2 flex gap-2 pt-1">
-                        <button @click="showNewOwnerForm = false" class="btn btn-outline btn-sm">Abbrechen</button>
-                        <button @click="createOwner" :disabled="newOwnerSaving || !newOwnerForm.name" class="btn btn-sm" style="background:#ee7606;color:white;border:none">
-                            {{ newOwnerSaving ? 'Wird angelegt...' : 'Anlegen' }}
-                        </button>
+                    <div class="space-y-1.5 sm:col-span-2">
+                        <label class="text-sm font-medium">Notizen</label>
+                        <Textarea v-model="newOwnerForm.notes" rows="2" placeholder="Interne Notizen..." />
                     </div>
-                </div>
-            </div>
+                </CardContent>
+                <CardFooter class="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" @click="showNewOwnerForm = false">Abbrechen</Button>
+                    <Button size="sm" :disabled="newOwnerSaving || !newOwnerForm.name" @click="createOwner" style="background:#ee7606;color:white">
+                        {{ newOwnerSaving ? 'Wird angelegt...' : 'Anlegen' }}
+                    </Button>
+                </CardFooter>
+            </Card>
 
             <div v-if="ownersLoading" class="text-center py-8"><span class="spinner"></span></div>
-            <div v-else-if="!ownersList.length" class="text-center py-8 text-[var(--muted-foreground)] text-sm">Keine Eigentümer vorhanden</div>
-            <div v-else class="space-y-2">
-                <div v-for="owner in ownersList" :key="owner.id" class="card">
-                    <div class="px-6 py-4">
-                        <div class="flex items-center gap-4">
+            <Card v-else-if="!ownersList.length">
+                <CardContent class="py-12 text-center text-sm text-muted-foreground">Keine Eigentümer vorhanden</CardContent>
+            </Card>
+
+            <div v-else class="space-y-3">
+                <Card v-for="owner in ownersList" :key="owner.id">
+                    <CardContent class="p-4 sm:p-6">
+                        <!-- Header Row -->
+                        <div class="flex items-start gap-4">
                             <div class="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0" style="background:rgba(238,118,6,0.1);color:#ee7606">
                                 {{ (owner.name || '?').charAt(0).toUpperCase() }}
                             </div>
                             <div class="flex-1 min-w-0">
-                                <div class="text-sm font-semibold">{{ owner.name }}</div>
-                                <div class="text-xs text-[var(--muted-foreground)]">
-                                    {{ owner.email || '-' }}
-                                    <span v-if="owner.phone"> &middot; {{ owner.phone }}</span>
+                                <div class="text-sm font-semibold truncate">{{ owner.name }}</div>
+                                <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
+                                    <span v-if="owner.email" class="inline-flex items-center gap-1"><Mail class="w-3 h-3" />{{ owner.email }}</span>
+                                    <span v-if="owner.phone" class="inline-flex items-center gap-1"><Phone class="w-3 h-3" />{{ owner.phone }}</span>
+                                    <span v-if="owner.address" class="inline-flex items-center gap-1"><MapPin class="w-3 h-3" />{{ owner.address }}{{ owner.zip ? ', ' + owner.zip : '' }} {{ owner.city || '' }}</span>
                                 </div>
-                                <div v-if="owner.address" class="text-xs text-[var(--muted-foreground)]">{{ owner.address }}{{ owner.zip ? ', ' + owner.zip : '' }} {{ owner.city || '' }}</div>
+                                <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                                    <Badge variant="secondary" class="text-[10px] font-medium">
+                                        {{ owner.property_count }} Objekt{{ owner.property_count !== 1 ? 'e' : '' }}
+                                    </Badge>
+                                    <Badge v-if="owner.portal_user" class="text-[10px] font-medium border-0" style="background:rgba(16,185,129,0.12);color:#059669">
+                                        <KeyRound class="w-3 h-3" /> Portalzugang aktiv
+                                    </Badge>
+                                    <Badge v-else variant="outline" class="text-[10px] font-medium text-muted-foreground">
+                                        Kein Portalzugang
+                                    </Badge>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-2 flex-shrink-0">
-                                <span class="text-xs text-[var(--muted-foreground)]">{{ owner.property_count }} Objekt{{ owner.property_count !== 1 ? 'e' : '' }}</span>
-                                <button @click="startEditOwner(owner)" class="btn btn-outline btn-sm"><Pencil class="w-3.5 h-3.5" /></button>
-                                <button @click="deleteOwner(owner)" class="btn btn-ghost btn-icon btn-sm" style="color:var(--destructive)"><Trash2 class="w-3.5 h-3.5" /></button>
+                            <div class="flex items-center gap-1.5 flex-shrink-0">
+                                <Button variant="outline" size="sm" @click="openPortalDialog(owner)" :disabled="!owner.portal_user && (!owner.email || owner.email.startsWith('placeholder'))">
+                                    <KeyRound class="w-3.5 h-3.5" />
+                                    <span class="hidden sm:inline">Portalzugang</span>
+                                </Button>
+                                <Button variant="outline" size="icon-sm" @click="startEditOwner(owner)"><Pencil class="w-3.5 h-3.5" /></Button>
+                                <Button variant="ghost" size="icon-sm" class="text-destructive hover:text-destructive" @click="deleteOwner(owner)"><Trash2 class="w-3.5 h-3.5" /></Button>
+                            </div>
+                        </div>
+
+                        <!-- Properties -->
+                        <div v-if="owner.properties && owner.properties.length" class="mt-4 pt-4 border-t border-border space-y-1.5">
+                            <div class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-2">Objekte</div>
+                            <div v-for="prop in owner.properties" :key="prop.id" class="flex items-center gap-2 text-xs">
+                                <Badge variant="outline" class="text-[10px] font-medium">{{ prop.ref_id }}</Badge>
+                                <span class="truncate">{{ prop.address }}, {{ prop.city }}</span>
+                                <Badge :variant="prop.status === 'verkauft' ? 'default' : 'outline'" class="text-[10px] font-medium ml-auto">{{ prop.status }}</Badge>
                             </div>
                         </div>
 
                         <!-- Inline Edit Form -->
-                        <div v-if="editingOwner === owner.id" class="mt-4 pt-4 border-t border-[var(--border)]">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">Name *</label>
-                                    <input v-model="editOwnerForm.name" class="form-input mt-1" />
+                        <div v-if="editingOwner === owner.id" class="mt-4 pt-4 border-t border-border">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div class="space-y-1.5">
+                                    <label class="text-sm font-medium">Name <span class="text-red-500">*</span></label>
+                                    <Input v-model="editOwnerForm.name" />
                                 </div>
-                                <div>
-                                    <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">E-Mail</label>
-                                    <input v-model="editOwnerForm.email" type="email" class="form-input mt-1" />
+                                <div class="space-y-1.5">
+                                    <label class="text-sm font-medium">E-Mail</label>
+                                    <Input v-model="editOwnerForm.email" type="email" />
                                 </div>
-                                <div>
-                                    <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">Telefon</label>
-                                    <input v-model="editOwnerForm.phone" class="form-input mt-1" />
+                                <div class="space-y-1.5">
+                                    <label class="text-sm font-medium">Telefon</label>
+                                    <Input v-model="editOwnerForm.phone" />
                                 </div>
-                                <div>
-                                    <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">Adresse</label>
-                                    <input v-model="editOwnerForm.address" class="form-input mt-1" />
+                                <div class="space-y-1.5">
+                                    <label class="text-sm font-medium">Adresse</label>
+                                    <Input v-model="editOwnerForm.address" />
                                 </div>
-                                <div>
-                                    <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">PLZ</label>
-                                    <input v-model="editOwnerForm.zip" class="form-input mt-1" />
+                                <div class="space-y-1.5">
+                                    <label class="text-sm font-medium">PLZ</label>
+                                    <Input v-model="editOwnerForm.zip" />
                                 </div>
-                                <div>
-                                    <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">Ort</label>
-                                    <input v-model="editOwnerForm.city" class="form-input mt-1" />
+                                <div class="space-y-1.5">
+                                    <label class="text-sm font-medium">Ort</label>
+                                    <Input v-model="editOwnerForm.city" />
                                 </div>
-                                <div class="sm:col-span-2">
-                                    <label class="text-[11px] font-semibold text-[var(--muted-foreground)]">Notizen</label>
-                                    <textarea v-model="editOwnerForm.notes" class="form-input mt-1" rows="2"></textarea>
+                                <div class="space-y-1.5 sm:col-span-2">
+                                    <label class="text-sm font-medium">Notizen</label>
+                                    <Textarea v-model="editOwnerForm.notes" rows="2" />
                                 </div>
-                                <div class="sm:col-span-2 flex gap-2 pt-1">
-                                    <button @click="editingOwner = null" class="btn btn-outline btn-sm">Abbrechen</button>
-                                    <button @click="saveEditOwner" :disabled="editOwnerSaving || !editOwnerForm.name" class="btn btn-sm" style="background:#ee7606;color:white;border:none">
+                                <div class="sm:col-span-2 flex justify-end gap-2">
+                                    <Button variant="outline" size="sm" @click="editingOwner = null">Abbrechen</Button>
+                                    <Button size="sm" :disabled="editOwnerSaving || !editOwnerForm.name" @click="saveEditOwner" style="background:#ee7606;color:white">
                                         {{ editOwnerSaving ? 'Speichern...' : 'Speichern' }}
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
 
-                        <!-- Properties -->
-                        <!-- Properties -->
-                        <div v-if="owner.properties && owner.properties.length" class="mt-3 pl-14 space-y-1">
-                            <div v-for="prop in owner.properties" :key="prop.id" class="flex items-center gap-2 text-xs">
-                                <span class="badge badge-muted text-[10px]">{{ prop.ref_id }}</span>
-                                <span>{{ prop.address }}, {{ prop.city }}</span>
-                                <span :class="['badge text-[9px]', prop.status === 'verkauft' ? 'badge-success' : prop.status === 'inserat' ? 'badge-info' : 'badge-muted']">{{ prop.status }}</span>
-                            </div>
-                        </div>
+        <!-- Portalzugang Dialog -->
+        <Dialog :open="!!portalDialogOwner" @update:open="(v) => { if (!v) closePortalDialog() }">
+            <DialogContent class="max-w-md">
+                <DialogHeader>
+                    <DialogTitle class="flex items-center gap-2">
+                        <KeyRound class="w-4 h-4" style="color:#ee7606" />
+                        Portalzugang {{ portalDialogMode === 'edit' ? 'verwalten' : 'erstellen' }}
+                    </DialogTitle>
+                    <DialogDescription>
+                        <template v-if="portalDialogOwner">
+                            <span class="font-medium text-foreground">{{ portalDialogOwner.name }}</span>
+                            <span v-if="portalDialogMode === 'edit'"> hat aktuell Zugang zum Kundenportal.</span>
+                            <span v-else> bekommt einen neuen Portalzugang.</span>
+                        </template>
+                    </DialogDescription>
+                </DialogHeader>
 
-                        <!-- Portal Access -->
-                        <div class="mt-3 pl-14">
-                            <div v-if="owner.portal_user" class="flex items-center gap-2 flex-wrap">
-                                <span class="text-[10px] px-2 py-0.5 rounded-full font-medium" style="background:rgba(16,185,129,0.12);color:#10b981">🔑 Portalzugang aktiv</span>
-                                <span class="text-[10px] text-[var(--muted-foreground)]">{{ owner.portal_user.email }}</span>
-                                <button @click="portalEditing = (portalEditing === owner.id ? null : owner.id); portalForm = { password: '', email: owner.portal_user.email }"
-                                    class="text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors"
-                                    :style="portalEditing === owner.id ? 'background:#ee7606;color:white' : 'background:var(--muted);color:var(--muted-foreground)'">
-                                    {{ portalEditing === owner.id ? 'Schließen' : 'Bearbeiten' }}
-                                </button>
-                            </div>
-                            <div v-else class="flex items-center gap-2 flex-wrap">
-                                <span class="text-[10px] px-2 py-0.5 rounded-full font-medium" style="background:var(--muted);color:var(--muted-foreground)">Kein Portalzugang</span>
-                                <button v-if="owner.email && !owner.email.startsWith('placeholder')"
-                                    @click="portalCreating = (portalCreating === owner.id ? null : owner.id); portalForm = { password: '', email: '' }"
-                                    class="text-[10px] px-1.5 py-0.5 rounded font-medium" style="background:#ee7606;color:white">
-                                    + Zugang erstellen
-                                </button>
-                                <span v-else class="text-[10px] text-[var(--muted-foreground)] italic">E-Mail benötigt</span>
-                            </div>
+                <div v-if="portalDialogOwner" class="space-y-4 py-2">
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium">Login E-Mail</label>
+                        <Input v-model="portalForm.email" type="email" :disabled="portalDialogMode === 'create'" placeholder="login@beispiel.at" />
+                        <p v-if="portalDialogMode === 'create'" class="text-xs text-muted-foreground">Die E-Mail wird vom Eigentümer übernommen und kann nach dem Anlegen geändert werden.</p>
+                    </div>
 
-                            <!-- Create Portal Form -->
-                            <div v-if="portalCreating === owner.id" class="mt-2 p-3 rounded-xl space-y-2" style="background:rgba(238,118,6,0.05);border:1px solid rgba(238,118,6,0.2)">
-                                <div class="text-[11px] font-semibold" style="color:#ee7606">Portalzugang erstellen für {{ owner.email }}</div>
-                                <div>
-                                    <label class="text-[10px] text-[var(--muted-foreground)]">Initiales Passwort</label>
-                                    <input v-model="portalForm.password" type="text" class="form-input mt-0.5 text-sm" placeholder="Passwort vergeben" />
-                                </div>
-                                <div class="flex gap-2">
-                                    <button @click="portalCreating = null" class="btn btn-outline btn-sm text-xs">Abbrechen</button>
-                                    <button @click="createPortalUser(owner)" :disabled="portalSaving || !portalForm.password" class="btn btn-sm text-xs" style="background:#ee7606;color:white;border:none">
-                                        {{ portalSaving ? 'Erstellen...' : 'Erstellen' }}
-                                    </button>
-                                </div>
-                            </div>
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium">
+                            {{ portalDialogMode === 'edit' ? 'Neues Passwort' : 'Initiales Passwort' }}
+                        </label>
+                        <Input v-model="portalForm.password" type="text" :placeholder="portalDialogMode === 'edit' ? 'Leer lassen = unverändert' : 'Mindestens 8 Zeichen'" />
+                        <p v-if="portalDialogMode === 'edit'" class="text-xs text-muted-foreground">Leer lassen, wenn das Passwort unverändert bleiben soll.</p>
+                    </div>
 
-                            <!-- Edit Portal Form -->
-                            <div v-if="portalEditing === owner.id && owner.portal_user" class="mt-2 p-3 rounded-xl space-y-2" style="background:var(--muted);border:1px solid var(--border)">
-                                <div class="text-[11px] font-semibold text-[var(--muted-foreground)]">Portalzugang bearbeiten</div>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    <div>
-                                        <label class="text-[10px] text-[var(--muted-foreground)]">Login-Email</label>
-                                        <input v-model="portalForm.email" type="email" class="form-input mt-0.5 text-sm" />
-                                    </div>
-                                    <div>
-                                        <label class="text-[10px] text-[var(--muted-foreground)]">Neues Passwort (leer = unverändert)</label>
-                                        <input v-model="portalForm.password" type="text" class="form-input mt-0.5 text-sm" placeholder="Neues Passwort..." />
-                                    </div>
-                                </div>
-                                <div class="flex gap-2 items-center">
-                                    <button @click="savePortalUser(owner)" :disabled="portalSaving" class="btn btn-sm text-xs" style="background:#ee7606;color:white;border:none">
-                                        {{ portalSaving ? 'Speichern...' : 'Speichern' }}
-                                    </button>
-                                    <button @click="deletePortalUser(owner)" class="btn btn-ghost btn-sm text-xs" style="color:#ef4444">Zugang löschen</button>
-                                </div>
-                            </div>
+                    <div v-if="portalDialogMode === 'edit' && portalDeleteConfirm" class="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                        <p class="font-medium mb-2">Portalzugang wirklich löschen?</p>
+                        <p>Der Eigentümer kann sich danach nicht mehr einloggen. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+                        <div class="flex gap-2 mt-3">
+                            <Button variant="outline" size="sm" @click="portalDeleteConfirm = false">Abbrechen</Button>
+                            <Button variant="destructive" size="sm" :disabled="portalSaving" @click="deletePortalUser">
+                                {{ portalSaving ? 'Lösche...' : 'Ja, löschen' }}
+                            </Button>
                         </div>
                     </div>
                 </div>
-            </div>
 
-    </div>
+                <DialogFooter class="flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
+                    <div>
+                        <Button v-if="portalDialogMode === 'edit' && !portalDeleteConfirm"
+                            variant="ghost" size="sm" class="text-destructive hover:text-destructive hover:bg-red-50"
+                            @click="portalDeleteConfirm = true">
+                            <Trash2 class="w-3.5 h-3.5" /> Zugang löschen
+                        </Button>
+                    </div>
+                    <div class="flex gap-2">
+                        <Button variant="outline" size="sm" @click="closePortalDialog">Abbrechen</Button>
+                        <Button v-if="portalDialogMode === 'create'"
+                            size="sm" :disabled="portalSaving || !portalForm.password"
+                            @click="createPortalUser" style="background:#ee7606;color:white">
+                            {{ portalSaving ? 'Erstellen...' : 'Zugang erstellen' }}
+                        </Button>
+                        <Button v-else
+                            size="sm" :disabled="portalSaving"
+                            @click="savePortalUser" style="background:#ee7606;color:white">
+                            {{ portalSaving ? 'Speichern...' : 'Änderungen speichern' }}
+                        </Button>
+                    </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
 </template>

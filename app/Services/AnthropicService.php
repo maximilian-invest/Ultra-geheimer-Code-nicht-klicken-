@@ -96,7 +96,11 @@ class AnthropicService
                     $parts[] = $block['text'];
                 }
             }
-            $text = trim(implode("\n\n", $parts));
+            // Citation-annotated text responses are split into many text blocks
+            // (one per cited fragment). Join without separator — the fragments
+            // already contain any intended whitespace — otherwise you get weird
+            // blank lines between every few words.
+            $text = trim(implode('', $parts));
             return $text !== '' ? $text : null;
         } catch (\Exception $e) {
             Log::error('Anthropic API web-search exception: ' . $e->getMessage());

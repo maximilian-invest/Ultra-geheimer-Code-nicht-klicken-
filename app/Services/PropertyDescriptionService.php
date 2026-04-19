@@ -118,7 +118,137 @@ class PropertyDescriptionService
             return ['success' => false, 'error' => 'KI-Antwort leer. Bitte erneut versuchen.'];
         }
 
-        return ['success' => true, 'text' => trim($text)];
+        $text = $this->sanitizeLageOutput($text, $address, $city);
+        if ($text === '') {
+            return ['success' => false, 'error' => 'KI-Antwort konnte nicht bereinigt werden. Bitte erneut versuchen.'];
+        }
+
+        return ['success' => true, 'text' => $text];
+    }
+
+    /**
+     * Post-process the model's Lage output:
+     *   - strip any meta-commentary Claude prepended (research chatter,
+     *     "Hier ist die Beschreibung", markdown separators, etc.)
+     *   - strip any street name mentions if the model leaks the address
+     *     despite the prompt rules
+     *   - collapse accidental runs of blank lines to a single blank line
+     *   - strip markdown bold/italic/bullets that aren't wanted in plain text
+     */
+    private function sanitizeLageOutput(string $text, string $address, string $city): string
+    {
+        // 1) Drop everything up to and including the last horizontal-rule
+        //    separator (e.g. "---\n") — Claude sometimes writes its thinking,
+        //    then a separator, then the real answer.
+        if (preg_match('/.*(?:^|\n)\s*-{3,}\s*(?:\n|$)/s', $text, $m, PREG_OFFSET_CAPTURE)) {
+            $text = substr($text, $m[0][1] + strlen($m[0][0]));
+        }
+
+        // 2) Normalise Windows line endings and trim.
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+        $text = trim($text);
+
+        // 3) Strip leading meta-commentary paragraphs. Keep cutting whole
+        //    paragraphs off the front until one looks like real prose.
+        $metaPatterns = [
+            '/^\s*I[\'’]ll\s/i',
+            '/^\s*I\s+(?:will|\'ll|am\s+going\s+to|now|already)\b/i',
+            '/^\s*Let\s+me\b/i',
+            '/^\s*Good\s*[—–-]/i',
+            '/^\s*Based\s+on\b/i',
+            '/^\s*Here\s+is\b/i',
+            '/^\s*Hier\s+ist\s+die\b/i',
+            '/^\s*Ich\s+(?:werde|habe\s+(?:jetzt|nun|bereits)|recherchiere|suche)\b/i',
+            '/^\s*Basierend\s+auf\b/i',
+            '/^\s*(?:Zusammenfassung|Übersicht|Recherche)\s*[:\-]/i',
+        ];
+
+        $paragraphs = preg_split('/\n\s*\n+/', $text);
+        while (!empty($paragraphs)) {
+            $first = ltrim($paragraphs[0]);
+            if ($first === '') {
+                array_shift($paragraphs);
+                continue;
+            }
+            $looksMeta = false;
+            foreach ($metaPatterns as $pat) {
+                if (preg_match($pat, $first)) { $looksMeta = true; break; }
+            }
+            if ($looksMeta) {
+                array_shift($paragraphs);
+                continue;
+            }
+            break;
+        }
+        $text = implode("\n\n", $paragraphs);
+
+        // 4) Strip markdown emphasis / bullets — we want plain prose.
+        $text = preg_replace('/\*\*([^*]+)\*\*/', '$1', $text);   // **bold**
+        $text = preg_replace('/(?<!\*)\*([^*]+)\*(?!\*)/', '$1', $text); // *italic*
+        $text = preg_replace('/^\s*[-•]\s+/m', '', $text);        // leading bullets
+
+        // 5) Strip street names: extract the street part from the address
+        //    and remove any occurrence from the output. Best-effort: the
+        //    prompt is the primary defence; this is a safety net.
+        $streetToken = $this->extractStreetToken($address);
+        if ($streetToken !== '') {
+            // Word-boundary, case-insensitive removal. Also strip trailing
+            // house numbers like "Weiherweg 2" → empty.
+            $text = preg_replace(
+                '/\b' . preg_quote($streetToken, '/') . '\b(?:\s+\d+\w?)?/iu',
+                '',
+                $text,
+            );
+        }
+
+        // 6) Collapse runs of blank lines to exactly one; trim trailing
+        //    whitespace on each line; drop empty paragraphs created by
+        //    the street strip.
+        $lines = explode("\n", $text);
+        $lines = array_map(fn ($l) => rtrim($l), $lines);
+        $cleaned = [];
+        $blankStreak = 0;
+        foreach ($lines as $line) {
+            if (trim($line) === '') {
+                $blankStreak++;
+                if ($blankStreak === 1) $cleaned[] = '';
+            } else {
+                $blankStreak = 0;
+                $cleaned[] = $line;
+            }
+        }
+        $text = trim(implode("\n", $cleaned));
+
+        return $text;
+    }
+
+    /**
+     * Take the raw address string and return a single-word street token
+     * useful for scrubbing from the output. Examples:
+     *   "Enzingergasse 5" → "Enzingergasse"
+     *   "Weiherweg 2, Grödig" → "Weiherweg"
+     *   "Am Dorfplatz 10" → "Dorfplatz"
+     *   "" → ""
+     */
+    private function extractStreetToken(string $address): string
+    {
+        $address = trim($address);
+        if ($address === '') return '';
+
+        // Take only the part before the first comma or house number.
+        $parts = preg_split('/,/', $address, 2);
+        $streetPart = trim($parts[0] ?? '');
+        // Strip trailing house numbers (digits + optional letter suffix).
+        $streetPart = preg_replace('/\s+\d+\w?$/u', '', $streetPart);
+        $streetPart = trim($streetPart);
+        if ($streetPart === '') return '';
+
+        // Prefer the last word — compound street names like "Am Dorfplatz"
+        // still scrub via the distinctive "Dorfplatz" token.
+        $words = preg_split('/\s+/', $streetPart);
+        $last = end($words) ?: '';
+        // Safety: require at least 5 chars so we don't wipe common words.
+        return (mb_strlen($last) >= 5) ? $last : '';
     }
 
     // ─── Prompts ───────────────────────────────────────────────────────
@@ -243,9 +373,15 @@ REGELN — NIEMALS BRECHEN:
    - Kurze Sätze für Punch, längere für Details. Wechsle den Rhythmus.
    - Österreichisches Deutsch (ÖPNV-Namen korrekt, Salzburg statt Salzburg City etc.).
 
-9. OUTPUT
-   - NUR den Beschreibungstext. Keine Überschrift "Lagebeschreibung:", keine Aufzählungs-Listen, keine Quellenangaben, keine Metakommentare wie "Ich habe recherchiert..." oder "Basierend auf meiner Suche".
-   - Mehrere Absätze, durch Leerzeilen getrennt.
+9. OUTPUT — ABSOLUT STRIKT
+   - STARTE UNMITTELBAR mit dem ersten Satz des Beschreibungstexts. Keine Einleitung, keine "Ich habe recherchiert", "Hier ist die Lagebeschreibung", "Basierend auf meiner Suche", "I'll research", "Let me now search", "Good — I now know" oder ähnliche Prozess-Kommentare. Auch nicht auf Englisch. Auch nicht in Klammern. Auch nicht in Zwischen-Absätzen.
+   - KEIN horizontaler Trenner ("---", "===", Markdown-Separator).
+   - KEINE Überschrift "Lagebeschreibung:" oder ähnliches.
+   - KEINE Quellenangaben, Fußnoten, URLs.
+   - KEINE Markdown-Syntax (** ** für bold, - für bullets etc.).
+   - KEINE Öffnungszeiten, Betriebszeiten, Verwaltungsdetails. Nobody cares about "Kindergarten ist von 6:30-20:00 geöffnet". Stattdessen: "Kindergarten im Ortsteil" — Punkt.
+   - KEINE Straßennamen, NICHT EINMAL als Suchterm in einem Meta-Kommentar. Der Text darf nach Fertigstellung KEIN Wort enthalten, das Teil einer Adresse ist.
+   - Absätze: durch EINE Leerzeile trennen, nicht mehr.
 PROMPT;
     }
 

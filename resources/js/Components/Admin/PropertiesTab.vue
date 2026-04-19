@@ -147,18 +147,19 @@ async function deleteProperty(prop) {
         deleteLoading.value = true;
         try {
             const r = await fetch(API.value + '&action=delete_property', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify({ property_id: prop.id })
             });
-            const d = await r.json();
+            const d = await r.json().catch(() => ({ error: 'Ungueltige Serverantwort (HTTP ' + r.status + ')' }));
             if (d.confirm_required) {
                 deleteConfirm.value = { id: prop.id, ...d };
-            }
-            if (d.success && d.set_inaktiv) {
+            } else if (d.success && d.set_inaktiv) {
                 toast(d.message);
                 deleteConfirm.value = null;
                 window.location.reload();
                 return;
+            } else {
+                toast('Fehler: ' + (d.error || d.message || 'Loeschen nicht moeglich (HTTP ' + r.status + ')'));
             }
         } catch (e) { toast('Fehler: ' + e.message); }
         deleteLoading.value = false;
@@ -168,16 +169,16 @@ async function deleteProperty(prop) {
     deleteLoading.value = true;
     try {
         const r = await fetch(API.value + '&action=delete_property', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ property_id: prop.id, confirm: true })
         });
-        const d = await r.json();
+        const d = await r.json().catch(() => ({ error: 'Ungueltige Serverantwort (HTTP ' + r.status + ')' }));
         if (d.success) {
             toast(d.message);
             deleteConfirm.value = null;
             window.location.reload();
         } else {
-            toast('Fehler: ' + (d.error || 'Unbekannt'));
+            toast('Fehler: ' + (d.error || d.message || 'Unbekannt'));
         }
     } catch (e) { toast('Fehler: ' + e.message); }
     deleteLoading.value = false;
@@ -271,6 +272,13 @@ function formatPrice(price, isNewbuild) {
     if (!price) return '\u2013';
     const formatted = Number(price).toLocaleString('de-DE');
     return (isNewbuild ? 'ab \u20ac ' : '\u20ac ') + formatted;
+}
+
+function formatCreatedAt(iso) {
+    if (!iso) return '\u2013';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '\u2013';
+    return d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
 function formatPriceMobile(price, isNewbuild) {
@@ -1828,7 +1836,7 @@ async function toggleWebsiteDownload(f) {
             <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Ort</TableHead>
             <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Typ</TableHead>
             <TableHead class="text-[11px] uppercase tracking-wider font-medium text-right" style="color:hsl(240 3.8% 46.1%)">Kaufpreis</TableHead>
-            <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Fläche</TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Erstellt</TableHead>
             <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Portale</TableHead>
             <TableHead class="w-[20px]"></TableHead>
           </TableRow>
@@ -1849,7 +1857,7 @@ async function toggleWebsiteDownload(f) {
               <TableCell class="text-[13px]" style="color:hsl(240 3.8% 46.1%)">{{ prop.city }}</TableCell>
               <TableCell class="text-[13px]" style="color:hsl(240 3.8% 46.1%)">{{ getCategoryLabel(prop.property_category) }}</TableCell>
               <TableCell class="text-right text-[13px] font-semibold tabular-nums">{{ formatPrice(prop.purchase_price || prop.price, prop.property_category === 'newbuild') }}</TableCell>
-              <TableCell class="text-[13px] tabular-nums" style="color:hsl(240 3.8% 46.1%)">{{ prop.size_m2 ? prop.size_m2 + ' m²' : '–' }}</TableCell>
+              <TableCell class="text-[13px] tabular-nums" style="color:hsl(240 3.8% 46.1%)">{{ formatCreatedAt(prop.created_at) }}</TableCell>
               <TableCell>
                 <div class="flex gap-0.5 items-center">
                   <template v-for="(icon, i) in getPortalIcons(prop).slice(0, 3)" :key="i">

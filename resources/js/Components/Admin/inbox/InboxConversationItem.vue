@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Trash2, Reply } from "lucide-vue-next";
+import { CheckCircle, Trash2, Reply, Paperclip } from "lucide-vue-next";
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -95,6 +95,27 @@ const subject = computed(() => {
 
 const refId = computed(() => props.item.ref_id || "");
 const isUnmatched = computed(() => !props.item.property_id && !refId.value);
+
+// Anhang-Anzeige: Paperclip-Icon im Header bei gesendeten/empfangenen Mails
+// mit Anhang. Tooltip listet die Dateinamen aus attachment_names (CSV).
+const attachmentNames = computed(() => {
+  const raw = props.item.attachment_names;
+  if (!raw) return [];
+  const names = String(raw).split(",").map(n => n.trim()).filter(Boolean);
+  return names;
+});
+const hasAttachment = computed(() => {
+  return !!props.item.has_attachment || attachmentNames.value.length > 0;
+});
+const attachmentCount = computed(() => {
+  const n = Number(props.item.attachment_count);
+  if (n > 0) return n;
+  return attachmentNames.value.length;
+});
+const attachmentTooltip = computed(() => {
+  if (attachmentNames.value.length) return "Anhänge: " + attachmentNames.value.join(", ");
+  return "Hat Anhang";
+});
 
 const sourcePlatform = computed(() => {
   // From conversations table
@@ -235,6 +256,10 @@ function getAvatarColor(name) {
             <Reply v-if="hasBeenReplied" class="w-3.5 h-3.5 text-blue-500 flex-shrink-0 -scale-x-100" title="Beantwortet" />
           </div>
           <div class="flex items-center gap-1 flex-shrink-0">
+            <span v-if="hasAttachment" class="inline-flex items-center gap-0.5 text-muted-foreground" :title="attachmentTooltip">
+              <Paperclip class="w-3 h-3" />
+              <span v-if="attachmentCount > 1" class="text-[10px] tabular-nums">{{ attachmentCount }}</span>
+            </span>
             <span class="text-[10px] text-muted-foreground whitespace-nowrap">{{ timestamp }}</span>
           </div>
         </div>

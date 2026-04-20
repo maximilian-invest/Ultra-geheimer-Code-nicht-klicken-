@@ -166,7 +166,7 @@ const form = reactive({
   address: "", latitude: null, longitude: null, city: "", zip: "",
   object_type: "Eigentumswohnung",
   property_category: "", object_subtype: "", marketing_type: "kauf",
-  status: "auftrag", // mapped to realty_status server-side
+  status: "aktiv", // mapped to realty_status server-side
   purchase_price: null, price_per_m2: null, parking_price: null,
   rental_price: null, rent_warm: null, rent_deposit: null,
   operating_costs: null, maintenance_reserves: null,
@@ -892,11 +892,9 @@ defineExpose({ save, discard });
             <Select v-model="form.status">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="auftrag">Auftrag</SelectItem>
                 <SelectItem value="aktiv">Aktiv</SelectItem>
-                <SelectItem value="verkauft">Verkauft</SelectItem>
-                <SelectItem value="reserviert">Reserviert</SelectItem>
                 <SelectItem value="inaktiv">Inaktiv</SelectItem>
+                <SelectItem value="verkauft">Verkauft</SelectItem>
               </SelectContent>
             </Select>
           </div>

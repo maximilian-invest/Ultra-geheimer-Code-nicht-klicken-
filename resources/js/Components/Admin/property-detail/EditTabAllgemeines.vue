@@ -33,11 +33,9 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           <Select v-model="form.status">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="auftrag">Auftrag</SelectItem>
               <SelectItem value="aktiv">Aktiv</SelectItem>
-              <SelectItem value="verkauft">Verkauft</SelectItem>
-              <SelectItem value="reserviert">Reserviert</SelectItem>
               <SelectItem value="inaktiv">Inaktiv</SelectItem>
+              <SelectItem value="verkauft">Verkauft</SelectItem>
             </SelectContent>
           </Select>
         </div>

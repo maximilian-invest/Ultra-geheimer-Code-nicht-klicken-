@@ -261,8 +261,9 @@ const propertyLabel = computed(() => {
       />
       <div class="flex items-center gap-1.5 px-4 py-2 bg-zinc-50/80 border-t border-zinc-100">
         <!-- Left: tools -->
-        <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1" @click="fileInputRef?.click()">
+        <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1" title="Datei anhaengen" @click="fileInputRef?.click()">
           <Paperclip class="h-3 w-3" />
+          Datei
         </Button>
         <input ref="fileInputRef" type="file" multiple class="hidden" @change="emit('addAttachments', $event)" />
 

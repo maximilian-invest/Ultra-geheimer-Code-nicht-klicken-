@@ -69,6 +69,17 @@ function isNoReplyFrom(email) {
 }
 const displayName = computed(() => {
   const item = props.item;
+
+  // Im Gesendet-Ordner ist die Eigen-Absender-Info (Makler) uninteressant —
+  // der User will sehen WEM er geschrieben hat, nicht sich selbst. Wir
+  // zeigen also den Empfaenger: stakeholder > to-Name aus attachment_names
+  // Metadaten > to_email > Fallback. ConversationService setzt stakeholder
+  // fuer outbound-Mails bereits auf den Kundennamen.
+  if (props.subtab === 'gesendet') {
+    const toEmail = item.to_email || item.contact_email || '';
+    return item.stakeholder || item.to_name || toEmail || 'Unbekannt';
+  }
+
   const from = item.from_email || "";
   if (isNoReplyFrom(from)) {
     return item.stakeholder || item.from_name || from || "Unbekannt";

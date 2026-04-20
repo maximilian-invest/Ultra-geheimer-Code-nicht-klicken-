@@ -1893,8 +1893,13 @@ async function toggleWebsiteDownload(f) {
                 </div>
               </TableCell>
               <TableCell>
-                <span class="font-semibold text-[13px]">{{ prop.project_name || prop.address }}</span>
-                <span v-if="prop.property_category === 'newbuild' && prop.unit_count" class="text-[10px] ml-1" style="color:hsl(240 3.8% 46.1%)">· {{ prop.unit_count }} Einh.</span>
+                <div class="flex flex-col leading-tight">
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-semibold text-[13px]">{{ prop.project_name || prop.address }}</span>
+                    <span v-if="prop.property_category === 'newbuild' && prop.unit_count" class="text-[10px]" style="color:hsl(240 3.8% 46.1%)">· {{ prop.unit_count }} Einh.</span>
+                  </div>
+                  <span v-if="prop.ref_id" class="text-[10px] font-mono mt-0.5" style="color:hsl(240 3.8% 46.1%)">{{ prop.ref_id }}</span>
+                </div>
               </TableCell>
               <TableCell class="text-[13px]" style="color:hsl(240 3.8% 46.1%)">{{ prop.city }}</TableCell>
               <TableCell class="text-[13px]" style="color:hsl(240 3.8% 46.1%)">{{ getCategoryLabel(prop.property_category) }}</TableCell>
@@ -1951,6 +1956,7 @@ async function toggleWebsiteDownload(f) {
           </div>
           <div class="p-3">
             <div class="text-[13px] font-semibold">{{ prop.project_name || prop.address }}</div>
+            <div v-if="prop.ref_id" class="text-[10px] font-mono mt-0.5" style="color:hsl(240 3.8% 46.1%)">{{ prop.ref_id }}</div>
             <div class="text-[11px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">
               {{ prop.city }}
               <template v-if="prop.property_category === 'newbuild' && prop.unit_count"> · {{ prop.unit_count }} Einheiten</template>
@@ -1974,6 +1980,7 @@ async function toggleWebsiteDownload(f) {
           </div>
           <div class="flex-1 min-w-0">
             <div class="text-[13px] font-semibold truncate">{{ prop.project_name || prop.address }}</div>
+            <div v-if="prop.ref_id" class="text-[10px] font-mono truncate" style="color:hsl(240 3.8% 46.1%)">{{ prop.ref_id }}</div>
             <div class="text-[11px] truncate" style="color:hsl(240 3.8% 46.1%)">{{ prop.city }} · {{ getCategoryLabel(prop.property_category) }}<template v-if="prop.size_m2"> · {{ prop.size_m2 }} m²</template></div>
             <div class="flex gap-0.5 mt-1">
               <template v-for="(icon, i) in getPortalIcons(prop).slice(0, 3)" :key="i">

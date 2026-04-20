@@ -19,14 +19,26 @@ class DashboardController extends Controller
         // Stats for sidebar (broker-scoped)
         $brokerId = \Auth::id();
         $userType = \Auth::user()->user_type ?? 'makler';
-        // Assistenz sees ALL properties, admin/makler see only their own
-        $scopeAll = in_array($userType, ['assistenz']);
+        // Office-Rollen (Assistenz + Backoffice) sehen ALLE Properties.
+        // Admin/Makler sehen nur ihre eigenen (broker_id = user id).
+        $scopeAll = in_array($userType, ['assistenz', 'backoffice']);
         $brokerPropertyIds = ($brokerId && !$scopeAll)
             ? Property::where('broker_id', $brokerId)->pluck('id')->toArray()
             : Property::pluck('id')->toArray();
 
+        // Fuer das Sidebar-Badge "Objekte" zeigen wir die Anzahl der
+        // AKTIVEN eigenen Objekte (ohne inaktiv/verkauft, ohne Child-Units).
+        // Das spiegelt die Standardansicht unter /objekte wider und vermeidet
+        // Verwirrung ('125' im Badge, aber nur 42 in der Objekte-Liste).
+        $propertiesBadgeQuery = Property::query()
+            ->whereNull('parent_id')
+            ->whereNotIn('realty_status', ['inaktiv', 'verkauft']);
+        if ($brokerId && !$scopeAll) {
+            $propertiesBadgeQuery->where('broker_id', $brokerId);
+        }
+
         $stats = [
-            'properties' => count($brokerPropertyIds),
+            'properties' => $propertiesBadgeQuery->count(),
             'emails' => PortalEmail::whereIn('property_id', $brokerPropertyIds)->count(),
             'activities' => Activity::whereIn('property_id', $brokerPropertyIds)->count(),
             'new_24h' => PortalEmail::where('direction', 'inbound')

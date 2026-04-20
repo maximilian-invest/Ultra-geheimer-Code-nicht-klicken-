@@ -1879,7 +1879,7 @@ async function toggleWebsiteDownload(f) {
           </template>
         </TableBody>
       </Table>
-      <div class="px-4 py-2 text-[11px]" style="color:hsl(240 3.8% 46.1%);border-top:1px solid hsl(240 5.9% 90%)">{{ allFilteredProperties.length }} Objekte</div>
+      <div class="px-4 py-2 text-[11px]" style="color:hsl(240 3.8% 46.1%);border-top:1px solid hsl(240 5.9% 90%)">{{ filteredProperties.length }} Objekte</div>
     </div>
 
     <!-- CARD VIEW (Desktop) -->

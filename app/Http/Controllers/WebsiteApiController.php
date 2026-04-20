@@ -326,6 +326,28 @@ class WebsiteApiController extends Controller
         $p->location_description = $p->location_description ?? null;
         $p->equipment_description = $p->equipment_description ?? null;
 
+        // Broker-Card-Daten fuer die Objektseite auf dem Website-Frontend.
+        // Prioritaet: broker_name_override (manuelle Bezeichnung) > User-Eintrag.
+        $p->broker_name = null;
+        $p->broker_title = null;
+        $p->broker_email = null;
+        $p->broker_phone = null;
+        $p->broker_image = null;
+        if (!empty($p->broker_name_override)) {
+            $p->broker_name = $p->broker_name_override;
+            $p->broker_title = 'Immobilienmakler/in';
+        } elseif (!empty($p->broker_id)) {
+            $broker = DB::table('users')->where('id', $p->broker_id)
+                ->first(['name', 'email', 'phone', 'signature_title', 'signature_phone', 'profile_image']);
+            if ($broker) {
+                $p->broker_name = $broker->name;
+                $p->broker_title = $broker->signature_title ?: 'Immobilienmakler/in';
+                $p->broker_email = $broker->email;
+                $p->broker_phone = $broker->signature_phone ?: $broker->phone;
+                $p->broker_image = $broker->profile_image ? url('/storage/' . $broker->profile_image) : null;
+            }
+        }
+
         // Features array from boolean fields
         $features = [];
         if (!empty($p->has_garden)) $features[] = 'Garten';

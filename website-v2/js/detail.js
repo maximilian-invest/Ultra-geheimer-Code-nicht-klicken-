@@ -28,6 +28,40 @@
   const priceLabelEl = document.getElementById('prop-price-label');
   if (priceLabelEl && isRental) priceLabelEl.textContent = 'Mietpreis';
 
+  /* ─── Makler-Card dynamisch je Objekt ─── */
+  const brokerName = p.broker_name || 'SR-Homes';
+  const brokerTitle = p.broker_title || 'Immobilienmakler/in';
+  const brokerEmail = p.broker_email || '';
+  const brokerPhone = p.broker_phone || '';
+  const brokerImage = p.broker_image || '';
+  const initials = brokerName.split(/\s+/).filter(Boolean).map(w => w[0]).join('').substring(0, 2).toUpperCase();
+
+  const nameEl = document.getElementById('broker-name');
+  const titleEl = document.getElementById('broker-title');
+  const emailEl = document.getElementById('broker-email');
+  const phoneEl = document.getElementById('broker-phone');
+  const emailRow = document.getElementById('broker-email-row');
+  const phoneRow = document.getElementById('broker-phone-row');
+  const avatarEl = document.getElementById('broker-avatar');
+
+  if (nameEl) nameEl.textContent = brokerName;
+  if (titleEl) titleEl.textContent = brokerTitle;
+  if (emailEl) {
+    emailEl.textContent = brokerEmail;
+    if (emailRow) emailRow.style.display = brokerEmail ? '' : 'none';
+  }
+  if (phoneEl) {
+    phoneEl.textContent = brokerPhone;
+    if (phoneRow) phoneRow.style.display = brokerPhone ? '' : 'none';
+  }
+  if (avatarEl) {
+    if (brokerImage) {
+      avatarEl.innerHTML = `<img src="${esc(brokerImage)}" alt="${esc(brokerName)}" class="w-full h-full object-cover" />`;
+    } else {
+      avatarEl.textContent = initials || 'SR';
+    }
+  }
+
   /* ─── Betriebskosten: Gesamtsumme in der Sidebar + Aufschluesselung unten ─── */
   const costItems = [
     { key: 'operating_costs',       label: 'Betriebskosten' },

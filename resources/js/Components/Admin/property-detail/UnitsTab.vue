@@ -32,6 +32,60 @@ const unitSearch = ref("");
 const expandedUnit = ref(null);
 const openGroups = ref({});
 
+// ─── Drag & Drop: Einheiten zwischen Stockwerken verschieben ───
+const draggedUnit = ref(null);
+const dragOverFloor = ref(null);
+
+function onUnitDragStart(unit, e) {
+  draggedUnit.value = unit;
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = "move";
+    try { e.dataTransfer.setData("text/plain", String(unit.id || unitKey(unit))); } catch {}
+  }
+}
+
+function onUnitDragEnd() {
+  draggedUnit.value = null;
+  dragOverFloor.value = null;
+}
+
+function onGroupDragOver(group, e) {
+  if (!draggedUnit.value) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+  if (dragOverFloor.value !== group.floor) {
+    dragOverFloor.value = group.floor;
+    if (!isGroupOpen(group.floor)) openGroups.value[group.floor] = true;
+  }
+}
+
+function onGroupDragLeave(group, e) {
+  const rel = e.relatedTarget;
+  if (rel && e.currentTarget && e.currentTarget.contains(rel)) return;
+  if (dragOverFloor.value === group.floor) dragOverFloor.value = null;
+}
+
+async function onGroupDrop(group, e) {
+  e.preventDefault();
+  const unit = draggedUnit.value;
+  draggedUnit.value = null;
+  dragOverFloor.value = null;
+  if (!unit) return;
+
+  const targetFloor = group.floor === "__none__" ? null : Number(group.floor);
+  const currentFloor = unit.floor === null || unit.floor === undefined || unit.floor === "" ? null : Number(unit.floor);
+  if (targetFloor === currentFloor) return;
+
+  const prevFloor = unit.floor;
+  unit.floor = targetFloor;
+  try {
+    await saveUnit(unit);
+  } catch (err) {
+    unit.floor = prevFloor;
+    toast("Fehler beim Verschieben: " + (err?.message || "unbekannt"));
+  }
+}
+
 // ─── Floor colors ────────────────────────────────────────
 const floorColors = [
   "#3b82f6",
@@ -613,8 +667,12 @@ defineExpose({ save, discard });
       <div
         v-for="(group, idx) in filteredFloorGroups"
         :key="group.floor"
-        class="rounded-xl border border-border overflow-hidden"
+        class="rounded-xl border overflow-hidden transition-colors"
+        :class="dragOverFloor === group.floor ? 'border-orange-400 bg-orange-50/40' : 'border-border'"
         style="box-shadow: 0 1px 3px rgba(0,0,0,0.04)"
+        @dragover="onGroupDragOver(group, $event)"
+        @dragleave="onGroupDragLeave(group, $event)"
+        @drop="onGroupDrop(group, $event)"
       >
         <!-- Floor accordion header -->
         <div
@@ -648,13 +706,20 @@ defineExpose({ save, discard });
             class="bg-zinc-50/60 transition-opacity"
             :class="[
               unit.status === 'verkauft' ? 'opacity-55' : '',
-              uidx < group.units.length - 1 ? 'border-b border-zinc-200/60' : ''
+              uidx < group.units.length - 1 ? 'border-b border-zinc-200/60' : '',
+              draggedUnit === unit ? 'opacity-40' : ''
             ]"
+            :draggable="true"
+            @dragstart="onUnitDragStart(unit, $event)"
+            @dragend="onUnitDragEnd()"
           >
             <!-- Collapsed summary row -->
             <div
               class="px-3 py-2 flex items-center cursor-pointer transition-colors hover:bg-gradient-to-r hover:from-orange-100/70 hover:to-transparent"
+              style="cursor: grab"
               @click="toggleUnit(unit)"
+              @mousedown="$event.currentTarget.style.cursor='grabbing'"
+              @mouseup="$event.currentTarget.style.cursor='grab'"
             >
               <div class="flex-1 flex items-center gap-4 min-w-0 overflow-hidden">
                 <span class="text-[13px] font-semibold text-foreground min-w-[60px] truncate">

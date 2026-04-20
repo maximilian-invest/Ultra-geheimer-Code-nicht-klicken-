@@ -244,6 +244,10 @@ class PropertySettingsController extends Controller
         'has_storage_room' => 'Abstellraum vorhanden',
         'has_washing_connection' => 'Waschmaschinenanschluss',
         'has_cellar' => 'Kellerabteil vorhanden',
+        // Website-only Felder (werden NICHT an Immoji gepusht)
+        'common_areas' => 'Allgemeinräume (Freitext, nur Website)',
+        'has_photovoltaik' => 'Photovoltaik vorhanden (nur Website)',
+        'has_charging_station' => 'E-Ladestation vorhanden (nur Website)',
         // Kosten
         'operating_costs' => 'Betriebskosten (€/Monat, nur Zahl)',
         'maintenance_reserves' => 'Rücklage (€/Monat, nur Zahl)',
@@ -344,10 +348,11 @@ class PropertySettingsController extends Controller
         'has_alarm' => 'boolean', 'has_barrier_free' => 'boolean',
         'has_guest_wc' => 'boolean', 'has_storage_room' => 'boolean',
         'has_washing_connection' => 'boolean', 'has_cellar' => 'boolean',
+        'has_photovoltaik' => 'boolean', 'has_charging_station' => 'boolean',
         'plot_buildable' => 'boolean', 'plot_developed' => 'boolean',
         'realty_description' => 'textarea', 'location_description' => 'textarea',
         'equipment_description' => 'textarea', 'other_description' => 'textarea',
-        'highlights' => 'textarea',
+        'highlights' => 'textarea', 'common_areas' => 'textarea',
         'inserat_since' => 'date', 'construction_start' => 'date',
         'construction_end' => 'date', 'move_in_date' => 'date', 'available_from' => 'date',
         // Immoji Sync

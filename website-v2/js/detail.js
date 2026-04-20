@@ -109,6 +109,19 @@
       </div>`;
   }
 
+  /* ─── Allgemeinräume (website-only, nur wenn gepflegt) ─── */
+  const commonAreasEl = document.getElementById('common-areas');
+  const commonAreasTxt = (p.common_areas || '').toString().trim();
+  if (commonAreasEl && commonAreasTxt) {
+    commonAreasEl.innerHTML = `
+      <div class="mt-16">
+        <h2 class="text-sm font-bold uppercase tracking-widest mb-6" style="color:#9A958C">Allgemeinräume</h2>
+        <div class="rounded-2xl p-6" style="background:#fff;border:1px solid #F0ECE6;color:#0A0A08;line-height:1.7;font-size:0.95rem">
+          ${commonAreasTxt.split(/\n\s*\n/).map(p => '<p class="mb-3 last:mb-0">' + esc(p.trim()).replace(/\n/g, '<br>') + '</p>').join('')}
+        </div>
+      </div>`;
+  }
+
   /* ─── Gallery ─── */
   const gallery = document.getElementById('gallery');
   const imgs = mapped.images;

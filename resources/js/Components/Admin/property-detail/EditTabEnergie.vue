@@ -209,5 +209,30 @@ const hotWaterOptions = [
         <Input v-model="form.energy_valid_until" type="date" :class="inputCls" />
       </div>
     </AccordionSection>
+
+    <!-- Weitere Energie-Ausstattung — NUR WEBSITE, nicht an Immoji gepusht. -->
+    <AccordionSection title="Weitere Energie-Ausstattung (nur Website)" color="#16a34a" :default-open="true">
+      <div class="col-span-2 text-[11px] text-muted-foreground bg-green-50 border border-green-200 rounded-lg px-3 py-1.5 mb-1">
+        Diese Angaben werden auf der SR-Homes Website angezeigt. Es gibt dafür in Immoji kein Feld — sie werden NICHT zu Immoji oder ImmoScout/Willhaben synchronisiert.
+      </div>
+      <label class="col-span-2 flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-zinc-50 cursor-pointer">
+        <input
+          type="checkbox"
+          :checked="!!form.has_photovoltaik"
+          @change="form.has_photovoltaik = $event.target.checked ? 1 : 0"
+          class="w-4 h-4 accent-zinc-900 cursor-pointer"
+        />
+        <span class="text-[13px] text-zinc-900">Photovoltaik-Anlage vorhanden</span>
+      </label>
+      <label class="col-span-2 flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-zinc-50 cursor-pointer">
+        <input
+          type="checkbox"
+          :checked="!!form.has_charging_station"
+          @change="form.has_charging_station = $event.target.checked ? 1 : 0"
+          class="w-4 h-4 accent-zinc-900 cursor-pointer"
+        />
+        <span class="text-[13px] text-zinc-900">E-Auto-Ladestation vorhanden</span>
+      </label>
+    </AccordionSection>
   </div>
 </template>

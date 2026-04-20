@@ -40,6 +40,7 @@ class WebsiteApiController extends Controller
                     'garage_spaces', 'parking_spaces', 'has_basement',
                     'has_garden', 'has_elevator', 'has_balcony', 'has_terrace',
                     'has_loggia', 'condition_note',
+                    'common_areas', 'has_photovoltaik', 'has_charging_station',
                     'sold_at', 'broker_id', 'broker_name_override',
                     'purchase_price', 'rental_price',
                     'external_image_url'
@@ -358,6 +359,8 @@ class WebsiteApiController extends Controller
         if (!empty($p->has_basement)) $features[] = 'Keller';
         if (!empty($p->garage_spaces) && $p->garage_spaces > 0) $features[] = 'Garage';
         if (!empty($p->parking_spaces) && $p->parking_spaces > 0) $features[] = 'Stellplatz';
+        if (!empty($p->has_photovoltaik)) $features[] = 'Photovoltaik';
+        if (!empty($p->has_charging_station)) $features[] = 'E-Ladestation';
         $p->features = $features;
 
         // All images — prefer property_images (PropertyEditor), fallback to property_files

@@ -1,5 +1,6 @@
 <script setup>
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -65,6 +66,10 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         <div>
           <label :class="labelCls">Ref-ID</label>
           <Input v-model="form.ref_id" :class="inputCls" />
+        </div>
+        <div class="col-span-2">
+          <label :class="labelCls">Allgemeinräume <span class="text-[10px] font-normal text-emerald-600 ml-1">(nur Website)</span></label>
+          <Textarea v-model="form.common_areas" rows="3" placeholder="z.B. Fahrradraum, Waschküche, Kinderwagenabstellplatz, Gemeinschaftsgarten..." class="text-[13px] bg-zinc-100/80 border-0" />
         </div>
       </AccordionSection>
 

@@ -506,9 +506,26 @@ class ImmojiUploadService
      */
     public static function mapPropertyToImmojiCosts(array $prop): array
     {
+        // Bei Vermarktungsart 'miete' gibt es in SR-Homes keine eigene
+        // Mietpreis-Sektion mehr — der User traegt den Mietpreis in das
+        // Feld 'Kaufpreis / Miete' (DB: purchase_price) ein. Hier routen
+        // wir den Wert beim Push Richtung Immoji auf costs.rentalPrice
+        // (net Amount) um, statt ihn als purchasePrice zu senden.
+        $isRental = strtolower((string) ($prop['marketing_type'] ?? 'kauf')) === 'miete';
+        $mainPrice = isset($prop['purchase_price']) ? (float) $prop['purchase_price'] : null;
+        $legacyRental = isset($prop['rental_price']) ? (float) $prop['rental_price'] : null;
+
+        if ($isRental) {
+            $rentalNet = $mainPrice ?: $legacyRental;   // primaer purchase_price, sonst legacy rental_price
+            $purchaseNet = null;                         // purchasePrice explizit NICHT fuellen bei Miete
+        } else {
+            $rentalNet = $legacyRental;                  // bei Kauf weiter alte rental_price-Logik
+            $purchaseNet = $mainPrice;
+        }
+
         $costs = [
-            'purchasePrice' => ['netAmount' => isset($prop['purchase_price']) ? (float) $prop['purchase_price'] : null, 'vat' => null],
-            'rentalPrice' => ['netAmount' => isset($prop['rental_price']) ? (float) $prop['rental_price'] : null, 'vat' => null],
+            'purchasePrice' => ['netAmount' => $purchaseNet, 'vat' => null],
+            'rentalPrice' => ['netAmount' => $rentalNet, 'vat' => null],
             'operatingCosts' => ['netAmount' => isset($prop['operating_costs']) ? (float) $prop['operating_costs'] : null, 'vat' => null],
             'heatingCosts' => ['netAmount' => isset($prop['heating_costs']) ? (float) $prop['heating_costs'] : null, 'vat' => null],
             'warmWaterCosts' => ['netAmount' => isset($prop['warm_water_costs']) ? (float) $prop['warm_water_costs'] : null, 'vat' => null],

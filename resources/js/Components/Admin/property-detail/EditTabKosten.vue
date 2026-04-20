@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from "vue";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -9,13 +10,21 @@ import {
 } from "@/components/ui/select";
 import AccordionSection from "./AccordionSection.vue";
 
-defineProps({
+const props = defineProps({
   form: { type: Object, required: true },
   isNewbuild: { type: Boolean, default: false },
 });
 
 const inputCls = "h-9 text-[13px] border-0 rounded-lg bg-zinc-100/80";
 const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
+
+// Vermarktungsart -> Label fuer das Haupt-Preis-Feld.
+// Miete nutzt dasselbe Feld (form.purchase_price) wie Kauf — wir
+// haben bewusst keine eigene Mietpreis-Sektion mehr. Bei Miete zeigen
+// wir 'Mietpreis (mtl.)' als Label und pushen den Wert Richtung Immoji
+// in costs.rentalPrice statt costs.purchasePrice.
+const isRental = computed(() => (props.form?.marketing_type || '') === 'miete');
+const priceLabel = computed(() => isRental.value ? 'Mietpreis (mtl.)' : 'Kaufpreis');
 </script>
 
 <template>
@@ -25,7 +34,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <!-- Preise -->
       <AccordionSection title="Preise" color="#ea580c" :default-open="true">
         <div>
-          <label :class="labelCls">Kaufpreis / Miete</label>
+          <label :class="labelCls">{{ priceLabel }}</label>
           <Input v-model="form.purchase_price" type="number" :class="inputCls" />
         </div>
         <div>
@@ -82,21 +91,6 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
       </AccordionSection>
 
-      <!-- Miete -->
-      <AccordionSection v-if="form.marketing_type === 'miete'" title="Miete" color="#ec4899" :default-open="true">
-        <div>
-          <label :class="labelCls">Kaltmiete</label>
-          <Input v-model="form.rental_price" type="number" :class="inputCls" />
-        </div>
-        <div>
-          <label :class="labelCls">Warmmiete</label>
-          <Input v-model="form.rent_warm" type="number" :class="inputCls" />
-        </div>
-        <div>
-          <label :class="labelCls">Kaution</label>
-          <Input v-model="form.rent_deposit" type="number" :class="inputCls" />
-        </div>
-      </AccordionSection>
     </div>
 
     <!-- Right column -->

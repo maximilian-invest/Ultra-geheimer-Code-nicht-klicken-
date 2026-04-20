@@ -32,7 +32,7 @@ class WebsiteApiController extends Controller
                 })
                 ->select([
                     'id', 'ref_id', 'title', 'project_name', 'address', 'city', 'zip',
-                    'object_type as type', 'property_category', 'realty_status', 'purchase_price as price',
+                    'object_type as type', 'property_category', 'realty_status', 'marketing_type', 'purchase_price as price',
                     'living_area as area_living', 'free_area', 'total_area', 'rooms_amount as rooms', 'bathrooms',
                     'construction_year as year_built', 'year_renovated', 'realty_description as description', 'highlights',
                     'main_image_id', 'website_gallery_ids',

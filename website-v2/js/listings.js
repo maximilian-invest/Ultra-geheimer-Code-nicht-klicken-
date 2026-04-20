@@ -42,7 +42,7 @@
 
   function card(p) {
     const img = p.images[0] || '';
-    const price = fmtPrice(p.price, p.isNewbuild);
+    const price = fmtPrice(p.price, p.isNewbuild, (p.marketing_type || '').toLowerCase() === 'miete');
     return `
       <a href="/objekt.html?id=${p.id}" class="hover-lift hover-glow cursor-pointer rounded-2xl overflow-hidden block" style="background:#fff;border:1px solid #F0ECE6">
         <div class="card-img relative">

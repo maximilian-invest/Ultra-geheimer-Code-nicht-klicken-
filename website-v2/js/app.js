@@ -29,11 +29,20 @@ const ASSETS = {
 /* ─── Helpers ──────────────────────────────────────────────── */
 const fmt = n => new Intl.NumberFormat('de-AT', { maximumFractionDigits: 0 }).format(n);
 const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
+const buildApiUrl = (path, params = {}) => {
+  const url = new URL(`${API}${path}`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      url.searchParams.set(key, String(value));
+    }
+  });
+  return url.toString();
+};
 
 /* ─── API Fetch ────────────────────────────────────────────── */
 async function fetchProperties() {
   try {
-    const r = await fetch(`${API}/properties`);
+    const r = await fetch(buildApiUrl('/properties', { refresh: 1, _: Date.now() }), { cache: 'no-store' });
     const d = await r.json();
     if (d.success && d.properties) return d.properties;
   } catch(e) { console.error('API fetch failed:', e); }
@@ -42,7 +51,7 @@ async function fetchProperties() {
 
 async function fetchProperty(id) {
   try {
-    const r = await fetch(`${API}/property/${id}`);
+    const r = await fetch(buildApiUrl(`/property/${id}`, { refresh: 1, _: Date.now() }), { cache: 'no-store' });
     const d = await r.json();
     if (d.success && d.property) return d.property;
   } catch(e) { console.error('Property fetch failed:', e); }
@@ -78,11 +87,13 @@ function mapProperty(p) {
 }
 
 /* ─── Format Price ─────────────────────────────────────────── */
-function fmtPrice(price, isNewbuild) {
+function fmtPrice(price, isNewbuild, isRental) {
   const pre = isNewbuild ? 'ab ' : '';
-  return price >= 1e6
+  const suffix = isRental ? ' / Monat' : '';
+  const body = price >= 1e6
     ? `${pre}EUR ${(price/1e6).toFixed(2).replace('.',',')} Mio.`
     : `${pre}EUR ${fmt(price)}`;
+  return body + suffix;
 }
 
 /* ─── Scroll Animations (IntersectionObserver) ─────────────── */

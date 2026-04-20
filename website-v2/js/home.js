@@ -185,7 +185,7 @@
   function featuredCard(p, idx) {
     const h = idx === 0 ? 560 : 380;
     const img = p.images[0] || '';
-    const price = fmtPrice(p.price, p.isNewbuild);
+    const price = fmtPrice(p.price, p.isNewbuild, (p.marketing_type || '').toLowerCase() === 'miete');
     const titleSize = idx === 0 ? 'text-3xl md:text-4xl' : 'text-xl md:text-2xl';
     return `
       <a href="/objekt.html?id=${p.id}" class="cursor-pointer group relative overflow-hidden rounded-3xl block" style="height:${h}px;background:#fff">
@@ -215,7 +215,7 @@
   /* ─── Regular Card HTML ─── */
   function propertyCard(p) {
     const img = p.images[0] || '';
-    const price = fmtPrice(p.price, p.isNewbuild);
+    const price = fmtPrice(p.price, p.isNewbuild, (p.marketing_type || '').toLowerCase() === 'miete');
     return `
       <a href="/objekt.html?id=${p.id}" class="hover-lift hover-glow cursor-pointer rounded-2xl overflow-hidden block" style="background:#fff;border:1px solid #F0ECE6">
         <div class="card-img relative">

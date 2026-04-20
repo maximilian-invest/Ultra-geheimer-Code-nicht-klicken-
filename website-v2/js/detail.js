@@ -12,7 +12,8 @@
   if (!p) { document.getElementById('detail-content').innerHTML = '<p class="text-lg py-20 text-center" style="color:#9A958C">Immobilie nicht gefunden.</p>'; return; }
 
   const mapped = mapProperty(p);
-  const price = fmtPrice(mapped.price, mapped.isNewbuild);
+  const isRental = (p.marketing_type || '').toLowerCase() === 'miete';
+  const price = fmtPrice(mapped.price, mapped.isNewbuild, isRental);
 
   /* ─── Title ─── */
   document.title = `${mapped.title} | SR-Homes`;
@@ -22,6 +23,10 @@
   document.getElementById('prop-subtitle').textContent = p.description ? p.description.substring(0, 80).replace(/\s+\S*$/, '') + '…' : '';
   document.getElementById('prop-address').textContent = `${p.address || ''}, ${p.zip || ''} ${p.city || ''}`;
   document.getElementById('prop-price').textContent = price;
+
+  // Preis-Label in der Sidebar auf "Mietpreis" umschreiben wenn Miete
+  const priceLabel = document.querySelector('#prop-price')?.previousElementSibling;
+  if (priceLabel && isRental) priceLabel.textContent = 'Mietpreis';
 
   /* ─── Gallery ─── */
   const gallery = document.getElementById('gallery');

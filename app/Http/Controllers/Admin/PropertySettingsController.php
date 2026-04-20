@@ -754,6 +754,9 @@ class PropertySettingsController extends Controller
             $update['property_history'] = is_array($data['property_history']) ? json_encode($data['property_history'], JSON_UNESCAPED_UNICODE) : $data['property_history'];
         }
 
+        // Altzustand laden bevor wir speichern, fuer den Activity-Diff.
+        $oldRow = $propId ? (array) (DB::table('properties')->where('id', $propId)->first() ?: []) : [];
+
         try {
             if ($propId) {
                 DB::table('properties')->where('id', $propId)->update($update);
@@ -787,6 +790,15 @@ class PropertySettingsController extends Controller
             }
 
             $property = DB::table('properties')->where('id', $propId)->first();
+
+            // Kundensichtbare Aktivitaet protokollieren ("Objektdaten
+            // aktualisiert: ..."). Bei neu angelegten Objekten zeichnen wir
+            // die Erst-Anlage als Event, sonst den Diff gegen den Altzustand.
+            if (!empty($oldRow)) {
+                app(PropertyActivityLogger::class)->logFieldChanges($propId, $oldRow, $update);
+            } else {
+                app(PropertyActivityLogger::class)->logEvent($propId, 'Objekt angelegt');
+            }
 
             // Immoji auto-sync is handled by the frontend (EditTab.vue sends immoji_push after save)
             // No backend auto-sync needed — removed to prevent duplicate pushes

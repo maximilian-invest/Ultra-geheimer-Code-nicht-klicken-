@@ -1,7 +1,7 @@
 <script setup>
 import { catBadgeStyle, catLabel } from '@/utils/categoryBadge.js';
 import { ref, inject, computed, reactive, watch } from "vue";
-import { Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, LayoutList, LayoutGrid } from "lucide-vue-next";
+import { Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, LayoutList, LayoutGrid, ArrowUp, ArrowDown } from "lucide-vue-next";
 import PropertyDetailPage from '@/Components/Admin/PropertyDetailPage.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -637,6 +637,36 @@ const statusCounts = computed(() => {
     };
 });
 
+// ─── Sort state (user-clickable table headers) ─────────────────────────
+const sortKey = ref('created_at');      // 'address'|'city'|'property_category'|'purchase_price'|'created_at'|'portals'
+const sortDir = ref('desc');            // 'asc' | 'desc'
+function setSort(key) {
+    if (sortKey.value === key) {
+        sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortKey.value = key;
+        // Sinnvolle Defaults: Preis/Datum absteigend, Text aufsteigend
+        sortDir.value = (key === 'purchase_price' || key === 'created_at') ? 'desc' : 'asc';
+    }
+}
+
+function sortComparator(key) {
+    const dir = sortDir.value === 'desc' ? -1 : 1;
+    const collator = new Intl.Collator('de', { sensitivity: 'base', numeric: true });
+    return (a, b) => {
+        let va, vb;
+        switch (key) {
+            case 'address': va = (a.project_name || a.address || '').toString(); vb = (b.project_name || b.address || '').toString(); return dir * collator.compare(va, vb);
+            case 'city': va = (a.city || '').toString(); vb = (b.city || '').toString(); return dir * collator.compare(va, vb);
+            case 'property_category': va = (a.property_category || a.object_type || '').toString(); vb = (b.property_category || b.object_type || '').toString(); return dir * collator.compare(va, vb);
+            case 'purchase_price': va = Number(a.purchase_price || a.price || 0); vb = Number(b.purchase_price || b.price || 0); return dir * (va - vb);
+            case 'portals': va = Array.isArray(a.portals) ? a.portals.filter(p => p.enabled).length : 0; vb = Array.isArray(b.portals) ? b.portals.filter(p => p.enabled).length : 0; return dir * (va - vb);
+            case 'created_at':
+            default: va = a.created_at ? new Date(a.created_at).getTime() : 0; vb = b.created_at ? new Date(b.created_at).getTime() : 0; return dir * (va - vb);
+        }
+    };
+}
+
 const allFilteredProperties = computed(() => {
     let list = ((properties?.value ?? properties) || []).filter(p => !p.parent_id);
     if (statusFilter.value === 'inaktiv') list = list.filter(p => p.realty_status === 'inaktiv');
@@ -648,7 +678,7 @@ const allFilteredProperties = computed(() => {
     }
     if (typeFilter.value) list = list.filter(p => p.property_category === typeFilter.value);
     if (selectedBrokers.value.size > 0) list = list.filter(p => selectedBrokers.value.has(p.broker_id));
-    list.sort((a, b) => (b.created_at ? new Date(b.created_at) : new Date(0)) - (a.created_at ? new Date(a.created_at) : new Date(0)));
+    list.sort(sortComparator(sortKey.value));
     return list;
 });
 
@@ -1832,12 +1862,24 @@ async function toggleWebsiteDownload(f) {
         <TableHeader>
           <TableRow>
             <TableHead class="w-[44px]"></TableHead>
-            <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Objekt</TableHead>
-            <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Ort</TableHead>
-            <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Typ</TableHead>
-            <TableHead class="text-[11px] uppercase tracking-wider font-medium text-right" style="color:hsl(240 3.8% 46.1%)">Kaufpreis</TableHead>
-            <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Erstellt</TableHead>
-            <TableHead class="text-[11px] uppercase tracking-wider font-medium" style="color:hsl(240 3.8% 46.1%)">Portale</TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium cursor-pointer select-none hover:text-foreground" style="color:hsl(240 3.8% 46.1%)" @click="setSort('address')">
+              <span class="inline-flex items-center gap-1">Objekt <ArrowUp v-if="sortKey === 'address' && sortDir === 'asc'" class="w-3 h-3" /><ArrowDown v-if="sortKey === 'address' && sortDir === 'desc'" class="w-3 h-3" /></span>
+            </TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium cursor-pointer select-none hover:text-foreground" style="color:hsl(240 3.8% 46.1%)" @click="setSort('city')">
+              <span class="inline-flex items-center gap-1">Ort <ArrowUp v-if="sortKey === 'city' && sortDir === 'asc'" class="w-3 h-3" /><ArrowDown v-if="sortKey === 'city' && sortDir === 'desc'" class="w-3 h-3" /></span>
+            </TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium cursor-pointer select-none hover:text-foreground" style="color:hsl(240 3.8% 46.1%)" @click="setSort('property_category')">
+              <span class="inline-flex items-center gap-1">Typ <ArrowUp v-if="sortKey === 'property_category' && sortDir === 'asc'" class="w-3 h-3" /><ArrowDown v-if="sortKey === 'property_category' && sortDir === 'desc'" class="w-3 h-3" /></span>
+            </TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium text-right cursor-pointer select-none hover:text-foreground" style="color:hsl(240 3.8% 46.1%)" @click="setSort('purchase_price')">
+              <span class="inline-flex items-center gap-1 justify-end w-full"><ArrowUp v-if="sortKey === 'purchase_price' && sortDir === 'asc'" class="w-3 h-3" /><ArrowDown v-if="sortKey === 'purchase_price' && sortDir === 'desc'" class="w-3 h-3" />Kaufpreis</span>
+            </TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium cursor-pointer select-none hover:text-foreground" style="color:hsl(240 3.8% 46.1%)" @click="setSort('created_at')">
+              <span class="inline-flex items-center gap-1">Erstellt <ArrowUp v-if="sortKey === 'created_at' && sortDir === 'asc'" class="w-3 h-3" /><ArrowDown v-if="sortKey === 'created_at' && sortDir === 'desc'" class="w-3 h-3" /></span>
+            </TableHead>
+            <TableHead class="text-[11px] uppercase tracking-wider font-medium cursor-pointer select-none hover:text-foreground" style="color:hsl(240 3.8% 46.1%)" @click="setSort('portals')">
+              <span class="inline-flex items-center gap-1">Portale <ArrowUp v-if="sortKey === 'portals' && sortDir === 'asc'" class="w-3 h-3" /><ArrowDown v-if="sortKey === 'portals' && sortDir === 'desc'" class="w-3 h-3" /></span>
+            </TableHead>
             <TableHead class="w-[20px]"></TableHead>
           </TableRow>
         </TableHeader>

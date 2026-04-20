@@ -18,7 +18,21 @@ class KaufanbotController extends Controller
         $from = $request->query('from', date('Y-m-d', strtotime('-12 months')));
         $to   = $request->query('to', date('Y-m-d'));
 
-        // All Kaufanbot activities
+        // Broker-Scoping: Admin + Office-Rollen sehen alle Kaufanbote,
+        // Makler nur die eigenen (broker_id = user id). Ohne diesen Filter
+        // hat Susanne Renzl 8 fremde Kaufanbote aus anderen Portfolios
+        // zugeordnet bekommen.
+        $brokerId = \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        $scopeAll = in_array($userType, ['admin', 'assistenz', 'backoffice'], true);
+        $brokerFilter = '';
+        $params = [$from, $to . ' 23:59:59'];
+        if ($brokerId && !$scopeAll) {
+            $brokerFilter = ' AND p.broker_id = ?';
+            $params[] = $brokerId;
+        }
+
+        // Kaufanbot-Activities im Zeitraum, optional broker-gescoped
         $rows = DB::select("
             SELECT
                 a.stakeholder, a.property_id, a.activity_date, a.activity,
@@ -28,8 +42,9 @@ class KaufanbotController extends Controller
             LEFT JOIN properties p ON a.property_id = p.id
             WHERE a.category = 'kaufanbot' AND {$partnerExclude}
             AND a.activity_date >= ? AND a.activity_date <= ?
+            {$brokerFilter}
             ORDER BY a.activity_date DESC
-        ", [$from, $to . ' 23:59:59']);
+        ", $params);
 
         // Group by surname key
         $persons = [];
@@ -224,7 +239,19 @@ class KaufanbotController extends Controller
     {
         $normSurname = StakeholderHelper::normSHSurname('a.stakeholder');
 
-        // Fetch all kaufanbot activities
+        // Broker-Scoping wie in stats(): Makler sehen nur eigene Kaufanbote,
+        // Admin/Assistenz/Backoffice sehen alle.
+        $brokerId = \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        $scopeAll = in_array($userType, ['admin', 'assistenz', 'backoffice'], true);
+        $brokerFilter = '';
+        $params = [];
+        if ($brokerId && !$scopeAll) {
+            $brokerFilter = ' AND p.broker_id = ?';
+            $params[] = $brokerId;
+        }
+
+        // Fetch kaufanbot activities (optional broker-scoped)
         $rows = DB::select("
             SELECT a.id, a.activity_date, a.stakeholder, a.activity, a.result,
                    a.kaufanbot_status, a.category,
@@ -235,9 +262,10 @@ class KaufanbotController extends Controller
             LEFT JOIN properties p ON a.property_id = p.id
             LEFT JOIN contacts c ON " . StakeholderHelper::normSHSurname('c.full_name') . " = {$normSurname}
             WHERE a.category = 'kaufanbot'
+            {$brokerFilter}
             ORDER BY a.activity_date DESC
             LIMIT 500
-        ");
+        ", $params);
 
         // Group by surname_key (reliable surname matching), keep latest per group
         $grouped = [];

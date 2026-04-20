@@ -594,7 +594,7 @@ class ConversationController extends Controller
             return response()->json(['error' => 'id required'], 400);
         }
 
-        $conv = Conversation::find($id);
+        $conv = $this->resolveConversation($id, 'conv_reply');
         if (!$conv) {
             return response()->json(['error' => 'Conversation not found'], 404);
         }
@@ -745,7 +745,7 @@ class ConversationController extends Controller
             return response()->json(['error' => 'id required'], 400);
         }
 
-        $conv = Conversation::find($id);
+        $conv = $this->resolveConversation($id, 'conv_followup');
         if (!$conv) {
             return response()->json(['error' => 'Conversation not found'], 404);
         }
@@ -811,7 +811,7 @@ class ConversationController extends Controller
             return response()->json(['error' => 'id required'], 400);
         }
 
-        $conv = Conversation::find($id);
+        $conv = $this->resolveConversation($id, 'conv_done');
         if (!$conv) {
             return response()->json(['error' => 'Conversation not found'], 404);
         }
@@ -877,7 +877,7 @@ class ConversationController extends Controller
             return response()->json(['error' => 'id required'], 400);
         }
 
-        $conv = Conversation::find($id);
+        $conv = $this->resolveConversation($id, 'conv_read');
         if (!$conv) {
             return response()->json(['error' => 'Conversation not found'], 404);
         }
@@ -898,7 +898,7 @@ class ConversationController extends Controller
             return response()->json(['error' => 'id required'], 400);
         }
 
-        $conv = Conversation::find($id);
+        $conv = $this->resolveConversation($id, 'conv_draft');
         if (!$conv) {
             return response()->json(['error' => 'Conversation not found'], 404);
         }
@@ -915,6 +915,40 @@ class ConversationController extends Controller
     /**
      * conv_regenerate_draft — Regenerate KI draft using full thread context + knowledge base.
      */
+    /**
+     * Resolve ID zu Conversation. Versucht zuerst direkte PK-Suche; bei
+     * Fehlschlag probiert es die ID als portal_emails.id zu interpretieren
+     * und resolvt darueber zur passenden Conversation (property_id +
+     * contact_email / stakeholder). Wird von reply / followup /
+     * regenerateDraft gleichermaßen benutzt, damit der Inbox-Posteingang
+     * (wo item.id = email_id ist) nicht mehr 'Conversation not found' wirft.
+     */
+    private function resolveConversation(int $id, string $caller = 'unknown'): ?Conversation
+    {
+        if (!$id) return null;
+        $conv = Conversation::find($id);
+        if ($conv) return $conv;
+
+        $email = \DB::table('portal_emails')->where('id', $id)->first(['property_id', 'from_email', 'to_email', 'stakeholder']);
+        if (!$email) return null;
+
+        $contactEmail = strtolower($email->from_email ?? $email->to_email ?? '');
+        if (preg_match('/<([^>]+)>/', $contactEmail, $m)) $contactEmail = $m[1];
+
+        $q = Conversation::query();
+        if ($email->property_id) $q->where('property_id', $email->property_id);
+        if ($contactEmail) {
+            $q->whereRaw('LOWER(contact_email) = ?', [$contactEmail]);
+        } elseif (!empty($email->stakeholder)) {
+            $q->where('stakeholder', $email->stakeholder);
+        }
+        $conv = $q->orderByDesc('id')->first();
+        if ($conv) {
+            \Log::info("{$caller}: resolved email id={$id} -> conv id={$conv->id} (property={$email->property_id})");
+        }
+        return $conv;
+    }
+
     public function regenerateDraft(Request $request): JsonResponse
     {
         \Log::info('=== conv_regenerate_draft CALLED === id=' . $request->query('id', $request->json('id', '?')));
@@ -924,31 +958,7 @@ class ConversationController extends Controller
             return response()->json(['error' => 'id required'], 400);
         }
 
-        $conv = Conversation::find($id);
-        if (!$conv) {
-            // Fallback: der Client hat eine Email-ID statt Conversation-ID
-            // geschickt (passiert bei Posteingang/Gesendet-Items). Resolve
-            // die Email zur passenden Conversation ueber property_id +
-            // contact_email / stakeholder.
-            $email = \DB::table('portal_emails')->where('id', $id)->first(['property_id', 'from_email', 'to_email', 'stakeholder']);
-            if ($email) {
-                $contactEmail = strtolower($email->from_email ?? $email->to_email ?? '');
-                if (preg_match('/<([^>]+)>/', $contactEmail, $m)) $contactEmail = $m[1];
-
-                $convQuery = Conversation::query();
-                if ($email->property_id) $convQuery->where('property_id', $email->property_id);
-                if ($contactEmail) {
-                    $convQuery->whereRaw('LOWER(contact_email) = ?', [$contactEmail]);
-                } elseif (!empty($email->stakeholder)) {
-                    $convQuery->where('stakeholder', $email->stakeholder);
-                }
-                $conv = $convQuery->orderByDesc('id')->first();
-                if ($conv) {
-                    \Log::info("conv_regenerate_draft: resolved email id={$id} -> conv id={$conv->id} (property={$email->property_id})");
-                }
-            }
-        }
-
+        $conv = $this->resolveConversation($id, 'conv_regenerate_draft');
         if (!$conv) {
             return response()->json(['error' => 'Conversation not found'], 404);
         }

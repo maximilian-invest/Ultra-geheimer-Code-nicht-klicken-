@@ -778,17 +778,17 @@ defineExpose({ save, discard });
               uidx < group.units.length - 1 ? 'border-b border-zinc-200/60' : '',
               draggedUnit === unit ? 'opacity-40' : ''
             ]"
-            :draggable="true"
-            @dragstart="onUnitDragStart(unit, $event)"
-            @dragend="onUnitDragEnd()"
           >
-            <!-- Collapsed summary row -->
+            <!-- Collapsed summary row — NUR diese Zeile ist draggable, damit
+                 die Dropdowns + Inputs im expanded-Editor darunter weiterhin
+                 normal interagieren. -->
             <div
-              class="px-3 py-2 flex items-center cursor-pointer transition-colors hover:bg-gradient-to-r hover:from-orange-100/70 hover:to-transparent"
+              class="px-3 py-2 flex items-center transition-colors hover:bg-gradient-to-r hover:from-orange-100/70 hover:to-transparent"
               style="cursor: grab"
+              :draggable="true"
+              @dragstart="onUnitDragStart(unit, $event)"
+              @dragend="onUnitDragEnd()"
               @click="toggleUnit(unit)"
-              @mousedown="$event.currentTarget.style.cursor='grabbing'"
-              @mouseup="$event.currentTarget.style.cursor='grab'"
             >
               <div class="flex-1 flex items-center gap-4 min-w-0 overflow-hidden">
                 <span class="text-[13px] font-semibold text-foreground min-w-[60px] truncate">
@@ -883,7 +883,7 @@ defineExpose({ save, discard });
                 <!-- Typ -->
                 <div>
                   <label class="text-[12px] text-zinc-600 font-medium mb-1.5 block">Typ</label>
-                  <Select clearable v-model="unit.unit_type">
+                  <Select v-model="unit.unit_type">
                     <SelectTrigger class="h-9 text-[13px] border border-input rounded-lg bg-background">
                       <SelectValue placeholder="Typ wählen" />
                     </SelectTrigger>
@@ -1022,7 +1022,7 @@ defineExpose({ save, discard });
                   </div>
                   <div>
                     <label class="text-[10px] text-muted-foreground mb-1 block">geeignet für</label>
-                    <Select clearable :model-value="sp.suitable_for || ''" @update:model-value="updateUnitParking(unit, spIdx, 'suitable_for', $event)">
+                    <Select :model-value="sp.suitable_for || ''" @update:model-value="updateUnitParking(unit, spIdx, 'suitable_for', $event)">
                       <SelectTrigger class="h-8 text-[12px] border border-input rounded-lg bg-background">
                         <SelectValue placeholder="Wählen..." />
                       </SelectTrigger>

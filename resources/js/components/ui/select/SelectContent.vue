@@ -1,6 +1,5 @@
 <script setup>
 import { reactiveOmit } from "@vueuse/core";
-import { inject } from "vue";
 import {
   SelectContent,
   SelectPortal,
@@ -8,12 +7,7 @@ import {
   useForwardPropsEmits,
 } from "reka-ui";
 import { cn } from "@/lib/utils";
-import { SelectScrollDownButton, SelectScrollUpButton, SelectItem } from ".";
-
-// Wenn das parent Select clearable ist, blenden wir automatisch einen
-// "— Keine Auswahl —"-Eintrag oben in der Liste ein. Dann brauchen wir
-// nicht in jeder einzelnen Verwendung manuell so ein Item anzugeben.
-const clearable = inject('select-clearable', null);
+import { SelectScrollDownButton, SelectScrollUpButton } from ".";
 
 defineOptions({
   inheritAttrs: false,
@@ -84,13 +78,6 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits);
           )
         "
       >
-        <SelectItem
-          v-if="clearable && clearable.value && clearable.value.enabled"
-          :value="clearable.value.noneValue"
-          class="text-muted-foreground italic"
-        >
-          {{ clearable.value.noneLabel }}
-        </SelectItem>
         <slot />
       </SelectViewport>
       <SelectScrollDownButton />

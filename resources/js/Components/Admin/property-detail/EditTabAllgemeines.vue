@@ -31,7 +31,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <AccordionSection title="Objekt" color="#ea580c" :default-open="true">
         <div>
           <label :class="labelCls">Status</label>
-          <Select clearable v-model="form.status">
+          <Select v-model="form.status">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="aktiv">Aktiv</SelectItem>
@@ -42,7 +42,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Vermarktungsart</label>
-          <Select clearable v-model="form.marketing_type">
+          <Select v-model="form.marketing_type">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="kauf">Kauf</SelectItem>
@@ -124,7 +124,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <AccordionSection title="Allgemeines" color="#8b5cf6" :default-open="true">
         <div>
           <label :class="labelCls">Objektart</label>
-          <Select clearable v-model="form.object_type">
+          <Select v-model="form.object_type">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Eigentumswohnung">Eigentumswohnung</SelectItem>
@@ -148,7 +148,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Unterobjektart</label>
-          <Select clearable v-model="form.object_subtype">
+          <Select v-model="form.object_subtype">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="etagenwohnung">Etagenwohnung</SelectItem>
@@ -169,7 +169,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Bauart</label>
-          <Select clearable v-model="form.construction_type">
+          <Select v-model="form.construction_type">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="massiv">Massiv</SelectItem>
@@ -182,7 +182,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Objektzustand</label>
-          <Select clearable v-model="form.realty_condition">
+          <Select v-model="form.realty_condition">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="erstbezug">Erstbezug</SelectItem>
@@ -208,7 +208,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Eigentumsform</label>
-          <Select clearable v-model="form.ownership_type">
+          <Select v-model="form.ownership_type">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="wohnungseigentum">Wohnungseigentum</SelectItem>
@@ -234,7 +234,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <AccordionSection title="Zuordnung & Status" color="#f59e0b" :default-open="false">
         <div>
           <label :class="labelCls">Objektbetreuer / Makler</label>
-          <Select clearable v-model="form.broker_id">
+          <Select v-model="form.broker_id">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem v-for="b in brokerList" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
@@ -271,7 +271,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <AccordionSection v-if="!isChild" title="Ausstattung & Merkmale" color="#06b6d4" :default-open="false">
         <div>
           <label :class="labelCls">Qualität</label>
-          <Select clearable v-model="form.quality">
+          <Select v-model="form.quality">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="einfach">Einfach</SelectItem>

@@ -760,7 +760,7 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Objekttyp <span v-if="vis('object_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('object_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('object_type').tip" /></span></label>
-            <Select v-model="form.object_type">
+            <Select clearable v-model="form.object_type">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="t in objectTypes" :key="t" :value="t">{{ t }}</SelectItem>
@@ -769,7 +769,7 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Transaktionsart <span v-if="vis('marketing_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('marketing_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('marketing_type').tip" /></span></label>
-            <Select v-model="form.marketing_type">
+            <Select clearable v-model="form.marketing_type">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="t in marketingTypes" :key="t.value" :value="t.value">{{ t.label }}</SelectItem>
@@ -778,7 +778,7 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kategorie <span v-if="vis('property_category').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('property_category').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('property_category').tip" /></span></label>
-            <Select v-model="form.property_category">
+            <Select clearable v-model="form.property_category">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="c in categoryOptions" :key="c.value" :value="c.value">{{ c.label }}</SelectItem>
@@ -795,7 +795,7 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5">Unterobjektart</label>
-            <Select v-model="form.construction_type">
+            <Select clearable v-model="form.construction_type">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in subtypeOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
@@ -804,7 +804,7 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5">Bauart</label>
-            <Select v-model="form.ownership_type">
+            <Select clearable v-model="form.ownership_type">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in constructionTypeOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
@@ -813,7 +813,7 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5">Eigentumsform</label>
-            <Select v-model="form.subtitle">
+            <Select clearable v-model="form.subtitle">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in ownershipOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
@@ -880,7 +880,7 @@ defineExpose({ save, discard });
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler <span v-if="vis('broker_id').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('broker_id').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('broker_id').tip" /></span></label>
-            <Select v-model="form.broker_id">
+            <Select clearable v-model="form.broker_id">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="b in brokerList" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
@@ -889,7 +889,7 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Status <span v-if="vis('status').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('status').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('status').tip" /></span></label>
-            <Select v-model="form.status">
+            <Select clearable v-model="form.status">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="aktiv">Aktiv</SelectItem>
@@ -1118,7 +1118,7 @@ defineExpose({ save, discard });
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Zustand <span v-if="vis('realty_condition').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('realty_condition').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('realty_condition').tip" /></span></label>
-            <Select v-model="form.realty_condition">
+            <Select clearable v-model="form.realty_condition">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in conditionOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
@@ -1127,7 +1127,7 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Qualitaet <span v-if="vis('quality').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('quality').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('quality').tip" /></span></label>
-            <Select v-model="form.quality">
+            <Select clearable v-model="form.quality">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in qualityOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
@@ -1144,7 +1144,7 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kueche <span v-if="vis('kitchen_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('kitchen_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('kitchen_type').tip" /></span></label>
-            <Select v-model="form.kitchen_type">
+            <Select clearable v-model="form.kitchen_type">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in kitchenOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
@@ -1189,7 +1189,7 @@ defineExpose({ save, discard });
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausweistyp <span v-if="vis('energy_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_type').tip" /></span></label>
-            <Select v-model="form.energy_type">
+            <Select clearable v-model="form.energy_type">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in energyTypeOptions" :key="o.value" :value="o.value">{{ o.label }}</SelectItem>
@@ -1198,7 +1198,7 @@ defineExpose({ save, discard });
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieklasse <span v-if="vis('heating_demand_class').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating_demand_class').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating_demand_class').tip" /></span></label>
-            <Select v-model="form.heating_demand_class">
+            <Select clearable v-model="form.heating_demand_class">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="">--</SelectItem>
@@ -1275,7 +1275,7 @@ defineExpose({ save, discard });
             { section: 'construction', key: 'expansion', label: 'Ausbaustufe', opts: buildingOptions.expansionStage },
           ]" :key="f.section+f.key">
             <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
-            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+            <Select clearable :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
@@ -1295,7 +1295,7 @@ defineExpose({ save, discard });
             { section: 'facade', key: 'insulation', label: 'Daemmung', opts: buildingOptions.conditionGrade },
           ]" :key="f.section+f.key">
             <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
-            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+            <Select clearable :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
@@ -1313,7 +1313,7 @@ defineExpose({ save, discard });
             { section: 'heating', key: 'hot_water', label: 'Warmwasser', opts: buildingOptions.hotWaterType },
           ]" :key="f.section+f.key">
             <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
-            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+            <Select clearable :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
@@ -1332,7 +1332,7 @@ defineExpose({ save, discard });
             { section: 'electrical', key: 'ventilation_condition', label: 'Belueftung Zustand', opts: buildingOptions.conditionGrade },
           ]" :key="f.section+f.key">
             <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
-            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+            <Select clearable :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
@@ -1350,7 +1350,7 @@ defineExpose({ save, discard });
             { section: 'telecom', key: 'internet', label: 'Internet', opts: buildingOptions.internetConnection },
           ]" :key="f.section+f.key">
             <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
-            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+            <Select clearable :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
@@ -1371,7 +1371,7 @@ defineExpose({ save, discard });
             { section: 'roof', key: 'gutters', label: 'Dachrinnen', opts: buildingOptions.conditionGrade },
           ]" :key="f.section+f.key">
             <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
-            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+            <Select clearable :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
@@ -1390,7 +1390,7 @@ defineExpose({ save, discard });
             { section: 'windows', key: 'condition', label: 'Zustand', opts: buildingOptions.conditionGrade },
           ]" :key="f.section+f.key">
             <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
-            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+            <Select clearable :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>
@@ -1408,7 +1408,7 @@ defineExpose({ save, discard });
             { section: 'floors', key: 'common_area', label: 'Allgemeinflaechen', opts: buildingOptions.commonAreaCondition },
           ]" :key="f.section+f.key">
             <label class="text-[10px] text-muted-foreground mb-0.5">{{ f.label }}</label>
-            <Select :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
+            <Select clearable :model-value="bd(f.section, f.key)" @update:model-value="v => setBd(f.section, f.key, v)">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="o in f.opts" :key="o" :value="o">{{ o || '-- Bitte waehlen --' }}</SelectItem>

@@ -180,7 +180,7 @@ const hotWaterOptions = [
     <AccordionSection title="Energieausweis" color="#22c55e" :default-open="true">
       <div>
         <label :class="labelCls">Energieklasse</label>
-        <Select v-model="form.heating_demand_class">
+        <Select clearable v-model="form.heating_demand_class">
           <SelectTrigger :class="selectCls"><SelectValue placeholder="Wählen..." /></SelectTrigger>
           <SelectContent>
             <SelectItem value="A++">A++</SelectItem>

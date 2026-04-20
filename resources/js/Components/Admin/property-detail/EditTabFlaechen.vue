@@ -189,7 +189,7 @@ watch(() => props.form?.id, loadParking);
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label :class="labelCls">Art <span class="text-red-500">*</span></label>
-              <Select v-model="entry.type">
+              <Select clearable v-model="entry.type">
                 <SelectTrigger :class="inputCls">
                   <SelectValue placeholder="Wählen..." />
                 </SelectTrigger>
@@ -219,7 +219,7 @@ watch(() => props.form?.id, loadParking);
 
           <div>
             <label :class="labelCls">geeignet für</label>
-            <Select v-model="entry.suitable_for">
+            <Select clearable v-model="entry.suitable_for">
               <SelectTrigger :class="inputCls">
                 <SelectValue placeholder="Wählen..." />
               </SelectTrigger>

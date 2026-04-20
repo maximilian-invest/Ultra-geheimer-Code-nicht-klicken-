@@ -555,9 +555,14 @@ defineExpose({ save, discard });
       </div>
     </div>
 
-    <div v-if="parseDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="parseDialogOpen = false">
-      <div class="w-full max-w-lg rounded-xl border border-border bg-background shadow-xl">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-border">
+    <div
+      v-if="parseDialogOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style="background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);"
+      @click.self="parseDialogOpen = false"
+    >
+      <div class="w-full max-w-lg rounded-xl bg-white shadow-2xl" style="border:1px solid hsl(240 5.9% 90%)">
+        <div class="flex items-center justify-between px-4 py-3" style="border-bottom:1px solid hsl(240 5.9% 90%)">
           <div class="text-sm font-semibold">Datei für Einheiten-Auslese wählen</div>
           <Button variant="ghost" size="icon" class="h-8 w-8" @click="parseDialogOpen = false">
             <X class="w-4 h-4" />
@@ -574,7 +579,7 @@ defineExpose({ save, discard });
             <label
               v-for="f in parseFiles"
               :key="f.id"
-              class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted cursor-pointer"
+              class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-zinc-100 cursor-pointer"
             >
               <input
                 type="radio"
@@ -587,7 +592,7 @@ defineExpose({ save, discard });
             </label>
           </div>
         </div>
-        <div class="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
+        <div class="flex items-center justify-end gap-2 px-4 py-3" style="border-top:1px solid hsl(240 5.9% 90%)">
           <Button variant="outline" size="sm" @click="parseDialogOpen = false">Abbrechen</Button>
           <Button size="sm" :disabled="parsingUnits || !selectedParseFileId" @click="parseUnitsFromExpose">
             <Loader2 v-if="parsingUnits" class="w-3.5 h-3.5 mr-1.5 animate-spin" />

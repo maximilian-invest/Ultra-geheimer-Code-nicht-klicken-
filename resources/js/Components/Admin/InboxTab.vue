@@ -1073,7 +1073,12 @@ function openDetail(item, mode) {
   const noAutoDraftCats = ['info-cc', 'intern'];
   const convCat = (item.category || '').toLowerCase();
   if ((mode === 'offen' || mode === 'nachfassen') && !item.draft_body && !item.draft_dismissed && !noAutoDraftCats.includes(convCat)) {
-    const aiPromise = fetch(API.value + "&action=conv_regenerate_draft&id=" + item.id, {
+    // Immer die Conversation-ID nutzen, nicht die Email-ID — bei
+    // Posteingang/Gesendet-Items ist item.id die email_id, nicht die
+    // conversation_id. openDetail() reichert _conv_id ueber die Fallback-
+    // Logik an (conv_list Lookup by stakeholder+property).
+    const convIdForAi = item._conv_id || item.id;
+    const aiPromise = fetch(API.value + "&action=conv_regenerate_draft&id=" + convIdForAi, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     })
@@ -1302,10 +1307,14 @@ async function regenerateAiDraft() {
   if (!item) return;
   // Keep existing draft visible during loading (don't null it)
   expandedAiLoading.value = true;
+  // Conversation-ID bevorzugen (wird bei Posteingang/Gesendet-Items von
+  // openDetail via conv_list-Lookup ins _conv_id geschrieben) — item.id ist
+  // dort die Email-ID und fuehrt zu 'Conversation not found'.
+  const convIdForAi = item._conv_id || item.id;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
-    const r = await fetch(API.value + "&action=conv_regenerate_draft&id=" + item.id, {
+    const r = await fetch(API.value + "&action=conv_regenerate_draft&id=" + convIdForAi, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
       signal: controller.signal,

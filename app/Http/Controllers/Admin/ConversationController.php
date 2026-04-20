@@ -926,6 +926,30 @@ class ConversationController extends Controller
 
         $conv = Conversation::find($id);
         if (!$conv) {
+            // Fallback: der Client hat eine Email-ID statt Conversation-ID
+            // geschickt (passiert bei Posteingang/Gesendet-Items). Resolve
+            // die Email zur passenden Conversation ueber property_id +
+            // contact_email / stakeholder.
+            $email = \DB::table('portal_emails')->where('id', $id)->first(['property_id', 'from_email', 'to_email', 'stakeholder']);
+            if ($email) {
+                $contactEmail = strtolower($email->from_email ?? $email->to_email ?? '');
+                if (preg_match('/<([^>]+)>/', $contactEmail, $m)) $contactEmail = $m[1];
+
+                $convQuery = Conversation::query();
+                if ($email->property_id) $convQuery->where('property_id', $email->property_id);
+                if ($contactEmail) {
+                    $convQuery->whereRaw('LOWER(contact_email) = ?', [$contactEmail]);
+                } elseif (!empty($email->stakeholder)) {
+                    $convQuery->where('stakeholder', $email->stakeholder);
+                }
+                $conv = $convQuery->orderByDesc('id')->first();
+                if ($conv) {
+                    \Log::info("conv_regenerate_draft: resolved email id={$id} -> conv id={$conv->id} (property={$email->property_id})");
+                }
+            }
+        }
+
+        if (!$conv) {
             return response()->json(['error' => 'Conversation not found'], 404);
         }
 

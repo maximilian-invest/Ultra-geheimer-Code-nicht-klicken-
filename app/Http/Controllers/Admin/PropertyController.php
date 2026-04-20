@@ -385,7 +385,7 @@ class PropertyController extends Controller
                 'purchase_price' => $data['purchase_price'] ?? null,
                 'total_area' => $data['total_area'] ?? null,
                 'rooms_amount' => $data['rooms_amount'] ?? null,
-                'realty_status' => $data['realty_status'] ?? 'auftrag',
+                'realty_status' => $data['realty_status'] ?? 'aktiv',
                 'broker_id' => \Auth::id(),
             ]);
 
@@ -504,7 +504,7 @@ class PropertyController extends Controller
     public function reactivate(Request $request): JsonResponse
     {
         $propertyId = $request->input('property_id');
-        $newStatus = $request->input('realty_status', 'auftrag');
+        $newStatus = $request->input('realty_status', 'aktiv');
         $brokerId = \Auth::id();
         $query = \App\Models\Property::where('id', $propertyId);
         if ($brokerId) $query->where('broker_id', $brokerId);

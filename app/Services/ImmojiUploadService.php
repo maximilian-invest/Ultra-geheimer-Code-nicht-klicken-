@@ -427,7 +427,7 @@ class ImmojiUploadService
         };
 
         $realtyStatus = match (strtolower($prop['status'] ?? '')) {
-            'auftrag', 'inserat', 'anfragen', 'besichtigungen' => 'ACTIVE',
+            'aktiv', 'auftrag', 'inserat', 'anfragen', 'besichtigungen' => 'ACTIVE',
             'verkauft' => 'SOLD',
             'inaktiv' => 'INACTIVE',
             default => null,

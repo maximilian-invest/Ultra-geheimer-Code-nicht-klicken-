@@ -76,7 +76,7 @@ class PropertyMatcherService
         }
 
         $candidates = Property::where('broker_id', $brokerId)
-            ->whereIn('realty_status', ['auftrag', 'inserat'])
+            ->where('realty_status', 'aktiv')
             ->whereNotIn('id', array_filter($excludeIds))
             ->get();
 

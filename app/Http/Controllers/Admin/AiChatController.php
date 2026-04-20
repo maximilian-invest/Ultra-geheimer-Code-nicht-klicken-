@@ -694,7 +694,7 @@ PROMPT;
                         'owner_name' => ['type' => 'string', 'description' => 'Optional: Name des Eigentümers'],
                         'owner_email' => ['type' => 'string', 'description' => 'Optional: E-Mail des Eigentümers'],
                         'owner_phone' => ['type' => 'string', 'description' => 'Optional: Telefon des Eigentümers'],
-                        'realty_status' => ['type' => 'string', 'description' => 'Optional: Status (auftrag, inserat, anfragen, etc.). Standard: auftrag'],
+                        'realty_status' => ['type' => 'string', 'description' => 'Optional: Status (aktiv, inaktiv, verkauft). Standard: aktiv'],
                     ],
                     'required' => ['ref_id', 'address', 'city', 'type'],
                 ],

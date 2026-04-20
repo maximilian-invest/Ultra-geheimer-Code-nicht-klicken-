@@ -409,9 +409,14 @@ class PropertyController extends Controller
             return response()->json(['error' => 'property_id erforderlich'], 422);
         }
 
+        // Broker-Scoping: Admin + Office-Rollen (assistenz, backoffice) duerfen
+        // JEDES Objekt loeschen. Makler nur die eigenen (broker_id=user id).
         $brokerId = \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        $canDeleteAny = in_array($userType, ['admin', 'assistenz', 'backoffice'], true);
+
         $query = \App\Models\Property::where('id', $propertyId);
-        if ($brokerId) {
+        if ($brokerId && !$canDeleteAny) {
             $query->where('broker_id', $brokerId);
         }
         $property = $query->first();
@@ -493,8 +498,10 @@ class PropertyController extends Controller
     {
         $propertyId = $request->input('property_id');
         $brokerId = \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        $canAny = in_array($userType, ['admin', 'assistenz', 'backoffice'], true);
         $query = \App\Models\Property::where('id', $propertyId);
-        if ($brokerId) $query->where('broker_id', $brokerId);
+        if ($brokerId && !$canAny) $query->where('broker_id', $brokerId);
         $property = $query->firstOrFail();
         $property->update(['realty_status' => 'inaktiv']);
         Cache::forget('website_properties');
@@ -506,8 +513,10 @@ class PropertyController extends Controller
         $propertyId = $request->input('property_id');
         $newStatus = $request->input('realty_status', 'aktiv');
         $brokerId = \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        $canAny = in_array($userType, ['admin', 'assistenz', 'backoffice'], true);
         $query = \App\Models\Property::where('id', $propertyId);
-        if ($brokerId) $query->where('broker_id', $brokerId);
+        if ($brokerId && !$canAny) $query->where('broker_id', $brokerId);
         $property = $query->firstOrFail();
         $property->update(['realty_status' => $newStatus]);
         Cache::forget('website_properties');

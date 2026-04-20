@@ -24,9 +24,56 @@
   document.getElementById('prop-address').textContent = `${p.address || ''}, ${p.zip || ''} ${p.city || ''}`;
   document.getElementById('prop-price').textContent = price;
 
-  // Preis-Label in der Sidebar auf "Mietpreis" umschreiben wenn Miete
-  const priceLabel = document.querySelector('#prop-price')?.previousElementSibling;
-  if (priceLabel && isRental) priceLabel.textContent = 'Mietpreis';
+  // Preis-Label in der Sidebar ("Kaufpreis" vs "Mietpreis")
+  const priceLabelEl = document.getElementById('prop-price-label');
+  if (priceLabelEl && isRental) priceLabelEl.textContent = 'Mietpreis';
+
+  /* ─── Betriebskosten: Gesamtsumme in der Sidebar + Aufschluesselung unten ─── */
+  const costItems = [
+    { key: 'operating_costs',       label: 'Betriebskosten' },
+    { key: 'heating_costs',         label: 'Heizkosten' },
+    { key: 'warm_water_costs',      label: 'Warmwasserkosten' },
+    { key: 'cooling_costs',         label: 'Kuehlungskosten' },
+    { key: 'maintenance_reserves',  label: 'Rücklage' },
+    { key: 'admin_costs',           label: 'Verwaltungskosten' },
+    { key: 'elevator_costs',        label: 'Aufzugskosten' },
+    { key: 'parking_costs_monthly', label: 'Stellplatzkosten' },
+    { key: 'other_costs',           label: 'Sonstige Kosten' },
+  ];
+  const filled = costItems
+    .map(it => ({ ...it, val: parseFloat(p[it.key] || 0) }))
+    .filter(it => it.val > 0);
+  const sumSub = filled.reduce((s, it) => s + it.val, 0);
+  const bkTotal = parseFloat(p.monthly_costs || 0) || sumSub;
+
+  const bkTotalEl = document.getElementById('prop-bk-total');
+  if (bkTotalEl && bkTotal > 0) {
+    bkTotalEl.textContent = `zzgl. Betriebskosten: EUR ${fmt(bkTotal)} / Monat`;
+  }
+
+  const breakdownEl = document.getElementById('costs-breakdown');
+  if (breakdownEl && filled.length) {
+    breakdownEl.innerHTML = `
+      <div class="mt-16">
+        <h2 class="text-sm font-bold uppercase tracking-widest mb-6" style="color:#9A958C">Nebenkosten (mtl.)</h2>
+        <div class="rounded-2xl overflow-hidden" style="background:#fff;border:1px solid #F0ECE6">
+          ${filled.map((it, i) => `
+            <div class="flex items-center justify-between px-6 py-4" style="${i < filled.length - 1 ? 'border-bottom:1px solid #F0ECE6' : ''}">
+              <span class="text-sm" style="color:#5A564E">${esc(it.label)}</span>
+              <span class="text-sm font-semibold tabular-nums" style="color:#0A0A08">EUR ${fmt(it.val)}</span>
+            </div>`).join('')}
+          ${parseFloat(p.monthly_costs || 0) > 0 && Math.abs(parseFloat(p.monthly_costs) - sumSub) > 1 ? `
+            <div class="flex items-center justify-between px-6 py-4" style="background:#FAF8F5;border-top:1px solid #F0ECE6">
+              <span class="text-sm font-bold" style="color:#0A0A08">Gesamt (mtl.)</span>
+              <span class="text-sm font-bold tabular-nums" style="color:#0A0A08">EUR ${fmt(parseFloat(p.monthly_costs))}</span>
+            </div>` : `
+            <div class="flex items-center justify-between px-6 py-4" style="background:#FAF8F5;border-top:1px solid #F0ECE6">
+              <span class="text-sm font-bold" style="color:#0A0A08">Gesamt (mtl.)</span>
+              <span class="text-sm font-bold tabular-nums" style="color:#0A0A08">EUR ${fmt(sumSub)}</span>
+            </div>`}
+        </div>
+      </div>`;
+  }
 
   /* ─── Gallery ─── */
   const gallery = document.getElementById('gallery');

@@ -18,7 +18,11 @@
     const filtered = props.filter(p => {
       // Listings page should only show currently active objects.
       if (p.realty_status === 'verkauft' || p.realty_status === 'inaktiv') return false;
-      if (activeCat !== 'alle' && p.property_category !== activeCat && (activeCat !== 'kauf' || p.property_category === 'miete')) return false;
+      // Filter nach Vermarktungsart (marketing_type). Kauf/Miete — 'alle' zeigt beide.
+      if (activeCat !== 'alle') {
+        const mt = (p.marketing_type || 'kauf').toLowerCase();
+        if (activeCat !== mt) return false;
+      }
       if (activeType !== 'alle') {
         const t = (p.type || '').toLowerCase();
         if (activeType === 'haus' && !t.includes('haus') && !t.includes('einfamilien') && !t.includes('reihen')) return false;

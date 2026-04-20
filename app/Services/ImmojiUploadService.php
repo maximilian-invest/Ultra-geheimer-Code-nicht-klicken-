@@ -208,8 +208,39 @@ class ImmojiUploadService
         $merged['purchase_price'] = $unit['price'] ?? $unit['purchase_price'] ?? null;
         $merged['rooms_amount'] = $unit['rooms'] ?? $unit['rooms_amount'] ?? null;
         $merged['floor_number'] = $unit['floor'] ?? null;
+
+        // unit_type enthaelt die vollstaendige deutsche Bezeichnung
+        // (z.B. 'Doppelhaushaelfte'). Daraus leiten wir fuer Immoji sowohl
+        // den groben object_type (HOUSE / APARTMENT / OFFICE / GARAGE) als
+        // auch den spezifischen object_subtype (SEMI_DETACHED_HOUSE etc.)
+        // ab. mapObjectType() + mapObjectSubtype() koennen beide Richtungen.
         if (!empty($unit['unit_type'])) {
             $merged['object_type'] = $unit['unit_type'];
+            // Explizit object_subtype setzen — mapObjectSubtype akzeptiert
+            // denselben Input wie object_type und liefert nur ein Resultat
+            // wenn es einen passenden Immoji-Subtype gibt, sonst null.
+            $merged['object_subtype'] = $unit['unit_type'];
+        }
+
+        // Stellplaetze auf Einheiten-Ebene (parking_spaces JSON-Array).
+        // Ueberschreibt die Parking-Konfig des Master-Projekts fuer diese
+        // spezifische Unit-Realty. Falls leer, erbt sie das Master-Setup.
+        // NICHT assigned_parking verwenden — das referenziert weiterhin
+        // Parking-Unit-IDs (is_parking=1).
+        $ap = $unit['parking_spaces'] ?? null;
+        if (is_string($ap)) {
+            $decoded = json_decode($ap, true);
+            $ap = is_array($decoded) ? $decoded : null;
+        }
+        if (is_array($ap) && !empty($ap)) {
+            $bd = $merged['building_details'] ?? null;
+            if (is_string($bd)) {
+                $decoded = json_decode($bd, true);
+                $bd = is_array($decoded) ? $decoded : [];
+            }
+            if (!is_array($bd)) $bd = [];
+            $bd['parking_spaces'] = $ap;
+            $merged['building_details'] = $bd;
         }
 
         $immojiId = $unit['immoji_id'] ?? null;
@@ -938,12 +969,16 @@ class ImmojiUploadService
     public static function mapObjectType(string $srType): string
     {
         return match (strtolower(trim($srType))) {
-            'eigentumswohnung', 'wohnung', 'apartment' => 'APARTMENT',
-            'einfamilienhaus', 'haus', 'house', 'reihenhaus', 'doppelhaus', 'mehrfamilienhaus', 'bungalow', 'villa' => 'HOUSE',
+            'eigentumswohnung', 'wohnung', 'apartment',
+            'etagenwohnung', 'erdgeschosswohnung', 'gartenwohnung',
+            'dachgeschosswohnung', 'penthouse', 'maisonette' => 'APARTMENT',
+            'einfamilienhaus', 'haus', 'house', 'reihenhaus',
+            'doppelhaus', 'doppelhaushälfte', 'doppelhaushaelfte',
+            'mehrfamilienhaus', 'bungalow', 'villa', 'bauernhaus' => 'HOUSE',
             // Immoji enum currently accepts PROPERTY for lots/plots.
             'grundstueck', 'grundstück', 'land' => 'PROPERTY',
             // Immoji enum currently accepts OFFICE for commercial objects in this integration.
-            'gewerbe', 'commercial', 'geschäft', 'geschaeft' => 'OFFICE',
+            'gewerbe', 'commercial', 'geschäft', 'geschaeft', 'lager' => 'OFFICE',
             'büro', 'buero', 'office' => 'OFFICE',
             'garage', 'stellplatz', 'parking' => 'GARAGE',
             default => 'APARTMENT',

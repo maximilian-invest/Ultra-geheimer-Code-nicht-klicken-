@@ -593,6 +593,9 @@ class PropertySettingsController extends Controller
             'portal_exports'     => isset($data['portal_exports']) ? (is_string($data['portal_exports']) ? $data['portal_exports'] : json_encode($data['portal_exports'])) : null,
             // immoji_id is NOT set here — managed exclusively by immoji_push_single_unit endpoint
             'assigned_parking'   => isset($data['assigned_parking']) ? $data['assigned_parking'] : null,
+            'parking_spaces'     => isset($data['parking_spaces'])
+                ? (is_string($data['parking_spaces']) ? $data['parking_spaces'] : json_encode($data['parking_spaces'], JSON_UNESCAPED_UNICODE))
+                : null,
             'images'             => isset($data['images']) ? json_encode($data['images']) : null,
             'buyer_name'         => trim($data['buyer_name'] ?? '') ?: null,
             'buyer_email'        => trim($data['buyer_email'] ?? '') ?: null,

@@ -1,8 +1,9 @@
 <script setup>
 import { ref, computed, inject, onMounted } from "vue";
-import { Plus, Save, Search, ChevronDown, ChevronRight, Upload, Loader2, RefreshCw, X } from "lucide-vue-next";
+import { Plus, Save, Search, ChevronDown, ChevronRight, Upload, Loader2, RefreshCw, X, Trash2 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -10,6 +11,71 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+// ─── Einheit-Stellplatz Helpers ────────────────────────────────
+// Stellplaetze werden pro Einheit als JSON-Array in property_units.
+// parking_spaces gespeichert. Dieselbe Struktur wie Property-Level
+// building_details.parking_spaces — ImmojiUploadService.pushUnit
+// uebergibt das an buildingInput.parkingSpaces fuer die Unit-Realty.
+//
+// WICHTIG: NICHT 'assigned_parking' verwenden — das Feld referenziert
+// weiterhin Parking-Unit-IDs (is_parking=1) und ist ein komplett
+// anderes Konzept.
+const UNIT_PARKING_TYPES = [
+  { value: "outdoor", label: "PKW-Außenstellplatz" },
+  { value: "carport", label: "Carport" },
+  { value: "duplex_garage", label: "Duplexgarage" },
+  { value: "garage", label: "Garage" },
+  { value: "underground_garage", label: "Tiefgarage" },
+  { value: "car_park", label: "Parkhaus" },
+  { value: "general", label: "Allgemeiner Stellplatz" },
+  { value: "hall", label: "Halle" },
+  { value: "barn", label: "Scheune" },
+  { value: "other", label: "Sonstiges" },
+];
+const UNIT_SUITABLE_FOR = [
+  { value: "car", label: "KFZ" },
+  { value: "truck", label: "LKW" },
+  { value: "motorcycle", label: "Motorrad" },
+  { value: "bike", label: "Fahrrad" },
+  { value: "motorhome", label: "Wohnmobil" },
+  { value: "boat", label: "Boot" },
+];
+
+function unitParkingList(unit) {
+  const raw = unit.parking_spaces;
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const p = JSON.parse(raw);
+      return Array.isArray(p) ? p : [];
+    } catch { return []; }
+  }
+  return [];
+}
+
+function setUnitParking(unit, list) {
+  unit.parking_spaces = list.slice();
+}
+
+function addUnitParking(unit) {
+  const list = unitParkingList(unit);
+  list.push({ type: "outdoor", count: 1, max_vehicle_width: "", area: "", suitable_for: "", description: "" });
+  setUnitParking(unit, list);
+}
+
+function removeUnitParking(unit, idx) {
+  const list = unitParkingList(unit).slice();
+  list.splice(idx, 1);
+  setUnitParking(unit, list);
+}
+
+function updateUnitParking(unit, idx, key, value) {
+  const list = unitParkingList(unit).slice();
+  if (!list[idx]) return;
+  list[idx] = { ...list[idx], [key]: value };
+  setUnitParking(unit, list);
+}
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -337,6 +403,7 @@ async function saveUnit(unit) {
       purchase_price: unit.price || unit.purchase_price,
       status: unit.status || "frei",
       portal_exports: unit.portal_exports,
+      parking_spaces: unit.parking_spaces ? (Array.isArray(unit.parking_spaces) ? JSON.stringify(unit.parking_spaces) : unit.parking_spaces) : null,
       is_parking: 0,
     };
     const r = await fetch(API.value + "&action=save_property_unit", {
@@ -396,6 +463,7 @@ async function inlineStatusChange(unit, newStatus) {
         purchase_price: unit.price || unit.purchase_price,
         status: newStatus,
         portal_exports: unit.portal_exports,
+      parking_spaces: unit.parking_spaces ? (Array.isArray(unit.parking_spaces) ? JSON.stringify(unit.parking_spaces) : unit.parking_spaces) : null,
         is_parking: unit.is_parking ? 1 : 0,
       }),
     });
@@ -498,6 +566,7 @@ async function inlineTogglePortal(unit, portalKey) {
       purchase_price: unit.price || unit.purchase_price,
       status: unit.status || "frei",
       portal_exports: unit.portal_exports,
+      parking_spaces: unit.parking_spaces ? (Array.isArray(unit.parking_spaces) ? JSON.stringify(unit.parking_spaces) : unit.parking_spaces) : null,
       is_parking: 0,
     };
     const r = await fetch(API.value + "&action=save_property_unit", {
@@ -814,12 +883,28 @@ defineExpose({ save, discard });
                 <!-- Typ -->
                 <div>
                   <label class="text-[12px] text-zinc-600 font-medium mb-1.5 block">Typ</label>
-                  <Select v-model="unit.unit_type">
+                  <Select clearable v-model="unit.unit_type">
                     <SelectTrigger class="h-9 text-[13px] border border-input rounded-lg bg-background">
                       <SelectValue placeholder="Typ wählen" />
                     </SelectTrigger>
                     <SelectContent>
+                      <!-- Wohnungs-Typen (Immoji APARTMENT + Subtypen) -->
                       <SelectItem value="Wohnung">Wohnung</SelectItem>
+                      <SelectItem value="Etagenwohnung">Etagenwohnung</SelectItem>
+                      <SelectItem value="Erdgeschosswohnung">Erdgeschosswohnung</SelectItem>
+                      <SelectItem value="Gartenwohnung">Gartenwohnung</SelectItem>
+                      <SelectItem value="Dachgeschosswohnung">Dachgeschosswohnung</SelectItem>
+                      <SelectItem value="Penthouse">Penthouse</SelectItem>
+                      <SelectItem value="Maisonette">Maisonette</SelectItem>
+                      <!-- Haus-Typen (Immoji HOUSE + Subtypen) -->
+                      <SelectItem value="Einfamilienhaus">Einfamilienhaus</SelectItem>
+                      <SelectItem value="Doppelhaushälfte">Doppelhaushälfte</SelectItem>
+                      <SelectItem value="Reihenhaus">Reihenhaus</SelectItem>
+                      <SelectItem value="Mehrfamilienhaus">Mehrfamilienhaus</SelectItem>
+                      <SelectItem value="Bungalow">Bungalow</SelectItem>
+                      <SelectItem value="Villa">Villa</SelectItem>
+                      <SelectItem value="Bauernhaus">Bauernhaus</SelectItem>
+                      <!-- Gewerbe / Andere -->
                       <SelectItem value="Gewerbe">Gewerbe</SelectItem>
                       <SelectItem value="Büro">Büro</SelectItem>
                       <SelectItem value="Lager">Lager</SelectItem>
@@ -887,6 +972,74 @@ defineExpose({ save, discard });
                       <SelectItem value="verkauft">Verkauft</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              <!-- Stellplätze pro Einheit (wird 1:1 an Immoji buildingInput.parkingSpaces synced) -->
+              <div class="mb-4 rounded-xl border border-zinc-200 p-4 bg-zinc-50/30">
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-[13px] font-semibold">Stellplätze</span>
+                  <Button type="button" variant="outline" size="sm" class="h-7 text-[11px] gap-1" @click="addUnitParking(unit)">
+                    <Plus class="w-3 h-3" /> Stellplatz hinzufügen
+                  </Button>
+                </div>
+
+                <div v-if="!unitParkingList(unit).length" class="text-[12px] text-muted-foreground py-1">
+                  Keine Stellplätze — keine Parking-Info wird für diese Einheit an Immoji geschickt.
+                </div>
+
+                <div
+                  v-for="(sp, spIdx) in unitParkingList(unit)"
+                  :key="spIdx"
+                  class="space-y-2 py-2 border-t border-zinc-200 first:border-0 first:pt-0"
+                >
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="text-[10px] text-muted-foreground mb-1 block">Art</label>
+                      <Select :model-value="sp.type || 'outdoor'" @update:model-value="updateUnitParking(unit, spIdx, 'type', $event)">
+                        <SelectTrigger class="h-8 text-[12px] border border-input rounded-lg bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem v-for="opt in UNIT_PARKING_TYPES" :key="opt.value" :value="opt.value">{{ opt.label }}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-muted-foreground mb-1 block">Anzahl</label>
+                      <Input :model-value="sp.count" @update:model-value="updateUnitParking(unit, spIdx, 'count', $event)" type="number" min="1" class="h-8 text-[12px]" />
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="text-[10px] text-muted-foreground mb-1 block">max. Fahrzeugbreite (m)</label>
+                      <Input :model-value="sp.max_vehicle_width" @update:model-value="updateUnitParking(unit, spIdx, 'max_vehicle_width', $event)" type="number" step="0.1" class="h-8 text-[12px]" />
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-muted-foreground mb-1 block">Fläche (m²)</label>
+                      <Input :model-value="sp.area" @update:model-value="updateUnitParking(unit, spIdx, 'area', $event)" type="number" step="0.1" class="h-8 text-[12px]" />
+                    </div>
+                  </div>
+                  <div>
+                    <label class="text-[10px] text-muted-foreground mb-1 block">geeignet für</label>
+                    <Select clearable :model-value="sp.suitable_for || ''" @update:model-value="updateUnitParking(unit, spIdx, 'suitable_for', $event)">
+                      <SelectTrigger class="h-8 text-[12px] border border-input rounded-lg bg-background">
+                        <SelectValue placeholder="Wählen..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="opt in UNIT_SUITABLE_FOR" :key="opt.value" :value="opt.value">{{ opt.label }}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label class="text-[10px] text-muted-foreground mb-1 block">Beschreibung</label>
+                    <Textarea :model-value="sp.description" @update:model-value="updateUnitParking(unit, spIdx, 'description', $event)" rows="2" class="text-[12px]" />
+                  </div>
+                  <div class="flex justify-end">
+                    <Button type="button" variant="ghost" size="sm" class="h-7 text-[11px] gap-1 text-red-600 hover:bg-red-50" @click="removeUnitParking(unit, spIdx)">
+                      <Trash2 class="w-3 h-3" /> Entfernen
+                    </Button>
+                  </div>
                 </div>
               </div>
 

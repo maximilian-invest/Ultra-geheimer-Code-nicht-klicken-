@@ -1454,6 +1454,28 @@ async function batchTrash(ids) {
 
 async function markConvDone(convId) {
   if (!convId) return;
+
+  // Optimistic UI: sofort aus der Liste entfernen. Fruehere Version wartete
+  // auf die Server-Response bevor irgendwas passierte — bei Latenz sah der
+  // User "nichts" und klickte unter Umstaenden erneut.
+  const idStr = String(convId);
+  const snapshotUn = unansweredList.value.slice();
+  const snapshotS1 = stage1Followups.value.slice();
+  const snapshotS2 = (followupData.value?.followups || []).slice();
+
+  const matches = (i) => {
+    if (!i) return false;
+    const convMatch = i._conv_id != null && String(i._conv_id) === idStr;
+    const idMatch = i.id != null && String(i.id) === idStr;
+    return convMatch || idMatch;
+  };
+
+  unansweredList.value = unansweredList.value.filter(i => !matches(i));
+  stage1Followups.value = stage1Followups.value.filter(i => !matches(i));
+  if (followupData.value && Array.isArray(followupData.value.followups)) {
+    followupData.value.followups = followupData.value.followups.filter(i => !matches(i));
+  }
+
   try {
     const r = await fetch(API.value + "&action=conv_done&id=" + convId, {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -1462,30 +1484,75 @@ async function markConvDone(convId) {
     const d = await r.json();
     if (d.success) {
       toast("Erledigt!");
+      refreshCounts();
+      // Hintergrund-Refresh — falls serverseitig Side-Effects passiert sind,
+      // aber die Liste bleibt optisch unveraendert bis die Antwort da ist.
       loadUnanswered(unansweredFilter.value);
       loadFollowups(followupFilter.value);
-      refreshCounts();
+    } else {
+      // Rollback: Server hat abgelehnt
+      unansweredList.value = snapshotUn;
+      stage1Followups.value = snapshotS1;
+      if (followupData.value) followupData.value.followups = snapshotS2;
+      toast("Fehler: " + (d.error || "Konnte nicht als erledigt markiert werden"));
     }
-  } catch (e) { toast("Fehler: " + e.message); }
+  } catch (e) {
+    // Rollback bei Netzwerk-/Parse-Fehler
+    unansweredList.value = snapshotUn;
+    stage1Followups.value = snapshotS1;
+    if (followupData.value) followupData.value.followups = snapshotS2;
+    toast("Fehler: " + e.message);
+  }
 }
 
 async function markHandled(stakeholder, propertyId) {
   const item = selectedItem.value;
+  if (!item) return;
+  const idForApi = item._conv_id || item.id;
+  const idStr = String(idForApi);
+
+  // Optimistic UI — sofort Detail schliessen + aus Listen entfernen
+  const snapshotUn = unansweredList.value.slice();
+  const snapshotS1 = stage1Followups.value.slice();
+  const snapshotS2 = (followupData.value?.followups || []).slice();
+
+  const matches = (i) => {
+    if (!i) return false;
+    const convMatch = i._conv_id != null && String(i._conv_id) === idStr;
+    const idMatch = i.id != null && String(i.id) === idStr;
+    return convMatch || idMatch;
+  };
+  unansweredList.value = unansweredList.value.filter(i => !matches(i));
+  stage1Followups.value = stage1Followups.value.filter(i => !matches(i));
+  if (followupData.value && Array.isArray(followupData.value.followups)) {
+    followupData.value.followups = followupData.value.followups.filter(i => !matches(i));
+  }
+  detailOpen.value = false;
+  selectedItem.value = null;
+
   try {
-    const r = await fetch(API.value + "&action=conv_done&id=" + (item ? (item._conv_id || item.id) : ''), {
+    const r = await fetch(API.value + "&action=conv_done&id=" + idForApi, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
     const d = await r.json();
     if (d.success) {
       toast("Als erledigt markiert!");
-      detailOpen.value = false;
-      selectedItem.value = null;
+      refreshCounts();
       loadUnanswered(unansweredFilter.value);
       loadFollowups(followupFilter.value);
-      refreshCounts();
-    } else { toast("Fehler: " + (d.error || "Unbekannt")); }
-  } catch (e) { toast("Fehler: " + e.message); }
+    } else {
+      unansweredList.value = snapshotUn;
+      stage1Followups.value = snapshotS1;
+      if (followupData.value) followupData.value.followups = snapshotS2;
+      toast("Fehler: " + (d.error || "Unbekannt"));
+    }
+  } catch (e) {
+    unansweredList.value = snapshotUn;
+    stage1Followups.value = snapshotS1;
+    if (followupData.value) followupData.value.followups = snapshotS2;
+    toast("Fehler: " + e.message);
+  }
 }
 
 // ============================================================

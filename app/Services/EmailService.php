@@ -121,6 +121,20 @@ class EmailService
                 Log::info("[EmailService] Stakeholder resolved from email: {$stakeholder} for {$to}");
             }
 
+            // Anhang-Metadaten aus den uebergebenen $attachments extrahieren,
+            // damit 'Gesendet' + Conversation-Listen ein Paperclip-Icon
+            // zeigen koennen. Unterstuetzt sowohl UploadedFile (Bytes aus
+            // Compose-View) als auch Pfad-Strings (resolvte property_files).
+            $attachmentNamesList = [];
+            foreach (($attachments ?? []) as $attachment) {
+                if ($attachment instanceof \Illuminate\Http\UploadedFile) {
+                    $attachmentNamesList[] = $attachment->getClientOriginalName();
+                } elseif (is_string($attachment) && $attachment !== '') {
+                    $attachmentNamesList[] = basename($attachment);
+                }
+            }
+            $hasAttachment = !empty($attachmentNamesList);
+
             // Save to portal_emails with message_id for threading
             $portalEmail = PortalEmail::create([
                 'direction' => 'outbound',
@@ -137,6 +151,8 @@ class EmailService
                 'is_processed' => true,
                 'account_id' => $accountId,
                 'message_id' => $messageId,
+                'has_attachment' => $hasAttachment ? 1 : 0,
+                'attachment_names' => $hasAttachment ? implode(', ', $attachmentNamesList) : null,
             ]);
 
             // Create activity

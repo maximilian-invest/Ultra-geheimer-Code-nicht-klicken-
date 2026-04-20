@@ -879,6 +879,50 @@ class PropertySettingsController extends Controller
         Log::info("parseExpose: found " . count($exposePaths) . " PDF files to parse");
         $exposePath = $exposePaths[0] ?? null;
 
+        // Prompt MUSS vor der Datei-Schleife definiert sein, weil der Excel-
+        // Zweig (.xlsx/.xls) sofort mit $ai->chatJson arbeitet und $prompt
+        // einbindet — der Fallback-Pfad setzt den Prompt sonst erst NACH der
+        // Schleife und wir bekommen 'Undefined variable $prompt'.
+        $prompt = "Analysiere dieses Immobilien-Exposé und extrahiere ALLE Daten.\n\n";
+        $prompt .= "ERLAUBTE FELD-KEYS (verwende EXAKT diese keys, KEINE eigenen erfinden!):\n{$fieldsJson}\n\n";
+        $prompt .= "STRIKTE REGELN:\n";
+        $prompt .= "- Verwende AUSSCHLIEßLICH die oben gelisteten Feld-Keys. Erfinde KEINE neuen Keys!\n";
+        $prompt .= "- BESCHREIBUNGEN (description, description_location, description_equipment, description_other, highlights): KRITISCH WICHTIG! Den VOLLSTÄNDIGEN Originaltext aus dem Exposé übernehmen - JEDES WORT, JEDEN ABSATZ, JEDEN SATZ! NIEMALS zusammenfassen, kürzen oder umschreiben! Die Beschreibungstexte können mehrere Absätze lang sein - kopiere ALLES davon wörtlich. Wenn der Text 500 Wörter hat, muss dein Output auch 500 Wörter haben.\n";
+        $prompt .= "- Numerische Felder (m², €, Anzahl): NUR Zahlen, KEINE Einheiten/Texte (z.B. 85.5 statt '85,5 m²')\n";
+        $prompt .= "- Boolean-Felder (has_*): true oder false\n";
+        $prompt .= "- property_category: 'newbuild' (Neubauprojekt), 'house' (Haus), 'apartment' (Wohnung), 'land' (Grundstück)\n";
+        $prompt .= "- Felder die nicht im Exposé vorkommen: WEGLASSEN (nicht null setzen)\n";
+        $prompt .= "- Beschreibungs-Texte aufteilen: description (Haupttext), description_location (Lage), description_equipment (Ausstattung)\n";
+        $prompt .= "- Kontakt-/Ansprechpartner-Info: contact_person, contact_phone, contact_email\n";
+        $prompt .= '- property_history: JSON-Array [{"year": "1995", "title": "Dachsanierung", "description": "Details"}] — extrahiere ALLE Jahreszahlen mit Sanierungen, Umbauten, Errichtungsjahr etc. aus dem Expose' . "\n";
+        $prompt .= "- Bauträger/Hausverwaltung: builder_company, property_manager (nur Firmennamen)\n";
+        $prompt .= "- Einzelflächen: area_balcony, area_terrace, area_garden (nicht in description packen)\n";
+        $prompt .= "- ENERGIEWERTE (KRITISCH - NIEMALS leer lassen wenn im Dokument vorhanden!):\n";
+        $prompt .= "  energy_certificate: 'ja'/'nein' oder Beschreibung\n";
+        $prompt .= "  energy_hwb: HWB-Wert als Zahl (z.B. 45.2 für 45,2 kWh/m²a)\n";
+        $prompt .= "  energy_type: 'Endenergie'/'Primärenergie'\n";
+        $prompt .= "  energy_class: Energieklasse (z.B. 'B', 'C', 'D', 'fGEE 0.81')\n";
+        $prompt .= "  energy_fgee: fGEE-Wert als Zahl (z.B. 0.81)\n";
+        $prompt .= "  heating: Heizungsart (z.B. 'Fußbodenheizung', 'Fernwärme', 'Gas-Zentralheizung')\n";
+        $prompt .= "- WEITERE PFLICHTFELDER (wenn im Dokument vorhanden):\n";
+        $prompt .= "  operating_costs: Betriebskosten als Zahl\n";
+        $prompt .= "  reserve_fund: Rücklage/Reparaturrücklage als Zahl\n";
+        $prompt .= "  year_built: Baujahr als Zahl (z.B. 2024)\n";
+        $prompt .= "  year_renovated: Renovierungsjahr als Zahl\n";
+        $prompt .= "  available_from: Verfügbar ab (z.B. 'sofort', '01.06.2026')\n";
+        $prompt .= "- Suche SEHR GRÜNDLICH im gesamten Dokument nach diesen Werten. Energieausweise stehen oft auf den letzten Seiten oder in kleiner Schrift!\n\n";
+        $prompt .= "Bei Neubauprojekten: Erkenne ALLE einzelnen Wohnungen/Einheiten:\n";
+        $prompt .= "- Durchgestrichene Preise/Namen = VERKAUFT (status: 'verkauft')\n";
+        $prompt .= "- Jede Einheit: unit_number, unit_type, floor (0=EG), area_m2, rooms, price, status, balcony_terrace_m2, garden_m2\n\n";
+        $prompt .= "Antworte NUR mit gültigem JSON:\n";
+        $prompt .= "{\n  \"fields\": { \"property_category\": \"newbuild\", \"project_name\": \"...\", \"address\": \"...\", \"rooms\": 3, \"size_m2\": 85.5, \"has_balcony\": true, ... },\n";
+        $prompt .= "  \"units\": [ { \"unit_number\": \"TOP 1\", \"unit_type\": \"2-Zimmer\", \"floor\": 0, \"area_m2\": 54.33, \"rooms\": 2, \"price\": 291900, \"status\": \"frei\", \"balcony_terrace_m2\": 12.36, \"garden_m2\": 84.30 }, ... ],\n";
+        $prompt .= "  \"confidence\": \"high|medium|low\",\n";
+        $prompt .= "  \"warnings\": []\n}";
+
+        $result = null;
+        $source = 'none';
+
         $images = [];
         foreach ($exposePaths as $ep) {
             $ext = strtolower(pathinfo($ep, PATHINFO_EXTENSION));
@@ -947,48 +991,7 @@ PY;
         $images = array_slice($images, 0, 20);
         Log::info('parseExpose: total images for Vision API: ' . count($images));
 
-        // Build the prompt
-        $prompt = "Analysiere dieses Immobilien-Exposé und extrahiere ALLE Daten.\n\n";
-        $prompt .= "ERLAUBTE FELD-KEYS (verwende EXAKT diese keys, KEINE eigenen erfinden!):\n{$fieldsJson}\n\n";
-        $prompt .= "STRIKTE REGELN:\n";
-        $prompt .= "- Verwende AUSSCHLIEßLICH die oben gelisteten Feld-Keys. Erfinde KEINE neuen Keys!\n";
-        $prompt .= "- BESCHREIBUNGEN (description, description_location, description_equipment, description_other, highlights): KRITISCH WICHTIG! Den VOLLSTÄNDIGEN Originaltext aus dem Exposé übernehmen - JEDES WORT, JEDEN ABSATZ, JEDEN SATZ! NIEMALS zusammenfassen, kürzen oder umschreiben! Die Beschreibungstexte können mehrere Absätze lang sein - kopiere ALLES davon wörtlich. Wenn der Text 500 Wörter hat, muss dein Output auch 500 Wörter haben.\n";
-        $prompt .= "- Numerische Felder (m², €, Anzahl): NUR Zahlen, KEINE Einheiten/Texte (z.B. 85.5 statt '85,5 m²')\n";
-        $prompt .= "- Boolean-Felder (has_*): true oder false\n";
-        $prompt .= "- property_category: 'newbuild' (Neubauprojekt), 'house' (Haus), 'apartment' (Wohnung), 'land' (Grundstück)\n";
-        $prompt .= "- Felder die nicht im Exposé vorkommen: WEGLASSEN (nicht null setzen)\n";
-        $prompt .= "- Beschreibungs-Texte aufteilen: description (Haupttext), description_location (Lage), description_equipment (Ausstattung)\n";
-        $prompt .= "- Kontakt-/Ansprechpartner-Info: contact_person, contact_phone, contact_email\n";
-        $prompt .= '- property_history: JSON-Array [{"year": "1995", "title": "Dachsanierung", "description": "Details"}] — extrahiere ALLE Jahreszahlen mit Sanierungen, Umbauten, Errichtungsjahr etc. aus dem Expose' . "\n";
-        $prompt .= "- Bauträger/Hausverwaltung: builder_company, property_manager (nur Firmennamen)\n";
-        $prompt .= "- Einzelflächen: area_balcony, area_terrace, area_garden (nicht in description packen)\n";
-        $prompt .= "- ENERGIEWERTE (KRITISCH - NIEMALS leer lassen wenn im Dokument vorhanden!):\n";
-        $prompt .= "  energy_certificate: 'ja'/'nein' oder Beschreibung\n";
-        $prompt .= "  energy_hwb: HWB-Wert als Zahl (z.B. 45.2 für 45,2 kWh/m²a)\n";
-        $prompt .= "  energy_type: 'Endenergie'/'Primärenergie'\n";
-        $prompt .= "  energy_class: Energieklasse (z.B. 'B', 'C', 'D', 'fGEE 0.81')\n";
-        $prompt .= "  energy_fgee: fGEE-Wert als Zahl (z.B. 0.81)\n";
-        $prompt .= "  heating: Heizungsart (z.B. 'Fußbodenheizung', 'Fernwärme', 'Gas-Zentralheizung')\n";
-        $prompt .= "- WEITERE PFLICHTFELDER (wenn im Dokument vorhanden):\n";
-        $prompt .= "  operating_costs: Betriebskosten als Zahl\n";
-        $prompt .= "  reserve_fund: Rücklage/Reparaturrücklage als Zahl\n";
-        $prompt .= "  year_built: Baujahr als Zahl (z.B. 2024)\n";
-        $prompt .= "  year_renovated: Renovierungsjahr als Zahl\n";
-        $prompt .= "  available_from: Verfügbar ab (z.B. 'sofort', '01.06.2026')\n";
-        $prompt .= "- Suche SEHR GRÜNDLICH im gesamten Dokument nach diesen Werten. Energieausweise stehen oft auf den letzten Seiten oder in kleiner Schrift!\n\n";
-        $prompt .= "Bei Neubauprojekten: Erkenne ALLE einzelnen Wohnungen/Einheiten:\n";
-        $prompt .= "- Durchgestrichene Preise/Namen = VERKAUFT (status: 'verkauft')\n";
-        $prompt .= "- Jede Einheit: unit_number, unit_type, floor (0=EG), area_m2, rooms, price, status, balcony_terrace_m2, garden_m2\n\n";
-        $prompt .= "Antworte NUR mit gültigem JSON:\n";
-        $prompt .= "{\n  \"fields\": { \"property_category\": \"newbuild\", \"project_name\": \"...\", \"address\": \"...\", \"rooms\": 3, \"size_m2\": 85.5, \"has_balcony\": true, ... },\n";
-        $prompt .= "  \"units\": [ { \"unit_number\": \"TOP 1\", \"unit_type\": \"2-Zimmer\", \"floor\": 0, \"area_m2\": 54.33, \"rooms\": 2, \"price\": 291900, \"status\": \"frei\", \"balcony_terrace_m2\": 12.36, \"garden_m2\": 84.30 }, ... ],\n";
-        $prompt .= "  \"confidence\": \"high|medium|low\",\n";
-        $prompt .= "  \"warnings\": []\n}";
-
         try {
-            $result = null;
-            $source = 'none';
-
             // Try Vision API first (best for styled/image-based PDFs)
             if (count($images) > 0) {
                 $result = $ai->chatWithImagesJson(

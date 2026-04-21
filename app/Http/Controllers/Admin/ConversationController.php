@@ -1349,6 +1349,13 @@ class ConversationController extends Controller
         if (!is_array($stages)) $stages = [1, 2, 3];
         $stages = array_map('intval', $stages);
 
+        // Optional: nur diese konkreten Conversation-IDs senden (fuer
+        // Chunked-Mode vom Frontend, das den User-Abbruch unterstuetzt).
+        $convIds = $input['conv_ids'] ?? null;
+        if (is_array($convIds)) {
+            $convIds = array_values(array_filter(array_map('intval', $convIds)));
+        }
+
         if (!$accountId) {
             return response()->json(['error' => 'account_id required'], 400);
         }
@@ -1356,19 +1363,25 @@ class ConversationController extends Controller
         $brokerId = \Auth::id();
         $userType = \Auth::user()->user_type ?? 'makler';
 
-        // Kandidaten-Liste: gleiche Regel wie conv_list&status=nachfassen.
-        $query = Conversation::forBroker($brokerId, $userType)
-            ->whereIn('status', ['beantwortet', 'nachfassen_1', 'nachfassen_2'])
-            ->where('followup_count', '<', 3)
-            ->where(function ($q) {
-                $q->where(function ($q2) {
-                    $q2->where('followup_count', 0)->where('last_outbound_at', '<=', now()->subHours(24));
-                })->orWhere(function ($q2) {
-                    $q2->where('followup_count', '>=', 1)->where('last_outbound_at', '<=', now()->subDays(3));
+        // Kandidaten-Liste: wenn conv_ids uebergeben wurden, nur diese.
+        // Sonst gleiche Regel wie conv_list&status=nachfassen.
+        if (!empty($convIds)) {
+            $convs = Conversation::forBroker($brokerId, $userType)
+                ->whereIn('id', $convIds)
+                ->get();
+        } else {
+            $query = Conversation::forBroker($brokerId, $userType)
+                ->whereIn('status', ['beantwortet', 'nachfassen_1', 'nachfassen_2'])
+                ->where('followup_count', '<', 3)
+                ->where(function ($q) {
+                    $q->where(function ($q2) {
+                        $q2->where('followup_count', 0)->where('last_outbound_at', '<=', now()->subHours(24));
+                    })->orWhere(function ($q2) {
+                        $q2->where('followup_count', '>=', 1)->where('last_outbound_at', '<=', now()->subDays(3));
+                    });
                 });
-            });
-
-        $convs = $query->get();
+            $convs = $query->get();
+        }
         if ($convs->isEmpty()) {
             return response()->json(['success' => true, 'sent' => 0, 'total' => 0, 'message' => 'Keine faelligen Nachfass-Konversationen.']);
         }

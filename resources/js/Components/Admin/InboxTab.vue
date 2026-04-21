@@ -177,6 +177,7 @@ const saveAttachSaving = ref(false);
 const bulkSendTotal = ref(0);
 const bulkSendDone = ref(0);
 const bulkSendLabel = ref("");
+const bulkSendCancelRequested = ref(false);
 const nfStageSelection = ref({ nf1: true, nf2: true, nf3: true });
 const autoFollowupStage1 = ref(false);
 const autoFollowupStage2 = ref(false);
@@ -856,24 +857,52 @@ async function sendNachfassenSelected() {
   bulkSending.value = true;
   bulkSendTotal.value = allForStages.length;
   bulkSendDone.value = 0;
-  bulkSendLabel.value = "Sende " + allForStages.length + " Nachfass-Mails...";
+  bulkSendCancelRequested.value = false;
+  bulkSendLabel.value = "Sende 0/" + allForStages.length + " Nachfass-Mails...";
 
+  // Chunk-weise senden statt alles in einem Request — ermoeglicht dem User
+  // den Abbruch zwischen den Chunks. Chunk-Groesse 5 ist ein guter Trade-off
+  // zwischen Netzwerk-Overhead und Abbruch-Granularitaet.
+  const chunkSize = 5;
+  let totalSent = 0;
+  const allErrors = [];
   try {
-    const r = await fetch(API.value + "&action=conv_followup_all", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ account_id: sendAccountId.value || 1, stages }),
-    });
-    const d = await r.json();
-    bulkSendDone.value = d.sent || 0;
-    bulkSendTotal.value = d.sent || allForStages.length;
-    if (d.success) {
-      bulkSendLabel.value = (d.sent || 0) + " Nachfass-Mails gesendet!";
-      if (d.errors?.length) bulkSendLabel.value += " (" + d.errors.length + " Fehler)";
-    } else {
-      bulkSendLabel.value = "Fehler: " + (d.error || "Unbekannt");
+    for (let i = 0; i < allForStages.length; i += chunkSize) {
+      if (bulkSendCancelRequested.value) {
+        bulkSendLabel.value = "Abgebrochen — " + totalSent + " von " + allForStages.length + " gesendet";
+        break;
+      }
+      const chunk = allForStages.slice(i, i + chunkSize);
+      const convIds = chunk.map(f => f._conv_id || f.id).filter(Boolean);
+
+      const r = await fetch(API.value + "&action=conv_followup_all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          account_id: sendAccountId.value || 1,
+          stages,
+          conv_ids: convIds,
+        }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        totalSent += (d.sent || 0);
+        if (d.errors?.length) allErrors.push(...d.errors);
+      } else {
+        allErrors.push(d.error || "Unbekannter Fehler");
+      }
+      bulkSendDone.value = totalSent;
+      if (!bulkSendCancelRequested.value) {
+        bulkSendLabel.value = "Sende " + totalSent + "/" + allForStages.length + " Nachfass-Mails...";
+      }
     }
-  } catch (e) { bulkSendLabel.value = "Fehler: " + e.message; }
+    if (!bulkSendCancelRequested.value) {
+      bulkSendLabel.value = totalSent + " Nachfass-Mails gesendet!";
+      if (allErrors.length) bulkSendLabel.value += " (" + allErrors.length + " Fehler)";
+    }
+  } catch (e) {
+    bulkSendLabel.value = "Fehler: " + e.message;
+  }
 
   setTimeout(() => { bulkSending.value = false; }, 3000);
   loadFollowups(followupFilter.value);
@@ -2517,6 +2546,18 @@ onMounted(() => {
           </div>
           <div class="text-[10px] text-white/80 mt-0.5">{{ bulkSendDone }} / {{ bulkSendTotal }}</div>
         </div>
+        <button
+          v-if="bulkSendDone < bulkSendTotal && !bulkSendCancelRequested"
+          type="button"
+          @click="bulkSendCancelRequested = true"
+          class="shrink-0 h-8 px-3 rounded-md bg-white/20 hover:bg-white/30 text-white text-[11px] font-semibold transition-colors"
+          title="Versand nach dem aktuellen Chunk stoppen"
+        >
+          Abbrechen
+        </button>
+        <span v-else-if="bulkSendCancelRequested && bulkSendDone < bulkSendTotal" class="shrink-0 text-[11px] text-white/80 italic">
+          Stoppt nach Chunk…
+        </span>
       </div>
     </div>
 

@@ -267,18 +267,39 @@
     const translate = (val, map) => val && map[String(val).toLowerCase()] ? map[String(val).toLowerCase()] : val;
 
     const rows = [];  // [icon, label, value]
+    const isNewbuild = (p.property_category === 'newbuild') || /Neubauprojekt/i.test(p.type || '');
 
     if (p.type) rows.push([ICONS.home, 'Objekttyp', p.type]);
-    if (p.area_living) rows.push([ICONS.ruler, 'Wohnfläche', `${p.area_living} m²`]);
+    // Wohnfläche: Neubau zeigt Range, Bestand zeigt Einzelwert
+    if (isNewbuild && p.area_range) {
+      rows.push([ICONS.ruler, 'Wohnfläche', p.area_range]);
+    } else if (p.area_living) {
+      rows.push([ICONS.ruler, 'Wohnfläche', `${p.area_living} m²`]);
+    }
     if (p.total_area && p.total_area != p.area_living) rows.push([ICONS.ruler, 'Gesamtfläche', `${p.total_area} m²`]);
     if (p.free_area) rows.push([ICONS.ruler, 'Grundstücksfläche', `${p.free_area} m²`]);
     if (p.total_units) rows.push([ICONS.layers, 'Wohneinheiten', p.total_units]);
-    if (p.rooms) rows.push([ICONS.door, 'Zimmer', p.rooms]);
+    // Zimmer
+    if (isNewbuild && p.rooms_range) {
+      rows.push([ICONS.door, 'Zimmer', p.rooms_range]);
+    } else if (p.rooms) {
+      rows.push([ICONS.door, 'Zimmer', p.rooms]);
+    }
     if (p.bathrooms) rows.push([ICONS.drop, 'Badezimmer', p.bathrooms]);
-    if (p.area_balcony) rows.push([ICONS.layout, 'Balkonfläche', `${p.area_balcony} m²`]);
-    if (p.area_terrace) rows.push([ICONS.layout, 'Terrasse', `${p.area_terrace} m²`]);
+    // Balkon/Terrasse: Neubau zeigt Range (balcony_terrace kombiniert), Bestand einzeln
+    if (isNewbuild && p.balcony_terrace_range) {
+      rows.push([ICONS.layout, 'Balkon/Terrasse', p.balcony_terrace_range]);
+    } else {
+      if (p.area_balcony) rows.push([ICONS.layout, 'Balkonfläche', `${p.area_balcony} m²`]);
+      if (p.area_terrace) rows.push([ICONS.layout, 'Terrasse', `${p.area_terrace} m²`]);
+    }
     if (p.area_loggia) rows.push([ICONS.layout, 'Loggia', `${p.area_loggia} m²`]);
-    if (p.area_garden) rows.push([ICONS.tree, 'Gartenfläche', `${p.area_garden} m²`]);
+    // Garten: Neubau Range, Bestand Einzelwert
+    if (isNewbuild && p.garden_range) {
+      rows.push([ICONS.tree, 'Garten', p.garden_range]);
+    } else if (p.area_garden) {
+      rows.push([ICONS.tree, 'Gartenfläche', `${p.area_garden} m²`]);
+    }
     if (p.area_basement) rows.push([ICONS.box, 'Kellerfläche', `${p.area_basement} m²`]);
     if (p.year_built) rows.push([ICONS.calendar, 'Baujahr', p.year_built]);
     if (p.year_renovated) rows.push([ICONS.calendar, 'Renoviert', p.year_renovated]);

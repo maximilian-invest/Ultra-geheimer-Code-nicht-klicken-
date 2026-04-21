@@ -10,6 +10,41 @@ use Illuminate\Support\Facades\Storage;
 class WebsiteApiController extends Controller
 {
     /**
+     * Compute and attach range fields from property_units (Neubau only).
+     * Sets: area_range, rooms_range, balcony_terrace_range, garden_range.
+     * Also updates area_living / rooms to the MIN value (fuer Fallback-Displays).
+     */
+    private static function attachNeubauRanges($p, $freeUnits)
+    {
+        $fmt = fn($min, $max, $unit) => $min == $max
+            ? number_format((float) $min, $min == (int) $min ? 0 : 1, ',', '.') . ' ' . $unit
+            : number_format((float) $min, $min == (int) $min ? 0 : 1, ',', '.') . ' – ' . number_format((float) $max, $max == (int) $max ? 0 : 1, ',', '.') . ' ' . $unit;
+
+        $areas = $freeUnits->pluck('area_m2')->filter()->map(fn($v) => (float)$v)->values();
+        $rooms = $freeUnits->pluck('rooms')->filter()->map(fn($v) => (float)$v)->filter()->values();
+        $balconies = $freeUnits->pluck('balcony_terrace_m2')->filter()->map(fn($v) => (float)$v)->values();
+        $gardens = $freeUnits->pluck('garden_m2')->filter()->map(fn($v) => (float)$v)->values();
+
+        if ($areas->count() > 0) {
+            $p->area_living = $areas->min();
+            $p->area_range = trim($fmt($areas->min(), $areas->max(), 'm²'));
+        }
+        if ($rooms->count() > 0) {
+            $p->rooms = $rooms->min();
+            $p->rooms_range = $rooms->min() == $rooms->max()
+                ? (string) ($rooms->min() == (int) $rooms->min() ? (int) $rooms->min() : $rooms->min())
+                : $rooms->min() . ' – ' . $rooms->max();
+        }
+        if ($balconies->count() > 0) {
+            $p->balcony_terrace_range = trim($fmt($balconies->min(), $balconies->max(), 'm²'));
+        }
+        if ($gardens->count() > 0) {
+            $p->garden_range = trim($fmt($gardens->min(), $gardens->max(), 'm²'));
+        }
+        return $p;
+    }
+
+    /**
      * GET /api/website/properties
      * Public: Returns all properties marked for website display
      */
@@ -129,25 +164,9 @@ class WebsiteApiController extends Controller
                     $p->units_total = $units->count();
                     $p->units_free = $units->where('status', 'frei')->count();
 
-                    // Compute ranges from unit data for the stats grid
+                    // Compute ranges from unit data
                     $freeUnits = $units->whereIn('status', ['frei', '']);
-                    $areas = $freeUnits->pluck('area_m2')->filter()->map(fn($v) => (float)$v)->values();
-                    $rooms = $freeUnits->pluck('rooms')->filter()->map(fn($v) => (int)$v)->filter()->values();
-
-                    if ($areas->count() > 0) {
-                        $minA = $areas->min();
-                        $maxA = $areas->max();
-                        $p->area_living = $minA;
-                        $p->area_range = $minA == $maxA
-                            ? number_format($minA, 0, ',', '.') . ' m²'
-                            : number_format($minA, 0, ',', '.') . ' – ' . number_format($maxA, 0, ',', '.') . ' m²';
-                    }
-                    if ($rooms->count() > 0) {
-                        $minR = $rooms->min();
-                        $maxR = $rooms->max();
-                        $p->rooms = $minR;
-                        $p->rooms_range = $minR == $maxR ? (string)$minR : $minR . ' – ' . $maxR;
-                    }
+                    $p = self::attachNeubauRanges($p, $freeUnits);
                 }
 
                 // Features array from boolean fields
@@ -466,23 +485,12 @@ class WebsiteApiController extends Controller
         $p->units = $units;
         $p->parking = $parking;
 
-        // Compute ranges from units for Neubauprojekte
+        // Compute ranges from units for Neubauprojekte (area/rooms/balcony/garden)
         if ($units->count() > 0) {
             $freeUnits = $units->whereIn('status', ['frei', '']);
-            $areas = $freeUnits->pluck('area_m2')->filter()->map(fn($v) => (float)$v)->values();
-            $rooms = $freeUnits->pluck('rooms')->filter()->map(fn($v) => (int)$v)->filter()->values();
+            $p = self::attachNeubauRanges($p, $freeUnits);
+            // Price-Range nur hier (list zeigt Einzelpreis)
             $prices = $freeUnits->pluck('price')->filter()->map(fn($v) => (float)$v)->filter()->values();
-
-            if ($areas->count() > 0) {
-                $p->area_range = $areas->min() == $areas->max()
-                    ? number_format($areas->min(), 0, ',', '.') . ' m²'
-                    : number_format($areas->min(), 0, ',', '.') . ' – ' . number_format($areas->max(), 0, ',', '.') . ' m²';
-            }
-            if ($rooms->count() > 0) {
-                $p->rooms_range = $rooms->min() == $rooms->max()
-                    ? (string)$rooms->min()
-                    : $rooms->min() . ' – ' . $rooms->max();
-            }
             if ($prices->count() > 0) {
                 $p->price_range = 'EUR ' . number_format($prices->min(), 0, ',', '.') . ' – ' . number_format($prices->max(), 0, ',', '.');
             }

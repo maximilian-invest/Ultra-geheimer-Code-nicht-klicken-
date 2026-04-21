@@ -78,8 +78,14 @@ class Conversation extends Model
 
     public function scopeForBroker($query, ?int $brokerId, string $userType = "makler")
     {
-        // Assistenz/Backoffice: see everything
-        if (!$brokerId || in_array($userType, ["assistenz", "backoffice"])) return $query;
+        // Ohne brokerId (z.B. abgelaufene Session) restriktiv sein und
+        // LEERES Ergebnis liefern — NIEMALS die volle Liste, das waere
+        // ein Datenleck. Bug zuvor: Session expired -> \Auth::id() null ->
+        // unscoped query -> User sieht Conversations anderer Makler.
+        if (!$brokerId) return $query->whereRaw('1=0');
+
+        // Assistenz/Backoffice: sehen alles (bei gueltiger Session)
+        if (in_array($userType, ["assistenz", "backoffice"])) return $query;
 
         // Admin: see only conversations from own email accounts
         if ($userType === "admin") {

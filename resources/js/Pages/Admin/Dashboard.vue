@@ -42,6 +42,31 @@ provide("API", API);
 provide("properties", props.properties);
 provide("kbCounts", props.kbCounts);
 
+// Globales 401-Handling: wenn die Session ablaeuft (typisch ueber Nacht
+// wenn der Laptop zu war) und ein beliebiger Fetch 'auth_required: true'
+// zurueckbekommt, leiten wir einmalig zur Login-Seite um. Ohne diesen
+// Guard wurden die Requests zwar serverseitig abgewiesen, aber die UI
+// blieb mit den alten Daten stehen und wirkte so, als ob der User Daten
+// anderer Makler sehen wuerde.
+let authRedirectTriggered = false;
+const _origFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+    const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+    const res = await _origFetch(...args);
+    // Nur unsere Admin-API pruefen — externe fetches lassen wir wie sie sind.
+    if (res.status === 401 && url.includes('/admin_api.php') && !authRedirectTriggered) {
+        authRedirectTriggered = true;
+        try {
+            const payload = await res.clone().json();
+            if (payload?.auth_required) {
+                alert('Deine Sitzung ist abgelaufen. Du wirst zur Anmeldung weitergeleitet.');
+                window.location.href = '/login';
+            }
+        } catch (_) { /* no JSON body — ignore */ }
+    }
+    return res;
+};
+
 const tab = ref(localStorage.getItem("sr-admin-tab") || "today");
 const sidebarCollapsed = ref(localStorage.getItem("sr-sidebar-collapsed") === "1");
 const sidebarHovered = ref(false);

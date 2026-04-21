@@ -29,6 +29,19 @@ class AdminApiController extends Controller
             return (new AiChatController())->tts($request);
         }
 
+        // Abgelaufene Session: die api.key-Middleware laesst Requests durch
+        // sobald der statische Key stimmt, aber \Auth::id() ist null. Ohne
+        // diesen Check sah ein User mit abgelaufener Session Daten
+        // ANDERER Makler (Conversation-Scope gab ungescoped alles zurueck
+        // wenn brokerId null war). Jetzt sauberes 401, der Client kann
+        // den User zum Login umleiten.
+        if (!\Auth::check()) {
+            return response()->json([
+                'error' => 'Nicht angemeldet',
+                'auth_required' => true,
+            ], 401);
+        }
+
         // Role-based action guard
         $brokerId = \Auth::id();
         $userType = \Auth::user()->user_type ?? 'makler';

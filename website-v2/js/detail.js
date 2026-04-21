@@ -142,30 +142,48 @@
   const statsEl = document.getElementById('stats-grid');
   const statItems = [];
   const isNewbuildProj = (p.property_category === 'newbuild') || /Neubauprojekt/i.test(p.type || '');
-  // Neubauprojekt: Wohnfläche + Zimmer als Range (falls vorhanden), sonst Einzelwert
-  if (isNewbuildProj && p.area_range) {
-    statItems.push({ icon: 'area', val: p.area_range, label: 'Wohnfläche' });
-  } else if (p.area_living) {
+
+  // Wohnfläche: manueller Wert vor Range
+  if (p.area_living) {
     statItems.push({ icon: 'area', val: `${p.area_living} m²`, label: 'Wohnfläche' });
+  } else if (isNewbuildProj && p.area_range) {
+    statItems.push({ icon: 'area', val: p.area_range, label: 'Wohnfläche' });
   }
-  if (isNewbuildProj && p.rooms_range) {
-    statItems.push({ icon: 'rooms', val: p.rooms_range, label: 'Zimmer' });
-  } else if (p.rooms) {
+
+  // Zimmer: manuell vor Range
+  if (p.rooms) {
     statItems.push({ icon: 'rooms', val: p.rooms, label: 'Zimmer' });
+  } else if (isNewbuildProj && p.rooms_range) {
+    statItems.push({ icon: 'rooms', val: p.rooms_range, label: 'Zimmer' });
   }
+
   if (p.bathrooms) statItems.push({ icon: 'bath', val: p.bathrooms, label: 'Badezimmer' });
-  // Balkon/Terrasse als Range bei Neubau
-  if (isNewbuildProj && p.balcony_terrace_range) {
+
+  // Balkon: manuell vor Range
+  if (p.area_balcony) {
+    statItems.push({ icon: 'balcony', val: `${p.area_balcony} m²`, label: 'Balkon' });
+  } else if (isNewbuildProj && p.balcony_terrace_range) {
     statItems.push({ icon: 'balcony', val: p.balcony_terrace_range, label: 'Balkon/Terrasse' });
-  } else {
-    if (p.features?.includes('Garten')) statItems.push({ icon: 'garden', val: 'Ja', label: 'Garten' });
-    if (p.features?.includes('Terrasse')) statItems.push({ icon: 'terrace', val: 'Ja', label: 'Terrasse' });
-    if (p.features?.includes('Balkon')) statItems.push({ icon: 'balcony', val: 'Ja', label: 'Balkon' });
+  } else if (p.features?.includes('Balkon')) {
+    statItems.push({ icon: 'balcony', val: 'Ja', label: 'Balkon' });
   }
-  // Garten bei Neubau als Range
-  if (isNewbuildProj && p.garden_range) {
+
+  // Terrasse: nur manuell (wenn Balkon schon Range belegt hat)
+  if (p.area_terrace) {
+    statItems.push({ icon: 'terrace', val: `${p.area_terrace} m²`, label: 'Terrasse' });
+  } else if (!p.area_balcony && !isNewbuildProj && p.features?.includes('Terrasse')) {
+    statItems.push({ icon: 'terrace', val: 'Ja', label: 'Terrasse' });
+  }
+
+  // Garten: manuell vor Range
+  if (p.area_garden) {
+    statItems.push({ icon: 'garden', val: `${p.area_garden} m²`, label: 'Garten' });
+  } else if (isNewbuildProj && p.garden_range) {
     statItems.push({ icon: 'garden', val: p.garden_range, label: 'Garten' });
+  } else if (p.features?.includes('Garten')) {
+    statItems.push({ icon: 'garden', val: 'Ja', label: 'Garten' });
   }
+
   if (p.year_built) statItems.push({ icon: 'year', val: p.year_built, label: 'Baujahr' });
 
   const svgIcons = {
@@ -289,36 +307,45 @@
     const isNewbuild = (p.property_category === 'newbuild') || /Neubauprojekt/i.test(p.type || '');
 
     if (p.type) rows.push([ICONS.home, 'Objekttyp', p.type]);
-    // Wohnfläche: Neubau zeigt Range, Bestand zeigt Einzelwert
-    if (isNewbuild && p.area_range) {
-      rows.push([ICONS.ruler, 'Wohnfläche', p.area_range]);
-    } else if (p.area_living) {
+
+    // Wohnfläche: Manueller Wert hat Vorrang, sonst Unit-Range bei Neubau
+    if (p.area_living) {
       rows.push([ICONS.ruler, 'Wohnfläche', `${p.area_living} m²`]);
+    } else if (isNewbuild && p.area_range) {
+      rows.push([ICONS.ruler, 'Wohnfläche', p.area_range]);
     }
+
     if (p.total_area && p.total_area != p.area_living) rows.push([ICONS.ruler, 'Gesamtfläche', `${p.total_area} m²`]);
     if (p.free_area) rows.push([ICONS.ruler, 'Grundstücksfläche', `${p.free_area} m²`]);
     if (p.total_units) rows.push([ICONS.layers, 'Wohneinheiten', p.total_units]);
-    // Zimmer
-    if (isNewbuild && p.rooms_range) {
-      rows.push([ICONS.door, 'Zimmer', p.rooms_range]);
-    } else if (p.rooms) {
+
+    // Zimmer: manuell vor Unit-Range
+    if (p.rooms) {
       rows.push([ICONS.door, 'Zimmer', p.rooms]);
+    } else if (isNewbuild && p.rooms_range) {
+      rows.push([ICONS.door, 'Zimmer', p.rooms_range]);
     }
+
     if (p.bathrooms) rows.push([ICONS.drop, 'Badezimmer', p.bathrooms]);
-    // Balkon/Terrasse: Neubau zeigt Range (balcony_terrace kombiniert), Bestand einzeln
-    if (isNewbuild && p.balcony_terrace_range) {
+
+    // Balkon — manueller Wert vor Unit-Range
+    if (p.area_balcony) {
+      rows.push([ICONS.layout, 'Balkon', `${p.area_balcony} m²`]);
+    } else if (isNewbuild && p.balcony_terrace_range) {
       rows.push([ICONS.layout, 'Balkon/Terrasse', p.balcony_terrace_range]);
-    } else {
-      if (p.area_balcony) rows.push([ICONS.layout, 'Balkonfläche', `${p.area_balcony} m²`]);
-      if (p.area_terrace) rows.push([ICONS.layout, 'Terrasse', `${p.area_terrace} m²`]);
     }
+    // Terrasse manuell (zusaetzlich zu Balkon wenn beide eingetragen sind)
+    if (p.area_terrace) rows.push([ICONS.layout, 'Terrasse', `${p.area_terrace} m²`]);
     if (p.area_loggia) rows.push([ICONS.layout, 'Loggia', `${p.area_loggia} m²`]);
-    // Garten: Neubau Range, Bestand Einzelwert
-    if (isNewbuild && p.garden_range) {
+
+    // Garten: manuell vor Unit-Range
+    if (p.area_garden) {
+      rows.push([ICONS.tree, 'Garten', `${p.area_garden} m²`]);
+    } else if (isNewbuild && p.garden_range) {
       rows.push([ICONS.tree, 'Garten', p.garden_range]);
-    } else if (p.area_garden) {
-      rows.push([ICONS.tree, 'Gartenfläche', `${p.area_garden} m²`]);
     }
+
+    // Keller: manueller Wert — Units haben kein Keller-Feld, daher nur manuell
     if (p.area_basement) rows.push([ICONS.box, 'Kellerfläche', `${p.area_basement} m²`]);
     if (p.year_built) rows.push([ICONS.calendar, 'Baujahr', p.year_built]);
     if (p.year_renovated) rows.push([ICONS.calendar, 'Renoviert', p.year_renovated]);

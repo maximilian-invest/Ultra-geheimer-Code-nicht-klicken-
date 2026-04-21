@@ -185,25 +185,28 @@ watch(() => props.form?.id, loadParking);
       <!-- Flächen -->
       <AccordionSection title="Flächen (m²)" color="#ea580c" :default-open="true">
         <div v-if="isNewbuild" class="col-span-2 text-[11px] text-muted-foreground bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5 mb-1">
-          Flächen bei Neubauprojekten werden pro Einheit gepflegt (siehe Einheiten-Tab). Hier werden die Bereiche automatisch angezeigt.
+          Bei Neubauprojekten zeigen wir automatisch den Bereich aus den Einheiten als Hinweis. Du kannst den Wert manuell überschreiben — der manuelle Wert hat Vorrang auf der Website.
         </div>
         <div v-for="field in areaFields" :key="field.key">
           <label :class="labelCls">{{ field.label }}
             <span v-if="field.countKey && !isNewbuild" class="text-[10px] text-muted-foreground font-normal">(m² | Anzahl)</span>
             <FieldExportBadges :field="field.key" />
           </label>
-          <!-- Neubau: Ranges aus Units -->
-          <div v-if="isNewbuild && neubauRanges[field.key]" class="relative">
+          <!-- Neubau: editierbares Input MIT Range-Hinweis darunter -->
+          <template v-if="isNewbuild">
             <Input
-              :model-value="neubauRanges[field.key]"
-              disabled
-              :class="inputCls + ' pr-14 opacity-80 font-medium'"
+              v-model="form[field.key]"
+              type="number"
+              :placeholder="neubauRanges[field.key] ? 'Aus Einheiten: ' + neubauRanges[field.key] : 'z.B. 85'"
+              :class="inputCls"
             />
-            <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-medium bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">auto</span>
-          </div>
-          <div v-else-if="isNewbuild" class="text-[11px] text-muted-foreground italic py-2 px-3 bg-zinc-50 rounded-lg">
-            Noch keine Daten in Einheiten
-          </div>
+            <div v-if="neubauRanges[field.key]" class="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+              <span class="inline-block w-1 h-1 rounded-full bg-orange-400"></span>
+              Bereich aus Einheiten: <strong class="text-orange-700">{{ neubauRanges[field.key] }}</strong>
+              <span v-if="!form[field.key]" class="italic">— wird verwendet wenn leer</span>
+              <span v-else class="italic">— übersteuert durch manuellen Wert</span>
+            </div>
+          </template>
           <!-- Bestand: normale Eingaben -->
           <div v-else-if="field.countKey" class="flex gap-2">
             <div class="flex-1">

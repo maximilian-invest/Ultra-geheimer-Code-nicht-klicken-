@@ -240,6 +240,8 @@ class DailyBriefingService
     {
         $q = DB::table('activities as a')
             ->leftJoin('properties as p', 'a.property_id', '=', 'p.id')
+            ->leftJoin('portal_emails as pe', 'a.source_email_id', '=', 'pe.id')
+            ->leftJoin('email_accounts as ea', 'pe.account_id', '=', 'ea.id')
             ->where('a.activity_date', '>=', now()->subHours(24))
             ->whereNotIn('a.category', ['link_opened'])
             ->select([
@@ -251,7 +253,17 @@ class DailyBriefingService
             ->limit(100);
 
         if (!$scopeAll) {
-            $q->where('p.broker_id', $userId);
+            // Mail-basierte Activity -> scope nach Mailbox-Besitzer
+            // Non-Mail-Activity (manuell, objekt_edit, etc.) -> scope nach Property-Broker
+            $q->where(function ($w) use ($userId) {
+                $w->where(function ($ww) use ($userId) {
+                    $ww->whereNotNull('a.source_email_id')
+                       ->where('ea.user_id', $userId);
+                })->orWhere(function ($ww) use ($userId) {
+                    $ww->whereNull('a.source_email_id')
+                       ->where('p.broker_id', $userId);
+                });
+            });
         }
 
         return $q->get()->map(fn($row) => (array) $row)->all();
@@ -274,17 +286,22 @@ class DailyBriefingService
             ->limit(20);
 
         if (!$scopeAll) {
-            $q->where(function ($sub) use ($userId) {
-                $sub->where('p.broker_id', $userId)
-                    ->orWhere(function ($s2) use ($userId) {
-                        $s2->whereNull('c.property_id')
-                           ->whereIn('c.last_email_id', function ($s3) use ($userId) {
-                               $s3->select('id')->from('portal_emails')
-                                  ->whereIn('account_id', function ($s4) use ($userId) {
-                                      $s4->select('id')->from('email_accounts')->where('user_id', $userId);
-                                  });
-                           });
+            // Threads immer per Mailbox scopen: die Conversation gehoert dem Makler
+            // dessen Mailbox das last_email erreicht hat. Egal wessen Property.
+            // Mit Fallback: falls Conv kein last_email hat (Altdaten), property_id
+            // muss auf eine Property des Users zeigen.
+            $ownEmailIds = function ($sub) use ($userId) {
+                $sub->select('id')->from('portal_emails')
+                    ->whereIn('account_id', function ($s2) use ($userId) {
+                        $s2->select('id')->from('email_accounts')->where('user_id', $userId);
                     });
+            };
+            $q->where(function ($w) use ($userId, $ownEmailIds) {
+                $w->whereIn('c.last_email_id', $ownEmailIds)
+                  ->orWhere(function ($fallback) use ($userId) {
+                      $fallback->whereNull('c.last_email_id')
+                               ->where('p.broker_id', $userId);
+                  });
             });
         }
 
@@ -421,12 +438,14 @@ class DailyBriefingService
     private function getNachfassOutcome(int $userId, bool $scopeAll): array
     {
         $q = DB::table('activities as a')
-            ->leftJoin('properties as p', 'a.property_id', '=', 'p.id')
+            ->leftJoin('portal_emails as pe', 'a.source_email_id', '=', 'pe.id')
+            ->leftJoin('email_accounts as ea', 'pe.account_id', '=', 'ea.id')
             ->where('a.category', 'nachfassen')
             ->where('a.activity_date', '>=', now()->subHours(48));
 
         if (!$scopeAll) {
-            $q->where('p.broker_id', $userId);
+            // Nachfass-Mails werden aus einer Mailbox rausgeschickt -> scope by account
+            $q->where('ea.user_id', $userId);
         }
 
         $sent = (int) $q->count();

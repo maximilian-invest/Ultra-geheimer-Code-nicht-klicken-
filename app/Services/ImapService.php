@@ -382,14 +382,24 @@ class ImapService
                     }
                 }
 
-                // Check if sender is a property owner
+                // Check if sender is a property owner — aber NUR fuer Properties
+                // die dem Account-Besitzer (Makler dessen Mailbox das ist) gehoeren.
+                // Sonst wuerde Gigls Mail an Renzl auf Maximilians Property 4 landen,
+                // nur weil Gigl dort auch Eigentuemer ist.
+                //
+                // Regel: Zuordnung nur auf Objekte die dem Makler gehoeren dessen
+                // Postfach die Mail erreicht hat.
                 $isOwnerEmail = false;
                 $ownerPropertyId = null;
                 if ($direction === 'inbound') {
-                    $ownerCheck = \DB::selectOne(
-                        "SELECT p.id as property_id, c.name as owner_name FROM customers c JOIN properties p ON p.customer_id = c.id WHERE c.email = ? LIMIT 1",
-                        [strtolower($fromEmail)]
-                    );
+                    $ownerQuery = "SELECT p.id as property_id, c.name as owner_name FROM customers c JOIN properties p ON p.customer_id = c.id WHERE c.email = ?";
+                    $ownerParams = [strtolower($fromEmail)];
+                    if ($accountUserId) {
+                        $ownerQuery .= " AND p.broker_id = ?";
+                        $ownerParams[] = $accountUserId;
+                    }
+                    $ownerQuery .= " LIMIT 1";
+                    $ownerCheck = \DB::selectOne($ownerQuery, $ownerParams);
                     if ($ownerCheck) {
                         $isOwnerEmail = true;
                         $ownerPropertyId = $ownerCheck->property_id;

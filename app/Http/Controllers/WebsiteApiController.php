@@ -25,12 +25,13 @@ class WebsiteApiController extends Controller
         $balconies = $freeUnits->pluck('balcony_terrace_m2')->filter()->map(fn($v) => (float)$v)->values();
         $gardens = $freeUnits->pluck('garden_m2')->filter()->map(fn($v) => (float)$v)->values();
 
+        // WICHTIG: area_living + rooms NICHT ueberschreiben — die Property-Felder
+        // koennen manuell gesetzt sein (User-Override). Wir setzen NUR die -Range
+        // Felder, das Frontend entscheidet welche Anzeige (manuell vs. Range).
         if ($areas->count() > 0) {
-            $p->area_living = $areas->min();
             $p->area_range = trim($fmt($areas->min(), $areas->max(), 'm²'));
         }
         if ($rooms->count() > 0) {
-            $p->rooms = $rooms->min();
             $p->rooms_range = $rooms->min() == $rooms->max()
                 ? (string) ($rooms->min() == (int) $rooms->min() ? (int) $rooms->min() : $rooms->min())
                 : $rooms->min() . ' – ' . $rooms->max();

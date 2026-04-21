@@ -26,10 +26,18 @@ const inboxAPI = inject('inboxAPI', null)
 const inboxToast = inject('inboxToast', () => {})
 const inboxProperties = inject('inboxProperties', ref([]))
 
+// Unwrap to plain array for passing into the Dialog (which is portalled)
+const propertiesArray = computed(() => {
+  const src = inboxProperties
+  if (Array.isArray(src)) return src
+  if (src && 'value' in src) return Array.isArray(src.value) ? src.value : []
+  return []
+})
+
 const currentPropertyAddress = computed(() => {
   const pid = props.item?.property_id
   if (!pid) return ''
-  const prop = (inboxProperties.value || []).find(p => Number(p.id) === Number(pid))
+  const prop = propertiesArray.value.find(p => Number(p.id) === Number(pid))
   return prop ? (prop.address || prop.title || '') : ''
 })
 
@@ -872,6 +880,7 @@ const statusBadge = computed(() => {
       :current-property-id="item?.property_id || null"
       :current-property-ref="refId || ''"
       :current-property-address="currentPropertyAddress"
+      :properties="propertiesArray"
       @confirm="onAssignConfirm"
     />
   </div>

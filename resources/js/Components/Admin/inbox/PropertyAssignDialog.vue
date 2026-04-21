@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, inject, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Search, Home, Check, X as XIcon } from 'lucide-vue-next'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -13,10 +13,13 @@ const props = defineProps({
   currentPropertyId: { type: [Number, String, null], default: null },
   currentPropertyRef: { type: String, default: '' },
   currentPropertyAddress: { type: String, default: '' },
+  // Properties werden als Prop uebergeben — inject klappt nicht, weil
+  // shadcn Dialog via reka-ui Portal an document.body teleportiert und
+  // dabei die provide/inject-Chain vom InboxTab-Tree verliert.
+  properties: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['update:open', 'confirm'])
 
-const properties = inject('inboxProperties', ref([]))
 const search = ref('')
 const selectedId = ref(null)
 const migrate = ref('keep') // 'keep' = bisherige beim alten lassen, 'migrate' = alle umhängen
@@ -32,7 +35,7 @@ watch(() => props.open, (isOpen) => {
 })
 
 const filteredProperties = computed(() => {
-  const list = Array.isArray(properties.value) ? properties.value : []
+  const list = Array.isArray(props.properties) ? props.properties : []
   const q = search.value.trim().toLowerCase()
   if (!q) return list.slice(0, 50)
   return list.filter(p => {
@@ -43,7 +46,7 @@ const filteredProperties = computed(() => {
 
 const selectedProperty = computed(() => {
   if (!selectedId.value) return null
-  return (properties.value || []).find(p => Number(p.id) === Number(selectedId.value)) || null
+  return (props.properties || []).find(p => Number(p.id) === Number(selectedId.value)) || null
 })
 
 const hasChange = computed(() => {

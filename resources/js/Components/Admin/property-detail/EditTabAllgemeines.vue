@@ -9,6 +9,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import AccordionSection from "./AccordionSection.vue";
+import PropertyManagerPicker from "./PropertyManagerPicker.vue";
+
+function onManagerAssigned(form, manager) {
+  if (manager) {
+    form.property_manager_id = manager.id;
+    form.property_manager = manager.company_name;
+  } else {
+    form.property_manager_id = null;
+    form.property_manager = '';
+  }
+}
 
 defineProps({
   form: { type: Object, required: true },
@@ -251,7 +262,14 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
         <div>
           <label :class="labelCls">Hausverwaltung</label>
-          <Input v-model="form.property_manager" :class="inputCls" />
+          <PropertyManagerPicker
+            v-if="form.id"
+            :property-id="form.id"
+            :manager-id="form.property_manager_id"
+            :manager-name="form.property_manager"
+            @assigned="(m) => onManagerAssigned(form, m)"
+          />
+          <Input v-else v-model="form.property_manager" :class="inputCls" placeholder="Objekt zuerst speichern, dann Hausverwaltung wählen" disabled />
         </div>
         <div>
           <label :class="labelCls">Verfügbar ab</label>

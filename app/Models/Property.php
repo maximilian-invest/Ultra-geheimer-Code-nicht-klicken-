@@ -69,7 +69,7 @@ class Property extends Model
         'contact_person', 'contact_phone', 'contact_email',
 
         // Construction / Neubau
-        'builder_company', 'property_manager', 'construction_start',
+        'builder_company', 'property_manager', 'property_manager_id', 'construction_start',
         'construction_end', 'move_in_date', 'available_from', 'available_text',
         'total_units',
 

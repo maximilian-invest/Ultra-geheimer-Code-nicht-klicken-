@@ -808,6 +808,8 @@ class AdminApiController extends Controller
             'assign_property_manager'   => $this->assignPropertyManager($request),
             'quick_create_and_assign_property_manager' => $this->quickCreateAndAssignPropertyManager($request),
             'upload_ava'                => $this->uploadAva($request),
+            'mark_file_as_ava'          => $this->markFileAsAva($request),
+            'rename_property_file'      => $this->renamePropertyFile($request),
 
             // Hausverwaltung (Phase 2 — Contact Flows)
             'contact_property_manager'  => $this->contactPropertyManager($request),
@@ -2075,6 +2077,7 @@ class AdminApiController extends Controller
                 'mime_type' => $f->mime_type,
                 'file_size' => $f->file_size,
                 'is_website_download' => (bool) ($f->is_website_download ?? false),
+                'is_ava' => (bool) ($f->is_ava ?? false),
                 'source' => 'property_files',
             ];
         }
@@ -4398,6 +4401,70 @@ PY;
         });
 
         return response()->json(['success' => true, 'path' => $path]);
+    }
+
+    private function renamePropertyFile(Request $request): JsonResponse
+    {
+        $data = $request->json()->all() ?: $request->all();
+        $fileId = (int) ($data['file_id'] ?? 0);
+        $newLabel = trim((string) ($data['label'] ?? ''));
+
+        if (!$fileId) return response()->json(['success' => false, 'error' => 'file_id required'], 400);
+        if ($newLabel === '') return response()->json(['success' => false, 'error' => 'label cannot be empty'], 422);
+        if (mb_strlen($newLabel) > 200) return response()->json(['success' => false, 'error' => 'label too long (max 200)'], 422);
+
+        $file = \DB::table('property_files')->where('id', $fileId)->first();
+        if (!$file) return response()->json(['success' => false, 'error' => 'file not found'], 404);
+
+        $userId = (int) \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        if (!in_array($userType, ['assistenz', 'backoffice'], true)) {
+            $propBroker = \DB::table('properties')->where('id', $file->property_id)->value('broker_id');
+            if ($propBroker && $propBroker != $userId) {
+                return response()->json(['success' => false, 'error' => 'Keine Berechtigung'], 403);
+            }
+        }
+
+        \DB::table('property_files')->where('id', $fileId)->update([
+            'label' => $newLabel,
+        ]);
+
+        return response()->json(['success' => true, 'label' => $newLabel]);
+    }
+
+    private function markFileAsAva(Request $request): JsonResponse
+    {
+        $data = $request->json()->all() ?: $request->all();
+        $fileId = (int) ($data['file_id'] ?? 0);
+        $isAva = (bool) ($data['is_ava'] ?? true);
+
+        if (!$fileId) return response()->json(['success' => false, 'error' => 'file_id required'], 400);
+
+        $file = \DB::table('property_files')->where('id', $fileId)->first();
+        if (!$file) return response()->json(['success' => false, 'error' => 'file not found'], 404);
+
+        $userId = (int) \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        if (!in_array($userType, ['assistenz', 'backoffice'], true)) {
+            $propBroker = \DB::table('properties')->where('id', $file->property_id)->value('broker_id');
+            if ($propBroker && $propBroker != $userId) {
+                return response()->json(['success' => false, 'error' => 'Keine Berechtigung'], 403);
+            }
+        }
+
+        \DB::transaction(function () use ($file, $isAva) {
+            if ($isAva) {
+                // Alle anderen AVAs derselben Property entmarkieren
+                \DB::table('property_files')
+                    ->where('property_id', $file->property_id)
+                    ->where('id', '!=', $file->id)
+                    ->where('is_ava', 1)
+                    ->update(['is_ava' => 0]);
+            }
+            \DB::table('property_files')->where('id', $file->id)->update(['is_ava' => $isAva ? 1 : 0]);
+        });
+
+        return response()->json(['success' => true, 'is_ava' => $isAva]);
     }
 
     // ===== Hausverwaltung (Phase 2 — Contact Flows) =====

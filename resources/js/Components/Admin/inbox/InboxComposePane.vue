@@ -125,6 +125,31 @@ const referencePreview = computed(() => {
   return String(raw).replace(/\s+/g, ' ').trim().slice(0, 220)
 })
 
+// Extract URLs from text (used to show clickable link list below textarea
+// and in reference view — Textareas koennen nicht klickbar sein, daher separate Liste)
+const URL_REGEX = /(https?:\/\/[^\s<>"'()]+)/gi
+function extractLinks(text) {
+  if (!text) return []
+  const found = String(text).match(URL_REGEX) || []
+  // Trailing punctuation strippen (Punkt, Komma, Klammer am Ende)
+  const cleaned = found.map(u => u.replace(/[.,;:!?)\]}>]+$/, ''))
+  return [...new Set(cleaned)]
+}
+const draftLinks = computed(() => extractLinks(draft.value?.body || ''))
+const referenceLinks = computed(() => {
+  const raw = props.referenceMessage?.body_text || props.referenceMessage?.full_body || ''
+  return extractLinks(raw)
+})
+function shortLabel(url) {
+  try {
+    const u = new URL(url)
+    const hostWithPath = u.hostname + (u.pathname === '/' ? '' : u.pathname)
+    return hostWithPath.length > 50 ? hostWithPath.slice(0, 47) + '…' : hostWithPath
+  } catch {
+    return url.length > 50 ? url.slice(0, 47) + '…' : url
+  }
+}
+
 const bodyIsEmpty = computed(() => !(draft.value?.body || '').trim())
 const signature = computed(() => signatureData?.value || null)
 const hasSignature = computed(() => !!(signature.value && (signature.value.signature_name || signature.value.signature_company)))
@@ -264,6 +289,16 @@ function onLinkPicked(link) {
         class="sr-body-textarea"
       ></textarea>
 
+      <!-- Klickbare Links aus dem Entwurf (Textarea selbst kann nicht klicken) -->
+      <div v-if="draftLinks.length" class="sr-draft-links">
+        <span class="sr-draft-links-label">Links im Entwurf:</span>
+        <a v-for="link in draftLinks" :key="link" :href="link" target="_blank" rel="noopener noreferrer"
+           class="sr-draft-link" :title="link">
+          <Link2 class="w-3 h-3" />
+          {{ shortLabel(link) }}
+        </a>
+      </div>
+
       <div v-if="hasSignature" class="sr-signature-inline">
         <div class="sr-signature-greeting">Mit freundlichen Grüßen</div>
         <img
@@ -297,6 +332,16 @@ function onLinkPicked(link) {
       </div>
       <div v-if="!referenceExpanded && referencePreview" class="sr-reference-preview">{{ referencePreview }}…</div>
       <div v-if="referenceExpanded" class="sr-reference-body">{{ referenceMessage.body_text || referenceMessage.full_body || '' }}</div>
+
+      <!-- Klickbare Links aus der Original-Nachricht -->
+      <div v-if="referenceLinks.length" class="sr-draft-links" @click.stop>
+        <span class="sr-draft-links-label">Links in der Original-Nachricht:</span>
+        <a v-for="link in referenceLinks" :key="link" :href="link" target="_blank" rel="noopener noreferrer"
+           class="sr-draft-link" :title="link" @click.stop>
+          <Link2 class="w-3 h-3" />
+          {{ shortLabel(link) }}
+        </a>
+      </div>
     </div>
   </div>
 </template>
@@ -453,6 +498,41 @@ function onLinkPicked(link) {
   box-shadow: none !important;
   border-color: transparent !important;
   background: transparent;
+}
+
+.sr-draft-links {
+  padding: 8px 16px 10px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+.sr-draft-links-label {
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+  margin-right: 2px;
+}
+.sr-draft-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: hsl(var(--muted));
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background 120ms;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sr-draft-link:hover {
+  background: #dbeafe;
+  text-decoration: underline;
 }
 
 .sr-signature-inline {

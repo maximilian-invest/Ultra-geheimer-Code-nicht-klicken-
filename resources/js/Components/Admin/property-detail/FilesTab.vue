@@ -1,9 +1,10 @@
 <script setup>
 import { ref, computed, onMounted, watch, inject } from "vue";
-import { FileText, Upload, Trash2, Download } from "lucide-vue-next";
+import { FileText, Upload, Trash2, Download, FileCheck2, FileX2, Pencil, Check, X } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const props = defineProps({
@@ -127,6 +128,72 @@ async function toggleWebsiteDownload(f) {
     }
   } catch (e) {
     console.error('Toggle failed:', e);
+  }
+}
+
+const editingFileId = ref(null)
+const editingLabel = ref('')
+
+function startRename(f) {
+  editingFileId.value = f.id
+  editingLabel.value = f.label || f.original_name || f.filename || ''
+}
+
+function cancelRename() {
+  editingFileId.value = null
+  editingLabel.value = ''
+}
+
+async function saveRename(f) {
+  const newLabel = editingLabel.value.trim()
+  if (!newLabel) {
+    toast('Name darf nicht leer sein')
+    return
+  }
+  if (newLabel === (f.label || '')) {
+    cancelRename()
+    return
+  }
+  try {
+    const r = await fetch(API.value + '&action=rename_property_file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_id: f.id, label: newLabel }),
+    })
+    const d = await r.json()
+    if (d.success) {
+      f.label = d.label
+      cancelRename()
+      toast('Name geändert')
+    } else {
+      toast('Fehler: ' + (d.error || 'Unbekannt'))
+    }
+  } catch (e) {
+    toast('Fehler: ' + e.message)
+  }
+}
+
+async function toggleAvaMarker(f) {
+  const newState = !f.is_ava;
+  try {
+    const r = await fetch(API.value + '&action=mark_file_as_ava', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_id: f.id, is_ava: newState }),
+    });
+    const d = await r.json();
+    if (d.success) {
+      // Alle anderen entmarkieren wenn wir eine neue markieren
+      if (newState) {
+        files.value.forEach(other => { if (other.id !== f.id) other.is_ava = false; });
+      }
+      f.is_ava = newState;
+      toast(newState ? 'Als Alleinvermittlungsauftrag markiert' : 'AVA-Markierung entfernt');
+    } else {
+      toast('Fehler: ' + (d.error || 'Unbekannt'));
+    }
+  } catch (e) {
+    toast('Fehler: ' + e.message);
   }
 }
 
@@ -287,15 +354,53 @@ watch(() => props.property?.id, () => { clearSelection(); loadFiles(); });
         <!-- Icon -->
         <span class="text-lg shrink-0">{{ fileIcon(getExt(f.original_name || f.filename)) }}</span>
 
-        <!-- Name + ext (clickable to view) -->
-        <a :href="'/storage/' + f.path" target="_blank" class="flex-1 min-w-0 hover:text-blue-600 transition-colors cursor-pointer">
-          <p class="text-sm font-medium text-zinc-900 truncate hover:underline">{{ f.label || f.original_name || f.filename }}</p>
+        <!-- Name + ext (clickable to view OR inline rename) -->
+        <div v-if="editingFileId === f.id" class="flex-1 min-w-0 flex items-center gap-1">
+          <Input v-model="editingLabel" class="h-8 text-sm" @keyup.enter="saveRename(f)" @keyup.esc="cancelRename()" autofocus />
+          <Button variant="ghost" size="icon" class="h-8 w-8 text-emerald-600" @click="saveRename(f)" title="Speichern">
+            <Check class="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" class="h-8 w-8 text-zinc-500" @click="cancelRename()" title="Abbrechen">
+            <X class="w-4 h-4" />
+          </Button>
+        </div>
+        <a v-else :href="'/storage/' + f.path" target="_blank" class="flex-1 min-w-0 hover:text-blue-600 transition-colors cursor-pointer">
+          <div class="flex items-center gap-2">
+            <p class="text-sm font-medium text-zinc-900 truncate hover:underline">{{ f.label || f.original_name || f.filename }}</p>
+            <Badge v-if="f.is_ava" class="bg-[#fff7ed] text-[#c2410c] border-[#fed7aa] text-[10px] px-1.5 py-0 h-4 shrink-0">
+              AVA
+            </Badge>
+          </div>
         </a>
 
         <!-- Extension badge -->
-        <Badge variant="secondary" class="text-[10px] uppercase shrink-0">
+        <Badge v-if="editingFileId !== f.id" variant="secondary" class="text-[10px] uppercase shrink-0">
           {{ getExt(f.original_name || f.filename) || '?' }}
         </Badge>
+
+        <!-- Rename -->
+        <Button
+          v-if="f.source === 'property_files' && editingFileId !== f.id"
+          variant="ghost" size="icon"
+          class="h-8 w-8 shrink-0 text-zinc-400 hover:text-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Umbenennen"
+          @click="startRename(f)"
+        >
+          <Pencil class="w-3.5 h-3.5" />
+        </Button>
+
+        <!-- AVA marker -->
+        <Button
+          v-if="f.source === 'property_files' && editingFileId !== f.id"
+          variant="ghost" size="icon"
+          class="h-8 w-8 shrink-0"
+          :class="f.is_ava ? 'text-[#EE7600] hover:text-[#c2410c]' : 'text-zinc-400 hover:text-[#EE7600] opacity-0 group-hover:opacity-100 transition-opacity'"
+          :title="f.is_ava ? 'Alleinvermittlungsauftrag-Markierung entfernen' : 'Als Alleinvermittlungsauftrag markieren'"
+          @click="toggleAvaMarker(f)"
+        >
+          <FileCheck2 v-if="f.is_ava" class="w-4 h-4" />
+          <FileX2 v-else class="w-4 h-4" />
+        </Button>
 
         <!-- Website download toggle -->
         <div class="flex items-center gap-1.5 shrink-0">

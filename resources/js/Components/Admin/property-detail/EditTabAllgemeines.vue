@@ -282,52 +282,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
       </AccordionSection>
 
-      <!-- Ausstattung & Merkmale -->
-      <AccordionSection v-if="!isChild" title="Ausstattung & Merkmale" color="#06b6d4" :default-open="false">
-        <div>
-          <label :class="labelCls">Qualität <FieldExportBadges field="quality" /></label>
-          <Select v-model="form.quality">
-            <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="einfach">Einfach</SelectItem>
-              <SelectItem value="normal">Normal</SelectItem>
-              <SelectItem value="gehoben">Gehoben</SelectItem>
-              <SelectItem value="luxurioes">Luxuriös</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label :class="labelCls">Sanierungsjahr <FieldExportBadges field="year_renovated" /></label>
-          <Input v-model="form.year_renovated" type="number" :class="inputCls" />
-        </div>
-        <div>
-          <label :class="labelCls">Bodenbelag <FieldExportBadges field="flooring" /></label>
-          <Input v-model="form.flooring" :class="inputCls" />
-        </div>
-        <div>
-          <label :class="labelCls">Badausstattung <FieldExportBadges field="bathroom_equipment" /></label>
-          <Input v-model="form.bathroom_equipment" :class="inputCls" />
-        </div>
-        <div>
-          <label :class="labelCls">Ausrichtung <FieldExportBadges field="orientation" /></label>
-          <Input v-model="form.orientation" :class="inputCls" />
-        </div>
-        <div class="col-span-2">
-          <label :class="labelCls">Merkmale</label>
-          <div class="flex flex-wrap gap-1.5">
-            <button
-              v-for="feat in features"
-              :key="feat.key"
-              type="button"
-              @click="form[feat.key] = !form[feat.key]"
-              class="px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors"
-              :class="form[feat.key] ? 'bg-zinc-900 text-white' : 'border border-border text-foreground hover:bg-zinc-50'"
-            >
-              {{ feat.label }}
-            </button>
-          </div>
-        </div>
-      </AccordionSection>
+      <!-- Ausstattung & Merkmale — jetzt unter Flächen & Ausstattung -->
     </div>
   </div>
 </template>

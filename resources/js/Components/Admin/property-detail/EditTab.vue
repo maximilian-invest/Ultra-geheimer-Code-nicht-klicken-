@@ -590,7 +590,7 @@ defineExpose({ save, discard });
       <TabsList class="flex w-full justify-start bg-gradient-to-b from-zinc-50 to-zinc-100/50 border-b border-zinc-200 rounded-none h-auto p-0 px-6 gap-0">
         <TabsTrigger value="allgemeines" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Allgemeines</TabsTrigger>
         <TabsTrigger value="kosten" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Kosten</TabsTrigger>
-        <TabsTrigger value="flaechen" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Flaechen</TabsTrigger>
+        <TabsTrigger value="flaechen" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Flächen &amp; Ausstattung</TabsTrigger>
         <TabsTrigger value="energie" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Energie</TabsTrigger>
         <TabsTrigger value="beschreibung" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Beschreibung</TabsTrigger>
         <TabsTrigger value="medien" class="flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 border-transparent text-muted-foreground data-[state=active]:border-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none">Medien</TabsTrigger>
@@ -646,7 +646,7 @@ defineExpose({ save, discard });
       </TabsContent>
 
       <TabsContent value="flaechen" class="mt-0 px-1">
-        <EditTabFlaechen :form="form" :is-newbuild="isNewbuild" />
+        <EditTabFlaechen :form="form" :is-newbuild="isNewbuild" :is-child="isChild" :features="features" />
       </TabsContent>
 
       <TabsContent value="energie" class="mt-0 px-1">

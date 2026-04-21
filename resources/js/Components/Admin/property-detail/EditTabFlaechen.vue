@@ -184,28 +184,25 @@ watch(() => props.form?.id, loadParking);
     <div class="flex flex-col gap-4">
       <!-- Flächen -->
       <AccordionSection title="Flächen (m²)" color="#ea580c" :default-open="true">
-        <div v-if="isNewbuild" class="col-span-2 text-[11px] text-muted-foreground bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5 mb-1">
-          Bei Neubauprojekten zeigen wir automatisch den Bereich aus den Einheiten als Hinweis. Du kannst den Wert manuell überschreiben — der manuelle Wert hat Vorrang auf der Website.
-        </div>
         <div v-for="field in areaFields" :key="field.key">
-          <label :class="labelCls">{{ field.label }}
+          <label :class="labelCls + ' flex items-center gap-1.5 flex-wrap'">
+            <span>{{ field.label }}</span>
             <span v-if="field.countKey && !isNewbuild" class="text-[10px] text-muted-foreground font-normal">(m² | Anzahl)</span>
             <FieldExportBadges :field="field.key" />
+            <span v-if="isNewbuild && neubauRanges[field.key]"
+                  class="text-[9px] text-orange-600 font-normal tabular-nums ml-auto"
+                  :title="'Bereich aus Einheiten — wird verwendet wenn Feld leer ist'">
+              ∅ {{ neubauRanges[field.key] }}
+            </span>
           </label>
-          <!-- Neubau: editierbares Input MIT Range-Hinweis darunter -->
+          <!-- Neubau: editierbares Input, Range nur als Placeholder + Label-Hint -->
           <template v-if="isNewbuild">
             <Input
               v-model="form[field.key]"
               type="number"
-              :placeholder="neubauRanges[field.key] ? 'Aus Einheiten: ' + neubauRanges[field.key] : 'z.B. 85'"
+              :placeholder="neubauRanges[field.key] ? neubauRanges[field.key] : 'z.B. 85'"
               :class="inputCls"
             />
-            <div v-if="neubauRanges[field.key]" class="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-              <span class="inline-block w-1 h-1 rounded-full bg-orange-400"></span>
-              Bereich aus Einheiten: <strong class="text-orange-700">{{ neubauRanges[field.key] }}</strong>
-              <span v-if="!form[field.key]" class="italic">— wird verwendet wenn leer</span>
-              <span v-else class="italic">— übersteuert durch manuellen Wert</span>
-            </div>
           </template>
           <!-- Bestand: normale Eingaben -->
           <div v-else-if="field.countKey" class="flex gap-2">
@@ -229,22 +226,23 @@ watch(() => props.form?.id, loadParking);
           <div class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Zimmer &amp; Stockwerke</div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label :class="labelCls">Zimmer <FieldExportBadges field="rooms_amount" /></label>
-              <template v-if="isNewbuild">
-                <Input
-                  v-model="form.rooms_amount"
-                  type="number"
-                  step="0.5"
-                  :placeholder="neubauRanges.rooms_amount ? 'Aus Einheiten: ' + neubauRanges.rooms_amount : 'z.B. 3'"
-                  :class="inputCls"
-                />
-                <div v-if="neubauRanges.rooms_amount" class="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                  <span class="inline-block w-1 h-1 rounded-full bg-orange-400"></span>
-                  Bereich aus Einheiten: <strong class="text-orange-700">{{ neubauRanges.rooms_amount }}</strong>
-                  <span v-if="!form.rooms_amount" class="italic">— wird verwendet wenn leer</span>
-                  <span v-else class="italic">— übersteuert durch manuellen Wert</span>
-                </div>
-              </template>
+              <label :class="labelCls + ' flex items-center gap-1.5 flex-wrap'">
+                <span>Zimmer</span>
+                <FieldExportBadges field="rooms_amount" />
+                <span v-if="isNewbuild && neubauRanges.rooms_amount"
+                      class="text-[9px] text-orange-600 font-normal tabular-nums ml-auto"
+                      :title="'Bereich aus Einheiten — wird verwendet wenn Feld leer ist'">
+                  ∅ {{ neubauRanges.rooms_amount }}
+                </span>
+              </label>
+              <Input
+                v-if="isNewbuild"
+                v-model="form.rooms_amount"
+                type="number"
+                step="0.5"
+                :placeholder="neubauRanges.rooms_amount ? neubauRanges.rooms_amount : 'z.B. 3'"
+                :class="inputCls"
+              />
               <Input v-else v-model="form.rooms_amount" type="number" step="0.5" :class="inputCls" />
             </div>
             <div>

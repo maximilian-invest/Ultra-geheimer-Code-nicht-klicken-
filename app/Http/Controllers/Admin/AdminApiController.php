@@ -800,6 +800,15 @@ class AdminApiController extends Controller
             'briefing_get'              => $this->briefingGet($request),
             'briefing_regenerate'       => $this->briefingRegenerate($request),
 
+            // Hausverwaltung (Phase 1 — Core CRUD + Assignment)
+            'list_property_managers'    => $this->listPropertyManagers($request),
+            'create_property_manager'   => $this->createPropertyManager($request),
+            'update_property_manager'   => $this->updatePropertyManager($request),
+            'delete_property_manager'   => $this->deletePropertyManager($request),
+            'assign_property_manager'   => $this->assignPropertyManager($request),
+            'quick_create_and_assign_property_manager' => $this->quickCreateAndAssignPropertyManager($request),
+            'upload_ava'                => $this->uploadAva($request),
+
             // Tasks
             'getTasks'                  => app(TaskController::class)->index($request),
             'addTask'                   => app(TaskController::class)->store($request),
@@ -4137,6 +4146,254 @@ PY;
             ]);
             return response()->json(['success' => false, 'error' => 'Regenerierung fehlgeschlagen: ' . $e->getMessage()], 500);
         }
+    }
+
+    // ===== Hausverwaltung (Phase 1) =====
+
+    private function listPropertyManagers(Request $request): JsonResponse
+    {
+        $search = trim($request->query('search', ''));
+
+        $q = \DB::table('property_managers as pm')
+            ->leftJoin('properties as p', 'p.property_manager_id', '=', 'pm.id')
+            ->select([
+                'pm.id', 'pm.company_name', 'pm.address_street', 'pm.address_zip', 'pm.address_city',
+                'pm.email', 'pm.phone', 'pm.contact_person', 'pm.notes', 'pm.created_at',
+                \DB::raw('COUNT(p.id) as property_count'),
+            ])
+            ->groupBy('pm.id', 'pm.company_name', 'pm.address_street', 'pm.address_zip', 'pm.address_city',
+                      'pm.email', 'pm.phone', 'pm.contact_person', 'pm.notes', 'pm.created_at')
+            ->orderBy('pm.company_name');
+
+        if ($search !== '') {
+            $q->where(function ($w) use ($search) {
+                $w->where('pm.company_name', 'like', "%{$search}%")
+                  ->orWhere('pm.email', 'like', "%{$search}%")
+                  ->orWhere('pm.contact_person', 'like', "%{$search}%");
+            });
+        }
+
+        $managers = $q->get()->map(fn($r) => [
+            'id' => (int) $r->id,
+            'company_name' => $r->company_name,
+            'address_street' => $r->address_street,
+            'address_zip' => $r->address_zip,
+            'address_city' => $r->address_city,
+            'email' => $r->email,
+            'phone' => $r->phone,
+            'contact_person' => $r->contact_person,
+            'notes' => $r->notes,
+            'property_count' => (int) $r->property_count,
+            'created_at' => $r->created_at,
+        ])->all();
+
+        return response()->json(['success' => true, 'managers' => $managers]);
+    }
+
+    private function createPropertyManager(Request $request): JsonResponse
+    {
+        $data = $request->json()->all() ?: $request->all();
+
+        $companyName = trim((string) ($data['company_name'] ?? ''));
+        $email = trim((string) ($data['email'] ?? ''));
+        if ($companyName === '' || $email === '') {
+            return response()->json(['success' => false, 'error' => 'company_name and email are required'], 422);
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return response()->json(['success' => false, 'error' => 'email format invalid'], 422);
+        }
+
+        $manager = \App\Models\PropertyManager::create([
+            'company_name' => $companyName,
+            'email' => $email,
+            'address_street' => trim((string) ($data['address_street'] ?? '')) ?: null,
+            'address_zip' => trim((string) ($data['address_zip'] ?? '')) ?: null,
+            'address_city' => trim((string) ($data['address_city'] ?? '')) ?: null,
+            'phone' => trim((string) ($data['phone'] ?? '')) ?: null,
+            'contact_person' => trim((string) ($data['contact_person'] ?? '')) ?: null,
+            'notes' => trim((string) ($data['notes'] ?? '')) ?: null,
+            'created_by' => \Auth::id(),
+        ]);
+
+        return response()->json(['success' => true, 'manager_id' => $manager->id, 'manager' => $manager]);
+    }
+
+    private function updatePropertyManager(Request $request): JsonResponse
+    {
+        $data = $request->json()->all() ?: $request->all();
+        $id = (int) ($data['id'] ?? 0);
+        if (!$id) return response()->json(['success' => false, 'error' => 'id required'], 400);
+
+        $manager = \App\Models\PropertyManager::find($id);
+        if (!$manager) return response()->json(['success' => false, 'error' => 'not found'], 404);
+
+        foreach (['company_name', 'email', 'address_street', 'address_zip', 'address_city', 'phone', 'contact_person', 'notes'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $value = trim((string) $data[$field]);
+                $manager->$field = $value !== '' ? $value : null;
+            }
+        }
+        if (!$manager->company_name || !$manager->email) {
+            return response()->json(['success' => false, 'error' => 'company_name and email cannot be empty'], 422);
+        }
+        $manager->save();
+
+        // Legacy-Sync: alle zugeordneten Properties bekommen den neuen Namen ins String-Feld
+        \DB::table('properties')
+            ->where('property_manager_id', $manager->id)
+            ->update(['property_manager' => $manager->company_name]);
+
+        return response()->json(['success' => true, 'manager' => $manager]);
+    }
+
+    private function deletePropertyManager(Request $request): JsonResponse
+    {
+        $data = $request->json()->all() ?: $request->all();
+        $id = (int) ($data['id'] ?? 0);
+        if (!$id) return response()->json(['success' => false, 'error' => 'id required'], 400);
+
+        $manager = \App\Models\PropertyManager::find($id);
+        if (!$manager) return response()->json(['success' => false, 'error' => 'not found'], 404);
+
+        $assignedCount = \DB::table('properties')->where('property_manager_id', $id)->count();
+        if ($assignedCount > 0) {
+            return response()->json([
+                'success' => false,
+                'error' => "Hausverwaltung ist noch {$assignedCount} Objekt(en) zugewiesen. Zuerst umhängen oder entfernen.",
+                'assigned_count' => $assignedCount,
+            ], 409);
+        }
+
+        $manager->delete();
+        return response()->json(['success' => true]);
+    }
+
+    private function assignPropertyManager(Request $request): JsonResponse
+    {
+        $data = $request->json()->all() ?: $request->all();
+        $propertyId = (int) ($data['property_id'] ?? 0);
+        $managerId = isset($data['property_manager_id']) && $data['property_manager_id'] !== '' && $data['property_manager_id'] !== null
+            ? (int) $data['property_manager_id']
+            : null;
+
+        if (!$propertyId) return response()->json(['success' => false, 'error' => 'property_id required'], 400);
+
+        $userId = (int) \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        if (!in_array($userType, ['assistenz', 'backoffice'], true)) {
+            $propBroker = \DB::table('properties')->where('id', $propertyId)->value('broker_id');
+            if ($propBroker && $propBroker != $userId) {
+                return response()->json(['success' => false, 'error' => 'Keine Berechtigung: Objekt gehört einem anderen Makler'], 403);
+            }
+        }
+
+        $managerName = null;
+        if ($managerId) {
+            $mgr = \DB::table('property_managers')->where('id', $managerId)->first();
+            if (!$mgr) return response()->json(['success' => false, 'error' => 'Hausverwaltung nicht gefunden'], 404);
+            $managerName = $mgr->company_name;
+        }
+
+        \DB::table('properties')->where('id', $propertyId)->update([
+            'property_manager_id' => $managerId,
+            'property_manager' => $managerName,
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true, 'property_id' => $propertyId, 'property_manager_id' => $managerId]);
+    }
+
+    private function quickCreateAndAssignPropertyManager(Request $request): JsonResponse
+    {
+        $data = $request->json()->all() ?: $request->all();
+        $propertyId = (int) ($data['property_id'] ?? 0);
+        $companyName = trim((string) ($data['company_name'] ?? ''));
+        $email = trim((string) ($data['email'] ?? ''));
+
+        if (!$propertyId) return response()->json(['success' => false, 'error' => 'property_id required'], 400);
+        if ($companyName === '' || $email === '') {
+            return response()->json(['success' => false, 'error' => 'company_name and email are required'], 422);
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return response()->json(['success' => false, 'error' => 'email format invalid'], 422);
+        }
+
+        $userId = (int) \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        if (!in_array($userType, ['assistenz', 'backoffice'], true)) {
+            $propBroker = \DB::table('properties')->where('id', $propertyId)->value('broker_id');
+            if ($propBroker && $propBroker != $userId) {
+                return response()->json(['success' => false, 'error' => 'Keine Berechtigung'], 403);
+            }
+        }
+
+        $result = \DB::transaction(function () use ($data, $propertyId, $companyName, $email, $userId) {
+            $manager = \App\Models\PropertyManager::create([
+                'company_name' => $companyName,
+                'email' => $email,
+                'address_street' => trim((string) ($data['address_street'] ?? '')) ?: null,
+                'address_zip' => trim((string) ($data['address_zip'] ?? '')) ?: null,
+                'address_city' => trim((string) ($data['address_city'] ?? '')) ?: null,
+                'phone' => trim((string) ($data['phone'] ?? '')) ?: null,
+                'contact_person' => trim((string) ($data['contact_person'] ?? '')) ?: null,
+                'notes' => trim((string) ($data['notes'] ?? '')) ?: null,
+                'created_by' => $userId,
+            ]);
+
+            \DB::table('properties')->where('id', $propertyId)->update([
+                'property_manager_id' => $manager->id,
+                'property_manager' => $manager->company_name,
+                'updated_at' => now(),
+            ]);
+
+            return $manager;
+        });
+
+        return response()->json(['success' => true, 'manager_id' => $result->id, 'manager' => $result, 'property_id' => $propertyId]);
+    }
+
+    private function uploadAva(Request $request): JsonResponse
+    {
+        $propertyId = (int) $request->input('property_id', 0);
+        if (!$propertyId) return response()->json(['success' => false, 'error' => 'property_id required'], 400);
+        if (!$request->hasFile('file')) {
+            return response()->json(['success' => false, 'error' => 'file required'], 400);
+        }
+
+        $userId = (int) \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        if (!in_array($userType, ['assistenz', 'backoffice'], true)) {
+            $propBroker = \DB::table('properties')->where('id', $propertyId)->value('broker_id');
+            if ($propBroker && $propBroker != $userId) {
+                return response()->json(['success' => false, 'error' => 'Keine Berechtigung'], 403);
+            }
+        }
+
+        $file = $request->file('file');
+        $dir = 'property_files/' . $propertyId;
+        $filename = 'AVA_' . time() . '.' . $file->getClientOriginalExtension();
+        $path = $file->storeAs($dir, $filename, 'public');
+
+        \DB::transaction(function () use ($propertyId, $file, $path) {
+            \DB::table('property_files')
+                ->where('property_id', $propertyId)
+                ->where('is_ava', 1)
+                ->update(['is_ava' => 0]);
+
+            \DB::table('property_files')->insert([
+                'property_id' => $propertyId,
+                'label' => 'Alleinvermittlungsauftrag',
+                'filename' => $file->getClientOriginalName(),
+                'path' => $path,
+                'mime_type' => $file->getClientMimeType(),
+                'file_size' => $file->getSize(),
+                'is_ava' => 1,
+                'is_website_download' => 0,
+                'created_at' => now(),
+            ]);
+        });
+
+        return response()->json(['success' => true, 'path' => $path]);
     }
 
 }

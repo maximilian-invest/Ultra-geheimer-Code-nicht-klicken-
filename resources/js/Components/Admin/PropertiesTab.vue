@@ -77,12 +77,45 @@ const deleteConfirm = ref(null);
 const deleteLoading = ref(false);
 
 
-// Property Detail View
+// Property Detail View — Auswahl wird in localStorage persistiert,
+// damit Reload nicht auf die Uebersicht zurueckspringt.
+const SR_SELECTED_PROPERTY_KEY = "sr-selected-property-id";
 const selectedProperty = ref(null);
 const isNewProperty = ref(false);
-function openDetail(prop) { selectedProperty.value = prop; isNewProperty.value = false; }
-function closeDetail() { selectedProperty.value = null; isNewProperty.value = false; }
-function openNewProperty() { selectedProperty.value = { on_hold: false, marketing_type: "kauf" }; isNewProperty.value = true; }
+
+function openDetail(prop) {
+  selectedProperty.value = prop;
+  isNewProperty.value = false;
+  if (prop?.id) {
+    try { localStorage.setItem(SR_SELECTED_PROPERTY_KEY, String(prop.id)); } catch (e) {}
+  }
+}
+function closeDetail() {
+  selectedProperty.value = null;
+  isNewProperty.value = false;
+  try { localStorage.removeItem(SR_SELECTED_PROPERTY_KEY); } catch (e) {}
+}
+function openNewProperty() {
+  selectedProperty.value = { on_hold: false, marketing_type: "kauf" };
+  isNewProperty.value = true;
+  try { localStorage.removeItem(SR_SELECTED_PROPERTY_KEY); } catch (e) {}
+}
+
+// Nach Mount + sobald properties geladen: gespeicherte Auswahl wiederherstellen
+function restorePropertyFromStorage() {
+  if (selectedProperty.value) return; // schon was offen
+  let savedId = null;
+  try { savedId = localStorage.getItem(SR_SELECTED_PROPERTY_KEY); } catch (e) {}
+  if (!savedId) return;
+  const list = (properties?.value ?? properties) || [];
+  const found = Array.isArray(list) ? list.find(p => Number(p.id) === Number(savedId)) : null;
+  if (found) {
+    selectedProperty.value = found;
+    isNewProperty.value = false;
+  }
+}
+
+watch(() => (properties?.value ?? properties), restorePropertyFromStorage, { immediate: true, deep: false });
 
 function handlePropertyCreated(createdProperty) {
   const allProps = (properties?.value ?? properties) || [];

@@ -505,17 +505,16 @@ onMounted(async () => {
                 <CardContent>
                     <div v-if="trendData.length" class="relative">
                         <!-- Trend bars: CSS-basiert, responsive, keine Verzerrung -->
-                        <div class="trend-chart flex items-end gap-2 h-44 pb-6 relative">
-                            <!-- horizontale Grid-Lines -->
-                            <div class="absolute inset-x-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
-                                <div v-for="n in 4" :key="'grid'+n" class="h-px bg-border/60"></div>
-                                <div class="h-px bg-border"></div>
+                        <div class="trend-chart relative" style="height: 190px">
+                            <!-- Grid-Lines liegen ueber dem Bar-Bereich, NICHT ueber den Labels -->
+                            <div class="absolute left-0 right-0 top-0 flex flex-col justify-between pointer-events-none" style="bottom: 24px">
+                                <div v-for="n in 5" :key="'grid'+n" class="h-px bg-border/50"></div>
                             </div>
-                            <!-- Bars pro Woche -->
-                            <div v-for="(d, i) in trendData" :key="'t'+i"
-                                class="flex-1 flex flex-col items-center h-full relative group cursor-pointer"
-                                @mouseenter="hoveredTrend = i" @mouseleave="hoveredTrend = null">
-                                <div class="flex-1 w-full flex items-end justify-center gap-1 relative z-10">
+                            <!-- Bar-Bereich: nimmt Hoehe minus Label-Zeile -->
+                            <div class="absolute left-0 right-0 top-0 flex items-end gap-2" style="bottom: 24px">
+                                <div v-for="(d, i) in trendData" :key="'t'+i"
+                                    class="flex-1 h-full flex items-end justify-center gap-1 cursor-pointer"
+                                    @mouseenter="hoveredTrend = i" @mouseleave="hoveredTrend = null">
                                     <div class="flex-1 max-w-[14px] rounded-t-md transition-all duration-200"
                                         :style="{
                                             height: (d.inquiries / trendMax * 100) + '%',
@@ -531,7 +530,13 @@ onMounted(async () => {
                                             opacity: hoveredTrend === null || hoveredTrend === i ? 1 : 0.5,
                                         }"></div>
                                 </div>
-                                <div class="absolute bottom-0 text-[10px] text-muted-foreground">{{ d.label }}</div>
+                            </div>
+                            <!-- Label-Zeile: fix am Boden, keine Ueberlappung mit Balken -->
+                            <div class="absolute left-0 right-0 bottom-0 flex gap-2 h-5 items-center">
+                                <div v-for="(d, i) in trendData" :key="'l'+i"
+                                    class="flex-1 text-center text-[10px] text-muted-foreground">
+                                    {{ d.label }}
+                                </div>
                             </div>
                         </div>
                         <!-- Hover tooltip -->
@@ -851,40 +856,30 @@ onMounted(async () => {
 
 <style scoped>
 /*
- * Weicheres Dashboard: ersetzt die harten shadcn-Card-Borders
- * durch sanfte Schlagschatten, groessere Rundungen, mehr Raum.
- * :deep()-Selektoren durchbrechen die Vue-scoped-CSS-Grenze und
- * treffen die von <Card> generierten Elemente.
+ * Weicheres Dashboard: sanfter Layered-Shadow PLUS hauchduenne Line
+ * als Konturhilfe — weiß-auf-weiß war zu brutal, reiner Shadow ohne
+ * Rand zu diffus. Jetzt beides kombiniert.
  */
 .sr-soft-dashboard :deep(.rounded-xl) {
-    border-color: transparent !important;
+    border: 1px solid rgba(15, 23, 42, 0.06);
     border-radius: 16px;
     box-shadow:
-        0 1px 2px rgba(15, 23, 42, 0.03),
-        0 4px 16px -6px rgba(15, 23, 42, 0.06);
-    transition: box-shadow 180ms ease, transform 180ms ease;
+        0 1px 2px rgba(15, 23, 42, 0.04),
+        0 6px 20px -6px rgba(15, 23, 42, 0.08);
+    transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
 }
 
 /* Etwas staerkerer Shadow beim Hover fuer Aktions-Cards */
 .sr-soft-dashboard :deep(.rounded-xl.cursor-pointer:hover) {
+    border-color: rgba(15, 23, 42, 0.10);
     box-shadow:
-        0 2px 4px rgba(15, 23, 42, 0.04),
-        0 10px 28px -8px rgba(15, 23, 42, 0.10);
+        0 2px 4px rgba(15, 23, 42, 0.05),
+        0 12px 32px -8px rgba(15, 23, 42, 0.12);
     transform: translateY(-1px);
-}
-
-/* KPI-Cards: noch etwas mehr Luft + klarere Hierarchie */
-.sr-soft-dashboard :deep([class*="rounded-xl"]) > [class*="flex-row"][class*="items-center"] {
-    padding-top: 1rem;
 }
 
 /* Divide-y wirkt zart statt hart */
 .sr-soft-dashboard :deep(.divide-gray-200 > * + *) {
-    border-top-color: rgba(0, 0, 0, 0.06);
-}
-
-/* Trend-Chart smoothed */
-.trend-chart > *:last-child {
-    min-width: 0;
+    border-top-color: rgba(0, 0, 0, 0.05);
 }
 </style>

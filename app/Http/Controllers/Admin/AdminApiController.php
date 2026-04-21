@@ -795,6 +795,10 @@ class AdminApiController extends Controller
             // Followup snooze
             'snooze_followup'           => $this->snoozeFollowup($request),
 
+            // Tagesbriefing (KI-Tageszusammenfassung fürs Dashboard)
+            'briefing_get'              => $this->briefingGet($request),
+            'briefing_regenerate'       => $this->briefingRegenerate($request),
+
             // Tasks
             'getTasks'                  => app(TaskController::class)->index($request),
             'addTask'                   => app(TaskController::class)->store($request),
@@ -4081,6 +4085,57 @@ PY;
 
         $status = !empty($result['success']) ? 200 : 422;
         return response()->json($result, $status, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    // ===== Tagesbriefing =====
+
+    private function briefingGet(Request $request): JsonResponse
+    {
+        $userId = (int) \Auth::id();
+        if (!$userId) return response()->json(['error' => 'Nicht angemeldet'], 401);
+
+        $date = $request->query('date') ?: now()->toDateString();
+
+        try {
+            $service = app(\App\Services\DailyBriefingService::class);
+            $briefing = $service->generate($userId, $date);
+            return response()->json(['success' => true, 'briefing' => $briefing]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('briefingGet failed', [
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json(['success' => false, 'error' => 'Briefing konnte nicht geladen werden: ' . $e->getMessage()], 500);
+        }
+    }
+
+    private function briefingRegenerate(Request $request): JsonResponse
+    {
+        $userId = (int) \Auth::id();
+        if (!$userId) return response()->json(['error' => 'Nicht angemeldet'], 401);
+
+        // Rate-limit: max 1× pro 60s pro User
+        $cacheKey = 'briefing_regen_' . $userId;
+        if (\Illuminate\Support\Facades\Cache::get($cacheKey)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Bitte warte einen Moment bevor du erneut regenerierst',
+                'rate_limited' => true,
+            ], 200);
+        }
+        \Illuminate\Support\Facades\Cache::put($cacheKey, 1, 60);
+
+        try {
+            $service = app(\App\Services\DailyBriefingService::class);
+            $briefing = $service->generate($userId, now()->toDateString(), forceRefresh: true);
+            return response()->json(['success' => true, 'briefing' => $briefing]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('briefingRegenerate failed', [
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json(['success' => false, 'error' => 'Regenerierung fehlgeschlagen: ' . $e->getMessage()], 500);
+        }
     }
 
 }

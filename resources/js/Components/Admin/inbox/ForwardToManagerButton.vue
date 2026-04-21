@@ -16,17 +16,13 @@ const missingMgrOpen = ref(false)
 const loading = ref(false)
 
 const propertyId = computed(() => Number(props.item?.property_id || 0))
-const hasManager = computed(() => !!Number(props.item?.property_manager_id || 0))
 const isVisible = computed(() => propertyId.value > 0)
 
 async function onClick() {
   if (!propertyId.value) return
-
-  if (!hasManager.value) {
-    missingMgrOpen.value = true
-    return
-  }
-
+  // Backend ist source of truth — Frontend-property_manager_id kann bei
+  // Race-Conditions stale sein. Einfach triggerDraft() aufrufen, Backend
+  // meldet needs_manager=true wenn keine HV da ist.
   await triggerDraft()
 }
 
@@ -49,6 +45,13 @@ async function triggerDraft() {
       }),
     })
     const d = await r.json()
+
+    // Backend meldet dass HV fehlt → Popup oeffnen
+    if (d.needs_manager || (!d.success && /Hausverwaltung zugeordnet/i.test(d.error || ''))) {
+      missingMgrOpen.value = true
+      return
+    }
+
     if (!d.success) {
       toast('Fehler: ' + (d.error || 'Unbekannt'))
       return

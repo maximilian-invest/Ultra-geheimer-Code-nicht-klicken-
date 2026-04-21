@@ -1064,6 +1064,19 @@ function openDetail(item, mode) {
   // Load conversation detail — for offen/nachfassen use conv_detail, for posteingang/gesendet use email_context
   const isEmailHistory = mode === "posteingang" || mode === "gesendet";
   let contextPromise;
+  // Helper: merge HV-Info aus conv_detail in selectedItem damit der
+  // ForwardToManagerButton weiss ob eine HV zugewiesen ist.
+  const mergeHvInfoIntoItem = (conv) => {
+    if (!conv || !selectedItem.value) return;
+    selectedItem.value.property_manager_id = conv.property_manager_id || null;
+    selectedItem.value.property_manager_name = conv.property_manager_name || null;
+    selectedItem.value.property_manager_email = conv.property_manager_email || null;
+    // property_id falls vorher fehlte (z.B. aus Posteingang-Mails)
+    if (conv.property_id && !selectedItem.value.property_id) {
+      selectedItem.value.property_id = conv.property_id;
+    }
+  };
+
   if (isEmailHistory) {
     // Load full conversation thread by finding matching conversation
     contextPromise = fetch(API.value + "&action=email_context&email_id=" + item.id)
@@ -1080,6 +1093,7 @@ function openDetail(item, mode) {
             const detailD = await detailR.json();
             if (detailD.messages?.length) {
               expandedDetail.value = { email: detailD.conversation || d.email, thread: detailD.messages || [] };
+              mergeHvInfoIntoItem(detailD.conversation);
               return;
             }
           } catch (e) { /* fallback to single email */ }
@@ -1096,6 +1110,7 @@ function openDetail(item, mode) {
               const detailD = await detailR.json();
               if (detailD.messages?.length) {
                 expandedDetail.value = { email: detailD.conversation || d.email, thread: detailD.messages || [] };
+                mergeHvInfoIntoItem(detailD.conversation);
                 return;
               }
             }
@@ -1110,6 +1125,7 @@ function openDetail(item, mode) {
       .then(r => r.json())
       .then(async (d) => {
         expandedDetail.value = { email: d.conversation || null, thread: d.messages || [] };
+        mergeHvInfoIntoItem(d.conversation);
       })
       .catch(e => { toast("Fehler: " + e.message); })
       .finally(() => { expandedLoading.value = false; });
@@ -1217,6 +1233,12 @@ async function reloadOpenDetailThread() {
           const detailD = await detailR.json();
           if (detailD.messages?.length) {
             expandedDetail.value = { email: detailD.conversation || d.email, thread: detailD.messages || [] };
+            if (selectedItem.value && detailD.conversation) {
+              selectedItem.value.property_manager_id = detailD.conversation.property_manager_id || null;
+              selectedItem.value.property_manager_name = detailD.conversation.property_manager_name || null;
+              selectedItem.value.property_manager_email = detailD.conversation.property_manager_email || null;
+              if (detailD.conversation.property_id && !selectedItem.value.property_id) selectedItem.value.property_id = detailD.conversation.property_id;
+            }
             resolved = true;
           }
         } catch {
@@ -1236,6 +1258,12 @@ async function reloadOpenDetailThread() {
             const detailD = await detailR.json();
             if (detailD.messages?.length) {
               expandedDetail.value = { email: detailD.conversation || d.email, thread: detailD.messages || [] };
+              if (selectedItem.value && detailD.conversation) {
+                selectedItem.value.property_manager_id = detailD.conversation.property_manager_id || null;
+                selectedItem.value.property_manager_name = detailD.conversation.property_manager_name || null;
+                selectedItem.value.property_manager_email = detailD.conversation.property_manager_email || null;
+                if (detailD.conversation.property_id && !selectedItem.value.property_id) selectedItem.value.property_id = detailD.conversation.property_id;
+              }
               resolved = true;
             }
           }
@@ -1250,6 +1278,11 @@ async function reloadOpenDetailThread() {
       const r = await fetch(API.value + "&action=conv_detail&id=" + item.id);
       const d = await r.json();
       expandedDetail.value = { email: d.conversation || null, thread: d.messages || [] };
+      if (selectedItem.value && d.conversation) {
+        selectedItem.value.property_manager_id = d.conversation.property_manager_id || null;
+        selectedItem.value.property_manager_name = d.conversation.property_manager_name || null;
+        selectedItem.value.property_manager_email = d.conversation.property_manager_email || null;
+      }
     }
     await reloadExpandedFiles(item);
   } catch (e) {

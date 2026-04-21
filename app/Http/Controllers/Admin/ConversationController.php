@@ -1215,7 +1215,7 @@ class ConversationController extends Controller
                     . "und wollte kurz nachfragen, ob die Immobilie grundsätzlich noch für Sie in Frage kommt.\n\n"
                     . "Über eine kurze Rückmeldung würde ich mich freuen.\n\n"
                     . "Mit freundlichen Grüßen";
-                $subject = 'Nachfrage';
+                $subject = 'Darf ich kurz nachfragen?';
             } elseif ($followupCount === 1) {
                 // NF2: Bezug auf letztes Nachfassen
                 $body = $anrede . ",\n\n"
@@ -1224,7 +1224,7 @@ class ConversationController extends Controller
                     . "noch für Sie in Frage, oder haben Sie sich bereits anderweitig entschieden?\n\n"
                     . "Über eine kurze Rückmeldung würde ich mich freuen.\n\n"
                     . "Mit freundlichen Grüßen";
-                $subject = 'Erneute Nachfrage';
+                $subject = 'Besteht Ihr Interesse noch?';
             } else {
                 // NF3+: Abschliessende Nachfrage mit Feedback-Bitte
                 $body = $anrede . ",\n\n"
@@ -1236,7 +1236,7 @@ class ConversationController extends Controller
                     . "Sollte ich nichts mehr von Ihnen hören, gehe ich davon aus, dass kein Interesse mehr "
                     . "besteht, und melde mich nicht weiter.\n\n"
                     . "Mit freundlichen Grüßen";
-                $subject = 'Letzte Nachfrage';
+                $subject = 'Ihr kurzes Feedback wäre mir wertvoll';
             }
 
             $conversationService = app(ConversationService::class);
@@ -1411,7 +1411,7 @@ class ConversationController extends Controller
                     . "und wollte kurz nachfragen, ob die Immobilie grundsätzlich noch für Sie in Frage kommt.\n\n"
                     . "Über eine kurze Rückmeldung würde ich mich freuen.\n\n"
                     . "Mit freundlichen Grüßen";
-                $subject = 'Nachfrage';
+                $subject = 'Darf ich kurz nachfragen?';
             } elseif ($fc === 1) {
                 // NF2
                 $body = $anrede . ",\n\n"
@@ -1420,7 +1420,7 @@ class ConversationController extends Controller
                     . "noch für Sie in Frage, oder haben Sie sich bereits anderweitig entschieden?\n\n"
                     . "Über eine kurze Rückmeldung würde ich mich freuen.\n\n"
                     . "Mit freundlichen Grüßen";
-                $subject = 'Erneute Nachfrage';
+                $subject = 'Besteht Ihr Interesse noch?';
             } else {
                 // NF3+: Abschluss mit Feedback-Bitte
                 $body = $anrede . ",\n\n"
@@ -1432,7 +1432,7 @@ class ConversationController extends Controller
                     . "Sollte ich nichts mehr von Ihnen hören, gehe ich davon aus, dass kein Interesse mehr "
                     . "besteht, und melde mich nicht weiter.\n\n"
                     . "Mit freundlichen Grüßen";
-                $subject = 'Letzte Nachfrage';
+                $subject = 'Ihr kurzes Feedback wäre mir wertvoll';
             }
 
             try {

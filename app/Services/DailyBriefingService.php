@@ -287,10 +287,14 @@ class DailyBriefingService
                     $q->where('from_email', $t['contact_email'])
                       ->orWhere('to_email', 'like', '%' . $t['contact_email'] . '%');
                 })
-                ->orderBy('date_received', 'desc')
+                ->orderBy('email_date', 'desc')
                 ->limit(3)
-                ->get(['subject', 'direction', 'date_received'])
-                ->map(fn($m) => (array) $m)
+                ->get(['subject', 'direction', 'email_date'])
+                ->map(function ($m) {
+                    $arr = (array) $m;
+                    $arr['date_received'] = $arr['email_date']; // alias for frontend compatibility
+                    return $arr;
+                })
                 ->all();
 
             $t['days_waiting'] = $t['last_inbound_at']
@@ -444,7 +448,8 @@ class DailyBriefingService
 
             $trail = [];
             foreach (array_reverse((array) ($t['recent_messages'] ?? [])) as $msg) {
-                $when = $msg['date_received'] ? Carbon::parse($msg['date_received'])->isoFormat('dd') : '?';
+                $whenRaw = $msg['email_date'] ?? $msg['date_received'] ?? null;
+                $when = $whenRaw ? Carbon::parse($whenRaw)->isoFormat('dd') : '?';
                 $dir = ($msg['direction'] ?? '') === 'outbound' ? 'geschickt' : 'erhalten';
                 $subject = mb_substr($msg['subject'] ?? '', 0, 40);
                 $trail[] = "{$when} · {$dir}: «{$subject}»";

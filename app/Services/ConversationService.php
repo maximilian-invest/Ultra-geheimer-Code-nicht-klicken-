@@ -55,6 +55,31 @@ class ConversationService
                     }
                 }
 
+                // Persistenz-Regel: einmal zugeordneter Kunde bleibt seinem Objekt
+                // fix zugeordnet, auch wenn neue Mails keinen ref_id-Match haben.
+                // Beispiel: Willhaben-Forwards ohne ref_id würden sonst einen neuen
+                // "Nicht zugeordnet"-Thread erzeugen obwohl der Kunde bereits manuell
+                // einem Objekt zugewiesen wurde. Nur durch manuelle Umzuordnung
+                // via UI-Popup ändern.
+                if (!$conv) {
+                    $existing = Conversation::where('contact_email', $contactEmail)
+                        ->whereNotNull('property_id')
+                        ->whereNotIn('status', ['erledigt', 'archiviert'])
+                        ->orderByDesc('last_activity_at')
+                        ->lockForUpdate()
+                        ->first();
+                    if ($existing) {
+                        $conv = $existing;
+                        Log::info("ConversationService: persisted existing conv {$conv->id} for {$contactEmail} on property {$existing->property_id} (new email had property_id={$email->property_id})");
+                        // Email selbst auch auf die richtige Property umhängen,
+                        // damit Activities und Counters konsistent bleiben.
+                        if ($email->property_id != $conv->property_id) {
+                            $email->property_id = $conv->property_id;
+                            $email->save();
+                        }
+                    }
+                }
+
                 if (!$conv) {
                     $conv = Conversation::create([
                         'contact_email'    => $contactEmail,

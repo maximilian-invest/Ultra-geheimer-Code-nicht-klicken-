@@ -400,15 +400,21 @@ class ImapService
                 // Inbound fallback: if still no property, look up prior emails from this sender
                 // Handles replies where body/subject no longer contain ref_id.
                 //
-                // IMPORTANT: do not run this fallback when the sender is from our own
-                // domain (@sr-homes.at). Internal colleagues work on many different
-                // properties, so inheriting the property_id from the last mail they
-                // sent is almost always wrong (e.g. Nico Berger's "Drohnenaufnahmen
-                // Grödig" mail on property 5 would otherwise contaminate every
-                // subsequent internal mail he sends about any other object). For
-                // internal senders we leave property_id NULL and let the user
-                // assign manually from the "Nicht zugeordnet" view.
-                if (!$propertyId && $direction === 'inbound' && $fromEmail && !$isInternalEmail && !$isSrHomesFrom) {
+                // NICHT ausfuehren fuer:
+                // - Eigene Kollegen (internal/sr-homes) — siehe historischer Bug mit
+                //   Nico Bergers Droehnen-Mails die alle Mails auf ein Property
+                //   geerbt haetten.
+                // - Platform-Sender (willhaben, immowelt, typeform etc.) — die senden
+                //   fuer VIELE verschiedene Properties und ihre from_email ist immer
+                //   dieselbe no-reply-Adresse. Ohne Match via ref_id würde
+                //   Bulakli→Perwang sonst auf das vorherige Willhaben-Mail-Property
+                //   fallen (z.B. Grödig). Der strict matchProperty hat bereits
+                //   entschieden: kein ref_id → kein Property. Das respektieren.
+                $isPlatformSenderForFallback = (bool) preg_match(
+                    '/(noreply|no-reply|mailer-daemon|postmaster|notification|willhaben|immowelt|immoscout|typeform|followups\.typeform|calendly)/i',
+                    $fromEmail
+                );
+                if (!$propertyId && $direction === 'inbound' && $fromEmail && !$isInternalEmail && !$isSrHomesFrom && !$isPlatformSenderForFallback) {
                     $senderEmail = strtolower($fromEmail);
 
                     // 1. Previous inbound email from same address with a known property
@@ -446,6 +452,8 @@ class ImapService
                     }
                 } elseif (!$propertyId && $direction === 'inbound' && $fromEmail && $isSrHomesFrom) {
                     Log::info("[IMAP] Skipping sender-history fallback for internal sender {$fromEmail} (would otherwise inherit stale property_id across unrelated internal mails)");
+                } elseif (!$propertyId && $direction === 'inbound' && $fromEmail && $isPlatformSenderForFallback) {
+                    Log::info("[IMAP] Skipping sender-history fallback for platform sender {$fromEmail} — strict matchProperty already decided no ref_id match, leaving property_id NULL");
                 }
 
                 // For outbound, parse recipient name
@@ -975,12 +983,26 @@ class ImapService
         return $totalCount;
     }
 
+    /**
+     * Strenges Ref-ID-Matching. KEIN Fuzzy, KEINE AI-Guesses.
+     *
+     * Regel: nur zuordnen wenn
+     *   (a) die exakte Ref-ID im Mail-Text steht (Subject oder Body), ODER
+     *   (b) die normalisierte Ref-ID (ohne Dashes/Spaces) im Mail-Text steht
+     *       - deckt THE37 Typeform-Anfragen ab: Subject "Neue Anfrage THE 37"
+     *         normalisiert zu "neueanfragethe37" enthält "the37" (= ref_id).
+     *   (c) Portal-externe ID aus property_portals.external_id im Mail-Body steht
+     *       (z.B. Willhaben-Code).
+     *
+     * Wenn KEINE dieser Regeln greift → return null. Das heisst die
+     * Conversation landet im "Nicht zugeordnet"-Bucket und der Makler weist
+     * sie manuell zu. Besser keine Zuordnung als eine falsche.
+     */
     private function matchProperty(string $subject, string $body, array $properties): ?int
     {
         $text = $subject . ' ' . $body;
         $textNorm = strtolower(preg_replace('/[\s\-_]+/', '', $text));
 
-        // Build lookup maps
         $exactMap = [];
         $normMap = [];
         foreach ($properties as $p) {
@@ -990,47 +1012,66 @@ class ImapService
             $normMap[strtolower(preg_replace('/[\s\-_]+/', '', $ref))] = $p['id'];
         }
 
-        // 1. Exact match (case-insensitive)
+        // Regel 1: Exakte ref_id im Text (case-insensitive)
         foreach ($exactMap as $ref => $id) {
+            // Mindest-Länge 4 zum Schutz vor false positives (z.B. ref "AB" würde überall matchen)
+            if (strlen($ref) < 4) continue;
             if (stripos($text, $ref) !== false) return $id;
         }
 
-        // 2. Normalized match (The37 = THE 37 = the-37)
+        // Regel 2: Normalisierte ref_id im normalisierten Text (deckt THE37 Typeform ab)
         foreach ($normMap as $refNorm => $id) {
+            if (strlen($refNorm) < 4) continue;
             if (str_contains($textNorm, $refNorm)) return $id;
         }
 
-        // 3. Extract ref-id-like strings and try prefix/suffix matching
-        // Portal patterns: "Ref.-Nr. Kau-Neu-Hol-DHH1", "Referenznummer: The37-2zi"
-        preg_match_all('/Ref\.?-?(?:Nr\.?|erenz(?:nummer)?)\s*:?\s*([A-Za-z0-9\-_]+)/i', $text, $refMatches);
-        // General ref-id patterns: Kau-Xxx-Yyy-01, Neu-Xxx-Yyy
-        preg_match_all('/\b([A-Z][a-z]{2,3}(?:[-_][A-Za-z]{2,5}){1,4}(?:[-_]?\d{1,3})?)\b/', $text, $generalMatches);
-
-        $candidates = array_unique(array_merge($refMatches[1] ?? [], $generalMatches[1] ?? []));
-
-        foreach ($candidates as $candidate) {
-            $candNorm = strtolower(preg_replace('/[\s\-_]+/', '', $candidate));
-            if (strlen($candNorm) < 4) continue;
-
-            foreach ($normMap as $refNorm => $id) {
-                // Prefix: candidate starts with known ref (Kau-Neu-Hol-DHH1 starts with KauNeuHol)
-                if (str_starts_with($candNorm, $refNorm)) return $id;
-                // Suffix: known ref starts with candidate (KauNeuGraEFH starts with NeuGraEFH)
-                if (strlen($candNorm) >= 6 && str_starts_with($refNorm, $candNorm)) return $id;
-                // Contains: either contains the other
-                if (strlen($refNorm) >= 6 && (str_contains($candNorm, $refNorm) || str_contains($refNorm, $candNorm))) return $id;
-            }
+        // Regel 3: Portal-External-ID matching (Willhaben-Code, ImmoScout24 ID, etc.)
+        $propertyId = $this->matchByPortalExternalId($text, $this->currentBrokerId ?? null);
+        if ($propertyId) {
+            \Log::info("[IMAP] matchProperty: matched via property_portals external_id -> {$propertyId}");
+            return $propertyId;
         }
 
+        // KEIN AI-Fallback, KEIN Fuzzy-Prefix-Matching.
+        // Grund: AI rät oft falsch (z.B. Perwang-Anfrage → Grödig). Ohne klaren
+        // ref_id-Match landet die Mail in "Nicht zugeordnet" und wird manuell
+        // zugewiesen. Besser kein Match als ein falscher.
+        \Log::info("[IMAP] matchProperty: no strict ref_id match for subject: " . mb_substr($subject, 0, 80));
+        return null;
+    }
 
-        // If explicit Ref.-Nr. was found but didn't match any property,
-        // the property likely doesn't exist yet - don't let AI guess a wrong one
-        if (!empty($refMatches[1])) {
-            \Log::info("[IMAP] matchProperty: Ref.-Nr. found (" . implode(', ', $refMatches[1]) . ") but no DB match - skipping AI fallback");
-            return null;
+    /**
+     * Sucht nach portal-spezifischen IDs im Mail-Text (Willhaben-Code, etc.)
+     * und matcht gegen property_portals.external_id.
+     */
+    private function matchByPortalExternalId(string $text, ?int $brokerId): ?int
+    {
+        $candidates = [];
+
+        // Willhaben: "Willhaben-Code: 12345678" oder URL "adId=12345678"
+        if (preg_match('/willhaben[\s\-]?Code\s*:?\s*(\d{6,12})/i', $text, $m)) $candidates[] = ['willhaben', $m[1]];
+        if (preg_match('/adId=(\d{6,12})/i', $text, $m)) $candidates[] = ['willhaben', $m[1]];
+
+        // ImmoScout24: "Scout-ID: 12345678" oder in URL "expose/12345678"
+        if (preg_match('/Scout[\s\-]?ID\s*:?\s*(\d{6,12})/i', $text, $m)) $candidates[] = ['immoscout24', $m[1]];
+        if (preg_match('/immoscout24\.at\/expose\/(\d{6,12})/i', $text, $m)) $candidates[] = ['immoscout24', $m[1]];
+
+        // ImmoWelt
+        if (preg_match('/Immowelt[\s\-]?Nr\s*:?\s*(\d{6,12})/i', $text, $m)) $candidates[] = ['immowelt', $m[1]];
+
+        if (empty($candidates)) return null;
+
+        foreach ($candidates as [$portal, $externalId]) {
+            $q = \DB::table('property_portals as pp')
+                ->join('properties as p', 'pp.property_id', '=', 'p.id')
+                ->where('pp.portal_name', $portal)
+                ->where('pp.external_id', $externalId);
+            if ($brokerId) $q->where('p.broker_id', $brokerId);
+            $row = $q->select('pp.property_id')->first();
+            if ($row) return (int) $row->property_id;
         }
-        // 4. AI fallback - only for emails WITHOUT explicit ref-ids
-        return $this->aiMatchProperty($subject, $body, $this->currentBrokerId ?? null);
+
+        return null;
     }
 
     private function aiMatchProperty(string $subject, string $body, ?int $brokerId = null): ?int

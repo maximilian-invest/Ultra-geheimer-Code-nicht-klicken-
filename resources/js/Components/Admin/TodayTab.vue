@@ -453,7 +453,7 @@ onMounted(async () => {
                     <BadgeCheck class="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div class="text-2xl font-bold">{{ realKaufanbote.length || kaufanboteStats.total || '0' }}</div>
+                    <div class="text-2xl font-bold">{{ kaufanboteStats.total || '0' }}</div>
                     <p class="text-xs text-emerald-600 mt-1" v-if="kaufanboteStats.total > 0">+{{ kaufanboteStats.monthly?.[kaufanboteStats.monthly.length - 1]?.count || 0 }} diesen Monat</p>
                 </CardContent>
             </Card>
@@ -586,8 +586,8 @@ onMounted(async () => {
         </div>
 
         <div v-if="chartsReady" class="grid grid-cols-1 lg:grid-cols-7 gap-4">
-            <!-- Verkaufstrichter -->
-            <Card class="lg:col-span-4">
+            <!-- Verkaufstrichter (nimmt jetzt volle Breite nach Entfernen der Antwortzeit) -->
+            <Card class="lg:col-span-7">
                 <CardHeader>
                     <CardTitle class="text-sm">Verkaufstrichter</CardTitle>
                     <CardDescription>Conversion Pipeline</CardDescription>
@@ -615,29 +615,6 @@ onMounted(async () => {
                 </CardContent>
             </Card>
 
-            <!-- Antwortzeit -->
-            <Card class="lg:col-span-3">
-                <CardHeader>
-                    <CardTitle class="text-sm">Antwortzeit</CardTitle>
-                    <CardDescription>Durchschnitt</CardDescription>
-                </CardHeader>
-                <CardContent class="flex flex-col items-center justify-center pt-2">
-                    <div class="relative w-32 h-32">
-                        <svg class="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
-                            <circle cx="60" cy="60" r="50" fill="none" class="stroke-muted" stroke-width="8" />
-                            <circle cx="60" cy="60" r="50" fill="none" :stroke="responseColor" stroke-width="8"
-                                :stroke-dasharray="(responsePercent / 100 * 314) + ' 314'" stroke-linecap="round"
-                                class="transition-all duration-700" />
-                        </svg>
-                        <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="text-2xl font-bold" :style="{ color: responseColor }">{{ responseHours.toFixed(1) }}h</span>
-                        </div>
-                    </div>
-                    <Badge class="mt-3 border-0" :class="responseHours <= 4 ? 'bg-emerald-100 text-emerald-700' : responseHours <= 24 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'">
-                        {{ responseHours <= 4 ? 'Gut' : responseHours <= 24 ? 'Mittel' : 'Langsam' }} ({{ responseHours <= 4 ? '<4h' : responseHours <= 24 ? '4-24h' : '>24h' }})
-                    </Badge>
-                </CardContent>
-            </Card>
         </div>
 
         <!-- Section 4: Termine -->

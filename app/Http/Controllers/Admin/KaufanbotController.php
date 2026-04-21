@@ -12,19 +12,14 @@ class KaufanbotController extends Controller
 {
     public function stats(Request $request): JsonResponse
     {
-        $normS = StakeholderHelper::normSHSurname('a.stakeholder');
-        $partnerExclude = StakeholderHelper::partnerExcludeFilter('a.stakeholder');
-
         $from = $request->query('from', date('Y-m-d', strtotime('-12 months')));
         $to   = $request->query('to', date('Y-m-d'));
 
-        // Broker-Scoping: Admin + Office-Rollen sehen alle Kaufanbote,
-        // Makler nur die eigenen (broker_id = user id). Ohne diesen Filter
-        // hat Susanne Renzl 8 fremde Kaufanbote aus anderen Portfolios
-        // zugeordnet bekommen.
+        // Broker-Scoping: Nur Assistenz/Backoffice sehen alle (shared portfolio).
+        // Admin + Makler sehen nur ihre eigenen Kaufanbote (broker_id = user_id).
         $brokerId = \Auth::id();
         $userType = \Auth::user()->user_type ?? 'makler';
-        $scopeAll = in_array($userType, ['admin', 'assistenz', 'backoffice'], true);
+        $scopeAll = in_array($userType, ['assistenz', 'backoffice'], true);
         $brokerFilter = '';
         $params = [$from, $to . ' 23:59:59'];
         if ($brokerId && !$scopeAll) {
@@ -32,18 +27,26 @@ class KaufanbotController extends Controller
             $params[] = $brokerId;
         }
 
-        // Kaufanbot-Activities im Zeitraum, optional broker-gescoped
+        // NUR tatsaechlich hochgeladene Kaufanbote aus property_kaufanbote.
+        // Manuelle Notiz-Activities (John Lopez, Riccardo Leitner etc. ohne
+        // PDF-Upload) werden nicht mehr mitgezaehlt.
         $rows = DB::select("
             SELECT
-                a.stakeholder, a.property_id, a.activity_date, a.activity,
+                pk.id as kaufanbot_id,
+                pk.buyer_name as stakeholder,
+                pk.buyer_email,
+                pk.buyer_phone,
+                pk.amount,
+                pk.kaufanbot_date as activity_date,
+                pk.status,
+                pk.property_id,
                 p.ref_id, p.address, p.city,
-                {$normS} as surname_key
-            FROM activities a
-            LEFT JOIN properties p ON a.property_id = p.id
-            WHERE a.category = 'kaufanbot' AND {$partnerExclude}
-            AND a.activity_date >= ? AND a.activity_date <= ?
+                LOWER(TRIM(COALESCE(SUBSTRING_INDEX(pk.buyer_name, ' ', -1), pk.buyer_name))) as surname_key
+            FROM property_kaufanbote pk
+            JOIN properties p ON p.id = pk.property_id
+            WHERE pk.kaufanbot_date >= ? AND pk.kaufanbot_date <= ?
             {$brokerFilter}
-            ORDER BY a.activity_date DESC
+            ORDER BY pk.kaufanbot_date DESC
         ", $params);
 
         // Group by surname key
@@ -58,6 +61,10 @@ class KaufanbotController extends Controller
                     'properties'    => [],
                     'first_date'    => $r['activity_date'],
                     'last_date'     => $r['activity_date'],
+                    'buyer_email'   => $r['buyer_email'] ?? null,
+                    'buyer_phone'   => $r['buyer_phone'] ?? null,
+                    'amount'        => $r['amount'] ?? null,
+                    'status'        => $r['status'] ?? 'eingegangen',
                 ];
             }
             if (strlen($r['stakeholder']) > strlen($persons[$skey]['display_name'])) {
@@ -65,6 +72,9 @@ class KaufanbotController extends Controller
             }
             $persons[$skey]['last_date']  = max($persons[$skey]['last_date'], $r['activity_date']);
             $persons[$skey]['first_date'] = min($persons[$skey]['first_date'], $r['activity_date']);
+            // Erste nicht-leere buyer_email/phone aus property_kaufanbote
+            if (!$persons[$skey]['buyer_email'] && !empty($r['buyer_email'])) $persons[$skey]['buyer_email'] = $r['buyer_email'];
+            if (!$persons[$skey]['buyer_phone'] && !empty($r['buyer_phone'])) $persons[$skey]['buyer_phone'] = $r['buyer_phone'];
 
             $pid = $r['property_id'] ?: 0;
             if (!isset($persons[$skey]['properties'][$pid])) {
@@ -74,6 +84,8 @@ class KaufanbotController extends Controller
                     'address'     => $r['address'],
                     'city'        => $r['city'],
                     'date'        => $r['activity_date'],
+                    'amount'      => $r['amount'] ?? null,
+                    'status'      => $r['status'] ?? 'eingegangen',
                 ];
             }
         }
@@ -93,15 +105,21 @@ class KaufanbotController extends Controller
             }
             $p['properties'] = array_values($p['properties']);
 
-            // Contact lookup
-            $contact = DB::selectOne("
-                SELECT phone, email FROM contacts
-                WHERE LOWER(TRIM(full_name)) COLLATE utf8mb4_unicode_ci LIKE CONCAT('%', ?, '%')
-                AND role NOT IN ('partner','bautraeger','intern','makler')
-                LIMIT 1
-            ", [$p['surname_key']]);
-            $p['email'] = $contact->email ?? null;
-            $p['phone'] = $contact->phone ?? null;
+            // Email/Phone primaer aus property_kaufanbote (hochgeladen mit PDF),
+            // sonst Fallback auf contacts-Tabelle.
+            $p['email'] = $p['buyer_email'] ?? null;
+            $p['phone'] = $p['buyer_phone'] ?? null;
+
+            if (!$p['email'] || !$p['phone']) {
+                $contact = DB::selectOne("
+                    SELECT phone, email FROM contacts
+                    WHERE LOWER(TRIM(full_name)) COLLATE utf8mb4_unicode_ci LIKE CONCAT('%', ?, '%')
+                    AND role NOT IN ('partner','bautraeger','intern','makler')
+                    LIMIT 1
+                ", [$p['surname_key']]);
+                if (!$p['email'] && $contact) $p['email'] = $contact->email;
+                if (!$p['phone'] && $contact) $p['phone'] = $contact->phone;
+            }
 
             // Email fallback
             if (!$p['email']) {

@@ -80,90 +80,102 @@ function onCancel() {
 
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="sm:max-w-xl max-h-[90vh] flex flex-col p-0">
-      <DialogHeader class="px-6 pt-6 pb-2">
-        <DialogTitle>Objekt-Zuordnung ändern</DialogTitle>
-        <DialogDescription class="text-xs">
+    <DialogContent class="sm:max-w-lg max-h-[85vh] flex flex-col p-0 gap-0">
+      <DialogHeader class="px-6 pt-5 pb-4">
+        <DialogTitle class="text-base">Objekt zuordnen</DialogTitle>
+        <DialogDescription class="text-xs text-muted-foreground">
           <span v-if="currentPropertyRef">
-            Aktuell: <strong>{{ currentPropertyRef }}</strong>
-            <span v-if="currentPropertyAddress" class="text-muted-foreground"> · {{ currentPropertyAddress }}</span>
+            Aktuell: <span class="font-medium text-foreground">{{ currentPropertyRef }}</span>
+            <span v-if="currentPropertyAddress"> · {{ currentPropertyAddress }}</span>
           </span>
-          <span v-else>Aktuell: <strong>Nicht zugeordnet</strong></span>
+          <span v-else class="italic">Momentan nicht zugeordnet</span>
         </DialogDescription>
       </DialogHeader>
 
       <!-- Search -->
-      <div class="px-6 py-2">
+      <div class="px-6 pb-3">
         <div class="relative">
-          <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input v-model="search" placeholder="Ref-ID, Adresse oder Stadt suchen…" class="pl-8" />
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input v-model="search" placeholder="Ref-ID, Adresse oder Stadt suchen…" class="pl-9 h-9 text-sm" />
         </div>
       </div>
 
       <!-- Property list -->
-      <div class="flex-1 overflow-y-auto px-6 min-h-[200px] max-h-[40vh]">
-        <div class="space-y-1">
-          <button
-            type="button"
-            class="w-full text-left px-3 py-2 rounded-md border border-dashed hover:bg-accent/40 transition-colors flex items-center gap-2 text-sm"
-            :class="selectedId === null ? 'border-foreground bg-accent/60' : 'border-border'"
-            @click="onUnassign"
-          >
-            <XIcon class="w-4 h-4 text-muted-foreground" />
-            <span class="flex-1">Nicht zugeordnet (aus allen Listen entfernen)</span>
-            <Check v-if="selectedId === null" class="w-4 h-4 text-foreground" />
-          </button>
-
-          <button
-            v-for="p in filteredProperties" :key="p.id"
-            type="button"
-            class="w-full text-left px-3 py-2 rounded-md border hover:bg-accent/40 transition-colors flex items-center gap-2 text-sm"
-            :class="Number(selectedId) === Number(p.id) ? 'border-foreground bg-accent/60' : 'border-border'"
-            @click="onSelect(p.id)"
-          >
-            <Home class="w-4 h-4 text-muted-foreground shrink-0" />
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <Badge variant="outline" class="text-[10px] px-1.5 py-0 h-5 font-medium">{{ p.ref_id }}</Badge>
-                <span class="truncate text-xs font-medium">{{ p.address || p.title || '—' }}</span>
-              </div>
-              <div v-if="p.city" class="text-[11px] text-muted-foreground truncate">{{ p.city }}</div>
-            </div>
-            <Check v-if="Number(selectedId) === Number(p.id)" class="w-4 h-4 text-foreground" />
-          </button>
-
-          <div v-if="!filteredProperties.length" class="text-center text-xs text-muted-foreground py-8">
-            Keine Objekte gefunden.
+      <div class="flex-1 overflow-y-auto px-3 py-1 min-h-[240px] max-h-[50vh]">
+        <!-- Unassign row -->
+        <button
+          type="button"
+          class="w-full text-left px-3 py-2 rounded-md hover:bg-accent/50 transition-colors flex items-center gap-3 text-sm group"
+          :class="selectedId === null ? 'bg-accent' : ''"
+          @click="onUnassign"
+        >
+          <div class="w-7 h-7 rounded-md bg-muted flex items-center justify-center shrink-0">
+            <XIcon class="w-3.5 h-3.5 text-muted-foreground" />
           </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium">Nicht zugeordnet</div>
+            <div class="text-[11px] text-muted-foreground">Mail aus allen Objektlisten entfernen</div>
+          </div>
+          <Check v-if="selectedId === null" class="w-4 h-4 text-foreground shrink-0" />
+        </button>
+
+        <div v-if="filteredProperties.length" class="h-px bg-border my-2 mx-3"></div>
+
+        <!-- Properties -->
+        <button
+          v-for="p in filteredProperties" :key="p.id"
+          type="button"
+          class="w-full text-left px-3 py-2 rounded-md hover:bg-accent/50 transition-colors flex items-center gap-3 text-sm"
+          :class="Number(selectedId) === Number(p.id) ? 'bg-accent' : ''"
+          @click="onSelect(p.id)"
+        >
+          <div class="w-7 h-7 rounded-md bg-[#fff7ed] dark:bg-orange-950/20 flex items-center justify-center shrink-0">
+            <Home class="w-3.5 h-3.5 text-[#EE7600]" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-mono font-semibold text-muted-foreground tracking-tight">{{ p.ref_id }}</span>
+              <span v-if="p.city" class="text-[10px] text-muted-foreground">· {{ p.city }}</span>
+            </div>
+            <div class="text-sm font-medium truncate">{{ p.address || p.title || '—' }}</div>
+          </div>
+          <Check v-if="Number(selectedId) === Number(p.id)" class="w-4 h-4 text-foreground shrink-0" />
+        </button>
+
+        <div v-if="!filteredProperties.length && !search" class="text-center text-xs text-muted-foreground py-10 px-6">
+          Du hast noch keine Objekte in deinem Portfolio.
+        </div>
+        <div v-else-if="!filteredProperties.length" class="text-center text-xs text-muted-foreground py-10 px-6">
+          Keine Treffer für „{{ search }}".
         </div>
       </div>
 
       <!-- Migration option -->
-      <div v-if="hasChange" class="px-6 py-3 border-t border-border bg-muted/30">
-        <div class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Bisherige Aktivitäten</div>
-        <div class="space-y-1.5">
-          <label class="flex items-start gap-2 cursor-pointer text-sm">
-            <input type="radio" v-model="migrate" value="keep" class="mt-0.5" />
-            <div>
-              <div class="font-medium">Beim alten Objekt lassen</div>
-              <div class="text-[11px] text-muted-foreground">Vergangene E-Mails &amp; Aktivitäten bleiben beim alten Objekt. Ab jetzt gehen neue zum neuen Objekt.</div>
+      <div v-if="hasChange" class="px-6 py-4 border-t bg-muted/20">
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2.5">Bisherige Aktivitäten</div>
+        <div class="space-y-0">
+          <label class="flex items-start gap-2.5 cursor-pointer py-1.5 hover:opacity-80 transition-opacity">
+            <input type="radio" v-model="migrate" value="keep" class="mt-0.5 accent-foreground" />
+            <div class="flex-1">
+              <div class="text-sm font-medium leading-snug">Beim alten Objekt lassen</div>
+              <div class="text-[11px] text-muted-foreground leading-snug mt-0.5">Historische Aktivitäten bleiben dort. Ab jetzt gehen neue zum neuen Objekt.</div>
             </div>
           </label>
-          <label class="flex items-start gap-2 cursor-pointer text-sm">
-            <input type="radio" v-model="migrate" value="migrate" class="mt-0.5" />
-            <div>
-              <div class="font-medium">Alle bisherigen mit-verschieben</div>
-              <div class="text-[11px] text-muted-foreground">Alle E-Mails und Aktivitäten dieser Konversation werden aufs neue Objekt umgehängt.</div>
+          <label class="flex items-start gap-2.5 cursor-pointer py-1.5 hover:opacity-80 transition-opacity">
+            <input type="radio" v-model="migrate" value="migrate" class="mt-0.5 accent-foreground" />
+            <div class="flex-1">
+              <div class="text-sm font-medium leading-snug">Alle bisherigen mit-verschieben</div>
+              <div class="text-[11px] text-muted-foreground leading-snug mt-0.5">Historische Aktivitäten werden aufs neue Objekt umgehängt.</div>
             </div>
           </label>
         </div>
       </div>
 
-      <DialogFooter class="px-6 py-3 border-t border-border">
-        <Button variant="outline" @click="onCancel" :disabled="saving">Abbrechen</Button>
-        <Button @click="onConfirm" :disabled="!hasChange || saving">
+      <DialogFooter class="px-6 py-3 border-t">
+        <Button variant="ghost" size="sm" @click="onCancel" :disabled="saving">Abbrechen</Button>
+        <Button size="sm" @click="onConfirm" :disabled="!hasChange || saving">
           <span v-if="saving">Speichere…</span>
-          <span v-else>Zuordnung speichern</span>
+          <span v-else>Speichern</span>
         </Button>
       </DialogFooter>
     </DialogContent>

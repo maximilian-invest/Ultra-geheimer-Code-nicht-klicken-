@@ -885,30 +885,39 @@ class ConversationController extends Controller
         }
 
         DB::transaction(function () use ($conv, $newPropertyId, $oldPropertyId, $migrate) {
-            // 1) Conversation selbst umhaengen
+            // WICHTIG: mailIdsForConversation nutzt die aktuelle conv.property_id
+            // als Filter. Darum VOR der Conversation-Update abfragen, sonst liefert
+            // es null zurueck weil die Mails noch auf der ALTEN property sind und
+            // die conv bereits auf der neuen stuenden.
+            $mailIds = app(ConversationService::class)->mailIdsForConversation($conv);
+
+            // 1) Conversation umhaengen
             $conv->property_id = $newPropertyId;
             $conv->save();
 
-            // 2) Alle Emails dieser Conversation finden (selbe Logik wie mailIdsForConversation)
-            $mailIds = app(ConversationService::class)->mailIdsForConversation($conv);
-
-            if ($migrate && !empty($mailIds)) {
-                // Alle verknuepften Mails aufs neue Objekt umhaengen
+            // 2) Alle Emails dieser Conversation IMMER mit-umhaengen — sonst findet
+            //    der Thread-Detail-Load (mailIdsForConversation) die alten Mails
+            //    nicht mehr, und es erscheint "kein Nachrichtenverlauf gefunden".
+            //    Die Mails SIND die Conversation, die gehen immer mit.
+            if (!empty($mailIds) && $newPropertyId !== null) {
                 DB::table('portal_emails')->whereIn('id', $mailIds)->update(['property_id' => $newPropertyId]);
+            } elseif (!empty($mailIds) && $newPropertyId === null) {
+                DB::table('portal_emails')->whereIn('id', $mailIds)->update(['property_id' => null]);
+            }
 
-                // Activities umhaengen: per source_email_id (direkte Aktivitaeten aus diesen Mails)
+            // 3) Activities: OPTIONAL mit-umhaengen je nach User-Wahl
+            //    - migrate=true: bisherige Activities wandern zum neuen Objekt
+            //    - migrate=false (default): historische Activities bleiben beim alten,
+            //      nur kuenftige neue Activities gehen zum neuen (das passiert
+            //      automatisch, weil neue Mails dann schon die neue property_id
+            //      erben von der jetzt umgestellten Conversation)
+            if ($migrate && !empty($mailIds) && $newPropertyId !== null) {
                 DB::table('activities')
                     ->whereIn('source_email_id', $mailIds)
-                    ->update(['property_id' => $newPropertyId ?: 0]);
-                // MySQL: property_id ist NOT NULL → bei null-Umstellung Activities
-                // beim alten Objekt lassen (mit property_id=0 schlaegt der FK fehl).
-                // Darum migrieren wir Activities nur wenn es ein neues Objekt gibt.
-                if (!$newPropertyId) {
-                    DB::table('activities')
-                        ->whereIn('source_email_id', $mailIds)
-                        ->update(['property_id' => $oldPropertyId]);
-                }
+                    ->update(['property_id' => $newPropertyId]);
             }
+            // Wenn newPropertyId null ist, bleiben Activities auf alter Property
+            // (MySQL activities.property_id ist NOT NULL — keine null-Migration moeglich).
 
             // 3) Audit-Log als Aktivitaet am neuen (bzw. alten) Objekt
             $refFrom = $oldPropertyId

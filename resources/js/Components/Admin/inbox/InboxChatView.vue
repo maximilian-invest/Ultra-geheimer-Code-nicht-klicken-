@@ -25,13 +25,27 @@ const assignSaving = ref(false)
 const inboxAPI = inject('inboxAPI', null)
 const inboxToast = inject('inboxToast', () => {})
 const inboxProperties = inject('inboxProperties', ref([]))
+const currentUserId = inject('userId', ref(null))
+const currentUserType = inject('userType', ref('makler'))
 
-// Unwrap to plain array for passing into the Dialog (which is portalled)
+// Unwrap to plain array + filter auf eigene Properties.
+// Regel: Zuordnung nur auf Objekte die dem Makler/Admin gehoeren dessen
+// Postfach die Mail erreicht hat. Assistenz/Backoffice duerfen shared zugreifen.
 const propertiesArray = computed(() => {
   const src = inboxProperties
-  if (Array.isArray(src)) return src
-  if (src && 'value' in src) return Array.isArray(src.value) ? src.value : []
-  return []
+  let list = []
+  if (Array.isArray(src)) list = src
+  else if (src && 'value' in src) list = Array.isArray(src.value) ? src.value : []
+
+  const userType = currentUserType.value
+  const uid = Number(currentUserId.value || 0)
+
+  // Assistenz/Backoffice sehen alle Properties
+  if (['assistenz', 'backoffice'].includes(userType)) return list
+
+  // Admin + Makler: nur eigene
+  if (!uid) return []
+  return list.filter(p => Number(p.broker_id || 0) === uid)
 })
 
 const currentPropertyAddress = computed(() => {

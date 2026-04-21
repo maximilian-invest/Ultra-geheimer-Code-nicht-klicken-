@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import AccordionSection from "./AccordionSection.vue";
+import FieldExportBadges from "./FieldExportBadges.vue";
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -34,7 +35,7 @@ const priceLabel = computed(() => isRental.value ? 'Mietpreis (mtl.)' : 'Kaufpre
       <!-- Preise -->
       <AccordionSection title="Preise" color="#ea580c" :default-open="true">
         <div>
-          <label :class="labelCls">{{ priceLabel }}</label>
+          <label :class="labelCls">{{ priceLabel }} <FieldExportBadges field="purchase_price" /></label>
           <Input v-model="form.purchase_price" type="number" :class="inputCls" />
         </div>
         <div>
@@ -42,15 +43,15 @@ const priceLabel = computed(() => isRental.value ? 'Mietpreis (mtl.)' : 'Kaufpre
           <Input v-model="form.price_per_m2" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Stellplatz-Preis</label>
+          <label :class="labelCls">Stellplatz-Preis <FieldExportBadges field="parking_price" /></label>
           <Input v-model="form.parking_price" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Betriebskosten</label>
+          <label :class="labelCls">Betriebskosten <FieldExportBadges field="operating_costs" /></label>
           <Input v-model="form.operating_costs" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Rücklage</label>
+          <label :class="labelCls">Rücklage <FieldExportBadges field="maintenance_reserves" /></label>
           <Input v-model="form.maintenance_reserves" type="number" :class="inputCls" />
         </div>
       </AccordionSection>
@@ -58,35 +59,35 @@ const priceLabel = computed(() => isRental.value ? 'Mietpreis (mtl.)' : 'Kaufpre
       <!-- Erweiterte Kosten -->
       <AccordionSection title="Erweiterte Kosten" color="#f97316" :default-open="false">
         <div>
-          <label :class="labelCls">Heizkosten</label>
+          <label :class="labelCls">Heizkosten <FieldExportBadges field="heating_costs" /></label>
           <Input v-model="form.heating_costs" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Warmwasser</label>
+          <label :class="labelCls">Warmwasser <FieldExportBadges field="warm_water_costs" /></label>
           <Input v-model="form.warm_water_costs" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Kühlung</label>
+          <label :class="labelCls">Kühlung <FieldExportBadges field="cooling_costs" /></label>
           <Input v-model="form.cooling_costs" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Verwaltung</label>
+          <label :class="labelCls">Verwaltung <FieldExportBadges field="admin_costs" /></label>
           <Input v-model="form.admin_costs" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Aufzug</label>
+          <label :class="labelCls">Aufzug <FieldExportBadges field="elevator_costs" /></label>
           <Input v-model="form.elevator_costs" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Parkplatz</label>
+          <label :class="labelCls">Parkplatz <FieldExportBadges field="parking_costs_monthly" /></label>
           <Input v-model="form.parking_costs_monthly" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Sonstige</label>
+          <label :class="labelCls">Sonstige <FieldExportBadges field="other_costs" /></label>
           <Input v-model="form.other_costs" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Monatliche Kosten ges.</label>
+          <label :class="labelCls">Monatliche Kosten ges. <FieldExportBadges field="monthly_costs" /></label>
           <Input v-model="form.monthly_costs" type="number" :class="inputCls" />
         </div>
       </AccordionSection>
@@ -98,15 +99,15 @@ const priceLabel = computed(() => isRental.value ? 'Mietpreis (mtl.)' : 'Kaufpre
       <!-- Provision Intern -->
       <AccordionSection title="Provision Intern" color="#8b5cf6" :default-open="true">
         <div>
-          <label :class="labelCls">Provision %</label>
+          <label :class="labelCls">Provision % <FieldExportBadges field="commission_percent" /></label>
           <Input v-model="form.commission_percent" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Provision EUR</label>
+          <label :class="labelCls">Provision EUR <FieldExportBadges field="commission_total" /></label>
           <Input v-model="form.commission_total" type="number" :class="inputCls" />
         </div>
         <div class="col-span-2">
-          <label :class="labelCls">Provisionsnotiz</label>
+          <label :class="labelCls">Provisionsnotiz <FieldExportBadges field="commission_note" /></label>
           <Input v-model="form.commission_note" :class="inputCls" />
         </div>
       </AccordionSection>
@@ -114,15 +115,15 @@ const priceLabel = computed(() => isRental.value ? 'Mietpreis (mtl.)' : 'Kaufpre
       <!-- Provision Öffentlich -->
       <AccordionSection title="Provision Öffentlich" color="#3b82f6" :default-open="true">
         <div>
-          <label :class="labelCls">Makler-Provision %</label>
+          <label :class="labelCls">Makler-Provision % <FieldExportBadges field="buyer_commission_percent" /></label>
           <Input v-model="form.buyer_commission_percent" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Makler-Provision EUR</label>
+          <label :class="labelCls">Makler-Provision EUR <FieldExportBadges field="commission_makler" /></label>
           <Input v-model="form.commission_makler" type="number" :class="inputCls" />
         </div>
         <div class="col-span-2">
-          <label :class="labelCls">Provisionstext</label>
+          <label :class="labelCls">Provisionstext <FieldExportBadges field="buyer_commission_text" /></label>
           <Input v-model="form.buyer_commission_text" :class="inputCls" />
         </div>
         <div class="col-span-2">
@@ -140,15 +141,15 @@ const priceLabel = computed(() => isRental.value ? 'Mietpreis (mtl.)' : 'Kaufpre
       <!-- Nebenkosten -->
       <AccordionSection title="Nebenkosten" color="#22c55e" :default-open="false">
         <div>
-          <label :class="labelCls">Grundbucheintragung %</label>
+          <label :class="labelCls">Grundbucheintragung % <FieldExportBadges field="land_register_fee_pct" /></label>
           <Input v-model="form.land_register_fee_pct" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Grunderwerbssteuer %</label>
+          <label :class="labelCls">Grunderwerbssteuer % <FieldExportBadges field="land_transfer_tax_pct" /></label>
           <Input v-model="form.land_transfer_tax_pct" type="number" placeholder="3.5" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Vertragserstellung %</label>
+          <label :class="labelCls">Vertragserstellung % <FieldExportBadges field="contract_fee_pct" /></label>
           <Input v-model="form.contract_fee_pct" type="number" :class="inputCls" />
         </div>
       </AccordionSection>

@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import AccordionSection from "./AccordionSection.vue";
+import FieldExportBadges from "./FieldExportBadges.vue";
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -263,27 +264,27 @@ watch(() => props.form?.id, loadParking);
       <!-- Räume & Stockwerk -->
       <AccordionSection title="Räume & Stockwerk" color="#8b5cf6" :default-open="true">
         <div>
-          <label :class="labelCls">Zimmer</label>
+          <label :class="labelCls">Zimmer <FieldExportBadges field="rooms_amount" /></label>
           <Input v-model="form.rooms_amount" type="number" step="0.5" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Schlafzimmer</label>
+          <label :class="labelCls">Schlafzimmer <FieldExportBadges field="bedrooms" /></label>
           <Input v-model="form.bedrooms" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Badezimmer</label>
+          <label :class="labelCls">Badezimmer <FieldExportBadges field="bathrooms" /></label>
           <Input v-model="form.bathrooms" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">WCs</label>
+          <label :class="labelCls">WCs <FieldExportBadges field="toilets" /></label>
           <Input v-model="form.toilets" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Stockwerk</label>
+          <label :class="labelCls">Stockwerk <FieldExportBadges field="floor_number" /></label>
           <Input v-model="form.floor_number" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Stockwerke ges. <span class="text-[10px] text-muted-foreground font-normal">(auto aus Einheiten)</span></label>
+          <label :class="labelCls">Stockwerke ges. <FieldExportBadges field="floor_count" /></label>
           <Input v-model="form.floor_count" type="number" :class="inputCls" />
         </div>
       </AccordionSection>

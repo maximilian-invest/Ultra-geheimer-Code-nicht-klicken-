@@ -725,15 +725,15 @@ defineExpose({ save, discard });
             </Select>
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5">Wohneinheiten</label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Wohneinheiten <FieldExportBadges field="unit_count" /></label>
             <Input v-model="form.unit_count" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div class="col-span-2">
-            <label class="text-[10px] text-muted-foreground mb-0.5">Untertitel</label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Untertitel <FieldExportBadges field="ad_tag" /></label>
             <Input v-model="form.ad_tag" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5">Werbetag</label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Werbetag <FieldExportBadges field="closing_date" /></label>
             <Input v-model="form.closing_date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>

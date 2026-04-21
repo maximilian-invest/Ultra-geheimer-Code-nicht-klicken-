@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import AccordionSection from "./AccordionSection.vue";
+import FieldExportBadges from "./FieldExportBadges.vue";
 import PropertyManagerPicker from "./PropertyManagerPicker.vue";
 
 function onManagerAssigned(form, manager) {
@@ -41,7 +42,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <!-- Objekt -->
       <AccordionSection title="Objekt" color="#ea580c" :default-open="true">
         <div>
-          <label :class="labelCls">Status</label>
+          <label :class="labelCls">Status <FieldExportBadges field="status" /></label>
           <Select v-model="form.status">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -52,7 +53,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           </Select>
         </div>
         <div>
-          <label :class="labelCls">Vermarktungsart</label>
+          <label :class="labelCls">Vermarktungsart <FieldExportBadges field="marketing_type" /></label>
           <Select v-model="form.marketing_type">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -63,23 +64,23 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           </Select>
         </div>
         <div class="col-span-2">
-          <label :class="labelCls">Titel</label>
+          <label :class="labelCls">Titel <FieldExportBadges field="title" /></label>
           <Input v-model="form.title" :class="inputCls" />
         </div>
         <div class="col-span-2">
-          <label :class="labelCls">Untertitel</label>
+          <label :class="labelCls">Untertitel <FieldExportBadges field="subtitle" /></label>
           <Input v-model="form.subtitle" :class="inputCls" placeholder="z.B. Wohnung in Mondsee" />
         </div>
         <div>
-          <label :class="labelCls">Projektname</label>
+          <label :class="labelCls">Projektname <FieldExportBadges field="project_name" /></label>
           <Input v-model="form.project_name" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Ref-ID</label>
+          <label :class="labelCls">Ref-ID <FieldExportBadges field="ref_id" /></label>
           <Input v-model="form.ref_id" :class="inputCls" />
         </div>
         <div class="col-span-2">
-          <label :class="labelCls">Allgemeinräume <span class="text-[10px] font-normal text-emerald-600 ml-1">(nur Website)</span></label>
+          <label :class="labelCls">Allgemeinräume <FieldExportBadges field="common_areas" /></label>
           <Textarea v-model="form.common_areas" rows="3" placeholder="z.B. Fahrradraum, Waschküche, Kinderwagenabstellplatz, Gemeinschaftsgarten..." class="text-[13px] bg-zinc-100/80 border-0" />
         </div>
       </AccordionSection>
@@ -90,39 +91,39 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           Auf Portalen und der Website wird nur die Stadt angezeigt, nicht die genaue Adresse.
         </div>
         <div class="col-span-2">
-          <label :class="labelCls">Strasse</label>
+          <label :class="labelCls">Strasse <FieldExportBadges field="address" /></label>
           <Input v-model="form.address" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Hausnummer</label>
+          <label :class="labelCls">Hausnummer <FieldExportBadges field="house_number" /></label>
           <Input v-model="form.house_number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">PLZ</label>
+          <label :class="labelCls">PLZ <FieldExportBadges field="zip" /></label>
           <Input v-model="form.zip" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Stadt</label>
+          <label :class="labelCls">Stadt <FieldExportBadges field="city" /></label>
           <Input v-model="form.city" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Stiege</label>
+          <label :class="labelCls">Stiege <FieldExportBadges field="staircase" /></label>
           <Input v-model="form.staircase" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Tür</label>
+          <label :class="labelCls">Tür <FieldExportBadges field="door" /></label>
           <Input v-model="form.door" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Etage</label>
+          <label :class="labelCls">Etage <FieldExportBadges field="address_floor" /></label>
           <Input v-model="form.address_floor" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Breitengrad</label>
+          <label :class="labelCls">Breitengrad <FieldExportBadges field="latitude" /></label>
           <Input v-model="form.latitude" type="number" step="0.0000001" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Längengrad</label>
+          <label :class="labelCls">Längengrad <FieldExportBadges field="longitude" /></label>
           <Input v-model="form.longitude" type="number" step="0.0000001" :class="inputCls" />
         </div>
       </AccordionSection>
@@ -134,7 +135,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <!-- Allgemeines -->
       <AccordionSection title="Allgemeines" color="#8b5cf6" :default-open="true">
         <div>
-          <label :class="labelCls">Objektart</label>
+          <label :class="labelCls">Objektart <FieldExportBadges field="object_type" /></label>
           <Select v-model="form.object_type">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -158,7 +159,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           </Select>
         </div>
         <div>
-          <label :class="labelCls">Unterobjektart</label>
+          <label :class="labelCls">Unterobjektart <FieldExportBadges field="object_subtype" /></label>
           <Select v-model="form.object_subtype">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -179,7 +180,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           </Select>
         </div>
         <div>
-          <label :class="labelCls">Bauart</label>
+          <label :class="labelCls">Bauart <FieldExportBadges field="construction_type" /></label>
           <Select v-model="form.construction_type">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -192,7 +193,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           </Select>
         </div>
         <div>
-          <label :class="labelCls">Objektzustand</label>
+          <label :class="labelCls">Objektzustand <FieldExportBadges field="realty_condition" /></label>
           <Select v-model="form.realty_condition">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -206,19 +207,19 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           </Select>
         </div>
         <div>
-          <label :class="labelCls">Baujahr</label>
+          <label :class="labelCls">Baujahr <FieldExportBadges field="construction_year" /></label>
           <Input v-model="form.construction_year" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Möblierung</label>
+          <label :class="labelCls">Möblierung <FieldExportBadges field="furnishing" /></label>
           <Input v-model="form.furnishing" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Zimmer</label>
+          <label :class="labelCls">Zimmer <FieldExportBadges field="rooms_amount" /></label>
           <Input v-model="form.rooms_amount" type="number" step="0.5" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Eigentumsform</label>
+          <label :class="labelCls">Eigentumsform <FieldExportBadges field="ownership_type" /></label>
           <Select v-model="form.ownership_type">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -232,11 +233,11 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           </Select>
         </div>
         <div>
-          <label :class="labelCls">Wohneinheiten</label>
+          <label :class="labelCls">Wohneinheiten <FieldExportBadges field="total_units" /></label>
           <Input v-model="form.total_units" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Beziehbar ab</label>
+          <label :class="labelCls">Beziehbar ab <FieldExportBadges field="available_text" /></label>
           <Input v-model="form.available_text" :class="inputCls" placeholder="nach Vereinbarung" />
         </div>
       </AccordionSection>
@@ -244,7 +245,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <!-- Zuordnung & Status -->
       <AccordionSection title="Zuordnung & Status" color="#f59e0b" :default-open="false">
         <div>
-          <label :class="labelCls">Objektbetreuer / Makler</label>
+          <label :class="labelCls">Objektbetreuer / Makler <FieldExportBadges field="broker_id" /></label>
           <Select v-model="form.broker_id">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -253,15 +254,15 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           </Select>
         </div>
         <div>
-          <label :class="labelCls">Fertigstellung</label>
+          <label :class="labelCls">Fertigstellung <FieldExportBadges field="construction_end" /></label>
           <Input v-model="form.construction_end" type="date" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Bauträger</label>
+          <label :class="labelCls">Bauträger <FieldExportBadges field="builder_company" /></label>
           <Input v-model="form.builder_company" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Hausverwaltung</label>
+          <label :class="labelCls">Hausverwaltung <FieldExportBadges field="property_manager_id" /></label>
           <PropertyManagerPicker
             v-if="form.id"
             :property-id="form.id"
@@ -272,15 +273,15 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           <Input v-else v-model="form.property_manager" :class="inputCls" placeholder="Objekt zuerst speichern, dann Hausverwaltung wählen" disabled />
         </div>
         <div>
-          <label :class="labelCls">Verfügbar ab</label>
+          <label :class="labelCls">Verfügbar ab <FieldExportBadges field="available_from" /></label>
           <Input v-model="form.available_from" type="date" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Inseriert seit</label>
+          <label :class="labelCls">Inseriert seit <FieldExportBadges field="inserat_since" /></label>
           <Input v-model="form.inserat_since" type="date" :class="inputCls" />
         </div>
         <div class="col-span-2">
-          <label :class="labelCls">Plattformen</label>
+          <label :class="labelCls">Plattformen <FieldExportBadges field="platforms" /></label>
           <Input v-model="form.platforms" :class="inputCls" placeholder="willhaben, immoscout24" />
         </div>
       </AccordionSection>
@@ -288,7 +289,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
       <!-- Ausstattung & Merkmale -->
       <AccordionSection v-if="!isChild" title="Ausstattung & Merkmale" color="#06b6d4" :default-open="false">
         <div>
-          <label :class="labelCls">Qualität</label>
+          <label :class="labelCls">Qualität <FieldExportBadges field="quality" /></label>
           <Select v-model="form.quality">
             <SelectTrigger :class="selectCls"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -300,19 +301,19 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           </Select>
         </div>
         <div>
-          <label :class="labelCls">Sanierungsjahr</label>
+          <label :class="labelCls">Sanierungsjahr <FieldExportBadges field="year_renovated" /></label>
           <Input v-model="form.year_renovated" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Bodenbelag</label>
+          <label :class="labelCls">Bodenbelag <FieldExportBadges field="flooring" /></label>
           <Input v-model="form.flooring" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Badausstattung</label>
+          <label :class="labelCls">Badausstattung <FieldExportBadges field="bathroom_equipment" /></label>
           <Input v-model="form.bathroom_equipment" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Ausrichtung</label>
+          <label :class="labelCls">Ausrichtung <FieldExportBadges field="orientation" /></label>
           <Input v-model="form.orientation" :class="inputCls" />
         </div>
         <div class="col-span-2">

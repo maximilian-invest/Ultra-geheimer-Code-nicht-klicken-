@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import AccordionSection from "./AccordionSection.vue";
+import FieldExportBadges from "./FieldExportBadges.vue";
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -179,7 +180,7 @@ const hotWaterOptions = [
     <!-- Energieausweis (nur Energiewerte + Gültigkeit) -->
     <AccordionSection title="Energieausweis" color="#22c55e" :default-open="true">
       <div>
-        <label :class="labelCls">Energieklasse</label>
+        <label :class="labelCls">Energieklasse <FieldExportBadges field="heating_demand_class" /></label>
         <Select v-model="form.heating_demand_class">
           <SelectTrigger :class="selectCls"><SelectValue placeholder="Wählen..." /></SelectTrigger>
           <SelectContent>
@@ -197,15 +198,15 @@ const hotWaterOptions = [
         </Select>
       </div>
       <div>
-        <label :class="labelCls">HWB kWh/m²a</label>
+        <label :class="labelCls">HWB kWh/m²a <FieldExportBadges field="heating_demand_value" /></label>
         <Input v-model="form.heating_demand_value" type="number" :class="inputCls" />
       </div>
       <div>
-        <label :class="labelCls">fGEE</label>
+        <label :class="labelCls">fGEE <FieldExportBadges field="energy_efficiency_value" /></label>
         <Input v-model="form.energy_efficiency_value" type="number" :class="inputCls" />
       </div>
       <div>
-        <label :class="labelCls">Gültig bis</label>
+        <label :class="labelCls">Gültig bis <FieldExportBadges field="energy_valid_until" /></label>
         <Input v-model="form.energy_valid_until" type="date" :class="inputCls" />
       </div>
     </AccordionSection>

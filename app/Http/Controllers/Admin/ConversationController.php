@@ -573,6 +573,23 @@ class ConversationController extends Controller
             'from_name'        => $headerFromName,
         ];
 
+        // HV-Info damit Inbox-Forward ohne Extra-Call weiss ob's HV gibt
+        $convData['property_manager_id'] = null;
+        $convData['property_manager_name'] = null;
+        $convData['property_manager_email'] = null;
+        if ($conv->property_id) {
+            $hvInfo = DB::table('properties as p')
+                ->leftJoin('property_managers as pm', 'p.property_manager_id', '=', 'pm.id')
+                ->where('p.id', $conv->property_id)
+                ->select('p.property_manager_id', 'pm.company_name', 'pm.email')
+                ->first();
+            if ($hvInfo) {
+                $convData['property_manager_id'] = $hvInfo->property_manager_id ? (int) $hvInfo->property_manager_id : null;
+                $convData['property_manager_name'] = $hvInfo->company_name;
+                $convData['property_manager_email'] = $hvInfo->email;
+            }
+        }
+
         // Add subject from latest message
         $convData['subject'] = !empty($messages) ? ($messages[count($messages) - 1]->subject ?? '') : '';
         $convData['from_name'] = $headerFromName;

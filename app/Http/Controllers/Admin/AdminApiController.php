@@ -809,6 +809,10 @@ class AdminApiController extends Controller
             'quick_create_and_assign_property_manager' => $this->quickCreateAndAssignPropertyManager($request),
             'upload_ava'                => $this->uploadAva($request),
 
+            // Hausverwaltung (Phase 2 — Contact Flows)
+            'contact_property_manager'  => $this->contactPropertyManager($request),
+            'send_to_manager'           => $this->sendToManager($request),
+
             // Tasks
             'getTasks'                  => app(TaskController::class)->index($request),
             'addTask'                   => app(TaskController::class)->store($request),
@@ -4394,6 +4398,166 @@ PY;
         });
 
         return response()->json(['success' => true, 'path' => $path]);
+    }
+
+    // ===== Hausverwaltung (Phase 2 — Contact Flows) =====
+
+    private function contactPropertyManager(Request $request): JsonResponse
+    {
+        $data = $request->json()->all() ?: $request->all();
+        $propertyId = (int) ($data['property_id'] ?? 0);
+        $templateKind = (string) ($data['template_kind'] ?? '');
+        $sourceEmailId = isset($data['source_email_id']) && $data['source_email_id'] ? (int) $data['source_email_id'] : null;
+
+        if (!$propertyId) return response()->json(['success' => false, 'error' => 'property_id required'], 400);
+        if (!in_array($templateKind, ['unterlagen', 'mieter_meldung', 'freitext'], true)) {
+            return response()->json(['success' => false, 'error' => 'invalid template_kind'], 400);
+        }
+
+        $userId = (int) \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        if (!in_array($userType, ['assistenz', 'backoffice'], true)) {
+            $propBroker = \DB::table('properties')->where('id', $propertyId)->value('broker_id');
+            if ($propBroker && $propBroker != $userId) {
+                return response()->json(['success' => false, 'error' => 'Keine Berechtigung'], 403);
+            }
+        }
+
+        $property = \App\Models\Property::find($propertyId);
+        if (!$property) return response()->json(['success' => false, 'error' => 'property not found'], 404);
+        if (!$property->property_manager_id) {
+            return response()->json(['success' => false, 'error' => 'Keine Hausverwaltung zugeordnet', 'needs_manager' => true], 422);
+        }
+
+        $manager = \App\Models\PropertyManager::find($property->property_manager_id);
+        if (!$manager) return response()->json(['success' => false, 'error' => 'property_manager_id verweist auf nicht existierende HV'], 500);
+
+        $sourceEmail = $sourceEmailId ? \App\Models\PortalEmail::find($sourceEmailId) : null;
+        if ($templateKind === 'mieter_meldung' && !$sourceEmail) {
+            return response()->json(['success' => false, 'error' => 'mieter_meldung template requires source_email_id'], 400);
+        }
+
+        $maklerUser = \Auth::user();
+
+        try {
+            $svc = app(\App\Services\PropertyManagerContactService::class);
+            $draft = $svc->buildDraft($property, $manager, $templateKind, $sourceEmail, $maklerUser);
+        } catch (\Throwable $e) {
+            \Log::error('contactPropertyManager failed', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'error' => 'Entwurf-Generierung fehlgeschlagen: ' . $e->getMessage()], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'draft' => [
+                'to' => $manager->email,
+                'to_name' => $manager->company_name,
+                'subject' => $draft['subject'],
+                'body' => $draft['body'],
+                'attachments' => $draft['attachments'],
+            ],
+            'ava_missing' => $draft['ava_missing'],
+            'manager' => [
+                'id' => $manager->id,
+                'company_name' => $manager->company_name,
+                'email' => $manager->email,
+            ],
+        ]);
+    }
+
+    private function sendToManager(Request $request): JsonResponse
+    {
+        $data = $request->json()->all() ?: $request->all();
+        $propertyId = (int) ($data['property_id'] ?? 0);
+        $subject = trim((string) ($data['subject'] ?? ''));
+        $body = trim((string) ($data['body'] ?? ''));
+        $attachmentFileIds = is_array($data['attachment_file_ids'] ?? null) ? $data['attachment_file_ids'] : [];
+        $sourceEmailId = isset($data['source_email_id']) && $data['source_email_id'] ? (int) $data['source_email_id'] : null;
+
+        if (!$propertyId || $subject === '' || $body === '') {
+            return response()->json(['success' => false, 'error' => 'property_id, subject, body required'], 400);
+        }
+
+        $userId = (int) \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        if (!in_array($userType, ['assistenz', 'backoffice'], true)) {
+            $propBroker = \DB::table('properties')->where('id', $propertyId)->value('broker_id');
+            if ($propBroker && $propBroker != $userId) {
+                return response()->json(['success' => false, 'error' => 'Keine Berechtigung'], 403);
+            }
+        }
+
+        $property = \App\Models\Property::find($propertyId);
+        if (!$property || !$property->property_manager_id) {
+            return response()->json(['success' => false, 'error' => 'Property oder HV nicht gefunden'], 404);
+        }
+        $manager = \App\Models\PropertyManager::find($property->property_manager_id);
+        if (!$manager) return response()->json(['success' => false, 'error' => 'HV nicht gefunden'], 404);
+
+        // Attachment-Pfade aus property_files holen
+        $attachmentPaths = [];
+        if (!empty($attachmentFileIds)) {
+            $files = \DB::table('property_files')
+                ->whereIn('id', $attachmentFileIds)
+                ->where('property_id', $propertyId)
+                ->get();
+            foreach ($files as $f) {
+                $absPath = storage_path('app/public/' . $f->path);
+                if (is_file($absPath)) {
+                    $attachmentPaths[] = $absPath;
+                }
+            }
+        }
+
+        // Account fuer Versand: erstes aktives Account des Users
+        $accountId = \DB::table('email_accounts')
+            ->where('user_id', $userId)
+            ->where('is_active', 1)
+            ->value('id');
+        if (!$accountId) {
+            return response()->json(['success' => false, 'error' => 'Kein aktives E-Mail-Konto fuer diesen User'], 500);
+        }
+
+        try {
+            $emailService = app(\App\Services\EmailService::class);
+            $result = $emailService->send(
+                (int) $accountId,
+                $manager->email,
+                $subject,
+                $body,
+                $propertyId,
+                $manager->company_name,
+                null, // cc
+                null, // bcc
+                $attachmentPaths,
+                null, // inReplyToMessageId
+                null, // references
+                'email-out',
+                null
+            );
+        } catch (\Throwable $e) {
+            \Log::error('sendToManager failed', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'error' => 'Versand fehlgeschlagen: ' . $e->getMessage()], 500);
+        }
+
+        $sentEmailId = $result['email_id'] ?? null;
+
+        try {
+            \DB::table('activities')->insert([
+                'property_id' => $propertyId,
+                'activity_date' => now()->toDateString(),
+                'stakeholder' => $manager->company_name,
+                'activity' => 'An Hausverwaltung gesendet: ' . mb_substr($subject, 0, 200),
+                'category' => 'hausverwaltung',
+                'source_email_id' => $sentEmailId ?: null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('sendToManager activity log failed', ['error' => $e->getMessage()]);
+        }
+
+        return response()->json(['success' => true, 'email_id' => $sentEmailId]);
     }
 
 }

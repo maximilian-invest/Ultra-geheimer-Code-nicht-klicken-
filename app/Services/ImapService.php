@@ -382,18 +382,30 @@ class ImapService
                     }
                 }
 
-                // Check if sender is a property owner
+                // Check if sender is a property owner.
+                // ACHTUNG: Auto-Zuordnung basierend auf Eigentuemer-Email nur
+                // wenn der Eigentuemer EXAKT EINE Property in der DB hat.
+                // Hat er mehrere (Gigl besitzt 8+ Objekte), wuerde sonst eine
+                // willkuerliche Property erster Ordnung gewaehlt — genau der
+                // Bug mit der "Trautmannsdorf"-Mail die faelschlich auf Perwang
+                // gelandet ist. Bei Mehrfach-Eigentuemern bleibt property_id NULL
+                // und der Makler weist manuell zu (oder matchProperty hat
+                // bereits via ref_id gematcht).
                 $isOwnerEmail = false;
                 $ownerPropertyId = null;
                 if ($direction === 'inbound') {
-                    $ownerCheck = \DB::selectOne(
-                        "SELECT p.id as property_id, c.name as owner_name FROM customers c JOIN properties p ON p.customer_id = c.id WHERE c.email = ? LIMIT 1",
+                    $ownerProperties = \DB::select(
+                        "SELECT p.id as property_id FROM customers c JOIN properties p ON p.customer_id = c.id WHERE c.email = ?",
                         [strtolower($fromEmail)]
                     );
-                    if ($ownerCheck) {
+                    if (count($ownerProperties) > 0) {
                         $isOwnerEmail = true;
-                        $ownerPropertyId = $ownerCheck->property_id;
-                        if (!$propertyId) $propertyId = $ownerPropertyId;
+                        if (count($ownerProperties) === 1) {
+                            $ownerPropertyId = (int) $ownerProperties[0]->property_id;
+                            if (!$propertyId) $propertyId = $ownerPropertyId;
+                        } else {
+                            \Log::info("[IMAP] Eigentuemer {$fromEmail} besitzt " . count($ownerProperties) . " Objekte — auto-Zuordnung uebersprungen, Mail bleibt ohne property_id bis Makler manuell zuweist");
+                        }
                     }
                 }
 

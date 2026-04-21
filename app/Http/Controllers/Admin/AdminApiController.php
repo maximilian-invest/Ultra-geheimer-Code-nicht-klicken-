@@ -202,6 +202,7 @@ class AdminApiController extends Controller
             'conv_reply_all'              => app(ConversationController::class)->replyAll($request),
             'conv_done_batch'            => app(ConversationController::class)->doneBatch($request),
             'conv_done'                 => app(ConversationController::class)->done($request),
+            'conv_set_property'         => app(ConversationController::class)->setProperty($request),
             'conv_read'                 => app(ConversationController::class)->read($request),
             'conv_draft'                => app(ConversationController::class)->updateDraft($request),
             'conv_regenerate_draft'     => app(ConversationController::class)->regenerateDraft($request),

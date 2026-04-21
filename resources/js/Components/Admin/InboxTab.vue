@@ -705,6 +705,21 @@ async function handleMatchDismiss() {
   matchItems.value = matchItems.value.filter(m => m.id !== selectedItem.value.id)
 }
 
+// Property change event from InboxChatView → update local state + refresh lists
+function onPropertyChanged({ convId, newPropertyId }) {
+  // Update selectedItem locally (für sofortiges visuelles Feedback)
+  if (selectedItem.value) {
+    selectedItem.value.property_id = newPropertyId
+    const prop = (properties.value || []).find(p => Number(p.id) === Number(newPropertyId))
+    selectedItem.value.ref_id = prop?.ref_id || null
+    selectedItem.value.property_ref = prop?.ref_id || null
+    selectedItem.value.property_ref_id = prop?.ref_id || null
+  }
+  // Refresh aktive Listen damit die Zuordnung in der Seitenleiste sichtbar wird
+  try { loadUnanswered && loadUnanswered() } catch (e) {}
+  try { loadFollowups && loadFollowups() } catch (e) {}
+}
+
 function handleMatchDraft(draftData) {
   matchMode.value = false
   if (selectedItem.value) {
@@ -3067,6 +3082,7 @@ onMounted(() => {
         @save-attachment="onSaveAttachment($event)"
         @match-draft="handleMatchDraft"
         @match-dismiss="handleMatchDismiss"
+        @property-changed="onPropertyChanged"
       >
       </InboxChatView>
       <div v-else class="hidden md:flex flex-1 items-center justify-center text-sm text-muted-foreground">

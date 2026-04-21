@@ -2,11 +2,12 @@
 import { computed, inject, ref, watch, nextTick } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp, Sparkles, CheckCircle, Send, RefreshCw, Wand2, Link2 } from 'lucide-vue-next'
+import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp, Sparkles, CheckCircle, Send, RefreshCw, Wand2, Link2, Pencil, Home } from 'lucide-vue-next'
 import InboxMatchCard from './InboxMatchCard.vue'
 import InboxMailMessage from './InboxMailMessage.vue'
 import InboxComposePane from './InboxComposePane.vue'
 import LinkPickerPopover from './LinkPickerPopover.vue'
+import PropertyAssignDialog from './PropertyAssignDialog.vue'
 import { extractForwardMetadata } from './mailText.js'
 
 const props = defineProps({
@@ -16,7 +17,55 @@ const props = defineProps({
   mode: { type: String, default: 'offen' },
 })
 
-const emit = defineEmits(['close', 'saveAttachment', 'matchDraft', 'matchDismiss', 'markHandled'])
+const emit = defineEmits(['close', 'saveAttachment', 'matchDraft', 'matchDismiss', 'markHandled', 'propertyChanged'])
+
+// Property assignment dialog
+const assignDialogOpen = ref(false)
+const assignSaving = ref(false)
+const inboxAPI = inject('inboxAPI', null)
+const inboxToast = inject('inboxToast', () => {})
+const inboxProperties = inject('inboxProperties', ref([]))
+
+const currentPropertyAddress = computed(() => {
+  const pid = props.item?.property_id
+  if (!pid) return ''
+  const prop = (inboxProperties.value || []).find(p => Number(p.id) === Number(pid))
+  return prop ? (prop.address || prop.title || '') : ''
+})
+
+async function onAssignConfirm(payload) {
+  if (!props.item) return
+  assignSaving.value = true
+  const convId = props.item._conv_id || props.item.id
+  try {
+    const r = await fetch(inboxAPI.value + '&action=conv_set_property', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: convId,
+        property_id: payload.property_id,
+        migrate_activities: payload.migrate_activities,
+      }),
+    })
+    const d = await r.json()
+    if (d.success) {
+      inboxToast(payload.property_id ? 'Objekt zugewiesen' : 'Zuordnung entfernt')
+      assignDialogOpen.value = false
+      emit('propertyChanged', {
+        convId,
+        oldPropertyId: d.old_property_id,
+        newPropertyId: d.new_property_id,
+        migrated: d.migrated,
+      })
+    } else {
+      inboxToast('Fehler: ' + (d.error || 'Unbekannt'))
+    }
+  } catch (e) {
+    inboxToast('Fehler: ' + e.message)
+  } finally {
+    assignSaving.value = false
+  }
+}
 
 function latestInbound() {
   for (let i = 0; i < flatMessages.value.length; i++) {
@@ -484,9 +533,20 @@ const statusBadge = computed(() => {
             <Badge variant="outline" class="text-[10px] px-1.5 py-0 h-5 font-normal cursor-pointer hover:bg-zinc-100 transition-colors" @click="contactName && openContact(contactName)" :title="contactName ? 'Kontakt öffnen' : ''">
               {{ contactBadge }}
             </Badge>
-            <Badge v-if="refId" variant="outline" class="text-[10px] px-1.5 py-0 h-5 font-normal bg-muted/50">
-              {{ refId }}
-            </Badge>
+            <!-- Objekt-Badge: klickbar zum Umzuordnen. Zeigt "Nicht zugeordnet" bei fehlender Zuordnung. -->
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 rounded-md border px-1.5 py-0 h-5 text-[10px] font-normal transition-colors cursor-pointer"
+              :class="refId
+                ? 'border-border bg-muted/50 hover:bg-zinc-100 text-foreground'
+                : 'border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800'"
+              @click="assignDialogOpen = true"
+              :title="refId ? 'Objekt ändern' : 'Objekt zuweisen'"
+            >
+              <Home class="w-3 h-3" />
+              <span>{{ refId || 'Nicht zugeordnet' }}</span>
+              <Pencil class="w-2.5 h-2.5 opacity-60" />
+            </button>
             <Badge v-if="platform" variant="outline" class="text-[10px] px-1.5 py-0 h-5 font-normal bg-muted/50">
               {{ platform }}
             </Badge>
@@ -805,6 +865,15 @@ const statusBadge = computed(() => {
 
     <!-- Slots below chat -->
     <div class="flex-shrink-0"><slot name="ai-draft" /></div>
+
+    <!-- Property-Umzuordnen-Dialog -->
+    <PropertyAssignDialog
+      v-model:open="assignDialogOpen"
+      :current-property-id="item?.property_id || null"
+      :current-property-ref="refId || ''"
+      :current-property-address="currentPropertyAddress"
+      @confirm="onAssignConfirm"
+    />
   </div>
 </template>
 

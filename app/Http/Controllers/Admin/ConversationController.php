@@ -845,6 +845,109 @@ class ConversationController extends Controller
 
     
     /**
+     * conv_set_property — Manuelle Objekt-Zuordnung einer Conversation.
+     *
+     * Body:
+     *   id: int                 Conversation- oder Email-ID (beides via resolveConversation)
+     *   property_id: int|null   Neues Objekt (null = Zuordnung entfernen)
+     *   migrate_activities: bool  true = bisherige Activities/Emails mit-umhaengen
+     *                              false = alte beim alten Objekt lassen,
+     *                                      ab jetzt gehen neue zum neuen Objekt
+     */
+    public function setProperty(Request $request): JsonResponse
+    {
+        $input = $request->json()->all();
+        $id = intval($input['id'] ?? $request->query('id', 0));
+        if (!$id) return response()->json(['error' => 'id required'], 400);
+
+        $newPropertyId = isset($input['property_id']) && $input['property_id'] !== ''
+            ? (int) $input['property_id']
+            : null;
+        $migrate = (bool) ($input['migrate_activities'] ?? false);
+
+        $conv = $this->resolveConversation($id, 'conv_set_property');
+        if (!$conv) return response()->json(['error' => 'Conversation not found'], 404);
+
+        // Broker-Scope-Check fuer Makler: darf nur zu eigenen Objekten umhaengen
+        $authUser = \Auth::user();
+        $userType = $authUser->user_type ?? 'makler';
+        if ($userType === 'makler' && $newPropertyId) {
+            $ownProp = \DB::table('properties')->where('id', $newPropertyId)->where('broker_id', $authUser->id)->exists();
+            if (!$ownProp) {
+                return response()->json(['error' => 'Dieses Objekt gehoert einem anderen Makler'], 403);
+            }
+        }
+
+        $oldPropertyId = $conv->property_id;
+
+        if ($oldPropertyId === $newPropertyId) {
+            return response()->json(['success' => true, 'unchanged' => true]);
+        }
+
+        DB::transaction(function () use ($conv, $newPropertyId, $oldPropertyId, $migrate) {
+            // 1) Conversation selbst umhaengen
+            $conv->property_id = $newPropertyId;
+            $conv->save();
+
+            // 2) Alle Emails dieser Conversation finden (selbe Logik wie mailIdsForConversation)
+            $mailIds = app(ConversationService::class)->mailIdsForConversation($conv);
+
+            if ($migrate && !empty($mailIds)) {
+                // Alle verknuepften Mails aufs neue Objekt umhaengen
+                DB::table('portal_emails')->whereIn('id', $mailIds)->update(['property_id' => $newPropertyId]);
+
+                // Activities umhaengen: per source_email_id (direkte Aktivitaeten aus diesen Mails)
+                DB::table('activities')
+                    ->whereIn('source_email_id', $mailIds)
+                    ->update(['property_id' => $newPropertyId ?: 0]);
+                // MySQL: property_id ist NOT NULL → bei null-Umstellung Activities
+                // beim alten Objekt lassen (mit property_id=0 schlaegt der FK fehl).
+                // Darum migrieren wir Activities nur wenn es ein neues Objekt gibt.
+                if (!$newPropertyId) {
+                    DB::table('activities')
+                        ->whereIn('source_email_id', $mailIds)
+                        ->update(['property_id' => $oldPropertyId]);
+                }
+            }
+
+            // 3) Audit-Log als Aktivitaet am neuen (bzw. alten) Objekt
+            $refFrom = $oldPropertyId
+                ? (DB::table('properties')->where('id', $oldPropertyId)->value('ref_id') ?: "#{$oldPropertyId}")
+                : 'Nicht zugeordnet';
+            $refTo = $newPropertyId
+                ? (DB::table('properties')->where('id', $newPropertyId)->value('ref_id') ?: "#{$newPropertyId}")
+                : 'Nicht zugeordnet';
+
+            try {
+                $logPropId = $newPropertyId ?: $oldPropertyId;
+                if ($logPropId) {
+                    DB::table('activities')->insert([
+                        'property_id'   => $logPropId,
+                        'stakeholder'   => $conv->stakeholder ?: 'System',
+                        'activity_date' => now(),
+                        'category'      => 'intern',
+                        'activity'      => "Objekt manuell umgeordnet: {$refFrom} → {$refTo}" . ($migrate ? ' (inkl. Activities)' : ' (nur ab jetzt)'),
+                        'created_at'    => now(),
+                        'updated_at'    => now(),
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                \Log::warning("conv_set_property audit insert failed: " . $e->getMessage());
+            }
+        });
+
+        \Log::info("[ConvSetProperty] conv={$conv->id} old={$oldPropertyId} new={$newPropertyId} migrate=" . ($migrate ? '1' : '0'));
+
+        return response()->json([
+            'success' => true,
+            'conversation_id' => $conv->id,
+            'old_property_id' => $oldPropertyId,
+            'new_property_id' => $newPropertyId,
+            'migrated' => $migrate,
+        ]);
+    }
+
+    /**
      * conv_reply_all — Send all pending drafts for offen conversations.
      */
     public function replyAll(Request $request): JsonResponse

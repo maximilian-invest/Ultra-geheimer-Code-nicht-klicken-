@@ -1,10 +1,8 @@
 <script setup>
 import { computed } from "vue";
-import { RefreshCw, Flame, TrendingDown, AlertTriangle, Clock, CheckSquare, Mail, Eye } from "lucide-vue-next";
+import { RefreshCw } from "lucide-vue-next";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import TagesbriefingThread from "./TagesbriefingThread.vue";
 
 const props = defineProps({
@@ -29,24 +27,23 @@ const weekday = computed(() => {
     }
 });
 
-const anomalyIcon = (kind) => ({ hot: Flame, cool: TrendingDown, warn: AlertTriangle })[kind] || AlertTriangle;
-const anomalyClasses = (kind) => ({
-    hot: "bg-red-50 border-red-200 text-red-900 dark:bg-red-950/20 dark:border-red-900/40 dark:text-red-200",
-    cool: "bg-blue-50 border-blue-200 text-blue-900 dark:bg-blue-950/20 dark:border-blue-900/40 dark:text-blue-200",
-    warn: "bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950/20 dark:border-amber-900/40 dark:text-amber-200",
-}[kind] || "bg-muted text-foreground");
+const anomalyBorderClass = (kind) => ({
+    hot: "border-red-400 dark:border-red-500/60",
+    cool: "border-blue-400 dark:border-blue-500/60",
+    warn: "border-amber-400 dark:border-amber-500/60",
+}[kind] || "border-border");
 
 function handleOpen(val) { emit("update:open", val); }
 </script>
 
 <template>
     <Sheet :open="open" @update:open="handleOpen">
-        <SheetContent side="right" class="w-full sm:max-w-2xl overflow-y-auto bg-white dark:bg-zinc-950">
-            <SheetHeader class="pr-8">
-                <div class="flex items-start justify-between gap-3">
+        <SheetContent side="right" class="w-full sm:max-w-2xl overflow-y-auto bg-white dark:bg-zinc-950 px-0">
+            <SheetHeader class="px-6 pt-1 pb-4 pr-12 border-b border-border/40">
+                <div class="flex items-center justify-between gap-3">
                     <div>
-                        <SheetTitle class="text-lg">Tagesbriefing</SheetTitle>
-                        <SheetDescription class="text-xs mt-1">{{ weekday }} · Zusammenfassung gestern &amp; heute</SheetDescription>
+                        <SheetTitle class="text-base font-semibold">Tagesbriefing</SheetTitle>
+                        <SheetDescription class="text-xs text-muted-foreground mt-0.5">{{ weekday }}</SheetDescription>
                     </div>
                     <Button variant="ghost" size="icon" class="h-8 w-8 shrink-0" @click="emit('regenerate')" :disabled="loading" title="Neu generieren">
                         <RefreshCw :class="['w-4 h-4', loading && 'animate-spin']" />
@@ -54,28 +51,27 @@ function handleOpen(val) { emit("update:open", val); }
                 </div>
             </SheetHeader>
 
-            <div v-if="loading && !briefing" class="mt-6 flex items-center justify-center h-32 text-sm text-muted-foreground">
+            <div v-if="loading && !briefing" class="mt-10 flex items-center justify-center h-24 text-sm text-muted-foreground">
                 Briefing wird generiert…
             </div>
 
-            <div v-else-if="briefing" class="mt-6 space-y-6">
+            <div v-else-if="briefing" class="px-6 py-5 space-y-7">
 
-                <!-- Block A: Narrative -->
+                <!-- Block A: Narrative - ganz schlicht, kein Kasten -->
                 <section>
-                    <h3 class="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2.5">Gestern in 3 Sätzen</h3>
                     <div
-                        class="bg-muted rounded-lg p-4 text-sm leading-relaxed prose-briefing"
+                        class="text-sm leading-relaxed text-foreground prose-briefing"
                         v-html="narrativeHtml"
                     ></div>
                 </section>
 
                 <!-- Block B: Threads -->
                 <section v-if="briefing.threads && briefing.threads.length">
-                    <div class="flex items-center gap-2 mb-2.5">
-                        <h3 class="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Aktive Threads mit Kontext</h3>
-                        <Badge variant="outline" class="ml-auto text-[10px]">{{ briefing.threads.length }} offen</Badge>
+                    <div class="flex items-baseline gap-2 mb-1">
+                        <h3 class="text-sm font-semibold text-foreground">Aktive Threads</h3>
+                        <span class="text-xs text-muted-foreground">{{ briefing.threads.length }}</span>
                     </div>
-                    <div>
+                    <div class="divide-y divide-border/50">
                         <TagesbriefingThread
                             v-for="t in briefing.threads"
                             :key="t.id"
@@ -87,48 +83,41 @@ function handleOpen(val) { emit("update:open", val); }
 
                 <!-- Block C: Agenda -->
                 <section v-if="briefing.agenda">
-                    <h3 class="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2.5">Anstehend heute</h3>
+                    <h3 class="text-sm font-semibold text-foreground mb-1">Heute</h3>
 
-                    <div v-if="briefing.agenda.termine && briefing.agenda.termine.length">
+                    <div v-if="briefing.agenda.termine && briefing.agenda.termine.length" class="divide-y divide-border/50">
                         <div
                             v-for="(item, i) in briefing.agenda.termine" :key="'t'+i"
-                            class="flex items-center gap-3 py-2 text-sm cursor-pointer hover:bg-accent/40 -mx-2 px-2 rounded-md"
+                            class="flex items-center gap-3 py-2.5 text-sm cursor-pointer hover:bg-accent/30 -mx-2 px-2 rounded-md transition-colors"
                             @click="item.kind === 'viewing' ? emit('open-viewing', item.property_id) : emit('open-task', item.task_id)"
                         >
-                            <span class="text-xs font-semibold text-[#EE7600] w-14 shrink-0">{{ item.time }}</span>
-                            <Eye v-if="item.kind === 'viewing'" class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            <CheckSquare v-else class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            <span>{{ item.text }}</span>
+                            <span class="text-xs font-medium text-[#EE7600] w-12 shrink-0 tabular-nums">{{ item.time }}</span>
+                            <span class="flex-1">{{ item.text }}</span>
                         </div>
                     </div>
 
-                    <Separator v-if="briefing.agenda.termine?.length && briefing.agenda.offen?.length" class="my-3" />
-
-                    <div v-if="briefing.agenda.offen && briefing.agenda.offen.length">
+                    <div v-if="briefing.agenda.offen && briefing.agenda.offen.length" :class="briefing.agenda.termine?.length ? 'mt-2 pt-2 border-t border-border/30' : ''">
                         <div v-for="(item, i) in briefing.agenda.offen" :key="'o'+i" class="flex items-center gap-3 py-2 text-sm">
-                            <span class="text-[11px] font-medium text-muted-foreground w-14 shrink-0">{{ item.label }}</span>
-                            <Mail v-if="item.kind === 'nachfass'" class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            <Clock v-else class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            <span>{{ item.text }}</span>
+                            <span class="text-[11px] text-muted-foreground w-12 shrink-0 lowercase">{{ item.label }}</span>
+                            <span class="flex-1">{{ item.text }}</span>
                         </div>
                     </div>
 
-                    <p v-if="!briefing.agenda.termine?.length && !briefing.agenda.offen?.length" class="text-sm text-muted-foreground italic">
+                    <p v-if="!briefing.agenda.termine?.length && !briefing.agenda.offen?.length" class="text-sm text-muted-foreground">
                         Keine Termine geplant.
                     </p>
                 </section>
 
                 <!-- Block D: Anomalies -->
                 <section v-if="briefing.anomalies && briefing.anomalies.length">
-                    <h3 class="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2.5">Auffälligkeiten</h3>
-                    <div class="space-y-2">
+                    <h3 class="text-sm font-semibold text-foreground mb-1">Wichtig</h3>
+                    <div class="divide-y divide-border/50">
                         <div
                             v-for="(a, i) in briefing.anomalies" :key="'a'+i"
-                            class="flex gap-2.5 p-3 rounded-lg border text-sm leading-relaxed"
-                            :class="anomalyClasses(a.kind)"
+                            class="flex gap-3 py-2.5 text-sm leading-relaxed border-l-2 pl-3 -ml-3 first:border-t-0"
+                            :class="anomalyBorderClass(a.kind)"
                         >
-                            <component :is="anomalyIcon(a.kind)" class="w-4 h-4 shrink-0 mt-0.5" />
-                            <div v-html="a.text"></div>
+                            <div class="flex-1" v-html="a.text"></div>
                         </div>
                     </div>
                 </section>

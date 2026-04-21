@@ -66,15 +66,17 @@ const preview = computed(() => {
 
 <style scoped>
 .sr-briefing-card {
+    border: 1px solid rgba(15, 23, 42, 0.09);
     box-shadow:
-        0 1px 2px rgba(15, 23, 42, 0.03),
-        0 4px 16px -6px rgba(15, 23, 42, 0.06);
-    transition: box-shadow 180ms ease, transform 180ms ease;
+        0 1px 3px rgba(15, 23, 42, 0.04),
+        0 8px 24px -8px rgba(15, 23, 42, 0.10);
+    transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
 }
 .sr-briefing-card:hover {
+    border-color: rgba(15, 23, 42, 0.14);
     box-shadow:
-        0 2px 4px rgba(15, 23, 42, 0.04),
-        0 10px 28px -8px rgba(15, 23, 42, 0.10);
+        0 2px 6px rgba(15, 23, 42, 0.06),
+        0 14px 36px -10px rgba(15, 23, 42, 0.14);
     transform: translateY(-1px);
 }
 </style>

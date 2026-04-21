@@ -861,20 +861,20 @@ onMounted(async () => {
  * Rand zu diffus. Jetzt beides kombiniert.
  */
 .sr-soft-dashboard :deep(.rounded-xl) {
-    border: 1px solid rgba(15, 23, 42, 0.06);
+    border: 1px solid rgba(15, 23, 42, 0.09);
     border-radius: 16px;
     box-shadow:
-        0 1px 2px rgba(15, 23, 42, 0.04),
-        0 6px 20px -6px rgba(15, 23, 42, 0.08);
+        0 1px 3px rgba(15, 23, 42, 0.04),
+        0 8px 24px -8px rgba(15, 23, 42, 0.10);
     transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
 }
 
 /* Etwas staerkerer Shadow beim Hover fuer Aktions-Cards */
 .sr-soft-dashboard :deep(.rounded-xl.cursor-pointer:hover) {
-    border-color: rgba(15, 23, 42, 0.10);
+    border-color: rgba(15, 23, 42, 0.14);
     box-shadow:
-        0 2px 4px rgba(15, 23, 42, 0.05),
-        0 12px 32px -8px rgba(15, 23, 42, 0.12);
+        0 2px 6px rgba(15, 23, 42, 0.06),
+        0 14px 36px -10px rgba(15, 23, 42, 0.14);
     transform: translateY(-1px);
 }
 

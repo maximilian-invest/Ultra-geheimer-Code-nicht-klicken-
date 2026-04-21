@@ -48,6 +48,7 @@ class WebsiteApiController extends Controller
                     'common_areas', 'has_photovoltaik', 'has_charging_station',
                     'sold_at', 'broker_id', 'broker_name_override',
                     'purchase_price', 'rental_price', 'heating',
+                    'building_details', 'energy_primary_source', 'operating_costs',
                     'external_image_url'
                 ])
                 ->orderBy('id', 'desc')
@@ -171,6 +172,15 @@ class WebsiteApiController extends Controller
                 if ($p->garage_spaces > 0) $features[] = 'Garage';
                 if ($p->parking_spaces > 0) $features[] = 'Stellplatz';
                 $p->features = $features;
+
+                // building_details JSON auslesen: Heizungsart, Befeuerung, Warmwasser
+                $bd = is_string($p->building_details ?? null)
+                    ? (json_decode($p->building_details, true) ?: [])
+                    : (is_array($p->building_details ?? null) ? $p->building_details : []);
+                $heatingBlock = is_array($bd['heating'] ?? null) ? $bd['heating'] : [];
+                $p->heating_types = is_array($heatingBlock['types'] ?? null) ? array_values(array_filter($heatingBlock['types'])) : [];
+                $p->heating_fuel = $heatingBlock['fuel'] ?? null;
+                $p->heating_hot_water = $heatingBlock['hot_water'] ?? null;
 
                 // Cast numeric values to clean integers
                 if ($p->area_living) $p->area_living = (int) round((float) $p->area_living);
@@ -387,6 +397,15 @@ class WebsiteApiController extends Controller
         if (!empty($p->has_photovoltaik)) $features[] = 'Photovoltaik';
         if (!empty($p->has_charging_station)) $features[] = 'E-Ladestation';
         $p->features = $features;
+
+        // Heizung/Warmwasser/Befeuerung aus building_details JSON
+        $bd = is_string($p->building_details ?? null)
+            ? (json_decode($p->building_details, true) ?: [])
+            : (is_array($p->building_details ?? null) ? $p->building_details : []);
+        $heatingBlock = is_array($bd['heating'] ?? null) ? $bd['heating'] : [];
+        $p->heating_types = is_array($heatingBlock['types'] ?? null) ? array_values(array_filter($heatingBlock['types'])) : [];
+        $p->heating_fuel = $heatingBlock['fuel'] ?? null;
+        $p->heating_hot_water = $heatingBlock['hot_water'] ?? null;
 
         // All images — prefer property_images (PropertyEditor), fallback to property_files
         $piImages = DB::table('property_images')

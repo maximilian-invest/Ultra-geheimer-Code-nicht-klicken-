@@ -8,6 +8,8 @@ import {
 } from "lucide-vue-next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import TagesbriefingCard from "@/Components/Admin/TagesbriefingCard.vue";
+import TagesbriefingSheet from "@/Components/Admin/TagesbriefingSheet.vue";
 
 const props = defineProps({
     stats: { type: Object, default: () => ({}) },
@@ -24,6 +26,63 @@ const unansweredCount = inject("unansweredCount");
 const followupCount = inject("followupCount");
 const unmatchedCount = inject("unmatchedCount");
 const properties = inject("properties");
+
+// ===== Tagesbriefing =====
+const briefingData = ref(null);
+const briefingLoading = ref(true);
+const briefingOpen = ref(false);
+const briefingDate = ref(new Date().toISOString().slice(0, 10));
+
+async function loadBriefing() {
+    briefingLoading.value = true;
+    try {
+        const r = await fetch(API.value + "&action=briefing_get&date=" + briefingDate.value);
+        const d = await r.json();
+        if (d.success) briefingData.value = d.briefing;
+    } catch (e) {
+        console.error("Briefing load failed:", e);
+    } finally {
+        briefingLoading.value = false;
+    }
+}
+
+async function regenerateBriefing() {
+    briefingLoading.value = true;
+    try {
+        const r = await fetch(API.value + "&action=briefing_regenerate", { method: "POST" });
+        const d = await r.json();
+        if (d.success) {
+            briefingData.value = d.briefing;
+            toast("Briefing aktualisiert");
+        } else if (d.rate_limited) {
+            toast("Zu schnell — bitte kurz warten");
+        } else {
+            toast("Fehler: " + (d.error || "Unbekannt"));
+        }
+    } catch (e) {
+        toast("Fehler beim Regenerieren");
+    } finally {
+        briefingLoading.value = false;
+    }
+}
+
+function openBriefingConversation(convId) {
+    briefingOpen.value = false;
+    setTimeout(() => {
+        switchTab("inbox");
+        window.dispatchEvent(new CustomEvent("open-conversation", { detail: { convId } }));
+    }, 100);
+}
+
+function openBriefingViewing(propertyId) {
+    briefingOpen.value = false;
+    setTimeout(() => switchTab("properties"), 100);
+}
+
+function openBriefingTask(taskId) {
+    briefingOpen.value = false;
+    setTimeout(() => switchTab("tasks"), 100);
+}
 
 // Tasks (kept for future re-enable)
 const tasks = ref([]);
@@ -302,12 +361,31 @@ async function loadPerformance() {
 
 onMounted(async () => {
     if (userType.value !== "assistenz") loadSalesAndCommissions();
-    await Promise.all([loadTasks(), loadKaufanboteStats(), loadPerformance(), loadUpcoming()]);
+    await Promise.all([loadTasks(), loadKaufanboteStats(), loadPerformance(), loadUpcoming(), loadBriefing()]);
 });
 </script>
 
 <template>
     <div class="px-4 py-6 space-y-6">
+
+        <!-- Tagesbriefing (NEU: oberhalb der Action-Card) -->
+        <TagesbriefingCard
+            :briefing="briefingData"
+            :loading="briefingLoading"
+            :date="briefingDate"
+            @open="briefingOpen = true"
+        />
+
+        <TagesbriefingSheet
+            v-model:open="briefingOpen"
+            :briefing="briefingData"
+            :loading="briefingLoading"
+            :date="briefingDate"
+            @regenerate="regenerateBriefing"
+            @open-conversation="openBriefingConversation"
+            @open-viewing="openBriefingViewing"
+            @open-task="openBriefingTask"
+        />
 
         <!-- Section 1: Action Card -->
         <Card>

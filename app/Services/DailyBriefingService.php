@@ -53,7 +53,14 @@ class DailyBriefingService
 
     /**
      * Sammelt alle Rohdaten für das Briefing eines Users.
-     * Broker-scoped: Makler sehen nur eigene Properties, Admin/Assistenz/Backoffice alles.
+     * Broker-scoped:
+     *   - Makler: nur eigene Properties (broker_id = user_id)
+     *   - Admin:  auch nur eigene Properties + Mails aus eigenen email_accounts
+     *             (jede Person sieht nur ihre eigenen Daten)
+     *   - Assistenz/Backoffice: sehen alles (shared portfolio support)
+     *
+     * Achtung: Admin ist NICHT scopeAll, sonst wuerde der Admin die Briefings
+     * aller Makler sehen. Das war der Bug "Info von anderen Maklern".
      */
     public function gatherContext(int $userId, ?string $date = null): array
     {
@@ -68,7 +75,9 @@ class DailyBriefingService
         if (!$user) return $this->emptyContext($date);
 
         $userType = $user->user_type ?? 'makler';
-        $scopeAll = in_array($userType, ['admin', 'assistenz', 'backoffice'], true);
+        // Nur Assistenz + Backoffice sehen alles. Admin + Makler bekommen
+        // ihr eigenes Portfolio, genau wie in Conversation::scopeForBroker.
+        $scopeAll = in_array($userType, ['assistenz', 'backoffice'], true);
 
         return [
             'date' => $date,

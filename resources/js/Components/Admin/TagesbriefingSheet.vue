@@ -41,7 +41,7 @@ function handleOpen(val) { emit("update:open", val); }
 
 <template>
     <Sheet :open="open" @update:open="handleOpen">
-        <SheetContent side="right" class="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetContent side="right" class="w-full sm:max-w-2xl overflow-y-auto bg-white dark:bg-zinc-950">
             <SheetHeader class="pr-8">
                 <div class="flex items-start justify-between gap-3">
                     <div>

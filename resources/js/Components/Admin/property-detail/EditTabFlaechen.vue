@@ -223,6 +223,36 @@ watch(() => props.form?.id, loadParking);
             :class="inputCls"
           />
         </div>
+
+        <!-- Zimmer & Stockwerke unten in der Flaechen-Section (auch fuer Neubau) -->
+        <div class="col-span-2 mt-1 pt-3 border-t border-zinc-200/60">
+          <div class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Zimmer &amp; Stockwerke</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label :class="labelCls">Zimmer <FieldExportBadges field="rooms_amount" /></label>
+              <template v-if="isNewbuild">
+                <Input
+                  v-model="form.rooms_amount"
+                  type="number"
+                  step="0.5"
+                  :placeholder="neubauRanges.rooms_amount ? 'Aus Einheiten: ' + neubauRanges.rooms_amount : 'z.B. 3'"
+                  :class="inputCls"
+                />
+                <div v-if="neubauRanges.rooms_amount" class="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                  <span class="inline-block w-1 h-1 rounded-full bg-orange-400"></span>
+                  Bereich aus Einheiten: <strong class="text-orange-700">{{ neubauRanges.rooms_amount }}</strong>
+                  <span v-if="!form.rooms_amount" class="italic">— wird verwendet wenn leer</span>
+                  <span v-else class="italic">— übersteuert durch manuellen Wert</span>
+                </div>
+              </template>
+              <Input v-else v-model="form.rooms_amount" type="number" step="0.5" :class="inputCls" />
+            </div>
+            <div>
+              <label :class="labelCls">Stockwerke gesamt <FieldExportBadges field="floor_count" /></label>
+              <Input v-model="form.floor_count" type="number" :class="inputCls" placeholder="z.B. 3" />
+            </div>
+          </div>
+        </div>
       </AccordionSection>
 
       <!-- Stellplätze -->
@@ -310,12 +340,9 @@ watch(() => props.form?.id, loadParking);
 
     <!-- Right column -->
     <div class="flex flex-col gap-4">
-      <!-- Räume & Stockwerk — bei Neubauprojekten ausgeblendet (Werte kommen pro Einheit) -->
-      <AccordionSection v-if="!isNewbuild" title="Räume & Stockwerk" color="#8b5cf6" :default-open="true">
-        <div>
-          <label :class="labelCls">Zimmer <FieldExportBadges field="rooms_amount" /></label>
-          <Input v-model="form.rooms_amount" type="number" step="0.5" :class="inputCls" />
-        </div>
+      <!-- Detailzimmer (Schlafzimmer/Badezimmer/WCs/Stockwerk) nur bei Bestand.
+           Zimmer-Anzahl + Stockwerke gesamt sind jetzt unter Flächen integriert. -->
+      <AccordionSection v-if="!isNewbuild" title="Detailzimmer" color="#8b5cf6" :default-open="true">
         <div>
           <label :class="labelCls">Schlafzimmer <FieldExportBadges field="bedrooms" /></label>
           <Input v-model="form.bedrooms" type="number" :class="inputCls" />
@@ -329,12 +356,8 @@ watch(() => props.form?.id, loadParking);
           <Input v-model="form.toilets" type="number" :class="inputCls" />
         </div>
         <div>
-          <label :class="labelCls">Stockwerk <FieldExportBadges field="floor_number" /></label>
+          <label :class="labelCls">Stockwerk (Etage) <FieldExportBadges field="floor_number" /></label>
           <Input v-model="form.floor_number" type="number" :class="inputCls" />
-        </div>
-        <div>
-          <label :class="labelCls">Stockwerke ges. <FieldExportBadges field="floor_count" /></label>
-          <Input v-model="form.floor_count" type="number" :class="inputCls" />
         </div>
       </AccordionSection>
     </div>

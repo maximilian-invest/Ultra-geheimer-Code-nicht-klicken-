@@ -327,6 +327,7 @@
     }
 
     if (p.bathrooms) rows.push([ICONS.drop, 'Badezimmer', p.bathrooms]);
+    if (p.floor_count) rows.push([ICONS.layers, 'Stockwerke', p.floor_count]);
 
     // Balkon — manueller Wert vor Unit-Range
     if (p.area_balcony) {

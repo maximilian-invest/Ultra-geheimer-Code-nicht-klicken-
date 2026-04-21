@@ -71,7 +71,7 @@ export const FIELD_EXPORTS = {
   bathrooms:           { targets: ['i', 'w'] },
   toilets:             { targets: ['i'] },
   floor_number:        { targets: ['l'] },
-  floor_count:         { targets: ['l'] },
+  floor_count:         { targets: ['w'],      tips: { w: 'Website: Stockwerke in Details' } },
 
   // === PREISE ===
   purchase_price:      { targets: ['i', 'w'], tips: { i: 'Immoji: Kaufpreis', w: 'Website: Preis' } },

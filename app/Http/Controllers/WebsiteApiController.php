@@ -84,6 +84,7 @@ class WebsiteApiController extends Controller
                     'sold_at', 'broker_id', 'broker_name_override',
                     'purchase_price', 'rental_price', 'heating',
                     'building_details', 'energy_primary_source', 'operating_costs',
+                    'floor_count', 'floor_number',
                     'external_image_url'
                 ])
                 ->orderBy('id', 'desc')

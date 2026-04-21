@@ -141,12 +141,31 @@
   /* ─── Stats Grid ─── */
   const statsEl = document.getElementById('stats-grid');
   const statItems = [];
-  if (p.area_living) statItems.push({ icon: 'area', val: `${p.area_living} m²`, label: 'Wohnfläche' });
-  if (p.rooms) statItems.push({ icon: 'rooms', val: p.rooms, label: 'Zimmer' });
+  const isNewbuildProj = (p.property_category === 'newbuild') || /Neubauprojekt/i.test(p.type || '');
+  // Neubauprojekt: Wohnfläche + Zimmer als Range (falls vorhanden), sonst Einzelwert
+  if (isNewbuildProj && p.area_range) {
+    statItems.push({ icon: 'area', val: p.area_range, label: 'Wohnfläche' });
+  } else if (p.area_living) {
+    statItems.push({ icon: 'area', val: `${p.area_living} m²`, label: 'Wohnfläche' });
+  }
+  if (isNewbuildProj && p.rooms_range) {
+    statItems.push({ icon: 'rooms', val: p.rooms_range, label: 'Zimmer' });
+  } else if (p.rooms) {
+    statItems.push({ icon: 'rooms', val: p.rooms, label: 'Zimmer' });
+  }
   if (p.bathrooms) statItems.push({ icon: 'bath', val: p.bathrooms, label: 'Badezimmer' });
-  if (p.features?.includes('Garten')) statItems.push({ icon: 'garden', val: 'Ja', label: 'Garten' });
-  if (p.features?.includes('Terrasse')) statItems.push({ icon: 'terrace', val: 'Ja', label: 'Terrasse' });
-  if (p.features?.includes('Balkon')) statItems.push({ icon: 'balcony', val: 'Ja', label: 'Balkon' });
+  // Balkon/Terrasse als Range bei Neubau
+  if (isNewbuildProj && p.balcony_terrace_range) {
+    statItems.push({ icon: 'balcony', val: p.balcony_terrace_range, label: 'Balkon/Terrasse' });
+  } else {
+    if (p.features?.includes('Garten')) statItems.push({ icon: 'garden', val: 'Ja', label: 'Garten' });
+    if (p.features?.includes('Terrasse')) statItems.push({ icon: 'terrace', val: 'Ja', label: 'Terrasse' });
+    if (p.features?.includes('Balkon')) statItems.push({ icon: 'balcony', val: 'Ja', label: 'Balkon' });
+  }
+  // Garten bei Neubau als Range
+  if (isNewbuildProj && p.garden_range) {
+    statItems.push({ icon: 'garden', val: p.garden_range, label: 'Garten' });
+  }
   if (p.year_built) statItems.push({ icon: 'year', val: p.year_built, label: 'Baujahr' });
 
   const svgIcons = {

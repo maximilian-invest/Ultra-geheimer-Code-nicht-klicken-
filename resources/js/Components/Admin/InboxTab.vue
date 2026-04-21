@@ -832,7 +832,10 @@ function nachfassenAlle() {
 }
 
 function nfStageCount(stage) {
-  return filteredFollowups.value.filter(f => f.draft_body && f._stage === stage).length;
+  // Keine draft_body-Abhaengigkeit mehr — das Backend baut die Mail per
+  // Template on-the-fly. Wir zaehlen alle faelligen Konversationen der
+  // jeweiligen Stufe.
+  return filteredFollowups.value.filter(f => f._stage === stage).length;
 }
 
 async function sendNachfassenSelected() {
@@ -2719,21 +2722,21 @@ onMounted(() => {
                 <input type="checkbox" v-model="nfStageSelection.nf1" class="rounded border-zinc-300" />
                 <span>NF1 — Erstmalig</span>
               </div>
-              <span class="text-[10px] text-muted-foreground">{{ nfStageCount(1) }} Entwürfe</span>
+              <span class="text-[10px] text-muted-foreground">{{ nfStageCount(1) }} Konversationen</span>
             </label>
             <label class="flex items-center justify-between gap-2 text-[11px] cursor-pointer hover:bg-zinc-50 px-2 py-1.5 rounded">
               <div class="flex items-center gap-2">
                 <input type="checkbox" v-model="nfStageSelection.nf2" class="rounded border-zinc-300" />
                 <span>NF2 — Nachfassen</span>
               </div>
-              <span class="text-[10px] text-muted-foreground">{{ nfStageCount(2) }} Entwürfe</span>
+              <span class="text-[10px] text-muted-foreground">{{ nfStageCount(2) }} Konversationen</span>
             </label>
             <label class="flex items-center justify-between gap-2 text-[11px] cursor-pointer hover:bg-zinc-50 px-2 py-1.5 rounded">
               <div class="flex items-center gap-2">
                 <input type="checkbox" v-model="nfStageSelection.nf3" class="rounded border-zinc-300" />
                 <span>NF3 — Dringend</span>
               </div>
-              <span class="text-[10px] text-muted-foreground">{{ nfStageCount(3) }} Entwürfe</span>
+              <span class="text-[10px] text-muted-foreground">{{ nfStageCount(3) }} Konversationen</span>
             </label>
             <Button size="sm" class="w-full h-8 text-[11px] gap-1.5" @click="sendNachfassenSelected">
               <Send class="w-3 h-3" />

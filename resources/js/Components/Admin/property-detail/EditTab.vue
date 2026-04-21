@@ -1,6 +1,6 @@
 <script setup>
 import { ref, reactive, computed, watch, inject, onMounted } from "vue";
-import { Plus, Trash2, Sparkles, Upload, X, Globe, Users, Lock, Eye, Wand2 } from "lucide-vue-next";
+import { Plus, Trash2, Sparkles, Upload, X, Eye, Wand2 } from "lucide-vue-next";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,7 @@ import EditTabAllgemeines from "@/Components/Admin/property-detail/EditTabAllgem
 import EditTabKosten from "@/Components/Admin/property-detail/EditTabKosten.vue";
 import EditTabFlaechen from "@/Components/Admin/property-detail/EditTabFlaechen.vue";
 import EditTabEnergie from "@/Components/Admin/property-detail/EditTabEnergie.vue";
+import FieldExportBadges from "@/Components/Admin/property-detail/FieldExportBadges.vue";
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -46,107 +47,10 @@ const parseFiles = ref([]);
 const parseSelectedFiles = ref([]);
 const parseUploading = ref(false);
 
-// ─── Field visibility map ───
-// W = Website, P = Portal, I = Intern (admin only)
-const fieldVis = {
-  ref_id:         { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  object_type:    { icons: ['globe','users'], tip: 'Website + Kundenportal' },
-  marketing_type: { icons: [], tip: 'Wird nirgends angezeigt' },
-  property_category: { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  project_name:   { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  title:          { icons: [], tip: 'Wird nirgends angezeigt' },
-  address:        { icons: ['globe','users'], tip: 'Website + Kundenportal' },
-  zip:            { icons: ['globe','users'], tip: 'Website + Kundenportal' },
-  city:           { icons: ['globe','users'], tip: 'Website + Kundenportal' },
-  latitude:       { icons: [], tip: 'Wird nirgends angezeigt' },
-  longitude:      { icons: [], tip: 'Wird nirgends angezeigt' },
-  broker_id:      { icons: ['lock'], tip: 'Nur intern sichtbar' },
-  status:         { icons: ['lock'], tip: 'Nur intern sichtbar' },
-  construction_end: { icons: [], tip: 'Wird nirgends angezeigt' },
-  builder_company: { icons: [], tip: 'Wird nirgends angezeigt' },
-  purchase_price: { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  object_subtype: { icons: [], tip: 'Wird nirgends angezeigt' },
-  price_per_m2:   { icons: [], tip: 'Wird nirgends angezeigt' },
-  parking_price:  { icons: [], tip: 'Wird nirgends angezeigt' },
-  operating_costs: { icons: [], tip: 'Wird nirgends angezeigt' },
-  maintenance_reserves: { icons: [], tip: 'Wird nirgends angezeigt' },
-  rental_price:   { icons: [], tip: 'Wird nirgends angezeigt' },
-  rent_warm:      { icons: [], tip: 'Wird nirgends angezeigt' },
-  rent_deposit:   { icons: [], tip: 'Wird nirgends angezeigt' },
-  commission_percent: { icons: ['lock'], tip: 'Nur intern sichtbar' },
-  commission_total: { icons: ['lock'], tip: 'Nur intern sichtbar' },
-  commission_note: { icons: ['lock'], tip: 'Nur intern sichtbar' },
-  buyer_commission_percent: { icons: [], tip: 'Wird nirgends angezeigt' },
-  commission_makler: { icons: ['lock'], tip: 'Nur intern sichtbar' },
-  buyer_commission_text: { icons: [], tip: 'Wird nirgends angezeigt' },
-  living_area:    { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  realty_area:    { icons: [], tip: 'Wird nirgends angezeigt' },
-  free_area:      { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  area_balcony:   { icons: [], tip: 'Wird nirgends angezeigt' },
-  area_terrace:   { icons: [], tip: 'Wird nirgends angezeigt' },
-  area_garden:    { icons: [], tip: 'Wird nirgends angezeigt' },
-  area_loggia:    { icons: [], tip: 'Wird nirgends angezeigt' },
-  area_basement:  { icons: [], tip: 'Wird nirgends angezeigt' },
-  area_garage:    { icons: [], tip: 'Wird nirgends angezeigt' },
-  office_space:   { icons: [], tip: 'Wird nirgends angezeigt' },
-  rooms_amount:   { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  bedrooms:       { icons: [], tip: 'Wird nirgends angezeigt' },
-  bathrooms:      { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  toilets:        { icons: [], tip: 'Wird nirgends angezeigt' },
-  floor_number:   { icons: [], tip: 'Wird nirgends angezeigt' },
-  floor_count:    { icons: [], tip: 'Wird nirgends angezeigt' },
-  garage_spaces:  { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  parking_spaces: { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  parking_type:   { icons: [], tip: 'Wird nirgends angezeigt' },
-  realty_condition: { icons: [], tip: 'Wird nirgends angezeigt' },
-  quality:        { icons: [], tip: 'Wird nirgends angezeigt' },
-  construction_year: { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  year_renovated: { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  kitchen_type:   { icons: [], tip: 'Wird nirgends angezeigt' },
-  heating:        { icons: [], tip: 'Wird nirgends angezeigt' },
-  flooring:       { icons: [], tip: 'Wird nirgends angezeigt' },
-  bathroom_equipment: { icons: [], tip: 'Wird nirgends angezeigt' },
-  orientation:    { icons: [], tip: 'Wird nirgends angezeigt' },
-  furnishing:     { icons: [], tip: 'Wird nirgends angezeigt' },
-  // Boolean features
-  has_balcony:    { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  has_terrace:    { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  has_loggia:     { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  has_garden:     { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  has_basement:   { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  has_cellar:     { icons: [], tip: 'Wird nirgends angezeigt' },
-  has_elevator:   { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  has_fitted_kitchen: { icons: [], tip: 'Wird nirgends angezeigt' },
-  has_air_conditioning: { icons: [], tip: 'Wird nirgends angezeigt' },
-  has_pool:       { icons: [], tip: 'Wird nirgends angezeigt' },
-  has_sauna:      { icons: [], tip: 'Wird nirgends angezeigt' },
-  has_fireplace:  { icons: [], tip: 'Wird nirgends angezeigt' },
-  has_alarm:      { icons: [], tip: 'Wird nirgends angezeigt' },
-  has_barrier_free: { icons: [], tip: 'Wird nirgends angezeigt' },
-  has_guest_wc:   { icons: [], tip: 'Wird nirgends angezeigt' },
-  has_storage_room: { icons: [], tip: 'Wird nirgends angezeigt' },
-  has_washing_connection: { icons: [], tip: 'Wird nirgends angezeigt' },
-  // Energy
-  energy_type:    { icons: [], tip: 'Wird nirgends angezeigt' },
-  heating_demand_class: { icons: [], tip: 'Wird nirgends angezeigt' },
-  heating_demand_value: { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  energy_efficiency_value: { icons: [], tip: 'Wird nirgends angezeigt' },
-  energy_primary_source: { icons: [], tip: 'Wird nirgends angezeigt' },
-  energy_valid_until: { icons: [], tip: 'Wird nirgends angezeigt' },
-  energy_certificate: { icons: ['globe'], tip: 'Sichtbar auf der Website' },
-  // Verfuegbarkeit
-  available_from: { icons: [], tip: 'Wird nirgends angezeigt' },
-  available_text: { icons: [], tip: 'Wird nirgends angezeigt' },
-  construction_start: { icons: [], tip: 'Wird nirgends angezeigt' },
-  property_manager: { icons: [], tip: 'Wird nirgends angezeigt' },
-  inserat_since:  { icons: ['users'], tip: 'Website + Kundenportal' },
-  platforms:      { icons: [], tip: 'Wird nirgends angezeigt' },
-};
+// ─── Field visibility map — ersetzt durch FieldExportBadges.vue +
+//    resources/js/utils/propertyFieldExports.js (zentrale Mapping-Datei) ───
 
-const iconMap = { globe: Globe, users: Users, lock: Lock };
-function vis(key) {
-  return fieldVis[key] || { icons: [], tip: '' };
-}
+// iconMap + vis() entfernt — Ersatz: <FieldExportBadges field="..." />
 
 // ─── Boolean features ───
 const features = [
@@ -734,7 +638,7 @@ defineExpose({ save, discard });
     </div>
 
       <TabsContent value="allgemeines" class="mt-0 px-1">
-        <EditTabAllgemeines :form="form" :broker-list="brokerList" :is-newbuild="isNewbuild" :is-child="isChild" :features="features" :vis="vis" :icon-map="iconMap" />
+        <EditTabAllgemeines :form="form" :broker-list="brokerList" :is-newbuild="isNewbuild" :is-child="isChild" :features="features" />
       </TabsContent>
 
       <TabsContent value="kosten" class="mt-0 px-1">
@@ -755,11 +659,11 @@ defineExpose({ save, discard });
         <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Objekt</div>
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ref-ID <span v-if="vis('ref_id').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('ref_id').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('ref_id').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ref-ID <FieldExportBadges field="ref_id" /></label>
             <Input v-model="form.ref_id" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Objekttyp <span v-if="vis('object_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('object_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('object_type').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Objekttyp <FieldExportBadges field="object_type" /></label>
             <Select v-model="form.object_type">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -768,7 +672,7 @@ defineExpose({ save, discard });
             </Select>
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Transaktionsart <span v-if="vis('marketing_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('marketing_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('marketing_type').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Transaktionsart <FieldExportBadges field="marketing_type" /></label>
             <Select v-model="form.marketing_type">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -777,7 +681,7 @@ defineExpose({ save, discard });
             </Select>
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kategorie <span v-if="vis('property_category').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('property_category').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('property_category').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kategorie <FieldExportBadges field="property_category" /></label>
             <Select v-model="form.property_category">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -786,11 +690,11 @@ defineExpose({ save, discard });
             </Select>
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Projektname <span v-if="vis('project_name').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('project_name').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('project_name').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Projektname <FieldExportBadges field="project_name" /></label>
             <Input v-model="form.project_name" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Inserat-Titel <span v-if="vis('title').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('title').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('title').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Inserat-Titel <FieldExportBadges field="title" /></label>
             <Input v-model="form.title" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
@@ -838,7 +742,7 @@ defineExpose({ save, discard });
         <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Adresse</div>
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div class="col-span-2">
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Strasse <span v-if="vis('address').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('address').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('address').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Strasse <FieldExportBadges field="address" /></label>
             <Input v-model="form.address" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
@@ -846,11 +750,11 @@ defineExpose({ save, discard });
             <Input v-model="form.house_number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">PLZ <span v-if="vis('zip').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('zip').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('zip').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">PLZ <FieldExportBadges field="zip" /></label>
             <Input v-model="form.zip" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stadt <span v-if="vis('city').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('city').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('city').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stadt <FieldExportBadges field="city" /></label>
             <Input v-model="form.city" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
@@ -866,11 +770,11 @@ defineExpose({ save, discard });
             <Input v-model="form.address_floor" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Breitengrad <span v-if="vis('latitude').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('latitude').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('latitude').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Breitengrad <FieldExportBadges field="latitude" /></label>
             <Input v-model="form.latitude" type="number" step="0.0000001" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Laengengrad <span v-if="vis('longitude').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('longitude').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('longitude').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Laengengrad <FieldExportBadges field="longitude" /></label>
             <Input v-model="form.longitude" type="number" step="0.0000001" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
@@ -879,7 +783,7 @@ defineExpose({ save, discard });
         <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Zuordnung</div>
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler <span v-if="vis('broker_id').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('broker_id').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('broker_id').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler <FieldExportBadges field="broker_id" /></label>
             <Select v-model="form.broker_id">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -888,7 +792,7 @@ defineExpose({ save, discard });
             </Select>
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Status <span v-if="vis('status').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('status').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('status').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Status <FieldExportBadges field="status" /></label>
             <Select v-model="form.status">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -903,7 +807,7 @@ defineExpose({ save, discard });
             <Input v-model="form.construction_end" type="date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Bautraeger <span v-if="vis('builder_company').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('builder_company').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('builder_company').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Bautraeger <FieldExportBadges field="builder_company" /></label>
             <Input v-model="form.builder_company" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
@@ -916,19 +820,19 @@ defineExpose({ save, discard });
             <Input v-model="form.purchase_price" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Preis/m2 <span v-if="vis('price_per_m2').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('price_per_m2').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('price_per_m2').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Preis/m2 <FieldExportBadges field="price_per_m2" /></label>
             <Input v-model="form.price_per_m2" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplatz-Preis <span v-if="vis('parking_price').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_price').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_price').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplatz-Preis <FieldExportBadges field="parking_price" /></label>
             <Input v-model="form.parking_price" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Betriebskosten <span v-if="vis('operating_costs').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('operating_costs').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('operating_costs').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Betriebskosten <FieldExportBadges field="operating_costs" /></label>
             <Input v-model="form.operating_costs" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ruecklage <span v-if="vis('maintenance_reserves').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('maintenance_reserves').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('maintenance_reserves').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ruecklage <FieldExportBadges field="maintenance_reserves" /></label>
             <Input v-model="form.maintenance_reserves" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
@@ -938,15 +842,15 @@ defineExpose({ save, discard });
           <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Miete</div>
           <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
             <div>
-              <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kaltmiete <span v-if="vis('rental_price').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rental_price').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rental_price').tip" /></span></label>
+              <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kaltmiete <FieldExportBadges field="rental_price" /></label>
               <Input v-model="form.rental_price" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
             </div>
             <div>
-              <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Warmmiete <span v-if="vis('rent_warm').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rent_warm').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rent_warm').tip" /></span></label>
+              <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Warmmiete <FieldExportBadges field="rent_warm" /></label>
               <Input v-model="form.rent_warm" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
             </div>
             <div>
-              <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kaution <span v-if="vis('rent_deposit').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rent_deposit').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rent_deposit').tip" /></span></label>
+              <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kaution <FieldExportBadges field="rent_deposit" /></label>
               <Input v-model="form.rent_deposit" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
             </div>
           </div>
@@ -956,15 +860,15 @@ defineExpose({ save, discard });
         <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Provision Intern</div>
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provision % <span v-if="vis('commission_percent').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_percent').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_percent').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provision % <FieldExportBadges field="commission_percent" /></label>
             <Input v-model="form.commission_percent" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provision EUR <span v-if="vis('commission_total').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_total').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_total').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provision EUR <FieldExportBadges field="commission_total" /></label>
             <Input v-model="form.commission_total" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div class="col-span-2">
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provisionsnotiz <span v-if="vis('commission_note').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_note').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_note').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provisionsnotiz <FieldExportBadges field="commission_note" /></label>
             <Input v-model="form.commission_note" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
@@ -973,15 +877,15 @@ defineExpose({ save, discard });
         <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Provision Oeffentlich</div>
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler-Provision % <span v-if="vis('buyer_commission_percent').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('buyer_commission_percent').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('buyer_commission_percent').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler-Provision % <FieldExportBadges field="buyer_commission_percent" /></label>
             <Input v-model="form.buyer_commission_percent" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler-Provision EUR <span v-if="vis('commission_makler').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('commission_makler').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('commission_makler').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Makler-Provision EUR <FieldExportBadges field="commission_makler" /></label>
             <Input v-model="form.commission_makler" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div class="col-span-2">
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provisionstext (Inserate) <span v-if="vis('buyer_commission_text').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('buyer_commission_text').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('buyer_commission_text').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Provisionstext (Inserate) <FieldExportBadges field="buyer_commission_text" /></label>
             <Input v-model="form.buyer_commission_text" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
@@ -1066,7 +970,7 @@ defineExpose({ save, discard });
             { key: 'area_garage', label: 'Garage' },
             { key: 'office_space', label: 'Buero' },
           ]" :key="f.key">
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">{{ f.label }} <span v-if="vis(f.key).icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis(f.key).icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis(f.key).tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">{{ f.label }} <FieldExportBadges :field="f.key" /></label>
             <div v-if="f.key === 'living_area' && isNewbuild" class="relative">
               <Input :model-value="form[f.key]" type="number" step="0.01" class="h-8 text-[13px] bg-muted/50 cursor-not-allowed" disabled title="Wird automatisch aus Einheiten berechnet" />
               <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">auto</span>
@@ -1080,35 +984,35 @@ defineExpose({ save, discard });
         <div class="text-[10px] font-medium text-muted-foreground/70 mb-1">Raeume & Stockwerk</div>
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Zimmer <span v-if="vis('rooms_amount').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('rooms_amount').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('rooms_amount').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Zimmer <FieldExportBadges field="rooms_amount" /></label>
             <Input v-model="form.rooms_amount" type="number" step="0.5" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Schlafzimmer <span v-if="vis('bedrooms').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('bedrooms').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('bedrooms').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Schlafzimmer <FieldExportBadges field="bedrooms" /></label>
             <Input v-model="form.bedrooms" type="number" step="1" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Badezimmer <span v-if="vis('bathrooms').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('bathrooms').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('bathrooms').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Badezimmer <FieldExportBadges field="bathrooms" /></label>
             <Input v-model="form.bathrooms" type="number" step="1" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">WCs <span v-if="vis('toilets').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('toilets').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('toilets').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">WCs <FieldExportBadges field="toilets" /></label>
             <Input v-model="form.toilets" type="number" step="1" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerk <span v-if="vis('floor_number').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('floor_number').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('floor_number').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerk <FieldExportBadges field="floor_number" /></label>
             <Input v-model="form.floor_number" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerke ges. <span v-if="vis('floor_count').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('floor_count').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('floor_count').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stockwerke ges. <FieldExportBadges field="floor_count" /></label>
             <Input v-model="form.floor_count" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplaetze <span v-if="vis('parking_spaces').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_spaces').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_spaces').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Stellplaetze <FieldExportBadges field="parking_spaces" /></label>
             <Input v-model="form.parking_spaces" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Parkplatz-Typ <span v-if="vis('parking_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('parking_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('parking_type').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Parkplatz-Typ <FieldExportBadges field="parking_type" /></label>
             <Input v-model="form.parking_type" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
@@ -1117,7 +1021,7 @@ defineExpose({ save, discard });
       <TabsContent v-if="!isChild" value="ausstattung" class="mt-0">
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Zustand <span v-if="vis('realty_condition').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('realty_condition').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('realty_condition').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Zustand <FieldExportBadges field="realty_condition" /></label>
             <Select v-model="form.realty_condition">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -1126,7 +1030,7 @@ defineExpose({ save, discard });
             </Select>
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Qualitaet <span v-if="vis('quality').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('quality').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('quality').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Qualitaet <FieldExportBadges field="quality" /></label>
             <Select v-model="form.quality">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -1135,15 +1039,15 @@ defineExpose({ save, discard });
             </Select>
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Baujahr <span v-if="vis('construction_year').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('construction_year').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('construction_year').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Baujahr <FieldExportBadges field="construction_year" /></label>
             <Input v-model="form.construction_year" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Sanierungsjahr <span v-if="vis('year_renovated').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('year_renovated').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('year_renovated').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Sanierungsjahr <FieldExportBadges field="year_renovated" /></label>
             <Input v-model="form.year_renovated" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kueche <span v-if="vis('kitchen_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('kitchen_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('kitchen_type').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kueche <FieldExportBadges field="kitchen_type" /></label>
             <Select v-model="form.kitchen_type">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -1152,23 +1056,23 @@ defineExpose({ save, discard });
             </Select>
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Heizung <span v-if="vis('heating').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Heizung <FieldExportBadges field="heating" /></label>
             <Input v-model="form.heating" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Bodenbelag <span v-if="vis('flooring').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('flooring').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('flooring').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Bodenbelag <FieldExportBadges field="flooring" /></label>
             <Input v-model="form.flooring" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Badausstattung <span v-if="vis('bathroom_equipment').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('bathroom_equipment').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('bathroom_equipment').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Badausstattung <FieldExportBadges field="bathroom_equipment" /></label>
             <Input v-model="form.bathroom_equipment" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausrichtung <span v-if="vis('orientation').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('orientation').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('orientation').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausrichtung <FieldExportBadges field="orientation" /></label>
             <Input v-model="form.orientation" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Moeblierung <span v-if="vis('furnishing').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('furnishing').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('furnishing').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Moeblierung <FieldExportBadges field="furnishing" /></label>
             <Input v-model="form.furnishing" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
         </div>
@@ -1180,7 +1084,7 @@ defineExpose({ save, discard });
             @click="form[feat.key] = !form[feat.key]"
             :style="form[feat.key] ? 'background:hsl(240 5.9% 10%);color:white' : 'border:1px solid hsl(240 5.9% 90%)'"
             class="px-2.5 py-1 rounded-md text-[11px] transition-colors">
-            {{ feat.label }} <component v-if="vis(feat.key).icons.length" v-for="ic in vis(feat.key).icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 ml-0.5 inline-block" :title="vis(feat.key).tip" />
+            {{ feat.label }} <FieldExportBadges :field="feat.key" />
           </button>
         </div>
       </TabsContent>
@@ -1188,7 +1092,7 @@ defineExpose({ save, discard });
       <TabsContent value="energie" class="mt-0">
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausweistyp <span v-if="vis('energy_type').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_type').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_type').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Ausweistyp <FieldExportBadges field="energy_type" /></label>
             <Select v-model="form.energy_type">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -1197,7 +1101,7 @@ defineExpose({ save, discard });
             </Select>
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieklasse <span v-if="vis('heating_demand_class').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating_demand_class').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating_demand_class').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieklasse <FieldExportBadges field="heating_demand_class" /></label>
             <Select v-model="form.heating_demand_class">
               <SelectTrigger class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -1207,23 +1111,23 @@ defineExpose({ save, discard });
             </Select>
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">HWB (kWh/m2a) <span v-if="vis('heating_demand_value').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('heating_demand_value').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('heating_demand_value').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">HWB (kWh/m2a) <FieldExportBadges field="heating_demand_value" /></label>
             <Input v-model="form.heating_demand_value" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">fGEE <span v-if="vis('energy_efficiency_value').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_efficiency_value').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_efficiency_value').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">fGEE <FieldExportBadges field="energy_efficiency_value" /></label>
             <Input v-model="form.energy_efficiency_value" type="number" step="0.01" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energietraeger <span v-if="vis('energy_primary_source').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_primary_source').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_primary_source').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energietraeger <FieldExportBadges field="energy_primary_source" /></label>
             <Input v-model="form.energy_primary_source" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Gueltig bis <span v-if="vis('energy_valid_until').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_valid_until').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_valid_until').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Gueltig bis <FieldExportBadges field="energy_valid_until" /></label>
             <Input v-model="form.energy_valid_until" type="date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div class="col-span-3 max-sm:col-span-2">
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieausweis (Freitext) <span v-if="vis('energy_certificate').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('energy_certificate').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('energy_certificate').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Energieausweis (Freitext) <FieldExportBadges field="energy_certificate" /></label>
             <Textarea v-model="form.energy_certificate" rows="2" class="text-[13px]" />
           </div>
         </div>
@@ -1232,15 +1136,15 @@ defineExpose({ save, discard });
       <TabsContent value="bau" class="mt-0">
         <div class="grid grid-cols-3 max-sm:grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Verfuegbar ab <span v-if="vis('available_from').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('available_from').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('available_from').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Verfuegbar ab <FieldExportBadges field="available_from" /></label>
             <Input v-model="form.available_from" type="date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Verfuegbarkeit <span v-if="vis('available_text').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('available_text').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('available_text').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Verfuegbarkeit <FieldExportBadges field="available_text" /></label>
             <Input v-model="form.available_text" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" placeholder="sofort, nach Vereinbarung" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Baubeginn <span v-if="vis('construction_start').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('construction_start').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('construction_start').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Baubeginn <FieldExportBadges field="construction_start" /></label>
             <Input v-model="form.construction_start" type="date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
@@ -1252,15 +1156,15 @@ defineExpose({ save, discard });
             <Input v-model="form.builder_company" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Hausverwaltung <span v-if="vis('property_manager').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('property_manager').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('property_manager').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Hausverwaltung <FieldExportBadges field="property_manager" /></label>
             <Input v-model="form.property_manager" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Inseriert seit <span v-if="vis('inserat_since').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('inserat_since').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('inserat_since').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Inseriert seit <FieldExportBadges field="inserat_since" /></label>
             <Input v-model="form.inserat_since" type="date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
           <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Plattformen <span v-if="vis('platforms').icons.length" class="inline-flex gap-0.5"><component v-for="ic in vis('platforms').icons" :key="ic" :is="iconMap[ic]" class="w-3 h-3 text-orange-400 flex-shrink-0 cursor-help" :title="vis('platforms').tip" /></span></label>
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Plattformen <FieldExportBadges field="platforms" /></label>
             <Input v-model="form.platforms" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" placeholder="willhaben, immoscout24" />
           </div>
         </div>

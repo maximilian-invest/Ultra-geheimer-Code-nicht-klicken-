@@ -843,16 +843,17 @@ async function sendNachfassenSelected() {
   if (sel.nf3) stages.push(3);
   if (!stages.length) { toast("Bitte mindestens eine Stufe wählen"); return; }
 
-  const items = filteredFollowups.value.filter(f => f.draft_body && stages.includes(f._stage));
-  if (!items.length) { toast("Keine Entwürfe für die gewählten Stufen"); return; }
-  
+  // Keine Draft-Filter mehr — das Backend baut die Nachfass-Mail fuer jede
+  // faellige Konversation per Template on-the-fly (deterministisch, ohne KI).
+  const items = filteredFollowups.value.filter(f => stages.includes(f._stage));
+  if (!items.length) { toast("Keine fälligen Konversationen in den gewählten Stufen"); return; }
 
   showNfStagePicker.value = false;
-  const allForStages = filteredFollowups.value.filter(f => stages.includes(f._stage));
+  const allForStages = items;
   bulkSending.value = true;
   bulkSendTotal.value = allForStages.length;
   bulkSendDone.value = 0;
-  bulkSendLabel.value = "KI generiert & sendet " + allForStages.length + " Nachfass-Mails...";
+  bulkSendLabel.value = "Sende " + allForStages.length + " Nachfass-Mails...";
 
   try {
     const r = await fetch(API.value + "&action=conv_followup_all", {
@@ -2704,7 +2705,7 @@ onMounted(() => {
               @click="nachfassenAlle"
             >
               <Send class="w-3 h-3" />
-              Alle nachfassen ({{ filteredFollowups.filter(f => f.draft_body).length }})
+              Alle nachfassen ({{ filteredFollowups.length }})
             </Button>
             <Button variant="ghost" size="sm" class="h-8 w-8 p-0 flex-shrink-0" @click="showAutoFollowupSettings = !showAutoFollowupSettings; if (showAutoFollowupSettings) loadAutoFollowupSettings()" title="Auto-Nachfassen Einstellungen">
               <Settings2 class="w-3.5 h-3.5 text-muted-foreground" />
@@ -2787,7 +2788,7 @@ onMounted(() => {
             @click="nachfassenAlle"
           >
             <Send class="w-3 h-3" />
-            Alle nachfassen ({{ filteredFollowups.filter(f => f.draft_body).length }})
+            Alle nachfassen ({{ filteredFollowups.length }})
           </Button>
         </div>
 

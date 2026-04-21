@@ -1324,12 +1324,113 @@ class ConversationController extends Controller
     }
 
     /**
-     * conv_followup_all — Send all pending drafts.
+     * conv_followup_all — Mass-send Nachfass-Mails per deterministischem
+     * Template. Braucht keinen vorgenerierten Draft — baut das Template
+     * per Konversation on-the-fly (gleiche Logik wie in regenerateDraft).
+     * Stages filtern die Welle: [1] = nur NF1, [1,2] = NF1+NF2, etc.
      */
     public function followupAll(Request $request): JsonResponse
     {
-        // PERMANENTLY DISABLED
-        return response()->json(['error' => 'Disabled'], 403);
+        $input = $request->json()->all();
+        $accountId = intval($input['account_id'] ?? 0);
+        $stages = $input['stages'] ?? [1, 2, 3];
+        if (!is_array($stages)) $stages = [1, 2, 3];
+        $stages = array_map('intval', $stages);
+
+        if (!$accountId) {
+            return response()->json(['error' => 'account_id required'], 400);
+        }
+
+        $brokerId = \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+
+        // Kandidaten-Liste: gleiche Regel wie conv_list&status=nachfassen.
+        $query = Conversation::forBroker($brokerId, $userType)
+            ->whereIn('status', ['beantwortet', 'nachfassen_1', 'nachfassen_2'])
+            ->where('followup_count', '<', 3)
+            ->where(function ($q) {
+                $q->where(function ($q2) {
+                    $q2->where('followup_count', 0)->where('last_outbound_at', '<=', now()->subHours(24));
+                })->orWhere(function ($q2) {
+                    $q2->where('followup_count', '>=', 1)->where('last_outbound_at', '<=', now()->subDays(3));
+                });
+            });
+
+        $convs = $query->get();
+        if ($convs->isEmpty()) {
+            return response()->json(['success' => true, 'sent' => 0, 'total' => 0, 'message' => 'Keine faelligen Nachfass-Konversationen.']);
+        }
+
+        $emailService = app(\App\Services\EmailService::class);
+        $sent = 0;
+        $errors = [];
+
+        foreach ($convs as $conv) {
+            $fc = (int) ($conv->followup_count ?? 0);
+            $stageOneBased = $fc + 1;  // NF1 = 1, NF2 = 2, NF3 = 3
+            if (!in_array($stageOneBased, $stages, true)) continue;
+            if (empty($conv->contact_email)) { $errors[] = "conv {$conv->id}: keine contact_email"; continue; }
+
+            // Template (gleiche Logik wie in regenerateDraft)
+            $lastOutbound = $conv->last_outbound_at ? strtotime($conv->last_outbound_at) : 0;
+            $dateStr = $lastOutbound ? date('d.m.Y', $lastOutbound) : 'vor einigen Tagen';
+            $sh = trim((string) ($conv->stakeholder ?: ''));
+            if (preg_match('/^Herr\s+/i', $sh))      $anrede = 'Sehr geehrter ' . $sh;
+            elseif (preg_match('/^Frau\s+/i', $sh))  $anrede = 'Sehr geehrte ' . $sh;
+            else                                      $anrede = $sh !== '' ? "Guten Tag {$sh}" : 'Guten Tag';
+
+            if ($fc === 0) {
+                $body = $anrede . ",\n\n"
+                    . "ich habe Ihnen am {$dateStr} Unterlagen zukommen lassen "
+                    . "und wollte kurz nachfragen, ob die Immobilie grundsätzlich noch für Sie in Frage kommt.\n\n"
+                    . "Über eine kurze Rückmeldung würde ich mich freuen.\n\n"
+                    . "Mit freundlichen Grüßen";
+                $subject = 'Nachfrage';
+            } else {
+                $body = $anrede . ",\n\n"
+                    . "ich habe Ihnen am {$dateStr} bereits eine Nachfrage geschickt "
+                    . "und wollte mich heute noch einmal melden. Kommt die Immobilie grundsätzlich "
+                    . "noch für Sie in Frage, oder haben Sie sich bereits anderweitig entschieden?\n\n"
+                    . "Über eine kurze Rückmeldung würde ich mich freuen.\n\n"
+                    . "Mit freundlichen Grüßen";
+                $subject = 'Erneute Nachfrage';
+            }
+
+            try {
+                $emailService->send(
+                    $accountId,
+                    $conv->contact_email,
+                    $subject,
+                    $body,
+                    $conv->property_id,
+                    $conv->stakeholder,
+                    null, null, [],
+                    null, null,
+                    'nachfassen',
+                    $stageOneBased
+                );
+                // Conversation-Status aktualisieren
+                $conv->update([
+                    'status' => 'nachfassen_' . $stageOneBased,
+                    'last_outbound_at' => now(),
+                    'outbound_count' => ($conv->outbound_count ?? 0) + 1,
+                    'followup_count' => $fc + 1,
+                    'draft_body' => null, 'draft_subject' => null, 'draft_to' => null,
+                ]);
+                $sent++;
+            } catch (\Throwable $e) {
+                \Log::warning("conv_followup_all: conv {$conv->id} failed: " . $e->getMessage());
+                $errors[] = "conv {$conv->id}: " . $e->getMessage();
+            }
+        }
+
+        \Log::info("conv_followup_all: sent={$sent} errors=" . count($errors));
+        return response()->json([
+            'success' => true,
+            'sent' => $sent,
+            'total' => $convs->count(),
+            'errors' => $errors,
+        ]);
     }
 
     // ========================================================

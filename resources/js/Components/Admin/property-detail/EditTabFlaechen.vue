@@ -1,5 +1,5 @@
 <script setup>
-import { computed, watch, onMounted, ref } from "vue";
+import { computed, watch, onMounted, ref, inject } from "vue";
 import { Trash2, Plus } from "lucide-vue-next";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,42 @@ const props = defineProps({
   form: { type: Object, required: true },
   isNewbuild: { type: Boolean, default: false },
 });
+
+// Fuer Neubauprojekte: Ranges aus property_units berechnen
+const API = inject("API");
+const unitData = ref([]);
+
+async function loadUnits() {
+  if (!props.form.id || !props.isNewbuild) return;
+  try {
+    const r = await fetch(API.value + "&action=get_units&property_id=" + props.form.id);
+    const d = await r.json();
+    unitData.value = Array.isArray(d.units) ? d.units.filter(u => !u.is_parking) : [];
+  } catch (e) {
+    console.warn("get_units failed:", e);
+  }
+}
+
+onMounted(loadUnits);
+watch(() => [props.form.id, props.isNewbuild], loadUnits);
+
+function minMaxRange(key, unit = "m²") {
+  const values = unitData.value.map(u => parseFloat(u[key])).filter(v => !isNaN(v) && v > 0);
+  if (!values.length) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  if (min === max) return `${min.toLocaleString("de-AT")} ${unit}`.trim();
+  return `${min.toLocaleString("de-AT")} – ${max.toLocaleString("de-AT")} ${unit}`.trim();
+}
+
+// Range-Labels per Feld fuer Neubau
+const neubauRanges = computed(() => ({
+  living_area:   minMaxRange("area_m2", "m²"),
+  rooms_amount:  minMaxRange("rooms", ""),
+  area_balcony:  minMaxRange("balcony_terrace_m2", "m²"),
+  area_terrace:  minMaxRange("balcony_terrace_m2", "m²"), // selbes Feld in Units
+  area_garden:   minMaxRange("garden_m2", "m²"),
+}));
 
 const inputCls = "h-9 text-[13px] border-0 rounded-lg bg-zinc-100/80";
 const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
@@ -148,17 +184,27 @@ watch(() => props.form?.id, loadParking);
     <div class="flex flex-col gap-4">
       <!-- Flächen -->
       <AccordionSection title="Flächen (m²)" color="#ea580c" :default-open="true">
+        <div v-if="isNewbuild" class="col-span-2 text-[11px] text-muted-foreground bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5 mb-1">
+          Flächen bei Neubauprojekten werden pro Einheit gepflegt (siehe Einheiten-Tab). Hier werden die Bereiche automatisch angezeigt.
+        </div>
         <div v-for="field in areaFields" :key="field.key">
-          <label :class="labelCls">{{ field.label }} <span v-if="field.countKey" class="text-[10px] text-muted-foreground font-normal">(m² | Anzahl)</span></label>
-          <div v-if="field.key === 'living_area' && isNewbuild" class="relative">
+          <label :class="labelCls">{{ field.label }}
+            <span v-if="field.countKey && !isNewbuild" class="text-[10px] text-muted-foreground font-normal">(m² | Anzahl)</span>
+            <FieldExportBadges :field="field.key" />
+          </label>
+          <!-- Neubau: Ranges aus Units -->
+          <div v-if="isNewbuild && neubauRanges[field.key]" class="relative">
             <Input
-              v-model="form[field.key]"
-              type="number"
+              :model-value="neubauRanges[field.key]"
               disabled
-              :class="inputCls + ' pr-12 opacity-60'"
+              :class="inputCls + ' pr-14 opacity-80 font-medium'"
             />
-            <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground font-medium bg-zinc-100 px-1.5 py-0.5 rounded">auto</span>
+            <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-medium bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">auto</span>
           </div>
+          <div v-else-if="isNewbuild" class="text-[11px] text-muted-foreground italic py-2 px-3 bg-zinc-50 rounded-lg">
+            Noch keine Daten in Einheiten
+          </div>
+          <!-- Bestand: normale Eingaben -->
           <div v-else-if="field.countKey" class="flex gap-2">
             <div class="flex-1">
               <Input v-model="form[field.key]" type="number" placeholder="m²" :class="inputCls" />
@@ -261,8 +307,8 @@ watch(() => props.form?.id, loadParking);
 
     <!-- Right column -->
     <div class="flex flex-col gap-4">
-      <!-- Räume & Stockwerk -->
-      <AccordionSection title="Räume & Stockwerk" color="#8b5cf6" :default-open="true">
+      <!-- Räume & Stockwerk — bei Neubauprojekten ausgeblendet (Werte kommen pro Einheit) -->
+      <AccordionSection v-if="!isNewbuild" title="Räume & Stockwerk" color="#8b5cf6" :default-open="true">
         <div>
           <label :class="labelCls">Zimmer <FieldExportBadges field="rooms_amount" /></label>
           <Input v-model="form.rooms_amount" type="number" step="0.5" :class="inputCls" />

@@ -219,17 +219,48 @@
   const detailsEl = document.getElementById('details-table');
   if (detailsEl) {
     const rows = [];
+    // Deutsche Uebersetzungen fuer Enum-Felder
+    const CONDITION_LABELS = {
+      NEW_BUILT: 'Erstbezug', FIRST_TIME_USE: 'Erstbezug', USED: 'Gebraucht',
+      RECONSTRUCTED: 'Saniert', CORE_REFURBISHED: 'Kernsaniert',
+      RENOVATED: 'Renoviert', WELL_MAINTAINED: 'Gepflegt',
+      NEEDS_RENOVATION: 'Renovierungsbedürftig', RAW: 'Rohbau',
+      neuwertig: 'Neuwertig', gebraucht: 'Gebraucht', saniert: 'Saniert',
+      renoviert: 'Renoviert', erstbezug: 'Erstbezug', abbruchreif: 'Abbruchreif',
+    };
+    const OWNERSHIP_LABELS = {
+      eigentum: 'Eigentum', baurecht: 'Baurecht', pacht: 'Pacht', miete: 'Miete',
+    };
+    const FURNISHING_LABELS = {
+      unfurnished: 'Unmöbliert', partially: 'Teilmöbliert', fully: 'Vollmöbliert',
+      unmoebliert: 'Unmöbliert', teilmoebliert: 'Teilmöbliert',
+      vollmoebliert: 'Vollmöbliert',
+    };
+    const CONSTRUCTION_TYPE_LABELS = {
+      massiv: 'Massivbauweise', holz: 'Holzbauweise', fertigteil: 'Fertigteilbau',
+      mischbau: 'Mischbauweise', sonstige: 'Sonstige',
+    };
+    const translate = (val, map) => val && map[String(val).toLowerCase()] ? map[String(val).toLowerCase()] : val;
+
     if (p.type) rows.push(['Objekttyp', p.type]);
     if (p.area_living) rows.push(['Wohnfläche', `${p.area_living} m²`]);
     if (p.total_area && p.total_area != p.area_living) rows.push(['Gesamtfläche', `${p.total_area} m²`]);
     if (p.free_area) rows.push(['Grundstücksfläche', `${p.free_area} m²`]);
+    if (p.total_units) rows.push(['Wohneinheiten', p.total_units]);
     if (p.rooms) rows.push(['Zimmer', p.rooms]);
     if (p.bathrooms) rows.push(['Badezimmer', p.bathrooms]);
     if (p.area_balcony) rows.push(['Balkonfläche', `${p.area_balcony} m²`]);
     if (p.area_terrace) rows.push(['Terrasse', `${p.area_terrace} m²`]);
+    if (p.area_loggia) rows.push(['Loggia', `${p.area_loggia} m²`]);
     if (p.area_garden) rows.push(['Gartenfläche', `${p.area_garden} m²`]);
+    if (p.area_basement) rows.push(['Kellerfläche', `${p.area_basement} m²`]);
     if (p.year_built) rows.push(['Baujahr', p.year_built]);
     if (p.year_renovated) rows.push(['Renoviert', p.year_renovated]);
+    if (p.construction_end) rows.push(['Fertigstellung', p.construction_end]);
+    if (p.construction_type) rows.push(['Bauart', translate(p.construction_type, CONSTRUCTION_TYPE_LABELS)]);
+    if (p.realty_condition) rows.push(['Zustand', translate(p.realty_condition, CONDITION_LABELS)]);
+    if (p.ownership_type) rows.push(['Eigentumsform', translate(p.ownership_type, OWNERSHIP_LABELS)]);
+    if (p.furnishing) rows.push(['Möblierung', translate(p.furnishing, FURNISHING_LABELS)]);
     if (p.heating) rows.push(['Heizung', p.heating]);
     if (p.energy_hwb) rows.push(['HWB', `${p.energy_hwb} kWh/m²a`]);
     if (p.energy_fgee) rows.push(['fGEE', p.energy_fgee]);
@@ -237,8 +268,8 @@
     if (p.energy_certificate && !p.energy_hwb) rows.push(['Energieausweis', p.energy_certificate]);
     if (p.heating_demand_value && !p.energy_hwb) rows.push(['Heizwärmebedarf', `${p.heating_demand_value} kWh/m²a`]);
     if (p.operating_costs) rows.push(['Betriebskosten', `€ ${Number(p.operating_costs).toLocaleString('de-AT')}`]);
-    if (p.condition_note) rows.push(['Zustand', p.condition_note]);
-    if (p.available_from) rows.push(['Verfügbar ab', p.available_from]);
+    if (p.condition_note) rows.push(['Zustand-Details', p.condition_note]);
+    if (p.available_from) rows.push(['Beziehbar ab', p.available_from]);
     if (p.city) rows.push(['Region', p.city]);
     if (rows.length) {
       detailsEl.innerHTML = `<h2 class="text-xl font-bold mb-4" style="color:#0A0A08">Details</h2>

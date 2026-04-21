@@ -1163,10 +1163,6 @@ defineExpose({ save, discard });
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Inseriert seit <FieldExportBadges field="inserat_since" /></label>
             <Input v-model="form.inserat_since" type="date" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
           </div>
-          <div>
-            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Plattformen <FieldExportBadges field="platforms" /></label>
-            <Input v-model="form.platforms" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" placeholder="willhaben, immoscout24" />
-          </div>
         </div>
       </TabsContent>
 

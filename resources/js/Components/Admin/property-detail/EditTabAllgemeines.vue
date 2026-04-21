@@ -280,10 +280,6 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           <label :class="labelCls">Inseriert seit <FieldExportBadges field="inserat_since" /></label>
           <Input v-model="form.inserat_since" type="date" :class="inputCls" />
         </div>
-        <div class="col-span-2">
-          <label :class="labelCls">Plattformen <FieldExportBadges field="platforms" /></label>
-          <Input v-model="form.platforms" :class="inputCls" placeholder="willhaben, immoscout24" />
-        </div>
       </AccordionSection>
 
       <!-- Ausstattung & Merkmale -->

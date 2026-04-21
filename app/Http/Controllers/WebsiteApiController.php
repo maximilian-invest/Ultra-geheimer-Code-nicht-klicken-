@@ -34,15 +34,20 @@ class WebsiteApiController extends Controller
                     'id', 'ref_id', 'title', 'project_name', 'address', 'city', 'zip',
                     'object_type as type', 'property_category', 'realty_status', 'marketing_type', 'purchase_price as price',
                     'living_area as area_living', 'free_area', 'total_area', 'rooms_amount as rooms', 'bathrooms',
+                    'area_balcony', 'area_terrace', 'area_garden', 'area_loggia', 'area_basement',
                     'construction_year as year_built', 'year_renovated', 'realty_description as description', 'highlights',
                     'main_image_id', 'website_gallery_ids',
                     'total_units', 'energy_certificate', 'heating_demand_value',
                     'garage_spaces', 'parking_spaces', 'has_basement',
                     'has_garden', 'has_elevator', 'has_balcony', 'has_terrace',
-                    'has_loggia', 'condition_note',
+                    'has_loggia', 'has_fitted_kitchen', 'has_air_conditioning',
+                    'has_pool', 'has_sauna', 'has_fireplace', 'has_barrier_free',
+                    'has_guest_wc', 'has_storage_room', 'has_alarm',
+                    'condition_note', 'realty_condition', 'construction_type',
+                    'ownership_type', 'furnishing', 'available_from', 'construction_end',
                     'common_areas', 'has_photovoltaik', 'has_charging_station',
                     'sold_at', 'broker_id', 'broker_name_override',
-                    'purchase_price', 'rental_price',
+                    'purchase_price', 'rental_price', 'heating',
                     'external_image_url'
                 ])
                 ->orderBy('id', 'desc')
@@ -152,6 +157,17 @@ class WebsiteApiController extends Controller
                 if ($p->has_loggia) $features[] = 'Loggia';
                 if ($p->has_elevator) $features[] = 'Lift';
                 if ($p->has_basement) $features[] = 'Keller';
+                if (!empty($p->has_fitted_kitchen)) $features[] = 'Einbauküche';
+                if (!empty($p->has_air_conditioning)) $features[] = 'Klimaanlage';
+                if (!empty($p->has_pool)) $features[] = 'Pool';
+                if (!empty($p->has_sauna)) $features[] = 'Sauna';
+                if (!empty($p->has_fireplace)) $features[] = 'Kamin';
+                if (!empty($p->has_barrier_free)) $features[] = 'Barrierefrei';
+                if (!empty($p->has_guest_wc)) $features[] = 'Gäste-WC';
+                if (!empty($p->has_storage_room)) $features[] = 'Abstellraum';
+                if (!empty($p->has_alarm)) $features[] = 'Alarmanlage';
+                if (!empty($p->has_photovoltaik)) $features[] = 'Photovoltaik';
+                if (!empty($p->has_charging_station)) $features[] = 'E-Ladestation';
                 if ($p->garage_spaces > 0) $features[] = 'Garage';
                 if ($p->parking_spaces > 0) $features[] = 'Stellplatz';
                 $p->features = $features;
@@ -357,6 +373,15 @@ class WebsiteApiController extends Controller
         if (!empty($p->has_loggia)) $features[] = 'Loggia';
         if (!empty($p->has_elevator)) $features[] = 'Lift';
         if (!empty($p->has_basement)) $features[] = 'Keller';
+        if (!empty($p->has_fitted_kitchen)) $features[] = 'Einbauküche';
+        if (!empty($p->has_air_conditioning)) $features[] = 'Klimaanlage';
+        if (!empty($p->has_pool)) $features[] = 'Pool';
+        if (!empty($p->has_sauna)) $features[] = 'Sauna';
+        if (!empty($p->has_fireplace)) $features[] = 'Kamin';
+        if (!empty($p->has_barrier_free)) $features[] = 'Barrierefrei';
+        if (!empty($p->has_guest_wc)) $features[] = 'Gäste-WC';
+        if (!empty($p->has_storage_room)) $features[] = 'Abstellraum';
+        if (!empty($p->has_alarm)) $features[] = 'Alarmanlage';
         if (!empty($p->garage_spaces) && $p->garage_spaces > 0) $features[] = 'Garage';
         if (!empty($p->parking_spaces) && $p->parking_spaces > 0) $features[] = 'Stellplatz';
         if (!empty($p->has_photovoltaik)) $features[] = 'Photovoltaik';

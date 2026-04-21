@@ -2,7 +2,7 @@
 import { computed, inject, ref, watch, nextTick } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp, Sparkles, CheckCircle, Send, RefreshCw, Wand2, Link2, Pencil, Home } from 'lucide-vue-next'
+import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp, Sparkles, CheckCircle, Send, RefreshCw, Wand2, Link2, Pencil, Home, Forward } from 'lucide-vue-next'
 import InboxMatchCard from './InboxMatchCard.vue'
 import InboxMailMessage from './InboxMailMessage.vue'
 import InboxComposePane from './InboxComposePane.vue'
@@ -28,22 +28,29 @@ const inboxProperties = inject('inboxProperties', ref([]))
 const currentUserId = inject('userId', ref(null))
 const currentUserType = inject('userType', ref('makler'))
 
-// Unwrap to plain array + filter auf eigene Properties.
-// Regel: Zuordnung nur auf Objekte die dem Makler/Admin gehoeren dessen
-// Postfach die Mail erreicht hat. Assistenz/Backoffice duerfen shared zugreifen.
+// Unwrap to plain array + filter auf eigene + AKTIVE Properties.
+// Regel 1: Zuordnung nur auf Objekte die dem Makler/Admin gehoeren dessen
+//          Postfach die Mail erreicht hat. Assistenz/Backoffice duerfen shared
+//          zugreifen.
+// Regel 2: Nur Objekte mit realty_status='aktiv'. Verkaufte/inaktive werden
+//          ausgeblendet — sonst koennte man Mails faelschlich verkauften
+//          Objekten zuordnen, was in Statistiken verwirrt.
 const propertiesArray = computed(() => {
   const src = inboxProperties
   let list = []
   if (Array.isArray(src)) list = src
   else if (src && 'value' in src) list = Array.isArray(src.value) ? src.value : []
 
+  // Nur aktive Objekte
+  list = list.filter(p => String(p.realty_status || '').toLowerCase() === 'aktiv')
+
   const userType = currentUserType.value
   const uid = Number(currentUserId.value || 0)
 
-  // Assistenz/Backoffice sehen alle Properties
+  // Assistenz/Backoffice sehen alle aktiven
   if (['assistenz', 'backoffice'].includes(userType)) return list
 
-  // Admin + Makler: nur eigene
+  // Admin + Makler: nur eigene aktive
   if (!uid) return []
   return list.filter(p => Number(p.broker_id || 0) === uid)
 })
@@ -803,7 +810,8 @@ const statusBadge = computed(() => {
       <Button variant="ghost" size="sm" @click="enterCompose('reply-all', false)">
         Allen antworten
       </Button>
-      <Button variant="ghost" size="sm" @click="enterCompose('forward', false)">
+      <Button variant="outline" size="sm" @click="enterCompose('forward', false)" title="Weiterleiten">
+        <Forward class="w-3.5 h-3.5 mr-1" />
         Weiterleiten
       </Button>
       <Button variant="ghost" size="sm" class="sr-done-btn" @click="emit('markHandled')">

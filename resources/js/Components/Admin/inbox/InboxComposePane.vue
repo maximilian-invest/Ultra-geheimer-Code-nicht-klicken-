@@ -45,6 +45,35 @@ const linkPickerOpen = ref(false)
 const referenceExpanded = ref(false)
 const ccVisible = ref(false)
 
+// Build a quoted block for forward: standard email client style header +
+// original body. So the forwarded mail looks like a proper weitergeleitete
+// Nachricht with attribution.
+function buildForwardQuote(ref) {
+  if (!ref) return ''
+  const from = (ref.from_name || '') + (ref.from_email ? ' <' + ref.from_email + '>' : '')
+  const whenRaw = ref.email_date || ref.activity_date || ref.date || ''
+  let when = ''
+  if (whenRaw) {
+    const d = new Date(whenRaw)
+    if (!isNaN(d.getTime())) when = d.toLocaleString('de-AT', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  }
+  const to = ref.to_email || ref.to_name || ''
+  const subj = ref.subject || ''
+  const body = String(ref.body_text || ref.full_body || '').trim()
+
+  return [
+    '',
+    '',
+    '-------- Weitergeleitete Nachricht --------',
+    'Von: ' + from,
+    'Gesendet: ' + when,
+    'An: ' + to,
+    'Betreff: ' + subj,
+    '',
+    body,
+  ].join('\n')
+}
+
 // On mount, seed the draft with the prefill if the body is still empty.
 // Also trigger AI draft generation when withDraft is true and the body
 // isn't already populated.
@@ -57,6 +86,11 @@ onMounted(() => {
   }
   if (props.prefill?.subject && !draft.value.subject) {
     draft.value = { ...draft.value, subject: props.prefill.subject }
+  }
+  // Bei Weiterleiten: Original als Zitat im Body vorbefuellen, damit
+  // Empfaenger die urspruengliche Nachricht sieht.
+  if (props.kind === 'forward' && !(draft.value.body || '').trim() && props.referenceMessage) {
+    draft.value = { ...draft.value, body: buildForwardQuote(props.referenceMessage) }
   }
   if (props.withDraft && !(draft.value.body || '').trim()) {
     inboxCompose.regenerate()

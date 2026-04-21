@@ -1,7 +1,8 @@
 <script setup>
 import { catBadgeStyle, catLabel } from '@/utils/categoryBadge.js';
 import { ref, inject, onMounted, watch, computed } from "vue";
-import { Search, Users, Pencil, Trash2, Plus, X, ChevronRight, Building, Clock, KeyRound, Mail, MapPin, Phone } from "lucide-vue-next";
+import { Search, Users, Pencil, Trash2, Plus, X, ChevronRight, Building, Building2, Clock, KeyRound, Mail, MapPin, Phone } from "lucide-vue-next";
+import HausverwaltungenTab from "@/Components/Admin/HausverwaltungenTab.vue";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -498,6 +499,9 @@ async function deletePortalUser() {
             <button @click="switchSub('team')" class="btn btn-sm" :class="adminSubTab === 'team' ? 'btn-primary' : 'btn-ghost'">
                 <Users class="w-3.5 h-3.5" /> Team
                 <span v-if="teamList.length" class="text-[10px] px-1 rounded bg-[var(--muted)] text-[var(--muted-foreground)]">{{ teamList.length }}</span>
+            </button>
+            <button @click="switchSub('managers')" class="btn btn-sm" :class="adminSubTab === 'managers' ? 'btn-primary' : 'btn-ghost'">
+                <Building2 class="w-3.5 h-3.5" /> Hausverwaltungen
             </button>
         </div>
 
@@ -1116,5 +1120,10 @@ async function deletePortalUser() {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <!-- HAUSVERWALTUNGEN (Phase 1) -->
+        <div v-if="adminSubTab === 'managers'">
+            <HausverwaltungenTab />
+        </div>
 
 </template>

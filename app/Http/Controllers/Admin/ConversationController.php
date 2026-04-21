@@ -818,16 +818,27 @@ class ConversationController extends Controller
 
         app(ConversationService::class)->markDone($conv);
 
-        // Create handled activity
-        DB::table('activities')->insert([
-            'property_id'   => $conv->property_id,
-            'stakeholder'   => $conv->stakeholder,
-            'activity_date' => now(),
-            'category'      => 'handled',
-            'activity'      => 'Konversation als erledigt markiert',
-            'created_at'    => now(),
-            'updated_at'    => now(),
-        ]);
+        // Internes Audit-Activity nur anlegen wenn die Konversation einem
+        // Objekt zugeordnet ist (activities.property_id ist NOT NULL) und
+        // mit einer gueltigen Kategorie aus dem Enum — 'handled' gab's dort
+        // nie, darum der Data-truncated/Integrity-Error in Prod. 'intern'
+        // ist die passende Kategorie fuer Makler-interne Statuswechsel.
+        if ($conv->property_id) {
+            try {
+                DB::table('activities')->insert([
+                    'property_id'   => $conv->property_id,
+                    'stakeholder'   => $conv->stakeholder ?: 'System',
+                    'activity_date' => now(),
+                    'category'      => 'intern',
+                    'activity'      => 'Konversation als erledigt markiert',
+                    'created_at'    => now(),
+                    'updated_at'    => now(),
+                ]);
+            } catch (\Throwable $e) {
+                // Niemals den markDone-Request wegen einem Audit-Log sprengen.
+                \Log::warning("conv_done audit-activity insert failed: " . $e->getMessage());
+            }
+        }
 
         return response()->json(['success' => true, 'message' => 'Als erledigt markiert']);
     }

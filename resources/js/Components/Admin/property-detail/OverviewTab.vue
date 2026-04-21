@@ -1,11 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, inject } from "vue";
 import {
-  Users, Key, Check, UserPlus, Unlink
+  Users, Key, Check, UserPlus, Unlink, Mail
 } from "lucide-vue-next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import ContactManagerSheet from "./ContactManagerSheet.vue";
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -44,6 +45,23 @@ const portalSuccess = ref("");
 // ─── Computed ────────────────────────────────────────────
 const isNewbuild = computed(() => props.property?.property_category === "newbuild");
 const hasOwner = computed(() => !!ownerData.value.customer_id);
+const hasManager = computed(() => !!props.property?.property_manager_id);
+
+// ─── HV-Kontaktieren ─────────────────────────────────────
+const contactSheetOpen = ref(false);
+
+function onHvDraftReady(draft) {
+  window.dispatchEvent(new CustomEvent('open-hv-compose', {
+    detail: {
+      property_id: props.property.id,
+      manager: draft.manager,
+      subject: draft.subject,
+      body: draft.body,
+      attachments: draft.attachments || [],
+      source_email_id: null,
+    },
+  }));
+}
 
 function formatPrice(val) {
   if (!val) return "–";
@@ -375,6 +393,25 @@ function ownerInitials(name) {
 
         </div>
       </div>
+    </div>
+
+    <!-- ── Hausverwaltung kontaktieren ── -->
+    <div v-if="hasManager">
+      <Button
+        size="sm"
+        variant="outline"
+        class="bg-[#fff7ed] text-[#c2410c] border-[#fed7aa] hover:bg-[#ffedd5]"
+        @click="contactSheetOpen = true"
+      >
+        <Mail class="w-3.5 h-3.5 mr-1.5" />
+        Hausverwaltung kontaktieren
+      </Button>
+      <ContactManagerSheet
+        v-model:open="contactSheetOpen"
+        :property-id="property.id"
+        :available-templates="['unterlagen', 'freitext']"
+        @draft-ready="onHvDraftReady"
+      />
     </div>
 
     <!-- ── Eigentümer & Kontakt ── -->

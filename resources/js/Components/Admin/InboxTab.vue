@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import InboxConversationList from "./inbox/InboxConversationList.vue";
 import InboxChatView from "./inbox/InboxChatView.vue";
+import HvComposeDialog from "./inbox/HvComposeDialog.vue";
 import InboxComposeView from "./inbox/InboxComposeView.vue";
 import InboxMatchView from "./inbox/InboxMatchView.vue";
 
@@ -3124,5 +3125,8 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- HV-Compose-Dialog (hört global auf 'open-hv-compose' Event) -->
+    <HvComposeDialog />
   </div>
 </template>

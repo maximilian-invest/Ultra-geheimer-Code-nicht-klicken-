@@ -8,6 +8,7 @@ import InboxMailMessage from './InboxMailMessage.vue'
 import InboxComposePane from './InboxComposePane.vue'
 import LinkPickerPopover from './LinkPickerPopover.vue'
 import PropertyAssignDialog from './PropertyAssignDialog.vue'
+import ForwardToManagerButton from './ForwardToManagerButton.vue'
 import { extractForwardMetadata } from './mailText.js'
 
 const props = defineProps({
@@ -814,6 +815,11 @@ const statusBadge = computed(() => {
         <Forward class="w-3.5 h-3.5 mr-1" />
         Weiterleiten
       </Button>
+      <ForwardToManagerButton
+        v-if="item && item.property_id"
+        :item="item"
+        :source-email-id="latestInbound()?.id || flatMessages[0]?.id || null"
+      />
       <Button variant="ghost" size="sm" class="sr-done-btn" @click="emit('markHandled')">
         <CheckCircle class="sr-action-icon" />
         Erledigt

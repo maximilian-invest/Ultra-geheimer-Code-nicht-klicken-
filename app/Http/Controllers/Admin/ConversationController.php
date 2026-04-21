@@ -1216,8 +1216,8 @@ class ConversationController extends Controller
                     . "Über eine kurze Rückmeldung würde ich mich freuen.\n\n"
                     . "Mit freundlichen Grüßen";
                 $subject = 'Nachfrage';
-            } else {
-                // NF2+: Bezug auf letztes Nachfassen
+            } elseif ($followupCount === 1) {
+                // NF2: Bezug auf letztes Nachfassen
                 $body = $anrede . ",\n\n"
                     . "ich habe Ihnen am {$lastOutboundDate} bereits eine Nachfrage geschickt "
                     . "und wollte mich heute noch einmal melden. Kommt die Immobilie grundsätzlich "
@@ -1225,6 +1225,18 @@ class ConversationController extends Controller
                     . "Über eine kurze Rückmeldung würde ich mich freuen.\n\n"
                     . "Mit freundlichen Grüßen";
                 $subject = 'Erneute Nachfrage';
+            } else {
+                // NF3+: Abschliessende Nachfrage mit Feedback-Bitte
+                $body = $anrede . ",\n\n"
+                    . "ich habe mich nun bereits mehrfach bei Ihnen gemeldet und möchte höflich "
+                    . "ein letztes Mal nachfragen: Ist die Immobilie grundsätzlich noch für Sie von Interesse?\n\n"
+                    . "Falls nicht, wäre ich Ihnen für eine kurze Rückmeldung sehr dankbar — "
+                    . "gerne auch mit dem Grund (z.B. Preis, Lage, Ausstattung, bereits anderweitig entschieden). "
+                    . "Das hilft mir, Sie in Zukunft mit passenderen Angeboten zu kontaktieren.\n\n"
+                    . "Sollte ich nichts mehr von Ihnen hören, gehe ich davon aus, dass kein Interesse mehr "
+                    . "besteht, und melde mich nicht weiter.\n\n"
+                    . "Mit freundlichen Grüßen";
+                $subject = 'Letzte Nachfrage';
             }
 
             $conversationService = app(ConversationService::class);
@@ -1380,13 +1392,15 @@ class ConversationController extends Controller
             else                                      $anrede = $sh !== '' ? "Guten Tag {$sh}" : 'Guten Tag';
 
             if ($fc === 0) {
+                // NF1
                 $body = $anrede . ",\n\n"
                     . "ich habe Ihnen am {$dateStr} Unterlagen zukommen lassen "
                     . "und wollte kurz nachfragen, ob die Immobilie grundsätzlich noch für Sie in Frage kommt.\n\n"
                     . "Über eine kurze Rückmeldung würde ich mich freuen.\n\n"
                     . "Mit freundlichen Grüßen";
                 $subject = 'Nachfrage';
-            } else {
+            } elseif ($fc === 1) {
+                // NF2
                 $body = $anrede . ",\n\n"
                     . "ich habe Ihnen am {$dateStr} bereits eine Nachfrage geschickt "
                     . "und wollte mich heute noch einmal melden. Kommt die Immobilie grundsätzlich "
@@ -1394,6 +1408,18 @@ class ConversationController extends Controller
                     . "Über eine kurze Rückmeldung würde ich mich freuen.\n\n"
                     . "Mit freundlichen Grüßen";
                 $subject = 'Erneute Nachfrage';
+            } else {
+                // NF3+: Abschluss mit Feedback-Bitte
+                $body = $anrede . ",\n\n"
+                    . "ich habe mich nun bereits mehrfach bei Ihnen gemeldet und möchte höflich "
+                    . "ein letztes Mal nachfragen: Ist die Immobilie grundsätzlich noch für Sie von Interesse?\n\n"
+                    . "Falls nicht, wäre ich Ihnen für eine kurze Rückmeldung sehr dankbar — "
+                    . "gerne auch mit dem Grund (z.B. Preis, Lage, Ausstattung, bereits anderweitig entschieden). "
+                    . "Das hilft mir, Sie in Zukunft mit passenderen Angeboten zu kontaktieren.\n\n"
+                    . "Sollte ich nichts mehr von Ihnen hören, gehe ich davon aus, dass kein Interesse mehr "
+                    . "besteht, und melde mich nicht weiter.\n\n"
+                    . "Mit freundlichen Grüßen";
+                $subject = 'Letzte Nachfrage';
             }
 
             try {

@@ -1188,7 +1188,59 @@ class ConversationController extends Controller
         $prop = DB::selectOne("SELECT address, city, ref_id FROM properties WHERE id = ?", [$propertyId]);
         $propAddr = ($prop->address ?? '') . ', ' . ($prop->city ?? '');
 
-        // Generate draft
+        // ─── NACHFASS-TEMPLATE (deterministisch, keine KI) ────────────
+        // User-Wunsch: Nachfass-Mails sollen NIEMALS auf die Immobilie
+        // eingehen, keinen Link enthalten, keine Expose-Details wiederholen.
+        // Nur generisches Reminder-Pattern mit Datums-Bezug — damit der User
+        // nicht jede Mail einzeln kontrollieren muss.
+        $isFollowupCase = ($outboundCount > 0 && $lastOutbound > $lastInbound);
+        if ($isFollowupCase) {
+            $lastOutboundDate = $lastOutbound ? date('d.m.Y', $lastOutbound) : 'vor einigen Tagen';
+            // Heuristik fuer die Anrede: wenn der stakeholder mit 'Herr '
+            // oder 'Frau ' beginnt, nutzen wir 'Sehr geehrter/Sehr geehrte'.
+            // Sonst neutral 'Guten Tag {name}'.
+            $sh = trim((string) $stakeholder);
+            if (preg_match('/^Herr\s+/i', $sh)) {
+                $anrede = 'Sehr geehrter ' . $sh;
+            } elseif (preg_match('/^Frau\s+/i', $sh)) {
+                $anrede = 'Sehr geehrte ' . $sh;
+            } else {
+                $anrede = $sh !== '' ? "Guten Tag {$sh}" : 'Guten Tag';
+            }
+
+            if ($followupCount === 0) {
+                // NF1: Bezug auf erste Zusendung
+                $body = $anrede . ",\n\n"
+                    . "ich habe Ihnen am {$lastOutboundDate} Unterlagen zukommen lassen "
+                    . "und wollte kurz nachfragen, ob die Immobilie grundsätzlich noch für Sie in Frage kommt.\n\n"
+                    . "Über eine kurze Rückmeldung würde ich mich freuen.\n\n"
+                    . "Mit freundlichen Grüßen";
+                $subject = 'Nachfrage';
+            } else {
+                // NF2+: Bezug auf letztes Nachfassen
+                $body = $anrede . ",\n\n"
+                    . "ich habe Ihnen am {$lastOutboundDate} bereits eine Nachfrage geschickt "
+                    . "und wollte mich heute noch einmal melden. Kommt die Immobilie grundsätzlich "
+                    . "noch für Sie in Frage, oder haben Sie sich bereits anderweitig entschieden?\n\n"
+                    . "Über eine kurze Rückmeldung würde ich mich freuen.\n\n"
+                    . "Mit freundlichen Grüßen";
+                $subject = 'Erneute Nachfrage';
+            }
+
+            $conversationService = app(ConversationService::class);
+            $conversationService->saveDraft($conv, $body, $subject, $conv->contact_email);
+            \Log::info("conv_regenerate_draft: template-based followup (NF" . ($followupCount + 1) . ") fuer conv {$id}");
+
+            return response()->json([
+                'success'       => true,
+                'draft_body'    => $body,
+                'draft_subject' => $subject,
+                'draft_to'      => $conv->contact_email,
+                'source'        => 'template',
+            ]);
+        }
+
+        // Generate draft (AI-Pfad nur fuer Erstantworten / echte inhaltliche Replies)
         try {
             $anthropic = app(\App\Services\AnthropicService::class);
             $draft = $anthropic->generateFollowupDraft(

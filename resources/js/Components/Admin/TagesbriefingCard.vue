@@ -30,7 +30,7 @@ const preview = computed(() => {
 
 <template>
     <div
-        class="relative rounded-xl border border-border/40 bg-card shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+        class="sr-briefing-card relative rounded-2xl bg-card overflow-hidden cursor-pointer"
         @click="emit('open')"
     >
         <!-- Orange Akzent-Leiste links -->
@@ -63,3 +63,18 @@ const preview = computed(() => {
         </div>
     </div>
 </template>
+
+<style scoped>
+.sr-briefing-card {
+    box-shadow:
+        0 1px 2px rgba(15, 23, 42, 0.03),
+        0 4px 16px -6px rgba(15, 23, 42, 0.06);
+    transition: box-shadow 180ms ease, transform 180ms ease;
+}
+.sr-briefing-card:hover {
+    box-shadow:
+        0 2px 4px rgba(15, 23, 42, 0.04),
+        0 10px 28px -8px rgba(15, 23, 42, 0.10);
+    transform: translateY(-1px);
+}
+</style>

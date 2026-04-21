@@ -366,7 +366,7 @@ onMounted(async () => {
 </script>
 
 <template>
-    <div class="px-4 py-6 space-y-6">
+    <div class="sr-soft-dashboard px-4 py-6 space-y-6">
 
         <!-- Tagesbriefing (NEU: oberhalb der Action-Card) -->
         <TagesbriefingCard
@@ -504,26 +504,36 @@ onMounted(async () => {
                 </CardHeader>
                 <CardContent>
                     <div v-if="trendData.length" class="relative">
-                        <svg :viewBox="'0 0 ' + (trendData.length * 60) + ' 160'" class="w-full" style="height:180px" preserveAspectRatio="none">
-                            <!-- Grid lines -->
-                            <line v-for="n in 4" :key="'g'+n" :x1="0" :x2="trendData.length * 60" :y1="n * 32" :y2="n * 32" stroke="hsl(var(--border))" stroke-width="0.5" />
-                            <!-- Inquiries area + bars -->
-                            <g v-for="(d, i) in trendData" :key="'t'+i"
-                                @mouseenter="hoveredTrend = i" @mouseleave="hoveredTrend = null" class="cursor-pointer">
-                                <rect :x="i * 60 + 8" :y="140 - (d.inquiries / trendMax * 120)"
-                                    :width="20" :height="Math.max(d.inquiries / trendMax * 120, 0)"
-                                    rx="3" fill="hsl(var(--chart-1))"
-                                    :opacity="hoveredTrend === i ? 1 : 0.85"
-                                    class="transition-opacity duration-150" />
-                                <rect :x="i * 60 + 32" :y="140 - (d.outbound / trendMax * 120)"
-                                    :width="20" :height="Math.max(d.outbound / trendMax * 120, 0)"
-                                    rx="3" fill="hsl(var(--chart-2))"
-                                    :opacity="hoveredTrend === i ? 1 : 0.85"
-                                    class="transition-opacity duration-150" />
-                                <text :x="i * 60 + 30" y="155" text-anchor="middle"
-                                    class="fill-muted-foreground" style="font-size:9px">{{ d.label }}</text>
-                            </g>
-                        </svg>
+                        <!-- Trend bars: CSS-basiert, responsive, keine Verzerrung -->
+                        <div class="trend-chart flex items-end gap-2 h-44 pb-6 relative">
+                            <!-- horizontale Grid-Lines -->
+                            <div class="absolute inset-x-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
+                                <div v-for="n in 4" :key="'grid'+n" class="h-px bg-border/60"></div>
+                                <div class="h-px bg-border"></div>
+                            </div>
+                            <!-- Bars pro Woche -->
+                            <div v-for="(d, i) in trendData" :key="'t'+i"
+                                class="flex-1 flex flex-col items-center h-full relative group cursor-pointer"
+                                @mouseenter="hoveredTrend = i" @mouseleave="hoveredTrend = null">
+                                <div class="flex-1 w-full flex items-end justify-center gap-1 relative z-10">
+                                    <div class="flex-1 max-w-[14px] rounded-t-md transition-all duration-200"
+                                        :style="{
+                                            height: (d.inquiries / trendMax * 100) + '%',
+                                            minHeight: d.inquiries > 0 ? '3px' : '0',
+                                            background: 'hsl(var(--chart-1))',
+                                            opacity: hoveredTrend === null || hoveredTrend === i ? 1 : 0.5,
+                                        }"></div>
+                                    <div class="flex-1 max-w-[14px] rounded-t-md transition-all duration-200"
+                                        :style="{
+                                            height: (d.outbound / trendMax * 100) + '%',
+                                            minHeight: d.outbound > 0 ? '3px' : '0',
+                                            background: 'hsl(var(--chart-2))',
+                                            opacity: hoveredTrend === null || hoveredTrend === i ? 1 : 0.5,
+                                        }"></div>
+                                </div>
+                                <div class="absolute bottom-0 text-[10px] text-muted-foreground">{{ d.label }}</div>
+                            </div>
+                        </div>
                         <!-- Hover tooltip -->
                         <div v-if="hoveredTrend !== null" class="absolute top-0 right-0 bg-popover border border-border rounded-lg shadow-md px-3 py-2 text-xs pointer-events-none z-10">
                             <div class="font-medium mb-1">{{ trendData[hoveredTrend]?.label }}</div>
@@ -537,7 +547,7 @@ onMounted(async () => {
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                    <div class="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
                         <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:hsl(var(--chart-1))"></span> Anfragen</span>
                         <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:hsl(var(--chart-2))"></span> Ausgehend</span>
                     </div>
@@ -838,3 +848,43 @@ onMounted(async () => {
     </div>
 
 </template>
+
+<style scoped>
+/*
+ * Weicheres Dashboard: ersetzt die harten shadcn-Card-Borders
+ * durch sanfte Schlagschatten, groessere Rundungen, mehr Raum.
+ * :deep()-Selektoren durchbrechen die Vue-scoped-CSS-Grenze und
+ * treffen die von <Card> generierten Elemente.
+ */
+.sr-soft-dashboard :deep(.rounded-xl) {
+    border-color: transparent !important;
+    border-radius: 16px;
+    box-shadow:
+        0 1px 2px rgba(15, 23, 42, 0.03),
+        0 4px 16px -6px rgba(15, 23, 42, 0.06);
+    transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+/* Etwas staerkerer Shadow beim Hover fuer Aktions-Cards */
+.sr-soft-dashboard :deep(.rounded-xl.cursor-pointer:hover) {
+    box-shadow:
+        0 2px 4px rgba(15, 23, 42, 0.04),
+        0 10px 28px -8px rgba(15, 23, 42, 0.10);
+    transform: translateY(-1px);
+}
+
+/* KPI-Cards: noch etwas mehr Luft + klarere Hierarchie */
+.sr-soft-dashboard :deep([class*="rounded-xl"]) > [class*="flex-row"][class*="items-center"] {
+    padding-top: 1rem;
+}
+
+/* Divide-y wirkt zart statt hart */
+.sr-soft-dashboard :deep(.divide-gray-200 > * + *) {
+    border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Trend-Chart smoothed */
+.trend-chart > *:last-child {
+    min-width: 0;
+}
+</style>

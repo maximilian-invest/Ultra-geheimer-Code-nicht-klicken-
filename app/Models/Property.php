@@ -92,6 +92,10 @@ class Property extends Model
 
         // Parent-Child Hierarchy
         'parent_id',
+
+        // Aufnahmeprotokoll
+        'encumbrances', 'parking_assignment', 'documents_available',
+        'approvals_status', 'approvals_notes', 'internal_notes',
     ];
 
     protected function casts(): array
@@ -179,6 +183,7 @@ class Property extends Model
             'last_expose_parsed_at' => 'datetime',
             // New json field
             'building_details' => 'array',
+            'documents_available' => 'array',
         ];
     }
 

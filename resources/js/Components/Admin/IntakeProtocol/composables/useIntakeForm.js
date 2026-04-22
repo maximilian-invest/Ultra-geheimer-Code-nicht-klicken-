@@ -71,10 +71,36 @@ function initialForm() {
   };
 }
 
+// Stabiler Key fuer die aktuelle Draft-UUID. Damit bleibt die draftKey ueber
+// Reloads hinweg erhalten und useAutoSave findet seine localStorage-Eintraege.
+const CURRENT_DRAFT_KEY_STORAGE = 'intake_protocol_current_draft_key';
+
+function loadPersistedDraftKey() {
+  try {
+    const v = localStorage.getItem(CURRENT_DRAFT_KEY_STORAGE);
+    if (v && typeof v === 'string' && v.startsWith('iap-')) return v;
+  } catch {}
+  return null;
+}
+
+function persistDraftKey(uuid) {
+  try { localStorage.setItem(CURRENT_DRAFT_KEY_STORAGE, uuid); } catch {}
+}
+
+function clearPersistedDraftKey() {
+  try { localStorage.removeItem(CURRENT_DRAFT_KEY_STORAGE); } catch {}
+}
+
 export function useIntakeForm() {
   const form = reactive(initialForm());
   const currentStep = ref(1);
-  const draftKey = ref(generateUuid());
+
+  // Falls ein Draft-Key schon im localStorage liegt (Reload-Szenario) →
+  // wiederverwenden, damit useAutoSave.loadLocal() die Daten findet.
+  // Sonst: neue UUID und sofort persistieren.
+  const existingKey = loadPersistedDraftKey();
+  const draftKey = ref(existingKey || generateUuid());
+  if (!existingKey) persistDraftKey(draftKey.value);
 
   const TOTAL_STEPS = 11;
 
@@ -92,17 +118,28 @@ export function useIntakeForm() {
     return form.open_fields.includes(fieldKey);
   }
 
+  // Hard reset: Formular leeren + neuen Draft-Key starten + alten aufraeumen.
   function reset() {
+    const oldKey = draftKey.value;
+    try { localStorage.removeItem('intake_protocol_draft_' + oldKey); } catch {}
     Object.assign(form, initialForm());
     currentStep.value = 1;
     draftKey.value = generateUuid();
+    persistDraftKey(draftKey.value);
+  }
+
+  // Wird vom Wizard nach erfolgreichem Submit aufgerufen: alle Spuren weg.
+  function finishAndCleanup() {
+    const k = draftKey.value;
+    try { localStorage.removeItem('intake_protocol_draft_' + k); } catch {}
+    clearPersistedDraftKey();
   }
 
   return {
     form, currentStep, draftKey,
     TOTAL_STEPS, progress,
     markSkipped, unmarkSkipped, isSkipped,
-    reset,
+    reset, finishAndCleanup,
   };
 }
 

@@ -57,3 +57,7 @@ website/node_modules
 
 # Superpowers brainstorm artifacts
 /.superpowers/
+
+# Local IDE / workspace artifacts
+/.claude/
+/.tmp/

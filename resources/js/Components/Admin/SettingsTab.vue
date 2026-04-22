@@ -20,6 +20,7 @@ const sigTitle = ref("");
 const sigCompany = ref("");
 const sigPhone = ref("");
 const sigWebsite = ref("");
+const sigEmail = ref("");
 const sigLogoUrl = ref(null);
 const sigBannerUrl = ref(null);
 const sigPhotoUrl = ref(null);
@@ -60,6 +61,7 @@ async function loadSettings() {
         sigCompany.value = d.signature_company || "";
         sigPhone.value = d.signature_phone || "";
         sigWebsite.value = d.signature_website || "";
+        sigEmail.value = d.signature_email || "";
         sigLogoUrl.value = d.signature_logo_url || null;
         sigBannerUrl.value = d.signature_banner_url || null;
         sigPhotoUrl.value = d.signature_photo_url || null;
@@ -131,6 +133,7 @@ async function saveProfile() {
                 signature_company: sigCompany.value,
                 signature_phone: sigPhone.value,
                 signature_website: sigWebsite.value,
+                signature_email: sigEmail.value,
             }),
         });
         const d = await r.json();
@@ -325,9 +328,16 @@ async function deleteInboxRule(id) {
                             <input v-model="sigPhone" class="form-input" />
                         </div>
                     </div>
-                    <div>
-                        <label class="form-label">Website</label>
-                        <input v-model="sigWebsite" class="form-input" placeholder="www...." />
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="form-label">Website</label>
+                            <input v-model="sigWebsite" class="form-input" placeholder="www...." />
+                        </div>
+                        <div>
+                            <label class="form-label">Öffentliche E-Mail (Website / Immoji)</label>
+                            <input v-model="sigEmail" type="email" class="form-input" placeholder="Fallback: Login-E-Mail" />
+                            <p class="text-[10px] text-[var(--muted-foreground)] mt-1">Wird auf Website und Portalen als Kontakt angezeigt. Leer lassen, um die Login-E-Mail zu verwenden.</p>
+                        </div>
                     </div>
 
                     <!-- Signature Images -->

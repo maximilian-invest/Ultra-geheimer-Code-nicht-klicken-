@@ -43,6 +43,7 @@ class SettingsController extends Controller
             'signature_company' => $settings->signature_company ?? 'SR-Homes Immobilien GmbH',
             'signature_phone'   => $settings->signature_phone ?? '+43 664 2600 930',
             'signature_website' => $settings->signature_website ?? 'www.sr-homes.at',
+            'signature_email'   => $user->signature_email ?? '',
             'signature_logo_url'   => ($settings->signature_logo_path ?? null)
                 ? $baseUrl . '/storage/' . $settings->signature_logo_path
                 : null,
@@ -98,6 +99,10 @@ class SettingsController extends Controller
         if (!empty($input['signature_title'])) $userSync['signature_title'] = trim($input['signature_title']);
         if (!empty($input['signature_company'])) $userSync['signature_company'] = trim($input['signature_company']);
         if (!empty($input['signature_website'])) $userSync['signature_website'] = trim($input['signature_website']);
+        // Oeffentliche Makler-E-Mail (Website, Immoji etc.) — leerer String = loeschen.
+        if (array_key_exists('signature_email', $input)) {
+            $userSync['signature_email'] = trim($input['signature_email']) ?: null;
+        }
         if (!empty($input['phone'])) $userSync['phone'] = trim($input['phone']);
         DB::table('users')->where('id', $userId)->update($userSync);
 

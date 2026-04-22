@@ -60,7 +60,7 @@ export const FIELD_EXPORTS = {
   construction_year:   { targets: ['i', 'w'] },
   year_renovated:      { targets: ['w'] },
   realty_condition:    { targets: ['i', 'w'], tips: { w: 'Website: Objekt-Zustand in Details' } },
-  quality:             { targets: ['l'] },
+  quality:             { targets: ['w'],      tips: { w: 'Website: Qualität in Details' } },
   ownership_type:      { targets: ['w'],      tips: { w: 'Website: Eigentumsform in Details' } },
   total_units:         { targets: ['i', 'w'], tips: { i: 'Immoji: Residentialeinheiten', w: 'Website: Wohneinheiten in Details' } },
   unit_count:          { targets: ['i', 'w'], tips: { w: 'Website: Wohneinheiten-Zähler' } },
@@ -80,27 +80,31 @@ export const FIELD_EXPORTS = {
   rent_deposit:        { targets: ['l'] },
   price_per_m2:        { targets: ['l'],      tips: { l: 'Nur intern (Berechnung)' } },
   parking_price:       { targets: ['l'] },
-  monthly_costs:       { targets: ['l'] },
 
-  // === BETRIEBSKOSTEN ===
-  operating_costs:     { targets: ['i'] },
-  heating_costs:       { targets: ['i'] },
-  warm_water_costs:    { targets: ['i'] },
-  cooling_costs:       { targets: ['i'] },
-  maintenance_reserves:{ targets: ['i'] },
-  admin_costs:         { targets: ['i'] },
-  elevator_costs:      { targets: ['i'] },
-  parking_costs_monthly:{ targets: ['i'] },
-  other_costs:         { targets: ['i'] },
+  // === BETRIEBSKOSTEN (mtl.) — gehen auf Website und Immoji ===
+  operating_costs:      { targets: ['i', 'w'], tips: { w: 'Website: Betriebskosten-Aufschlüsselung' } },
+  heating_costs:        { targets: ['i', 'w'], tips: { w: 'Website: Heizkosten-Zeile' } },
+  warm_water_costs:     { targets: ['i', 'w'], tips: { w: 'Website: Warmwasser-Zeile' } },
+  cooling_costs:        { targets: ['i', 'w'], tips: { w: 'Website: Kühlung-Zeile' } },
+  maintenance_reserves: { targets: ['i', 'w'], tips: { w: 'Website: Rücklage-Zeile' } },
+  admin_costs:          { targets: ['i', 'w'], tips: { w: 'Website: Verwaltungskosten-Zeile' } },
+  elevator_costs:       { targets: ['i', 'w'], tips: { w: 'Website: Aufzugskosten-Zeile' } },
+  parking_costs_monthly:{ targets: ['i', 'w'], tips: { w: 'Website: Stellplatzkosten-Zeile' } },
+  other_costs:          { targets: ['i', 'w'], tips: { w: 'Website: Sonstige Kosten-Zeile' } },
+  monthly_costs:        { targets: ['w'],      tips: { w: 'Website: Gesamtsumme (Override)' } },
 
   // === PROVISIONEN ===
-  buyer_commission_percent: { targets: ['i'], tips: { i: 'Immoji: Käufer-Provision' } },
-  buyer_commission_text:    { targets: ['l'] },
+  // INTERN: Unsere Verkäufer-Provision — nur Cockpit/Übersicht, NICHT exportiert.
+  commission_percent:       { targets: ['l'], tips: { l: 'Nur intern (Übersicht-Kalkulation)' } },
+  commission_total:         { targets: ['l'], tips: { l: 'Nur intern (Gesamtsumme unserer Provision)' } },
+  commission_note:          { targets: ['l'], tips: { l: 'Nur intern (Provisionsnotiz)' } },
+  // ÖFFENTLICH: Käufer-Provision in % — geht auf Website + Immoji/Portale.
+  buyer_commission_percent: { targets: ['i', 'w'], tips: { i: 'Immoji: Käufer-Provision', w: 'Website: Nebenkosten-Box' } },
+  // Provisionsfrei-Flag — geht an Immoji/Portale (commissionPaidBySeller).
   buyer_commission_free:    { targets: ['i'] },
-  commission_percent:       { targets: ['i', 'l'], tips: { i: 'Immoji: Verkäufer-Provision', l: 'Im Cockpit sichtbar' } },
-  commission_total:         { targets: ['l'] },
-  commission_makler:        { targets: ['l'] },
-  commission_note:          { targets: ['l'] },
+  // Legacy-Felder (nicht mehr in der UI, aber noch in der DB erhalten).
+  commission_makler:        { targets: ['l'], tips: { l: 'Legacy — Berechnung nutzt % vom Kaufpreis' } },
+  buyer_commission_text:    { targets: ['l'] },
 
   // === STEUERN/FEES ===
   land_register_fee_pct:    { targets: ['l'] },
@@ -127,10 +131,10 @@ export const FIELD_EXPORTS = {
 
   // === ENERGIE ===
   energy_certificate:  { targets: ['i', 'w'] },
-  heating_demand_value:{ targets: ['i', 'w'] },
-  heating_demand_class:{ targets: ['i'] },
-  energy_efficiency_value: { targets: ['i'] },
-  energy_primary_source:   { targets: ['l'] },
+  heating_demand_value:{ targets: ['i', 'w'], tips: { w: 'Website: HWB in Details' } },
+  heating_demand_class:{ targets: ['i', 'w'], tips: { w: 'Website: Energieklasse in Details' } },
+  energy_efficiency_value: { targets: ['i', 'w'], tips: { w: 'Website: fGEE in Details' } },
+  energy_primary_source:   { targets: ['w'],      tips: { w: 'Website: Primärenergie in Details' } },
   energy_valid_until:      { targets: ['l'] },
   energy_type:             { targets: ['l'] },
   heating:             { targets: ['i'] },
@@ -158,7 +162,7 @@ export const FIELD_EXPORTS = {
 
   // === INNENEIGENSCHAFTEN ===
   kitchen_type:        { targets: ['l'] },
-  flooring:            { targets: ['l'] },
+  flooring:            { targets: ['w'],      tips: { w: 'Website: Bodenbelag in Details' } },
   bathroom_equipment:  { targets: ['l'] },
   orientation:         { targets: ['l'] },
   furnishing:          { targets: ['i', 'w'], tips: { w: 'Website: Möblierung in Details' } },

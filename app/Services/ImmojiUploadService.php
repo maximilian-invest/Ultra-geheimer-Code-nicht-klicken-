@@ -568,6 +568,9 @@ class ImmojiUploadService
             'otherCosts' => ['netAmount' => isset($prop['other_costs']) ? (float) $prop['other_costs'] : null, 'vat' => null],
         ];
 
+        // WICHTIG: Provision INTERN (commission_percent) wird NICHT mehr an Immoji uebertragen.
+        // Das ist unsere interne Verkaeufer-Provision und bleibt privat.
+        // Nur die Kaeufer-Provision (buyer_commission_percent) geht auf Immoji/Portale.
         $customerCommission = null;
         if (!empty($prop['buyer_commission_percent'])) {
             $customerCommission = [
@@ -577,19 +580,9 @@ class ImmojiUploadService
             ];
         }
 
-        $sellerCommission = null;
-        if (!empty($prop['commission_percent'])) {
-            $sellerCommission = [
-                'amount' => (float) $prop['commission_percent'],
-                'unit' => 'PERCENT_OF_PURCHASE_PRICE',
-                'vat' => null,
-            ];
-        }
-
         $provision = array_filter([
             'commissionPaidBySeller' => !empty($prop['buyer_commission_free']),
             'customerCommission' => $customerCommission,
-            'sellerCommission' => $sellerCommission,
         ], fn($v) => $v !== null);
 
         return [

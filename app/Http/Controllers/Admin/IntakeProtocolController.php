@@ -275,6 +275,18 @@ class IntakeProtocolController extends Controller
             $props['property_history'] = json_encode($props['property_history'], JSON_UNESCAPED_UNICODE);
         }
 
+        // Array-Felder, die ohne Cast als String in die DB muessen — sonst
+        // kracht der Insert mit "Array to string conversion".
+        // common_areas: ist im Model NICHT als 'array' gecastet (aus Kompat-Gruenden
+        // mit Legacy-Freitext-Werten), deshalb hier manuell JSON-encoden.
+        // documents_available: Property-Model cast'et als 'array' → Laravel erledigt's,
+        // aber wir senden vorsorglich einen sauberen Wert.
+        foreach (['common_areas', 'flooring', 'bathroom_equipment', 'heating'] as $jsonField) {
+            if (isset($props[$jsonField]) && is_array($props[$jsonField])) {
+                $props[$jsonField] = json_encode($props[$jsonField], JSON_UNESCAPED_UNICODE);
+            }
+        }
+
         return new \App\Models\Property($props);
     }
 

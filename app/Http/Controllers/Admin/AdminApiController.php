@@ -815,6 +815,10 @@ class AdminApiController extends Controller
             'contact_property_manager'  => $this->contactPropertyManager($request),
             'send_to_manager'           => $this->sendToManager($request),
 
+            // Geocoding (OpenStreetMap Nominatim)
+            'geocode_address'           => $this->geocodeAddress($request),
+            'geocode_autocomplete'      => $this->geocodeAutocomplete($request),
+
             // Tasks
             'getTasks'                  => app(TaskController::class)->index($request),
             'addTask'                   => app(TaskController::class)->store($request),
@@ -4627,4 +4631,128 @@ PY;
         return response()->json(['success' => true, 'email_id' => $sentEmailId]);
     }
 
+    /**
+     * Geocode eine Adresse via OpenStreetMap Nominatim.
+     * Ergebnisse werden fuer 30 Tage gecacht (Nominatim Usage Policy: 1 req/s, cache empfohlen).
+     * Erwartet: address (Strasse + Hausnummer), zip, city (oder freies q).
+     * Liefert: lat, lng, display_name.
+     */
+    private function geocodeAddress(Request $request): JsonResponse
+    {
+        $data = $request->json()->all() ?: $request->all();
+        $address = trim((string) ($data['address'] ?? ''));
+        $houseNumber = trim((string) ($data['house_number'] ?? ''));
+        $zip = trim((string) ($data['zip'] ?? ''));
+        $city = trim((string) ($data['city'] ?? ''));
+        $query = trim((string) ($data['q'] ?? ''));
+
+        // Zusammenbauen wenn keine explizite query.
+        if ($query === '') {
+            $parts = [];
+            if ($address !== '') $parts[] = trim($address . ' ' . $houseNumber);
+            if ($zip !== '' || $city !== '') $parts[] = trim($zip . ' ' . $city);
+            $parts[] = 'Austria';  // Scope: Oesterreich
+            $query = implode(', ', array_filter($parts));
+        }
+
+        if ($query === '') {
+            return response()->json(['success' => false, 'error' => 'Adresse leer'], 422);
+        }
+
+        $cacheKey = 'geocode:' . md5(mb_strtolower($query));
+        $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        if ($cached) return response()->json(['success' => true] + $cached + ['cached' => true]);
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'User-Agent' => 'SR-Homes Immobilien (kundenportal.sr-homes.at)',
+                'Accept-Language' => 'de',
+            ])->timeout(10)->get('https://nominatim.openstreetmap.org/search', [
+                'q' => $query,
+                'format' => 'json',
+                'limit' => 1,
+                'countrycodes' => 'at',
+                'addressdetails' => 0,
+            ]);
+
+            if (!$response->ok()) {
+                return response()->json(['success' => false, 'error' => 'Nominatim: ' . $response->status()], 502);
+            }
+            $results = $response->json();
+            if (!is_array($results) || count($results) === 0) {
+                return response()->json(['success' => false, 'error' => 'Keine Ergebnisse für "' . $query . '"'], 404);
+            }
+
+            $first = $results[0];
+            $payload = [
+                'lat' => isset($first['lat']) ? (float) $first['lat'] : null,
+                'lng' => isset($first['lon']) ? (float) $first['lon'] : null,
+                'display_name' => $first['display_name'] ?? null,
+                'query' => $query,
+            ];
+            \Illuminate\Support\Facades\Cache::put($cacheKey, $payload, now()->addDays(30));
+            return response()->json(['success' => true] + $payload);
+        } catch (\Throwable $e) {
+            \Log::warning('geocode_address failed', ['error' => $e->getMessage(), 'query' => $query]);
+            return response()->json(['success' => false, 'error' => 'Geocoding fehlgeschlagen: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Live-Autocomplete fuer Adresseingabe via Nominatim.
+     * Liefert bis zu 5 Vorschlaege mit Adress-Details zum direkten Einfuellen.
+     * Cache: 7 Tage pro Query (Nominatim Usage Policy: max 1 req/s).
+     */
+    private function geocodeAutocomplete(Request $request): JsonResponse
+    {
+        $query = trim((string) ($request->input('q') ?? $request->query('q') ?? ''));
+        if (mb_strlen($query) < 3) {
+            return response()->json(['success' => true, 'results' => []]);
+        }
+
+        $cacheKey = 'geocode_ac:' . md5(mb_strtolower($query));
+        $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        if ($cached) return response()->json(['success' => true, 'results' => $cached, 'cached' => true]);
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'User-Agent' => 'SR-Homes Immobilien (kundenportal.sr-homes.at)',
+                'Accept-Language' => 'de',
+            ])->timeout(10)->get('https://nominatim.openstreetmap.org/search', [
+                'q' => $query,
+                'format' => 'json',
+                'limit' => 5,
+                'countrycodes' => 'at',
+                'addressdetails' => 1,
+            ]);
+
+            if (!$response->ok()) {
+                return response()->json(['success' => false, 'error' => 'Nominatim: ' . $response->status()], 502);
+            }
+            $raw = $response->json() ?: [];
+            $results = [];
+            foreach ($raw as $r) {
+                $addr = $r['address'] ?? [];
+                $street = $addr['road']
+                    ?? $addr['pedestrian']
+                    ?? $addr['footway']
+                    ?? $addr['path']
+                    ?? '';
+                $results[] = [
+                    'display_name' => $r['display_name'] ?? '',
+                    'lat'          => isset($r['lat']) ? (float) $r['lat'] : null,
+                    'lng'          => isset($r['lon']) ? (float) $r['lon'] : null,
+                    'street'       => $street,
+                    'house_number' => $addr['house_number'] ?? '',
+                    'zip'          => $addr['postcode'] ?? '',
+                    'city'         => $addr['city'] ?? $addr['town'] ?? $addr['village'] ?? $addr['municipality'] ?? '',
+                ];
+            }
+            \Illuminate\Support\Facades\Cache::put($cacheKey, $results, now()->addDays(7));
+            return response()->json(['success' => true, 'results' => $results]);
+        } catch (\Throwable $e) {
+            \Log::warning('geocode_autocomplete failed', ['error' => $e->getMessage(), 'q' => $query]);
+            return response()->json(['success' => false, 'error' => 'Autocomplete fehlgeschlagen'], 500);
+        }
+    }
 }

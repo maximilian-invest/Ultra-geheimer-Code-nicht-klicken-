@@ -177,16 +177,27 @@ class PublicDocumentController extends Controller
         // Cap facts at 4 to keep the grid tidy
         $facts = array_slice($facts, 0, 4);
 
+        // Koordinaten (verschleierte Kartenansicht) — nur weitergeben, wenn
+        // beide Werte gesetzt und != 0 sind. Die Adresse selbst wird nicht
+        // angezeigt; die Karte hat einen Umkreis-Kreis statt Marker.
+        $lat = $property->latitude ?? null;
+        $lng = $property->longitude ?? null;
+        $coords = null;
+        if ($lat !== null && $lng !== null && (float) $lat != 0 && (float) $lng != 0) {
+            $coords = [
+                'lat' => (float) $lat,
+                'lng' => (float) $lng,
+                'region' => trim(($property->zip ?? '') . ' ' . ($property->city ?? '')),
+            ];
+        }
+
         return [
             'badges' => $badges,
-            // Compressed copy for the landing page. The full descriptions
-            // run 2000+ characters each, which is way too much for a
-            // sales funnel. Cap them to a couple of short paragraphs so
-            // the page reads fast and stays scannable.
             'description' => $this->cleanText($property->realty_description ?? '', 520),
             'location' => $this->cleanText($property->location_description ?? '', 420),
             'equipment' => $this->cleanText($property->equipment_description ?? '', 360),
             'facts' => $facts,
+            'coords' => $coords,
         ];
     }
 

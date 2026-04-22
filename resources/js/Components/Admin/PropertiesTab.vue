@@ -3,6 +3,7 @@ import { catBadgeStyle, catLabel } from '@/utils/categoryBadge.js';
 import { ref, inject, computed, reactive, watch } from "vue";
 import { Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, LayoutList, LayoutGrid, ArrowUp, ArrowDown } from "lucide-vue-next";
 import PropertyDetailPage from '@/Components/Admin/PropertyDetailPage.vue';
+import IntakeProtocolWizard from '@/Components/Admin/IntakeProtocol/IntakeProtocolWizard.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
@@ -241,6 +242,7 @@ const kbFeedPreview = ref(null);
 const kbFileUploading = ref(false);
 
 const showGlobalFiles = ref(false);
+const showIntakeWizard = ref(false);
 const globalFiles = ref([]);
 const globalFilesLoaded = ref(false);
 const globalFileUploading = ref(false);
@@ -1788,6 +1790,13 @@ async function toggleWebsiteDownload(f) {
           <FileText class="w-3.5 h-3.5 mr-1.5" />
           Allg. Dokumente
         </Button>
+        <Button variant="outline" size="sm" class="h-8 text-xs"
+                style="border-color:#EE7600;color:#EE7600"
+                @click="showIntakeWizard = true">
+          <span class="mr-1">📋</span>
+          <span class="hidden sm:inline">Aufnahmeprotokoll</span>
+          <span class="sm:hidden">Aufnahme</span>
+        </Button>
         <Button size="sm" class="h-8 text-xs" style="background:hsl(240 5.9% 10%);color:white" @click="openNewProperty()">
           <Plus class="w-3.5 h-3.5 mr-1" />
           <span class="hidden sm:inline">Neues Objekt</span>
@@ -2836,6 +2845,13 @@ async function toggleWebsiteDownload(f) {
                 </div>
             </div>
         </div>
+
+    <!-- Aufnahmeprotokoll Wizard Overlay -->
+    <IntakeProtocolWizard
+      v-if="showIntakeWizard"
+      @close="showIntakeWizard = false"
+      @submitted="(info) => { showIntakeWizard = false; }"
+    />
 
     <!-- Delete Confirmation -->
     <div v-if="deleteConfirm" class="fixed inset-0 z-[300] flex items-center justify-center bg-black/50" @click.self="deleteConfirm = null">

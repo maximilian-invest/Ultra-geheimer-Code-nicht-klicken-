@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import PhotoCategoryUploader from '../shared/PhotoCategoryUploader.vue';
+import { Badge } from '@/components/ui/badge';
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -27,8 +28,9 @@ const totalPhotos = computed(() => (props.form.photos || []).length);
 <template>
   <div class="p-4 space-y-4">
 
-    <div class="text-[11px] text-muted-foreground px-1">
-      {{ totalPhotos }} Fotos insgesamt — optional, kann später ergänzt werden
+    <div class="flex items-center justify-between px-1">
+      <span class="text-xs text-muted-foreground">Optional, kann später ergänzt werden</span>
+      <Badge variant="secondary">{{ totalPhotos }} Fotos gesamt</Badge>
     </div>
 
     <PhotoCategoryUploader category="exterior"   label="Außenansichten" icon="🏠"
@@ -41,7 +43,7 @@ const totalPhotos = computed(() => (props.form.photos || []).length);
                            :model-value="documents" @update:model-value="documents = $event" />
 
     <p class="text-[11px] text-muted-foreground px-2">
-      💡 Fotos werden nach dem Absenden im Hintergrund komprimiert und dem Objekt zugeordnet.
+      Fotos werden nach dem Absenden im Hintergrund komprimiert und dem Objekt zugeordnet.
     </p>
   </div>
 </template>

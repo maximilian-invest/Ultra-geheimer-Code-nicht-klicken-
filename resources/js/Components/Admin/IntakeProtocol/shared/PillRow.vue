@@ -1,29 +1,46 @@
 <script setup>
-defineProps({
+import { computed } from 'vue';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+
+const props = defineProps({
   modelValue: { type: [String, Number], default: '' },
   options: { type: Array, required: true },
   multiline: { type: Boolean, default: true },
 });
-defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue']);
 
 function normalize(opt) {
   if (typeof opt === 'string') return { value: opt, label: opt };
   return opt;
 }
+
+// ToggleGroup gibt bei Klick auf bereits gewaehlten Wert `null`/leer zurueck
+// (de-select). Fuer unsere semantisch "erforderliche Single-Choice"-Pills
+// behalten wir den Wert aber — wer umschalten will, klickt einen anderen Pill.
+const internal = computed({
+  get: () => (props.modelValue === '' || props.modelValue == null) ? undefined : props.modelValue,
+  set: (v) => {
+    if (v === undefined || v === null || v === '') return;
+    emit('update:modelValue', v);
+  },
+});
 </script>
 
 <template>
-  <div :class="['flex gap-1.5', multiline ? 'flex-wrap' : '']">
-    <button
+  <ToggleGroup
+    type="single"
+    variant="outline"
+    size="sm"
+    :model-value="internal"
+    @update:model-value="(v) => internal = v"
+    :class="['justify-start', multiline ? 'flex-wrap' : 'flex-nowrap']"
+  >
+    <ToggleGroupItem
       v-for="(opt, i) in options" :key="i"
-      type="button"
-      @click="$emit('update:modelValue', normalize(opt).value)"
-      :class="[
-        'px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors',
-        modelValue === normalize(opt).value
-          ? 'bg-[#EE7600] text-white'
-          : 'bg-white border border-border text-foreground hover:border-[#EE7600]/40'
-      ]"
-    >{{ normalize(opt).label }}</button>
-  </div>
+      :value="normalize(opt).value"
+      class="rounded-full px-3 h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary"
+    >
+      {{ normalize(opt).label }}
+    </ToggleGroupItem>
+  </ToggleGroup>
 </template>

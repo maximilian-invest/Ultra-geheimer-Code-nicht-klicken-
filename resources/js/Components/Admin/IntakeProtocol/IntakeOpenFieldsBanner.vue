@@ -1,5 +1,7 @@
 <script setup>
 import { computed } from 'vue';
+import { Card, CardContent } from '@/components/ui/card';
+import { AlertCircle } from 'lucide-vue-next';
 
 const props = defineProps({
   protocol: { type: Object, default: null },
@@ -48,10 +50,12 @@ const fmtDate = computed(() => {
 </script>
 
 <template>
-  <div v-if="protocol && openFieldKeys.length > 0"
-       class="bg-amber-50 border-l-4 border-amber-500 rounded-md p-4 mb-4 mx-3 sm:mx-5 mt-3">
-    <div class="flex items-start gap-3">
-      <span class="text-xl">⚠️</span>
+  <Card
+    v-if="protocol && openFieldKeys.length > 0"
+    class="border-l-4 border-l-amber-500 bg-amber-50 mb-4 mx-3 sm:mx-5 mt-3"
+  >
+    <CardContent class="p-4 flex items-start gap-3">
+      <AlertCircle class="h-5 w-5 text-amber-700 shrink-0 mt-0.5" />
       <div class="flex-1">
         <div class="font-semibold text-amber-900 text-sm">
           {{ openFieldKeys.length }}
@@ -67,6 +71,6 @@ const fmtDate = computed(() => {
           Aufgenommen am {{ fmtDate }}
         </div>
       </div>
-    </div>
-  </div>
+    </CardContent>
+  </Card>
 </template>

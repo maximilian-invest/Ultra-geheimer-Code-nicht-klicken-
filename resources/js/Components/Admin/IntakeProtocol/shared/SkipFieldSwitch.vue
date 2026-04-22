@@ -1,4 +1,7 @@
 <script setup>
+import { Button } from '@/components/ui/button';
+import { Check, ArrowRight } from 'lucide-vue-next';
+
 defineProps({
   modelValue: { type: Boolean, default: false },
 });
@@ -6,17 +9,16 @@ defineEmits(['update:modelValue']);
 </script>
 
 <template>
-  <button
-    type="button"
+  <Button
+    variant="ghost"
+    size="xs"
+    :class="modelValue
+      ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+      : 'text-primary hover:bg-primary/10'"
     @click="$emit('update:modelValue', !modelValue)"
-    :class="[
-      'text-[11px] px-2 py-0.5 rounded transition-colors',
-      modelValue
-        ? 'bg-[#EE7600] text-white'
-        : 'bg-orange-50 text-[#EE7600] hover:bg-orange-100'
-    ]"
   >
-    <span v-if="modelValue">✓ später ergänzen</span>
-    <span v-else>↷ später</span>
-  </button>
+    <Check v-if="modelValue" class="h-3 w-3" />
+    <ArrowRight v-else class="h-3 w-3" />
+    <span class="text-[11px]">{{ modelValue ? 'später ergänzen' : 'später' }}</span>
+  </Button>
 </template>

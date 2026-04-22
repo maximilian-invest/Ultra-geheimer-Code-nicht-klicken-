@@ -3,6 +3,19 @@
 // laedt den Default-Text fuer das Aufnahmeprotokoll per protocol_id und
 // laesst den Makler in Ruhe Betreff + Body editieren bevor er auf „Senden" klickt.
 import { ref, inject, computed, onMounted } from 'vue';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { RotateCcw, Send, AlertCircle } from 'lucide-vue-next';
 
 const props = defineProps({
   protocolId: { type: Number, required: true },
@@ -21,6 +34,7 @@ const missingDocs = ref([]);
 const alreadySentAt = ref(null);
 
 const isResend = computed(() => !!alreadySentAt.value);
+const open = ref(true);
 
 async function load() {
   loading.value = true;
@@ -81,85 +95,87 @@ function resetToDefault() {
   load();
 }
 
+function handleOpenChange(v) {
+  open.value = v;
+  if (!v) emit('close');
+}
+
 onMounted(() => load());
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-
-      <!-- Header -->
-      <div class="flex items-center justify-between px-5 py-3 border-b border-border">
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="text-lg">📧</span>
-            <h3 class="font-semibold text-base">
-              {{ isResend ? 'E-Mail erneut senden' : 'E-Mail an Eigentümer' }}
-            </h3>
-          </div>
-          <div v-if="isResend" class="text-[11px] text-muted-foreground mt-0.5">
-            Bereits einmal versendet am {{ new Date(alreadySentAt).toLocaleString('de-AT') }}
-          </div>
-        </div>
-        <button type="button" @click="$emit('close')"
-                class="w-8 h-8 rounded-md hover:bg-zinc-100 flex items-center justify-center text-zinc-500">✕</button>
-      </div>
+  <Dialog :open="open" @update:open="handleOpenChange">
+    <DialogContent class="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0">
+      <DialogHeader class="px-5 py-3 border-b border-border">
+        <DialogTitle>
+          {{ isResend ? 'E-Mail erneut senden' : 'E-Mail an Eigentümer' }}
+        </DialogTitle>
+        <DialogDescription v-if="isResend" class="text-[11px]">
+          Bereits einmal versendet am {{ new Date(alreadySentAt).toLocaleString('de-AT') }}
+        </DialogDescription>
+      </DialogHeader>
 
       <!-- Body -->
       <div class="flex-1 overflow-y-auto p-5 space-y-3">
         <div v-if="loading" class="text-sm text-muted-foreground italic">Vorschau wird geladen…</div>
-        <div v-else>
-          <div class="text-xs text-muted-foreground mb-3">
-            An: <strong>{{ ownerEmail || '(keine E-Mail)' }}</strong>
-            <span v-if="missingDocs.length > 0" class="ml-2 text-amber-700">
-              · {{ missingDocs.length }} fehlende Dokument(e)
-            </span>
+        <div v-else class="space-y-3">
+          <div class="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+            <span>An: <strong>{{ ownerEmail || '(keine E-Mail)' }}</strong></span>
+            <Badge v-if="missingDocs.length > 0" variant="outline" class="border-amber-300 bg-amber-50 text-amber-700">
+              {{ missingDocs.length }} fehlende Dokument(e)
+            </Badge>
           </div>
 
-          <div class="space-y-3">
-            <div>
-              <label class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Betreff</label>
-              <input v-model="subject"
-                     class="w-full h-11 rounded-lg border border-border px-3 text-sm font-medium" />
-            </div>
-            <div>
-              <label class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Nachricht</label>
-              <textarea v-model="body" rows="14"
-                        class="w-full rounded-lg border border-border px-3 py-2 text-[13px] leading-relaxed font-[ui-monospace,monospace]"
-                        style="white-space:pre-wrap"></textarea>
-            </div>
-            <button type="button" @click="resetToDefault"
-                    class="text-xs text-[#EE7600] underline">
-              Auf Standard-Text zurücksetzen
-            </button>
+          <div class="space-y-1.5">
+            <label class="text-sm font-medium">Betreff</label>
+            <Input v-model="subject" class="h-11 text-sm font-medium" />
           </div>
+          <div class="space-y-1.5">
+            <label class="text-sm font-medium">Nachricht</label>
+            <Textarea
+              v-model="body"
+              rows="14"
+              class="text-[13px] leading-relaxed font-[ui-monospace,monospace]"
+              style="white-space:pre-wrap"
+            />
+          </div>
+          <Button variant="link" size="sm" class="px-0 h-auto" @click="resetToDefault">
+            <RotateCcw class="h-3 w-3" />
+            Auf Standard-Text zurücksetzen
+          </Button>
 
-          <p class="text-[11px] text-muted-foreground mt-3">
-            💡 Das unterschriebene Aufnahmeprotokoll-PDF wird automatisch angehängt.
+          <p class="text-[11px] text-muted-foreground">
+            Das unterschriebene Aufnahmeprotokoll-PDF wird automatisch angehängt.
             <span v-if="missingDocs.length > 0">Ebenso der Alleinvermittlungsauftrag.</span>
           </p>
         </div>
       </div>
 
       <!-- Footer -->
-      <div class="px-5 py-3 border-t border-border">
-        <div v-if="error" class="bg-red-50 border border-red-300 text-red-800 text-xs rounded p-2 mb-2">
-          {{ error }}
+      <div class="px-5 py-3 border-t border-border space-y-2">
+        <div v-if="error" class="flex items-start gap-2 bg-red-50 border border-red-300 text-red-800 text-xs rounded p-2">
+          <AlertCircle class="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{{ error }}</span>
         </div>
-        <div class="flex gap-2">
-          <button type="button" @click="$emit('close')"
-                  :disabled="sending"
-                  class="flex-1 h-11 rounded-lg border border-border text-sm font-medium hover:bg-zinc-50 disabled:opacity-50">
+        <DialogFooter class="gap-2 sm:gap-2">
+          <Button
+            variant="outline"
+            class="flex-1 h-11"
+            :disabled="sending"
+            @click="handleOpenChange(false)"
+          >
             Abbrechen
-          </button>
-          <button type="button" @click="send"
-                  :disabled="sending || loading || !ownerEmail"
-                  class="flex-[2] h-11 rounded-lg bg-[#EE7600] text-white text-sm font-semibold disabled:bg-zinc-300 disabled:cursor-not-allowed">
-            {{ sending ? 'Wird gesendet…' : (isResend ? '↻ Erneut senden' : '📧 Senden') }}
-          </button>
-        </div>
+          </Button>
+          <Button
+            class="flex-[2] h-11"
+            :disabled="sending || loading || !ownerEmail"
+            @click="send"
+          >
+            <Send class="h-4 w-4" />
+            {{ sending ? 'Wird gesendet…' : (isResend ? 'Erneut senden' : 'Senden') }}
+          </Button>
+        </DialogFooter>
       </div>
-
-    </div>
-  </div>
+    </DialogContent>
+  </Dialog>
 </template>

@@ -1,6 +1,9 @@
 <script setup>
 import PillRow from '../shared/PillRow.vue';
 import MultiPillRow from '../shared/MultiPillRow.vue';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 
 defineProps({ form: Object });
 
@@ -25,73 +28,92 @@ const FUEL_OPTIONS = [
   <div class="p-4 space-y-4">
 
     <!-- Energieausweis -->
-    <div class="bg-white border border-border rounded-xl p-4 space-y-3">
-      <div class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Energieausweis</div>
-      <div>
-        <label class="text-xs text-muted-foreground block mb-1">Vorhanden?</label>
-        <PillRow v-model="form.energy_certificate" :options="[
-          {value:'vorhanden', label:'Ja'},
-          {value:'nein', label:'Nein'},
-        ]" />
-      </div>
-      <div v-if="form.energy_certificate === 'vorhanden'" class="space-y-3 pt-2">
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-muted-foreground block mb-1">HWB (kWh/m²a)</label>
-            <input v-model.number="form.heating_demand_value" type="number" step="0.01" inputmode="decimal"
-                   class="w-full h-11 rounded-lg border border-border px-3" />
+    <Card>
+      <CardHeader class="pb-3">
+        <CardTitle class="text-base">Energieausweis</CardTitle>
+      </CardHeader>
+      <CardContent class="space-y-3">
+        <div class="space-y-1.5">
+          <label class="text-sm font-medium">Vorhanden?</label>
+          <PillRow v-model="form.energy_certificate" :options="[
+            {value:'vorhanden', label:'Ja'},
+            {value:'nein', label:'Nein'},
+          ]" />
+        </div>
+        <div v-if="form.energy_certificate === 'vorhanden'" class="space-y-3 pt-2">
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <label class="text-sm font-medium">HWB (kWh/m²a)</label>
+              <Input v-model.number="form.heating_demand_value" type="number" step="0.01"
+                     inputmode="decimal" class="h-11" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-sm font-medium">fGEE</label>
+              <Input v-model.number="form.energy_efficiency_value" type="number" step="0.01"
+                     inputmode="decimal" class="h-11" />
+            </div>
           </div>
-          <div>
-            <label class="text-xs text-muted-foreground block mb-1">fGEE</label>
-            <input v-model.number="form.energy_efficiency_value" type="number" step="0.01" inputmode="decimal"
-                   class="w-full h-11 rounded-lg border border-border px-3" />
+          <div class="space-y-1.5">
+            <label class="text-sm font-medium">Energieklasse</label>
+            <PillRow v-model="form.heating_demand_class" :options="ENERGY_CLASSES" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-sm font-medium">Gültig bis</label>
+            <Input v-model="form.energy_valid_until" type="date" class="h-11" />
           </div>
         </div>
-        <div>
-          <label class="text-xs text-muted-foreground block mb-1">Energieklasse</label>
-          <PillRow v-model="form.heating_demand_class" :options="ENERGY_CLASSES" />
-        </div>
-        <div>
-          <label class="text-xs text-muted-foreground block mb-1">Gültig bis</label>
-          <input v-model="form.energy_valid_until" type="date"
-                 class="w-full h-11 rounded-lg border border-border px-3" />
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
 
     <!-- Heizung — Multi-Select wie im Property-Detail -->
-    <div class="bg-white border border-border rounded-xl p-4 space-y-3">
-      <div class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Heizung</div>
-      <div>
-        <label class="text-xs text-muted-foreground block mb-1">Heizungsart <span class="text-[10px]">(Mehrfachauswahl möglich)</span></label>
-        <MultiPillRow v-model="form.heating" :options="HEATING_TYPES" />
-      </div>
-      <div>
-        <label class="text-xs text-muted-foreground block mb-1">Primärenergiequelle / Befeuerung</label>
-        <PillRow v-model="form.energy_primary_source" :options="FUEL_OPTIONS" />
-      </div>
-    </div>
+    <Card>
+      <CardHeader class="pb-3">
+        <CardTitle class="text-base">Heizung</CardTitle>
+      </CardHeader>
+      <CardContent class="space-y-3">
+        <div class="space-y-1.5">
+          <label class="text-sm font-medium">
+            Heizungsart <span class="text-xs font-normal text-muted-foreground">(Mehrfachauswahl)</span>
+          </label>
+          <MultiPillRow v-model="form.heating" :options="HEATING_TYPES" />
+        </div>
+        <div class="space-y-1.5">
+          <label class="text-sm font-medium">Primärenergiequelle / Befeuerung</label>
+          <PillRow v-model="form.energy_primary_source" :options="FUEL_OPTIONS" />
+        </div>
+      </CardContent>
+    </Card>
 
     <!-- Extras -->
-    <div class="bg-white border border-border rounded-xl p-4 space-y-3">
-      <div class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Extras</div>
-      <label class="flex items-center gap-3 cursor-pointer">
-        <input type="checkbox" v-model="form.has_photovoltaik" class="w-5 h-5 accent-[#EE7600]" />
-        <span class="text-sm">Photovoltaik-Anlage</span>
-      </label>
-      <label class="flex items-center gap-3 cursor-pointer">
-        <input type="checkbox" v-model="form.has_wohnraumlueftung" class="w-5 h-5 accent-[#EE7600]" />
-        <span class="text-sm">Wohnraumlüftung (kontrollierte Wohnraumlüftung, KWL)</span>
-      </label>
-      <div>
-        <label class="text-xs text-muted-foreground block mb-1">E-Ladestation</label>
-        <PillRow v-model="form.charging_station_status" :options="[
-          {value:'none', label:'Keine'},
-          {value:'prepared', label:'Vorkehrung'},
-          {value:'installed', label:'Vorhanden'},
-        ]" />
-      </div>
-    </div>
+    <Card>
+      <CardHeader class="pb-3">
+        <CardTitle class="text-base">Extras</CardTitle>
+      </CardHeader>
+      <CardContent class="space-y-3">
+        <div class="flex items-center gap-3">
+          <Switch
+            :model-value="form.has_photovoltaik"
+            @update:model-value="form.has_photovoltaik = $event"
+          />
+          <span class="text-sm">Photovoltaik-Anlage</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <Switch
+            :model-value="form.has_wohnraumlueftung"
+            @update:model-value="form.has_wohnraumlueftung = $event"
+          />
+          <span class="text-sm">Wohnraumlüftung (kontrollierte Wohnraumlüftung, KWL)</span>
+        </div>
+        <div class="space-y-1.5">
+          <label class="text-sm font-medium">E-Ladestation</label>
+          <PillRow v-model="form.charging_station_status" :options="[
+            {value:'none', label:'Keine'},
+            {value:'prepared', label:'Vorkehrung'},
+            {value:'installed', label:'Vorhanden'},
+          ]" />
+        </div>
+      </CardContent>
+    </Card>
 
   </div>
 </template>

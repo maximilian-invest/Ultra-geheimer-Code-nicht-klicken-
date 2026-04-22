@@ -1,5 +1,7 @@
 <script setup>
 import { ref, inject, computed } from 'vue';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -71,72 +73,81 @@ const hasCoords = computed(() => props.form.latitude && props.form.longitude);
 <template>
   <div class="p-4 space-y-4">
 
-    <div class="relative">
-      <label class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
-        Straße <span class="text-red-500">*</span>
-      </label>
-      <input
-        :value="form.address"
-        @input="onAddressInput($event.target.value)"
-        @focus="showSuggestions = suggestions.length > 0"
-        @blur="onAddressBlur"
-        class="w-full h-11 rounded-lg border border-border px-3 bg-white"
-        placeholder="Beim Tippen erscheinen Vorschläge"
-        autocomplete="off"
-      />
-      <div
-        v-if="showSuggestions"
-        class="absolute left-0 right-0 top-full mt-1 bg-white border border-border rounded-lg shadow-lg z-20 max-h-64 overflow-y-auto"
-      >
-        <button
-          v-for="(s, i) in suggestions" :key="i"
-          type="button"
-          @mousedown.prevent="pickSuggestion(s)"
-          class="w-full text-left px-3 py-2 hover:bg-zinc-50 border-b border-zinc-100 last:border-b-0 text-xs"
-        >
-          <div class="font-medium">{{ s.street || s.display_name.split(',')[0] }} {{ s.house_number }}</div>
-          <div class="text-muted-foreground">{{ [s.zip, s.city].filter(Boolean).join(' ') }}</div>
-        </button>
-      </div>
-    </div>
+    <Card>
+      <CardHeader class="pb-3">
+        <CardTitle class="text-base">Adresse</CardTitle>
+      </CardHeader>
+      <CardContent class="space-y-3">
+        <div class="relative space-y-1.5">
+          <label class="text-sm font-medium block">
+            Straße <span class="text-red-500">*</span>
+          </label>
+          <Input
+            :model-value="form.address"
+            @update:model-value="onAddressInput"
+            @focus="showSuggestions = suggestions.length > 0"
+            @blur="onAddressBlur"
+            class="h-11"
+            placeholder="Beim Tippen erscheinen Vorschläge"
+            autocomplete="off"
+          />
+          <Card
+            v-if="showSuggestions"
+            class="absolute left-0 right-0 top-full mt-1 shadow-lg z-20 max-h-64 overflow-y-auto p-0"
+          >
+            <button
+              v-for="(s, i) in suggestions" :key="i"
+              type="button"
+              @mousedown.prevent="pickSuggestion(s)"
+              class="w-full text-left px-3 py-2 hover:bg-zinc-50 border-b border-border/40 last:border-b-0 text-xs"
+            >
+              <div class="font-medium">{{ s.street || s.display_name.split(',')[0] }} {{ s.house_number }}</div>
+              <div class="text-muted-foreground">{{ [s.zip, s.city].filter(Boolean).join(' ') }}</div>
+            </button>
+          </Card>
+        </div>
 
-    <div class="grid grid-cols-2 gap-3">
-      <div>
-        <label class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Hausnr. *</label>
-        <input v-model="form.house_number" class="w-full h-11 rounded-lg border border-border px-3 bg-white" />
-      </div>
-      <div>
-        <label class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">PLZ *</label>
-        <input v-model="form.zip" inputmode="numeric" class="w-full h-11 rounded-lg border border-border px-3 bg-white" />
-      </div>
-    </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="text-sm font-medium block">Hausnr. <span class="text-red-500">*</span></label>
+            <Input v-model="form.house_number" class="h-11" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-sm font-medium block">PLZ <span class="text-red-500">*</span></label>
+            <Input v-model="form.zip" inputmode="numeric" class="h-11" />
+          </div>
+        </div>
 
-    <div>
-      <label class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Stadt *</label>
-      <input v-model="form.city" class="w-full h-11 rounded-lg border border-border px-3 bg-white" />
-    </div>
+        <div class="space-y-1.5">
+          <label class="text-sm font-medium block">Stadt <span class="text-red-500">*</span></label>
+          <Input v-model="form.city" class="h-11" />
+        </div>
 
-    <div v-if="isWohnung" class="grid grid-cols-3 gap-3">
-      <div>
-        <label class="text-[11px] text-muted-foreground block mb-1">Stiege</label>
-        <input v-model="form.staircase" class="w-full h-11 rounded-lg border border-border px-3 bg-white" />
-      </div>
-      <div>
-        <label class="text-[11px] text-muted-foreground block mb-1">Tür</label>
-        <input v-model="form.door" class="w-full h-11 rounded-lg border border-border px-3 bg-white" />
-      </div>
-      <div>
-        <label class="text-[11px] text-muted-foreground block mb-1">Etage</label>
-        <input v-model="form.address_floor" inputmode="numeric" class="w-full h-11 rounded-lg border border-border px-3 bg-white" />
-      </div>
-    </div>
+        <div v-if="isWohnung" class="grid grid-cols-3 gap-3">
+          <div class="space-y-1.5">
+            <label class="text-sm font-medium block">Stiege</label>
+            <Input v-model="form.staircase" class="h-11" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-sm font-medium block">Tür</label>
+            <Input v-model="form.door" class="h-11" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-sm font-medium block">Etage</label>
+            <Input v-model="form.address_floor" inputmode="numeric" class="h-11" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
 
-    <div v-if="hasCoords" class="rounded-lg overflow-hidden border border-border" style="height:240px">
-      <iframe
-        :src="`https://www.openstreetmap.org/export/embed.html?bbox=${Number(form.longitude)-0.008}%2C${Number(form.latitude)-0.006}%2C${Number(form.longitude)+0.008}%2C${Number(form.latitude)+0.006}&layer=mapnik&marker=${form.latitude}%2C${form.longitude}`"
-        width="100%" height="240" frameborder="0" style="border:0" loading="lazy"
-      ></iframe>
-    </div>
+    <Card v-if="hasCoords" class="overflow-hidden">
+      <div style="height:240px">
+        <iframe
+          :src="`https://www.openstreetmap.org/export/embed.html?bbox=${Number(form.longitude)-0.008}%2C${Number(form.latitude)-0.006}%2C${Number(form.longitude)+0.008}%2C${Number(form.latitude)+0.006}&layer=mapnik&marker=${form.latitude}%2C${form.longitude}`"
+          width="100%" height="240" frameborder="0" style="border:0" loading="lazy"
+        ></iframe>
+      </div>
+    </Card>
 
   </div>
 </template>

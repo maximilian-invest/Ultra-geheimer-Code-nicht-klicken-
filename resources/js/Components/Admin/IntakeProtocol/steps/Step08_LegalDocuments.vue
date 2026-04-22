@@ -2,6 +2,12 @@
 import { computed, inject, ref } from 'vue';
 import DocumentChecklistItem from '../shared/DocumentChecklistItem.vue';
 import SkipFieldSwitch from '../shared/SkipFieldSwitch.vue';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Plus } from 'lucide-vue-next';
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -88,94 +94,139 @@ const approvalsNotesSkipped = computed({
 <template>
   <div class="p-4 space-y-4">
 
-    <div class="bg-white border border-border rounded-xl p-4 space-y-2">
-      <div class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Hausverwaltung</div>
-      <input
-        v-model="hvSearch"
-        @input="searchHv(hvSearch)"
-        placeholder="Hausverwaltung suchen..."
-        class="w-full h-11 rounded-lg border border-border px-3"
-      />
-      <div v-if="hvResults.length" class="bg-white border border-border rounded-lg divide-y divide-border/40">
-        <button v-for="h in hvResults" :key="h.id" type="button" @click="pickHv(h)"
-                class="w-full text-left px-3 py-2 hover:bg-zinc-50">
-          <div class="text-sm font-medium">{{ h.company_name }}</div>
-          <div class="text-xs text-muted-foreground">{{ h.contact_person }} · {{ h.email }}</div>
-        </button>
-      </div>
-      <button v-if="!hvShowNewForm" type="button" @click="hvShowNewForm = true" class="text-sm text-[#EE7600] font-medium">
-        + Neue Hausverwaltung
-      </button>
-      <div v-if="hvShowNewForm" class="bg-zinc-50 rounded-lg p-3 space-y-2">
-        <input v-model="hvNewForm.company_name" placeholder="Firma *" class="w-full h-10 rounded-md border border-border px-2 text-sm" />
-        <input v-model="hvNewForm.contact_person" placeholder="Ansprechpartner" class="w-full h-10 rounded-md border border-border px-2 text-sm" />
-        <input v-model="hvNewForm.email" type="email" placeholder="E-Mail" class="w-full h-10 rounded-md border border-border px-2 text-sm" />
-        <input v-model="hvNewForm.phone" placeholder="Telefon" class="w-full h-10 rounded-md border border-border px-2 text-sm" />
-        <button type="button" @click="createHv" class="w-full h-10 rounded-md bg-[#EE7600] text-white text-sm font-medium">Anlegen</button>
-      </div>
-    </div>
+    <!-- Hausverwaltung -->
+    <Card>
+      <CardHeader class="pb-3">
+        <CardTitle class="text-base">Hausverwaltung</CardTitle>
+      </CardHeader>
+      <CardContent class="space-y-2">
+        <Input
+          v-model="hvSearch"
+          @update:model-value="searchHv(hvSearch)"
+          placeholder="Hausverwaltung suchen..."
+          class="h-11"
+        />
+        <Card v-if="hvResults.length" class="divide-y divide-border/40 p-0">
+          <button
+            v-for="h in hvResults" :key="h.id"
+            type="button"
+            @click="pickHv(h)"
+            class="w-full text-left px-3 py-2 hover:bg-zinc-50"
+          >
+            <div class="text-sm font-medium">{{ h.company_name }}</div>
+            <div class="text-xs text-muted-foreground">{{ h.contact_person }} · {{ h.email }}</div>
+          </button>
+        </Card>
+        <Button
+          v-if="!hvShowNewForm"
+          variant="ghost"
+          size="sm"
+          class="text-primary"
+          @click="hvShowNewForm = true"
+        >
+          <Plus class="h-4 w-4" />
+          Neue Hausverwaltung
+        </Button>
+        <Card v-if="hvShowNewForm" class="bg-zinc-50">
+          <CardContent class="p-3 space-y-2">
+            <Input v-model="hvNewForm.company_name" placeholder="Firma *" class="h-10" />
+            <Input v-model="hvNewForm.contact_person" placeholder="Ansprechpartner" class="h-10" />
+            <Input v-model="hvNewForm.email" type="email" placeholder="E-Mail" class="h-10" />
+            <Input v-model="hvNewForm.phone" placeholder="Telefon" class="h-10" />
+            <Button class="w-full h-10" @click="createHv">Anlegen</Button>
+          </CardContent>
+        </Card>
+      </CardContent>
+    </Card>
 
-    <div class="bg-white border border-border rounded-xl p-4 space-y-2">
-      <div class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Belastungen / Rechte</div>
-      <textarea v-model="form.encumbrances" rows="3"
-                placeholder="Pfandrechte, Wohnrechte, Dienstbarkeiten ..."
-                class="w-full rounded-lg border border-border p-2 text-sm"></textarea>
-    </div>
+    <!-- Belastungen / Rechte -->
+    <Card>
+      <CardHeader class="pb-3">
+        <CardTitle class="text-base">Belastungen / Rechte</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Textarea
+          v-model="form.encumbrances"
+          rows="3"
+          placeholder="Pfandrechte, Wohnrechte, Dienstbarkeiten ..."
+        />
+      </CardContent>
+    </Card>
 
-    <div class="bg-white border-l-4 border-l-[#EE7600] border-t border-r border-b border-border rounded-xl p-4 space-y-3">
-      <div class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Bewilligungen</div>
-      <div class="text-sm">Sind alle Baumaßnahmen bewilligt?</div>
-      <div class="grid grid-cols-3 gap-2">
-        <button type="button" @click="form.approvals_status = 'complete'; form.approvals_notes = ''"
-                :class="[
-                  'rounded-xl p-3 text-center',
-                  form.approvals_status === 'complete' ? 'bg-green-50 border-2 border-green-600' : 'bg-white border border-border'
-                ]">
-          <div class="text-xl">✓</div>
-          <div class="text-[11px] font-medium mt-0.5">Alles bewilligt</div>
-        </button>
-        <button type="button" @click="form.approvals_status = 'partial'"
-                :class="[
-                  'rounded-xl p-3 text-center',
-                  form.approvals_status === 'partial' ? 'bg-amber-50 border-2 border-amber-500' : 'bg-white border border-border'
-                ]">
-          <div class="text-xl">⚠️</div>
-          <div class="text-[11px] font-medium mt-0.5">Teilweise</div>
-        </button>
-        <button type="button" @click="form.approvals_status = 'unknown'"
-                :class="[
-                  'rounded-xl p-3 text-center',
-                  form.approvals_status === 'unknown' ? 'bg-zinc-100 border-2 border-zinc-600' : 'bg-white border border-border'
-                ]">
-          <div class="text-xl">❓</div>
-          <div class="text-[11px] font-medium mt-0.5">Unbekannt</div>
-        </button>
-      </div>
-
-      <div v-if="['partial','unknown'].includes(form.approvals_status)"
-           :class="[
-             'rounded-lg p-3 space-y-2',
-             form.approvals_status === 'partial' ? 'bg-amber-50 border border-amber-200' : 'bg-zinc-100 border border-zinc-300'
-           ]">
-        <div class="flex items-center justify-between">
-          <label class="text-xs font-semibold">
-            <span v-if="form.approvals_status === 'partial'">Welche Bewilligung fehlt wofür? *</span>
-            <span v-else>Was ist unklar und muss geprüft werden? *</span>
-          </label>
-          <SkipFieldSwitch v-model="approvalsNotesSkipped" />
+    <!-- Bewilligungen -->
+    <Card class="border-l-4 border-l-primary">
+      <CardHeader class="pb-3">
+        <CardTitle class="text-base">Bewilligungen</CardTitle>
+      </CardHeader>
+      <CardContent class="space-y-3">
+        <div class="text-sm">Sind alle Baumaßnahmen bewilligt?</div>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button"
+                  @click="form.approvals_status = 'complete'; form.approvals_notes = ''"
+                  :class="[
+                    'rounded-xl p-3 text-center border transition-colors',
+                    form.approvals_status === 'complete'
+                      ? 'bg-green-50 border-2 border-green-600'
+                      : 'bg-white border-border hover:border-green-300'
+                  ]">
+            <div class="text-xl">✓</div>
+            <div class="text-[11px] font-medium mt-0.5">Alles bewilligt</div>
+          </button>
+          <button type="button"
+                  @click="form.approvals_status = 'partial'"
+                  :class="[
+                    'rounded-xl p-3 text-center border transition-colors',
+                    form.approvals_status === 'partial'
+                      ? 'bg-amber-50 border-2 border-amber-500'
+                      : 'bg-white border-border hover:border-amber-300'
+                  ]">
+            <div class="text-xl">⚠️</div>
+            <div class="text-[11px] font-medium mt-0.5">Teilweise</div>
+          </button>
+          <button type="button"
+                  @click="form.approvals_status = 'unknown'"
+                  :class="[
+                    'rounded-xl p-3 text-center border transition-colors',
+                    form.approvals_status === 'unknown'
+                      ? 'bg-zinc-100 border-2 border-zinc-600'
+                      : 'bg-white border-border hover:border-zinc-300'
+                  ]">
+            <div class="text-xl">❓</div>
+            <div class="text-[11px] font-medium mt-0.5">Unbekannt</div>
+          </button>
         </div>
-        <textarea v-model="form.approvals_notes" rows="3"
-                  :placeholder="form.approvals_status === 'partial' ? 'Terrasse: nicht bewilligt\nDachbodenausbau: nicht im Grundbuch eingetragen' : 'Eigentümer weiß nicht ob Anbau bewilligt'"
-                  class="w-full rounded-md border border-border p-2 text-sm"></textarea>
-      </div>
-    </div>
 
-    <div class="bg-white border border-border rounded-xl p-4 space-y-2">
-      <div class="flex items-center justify-between mb-1">
-        <div class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Dokumenten-Checkliste</div>
-        <div class="text-[11px] text-[#EE7600] font-medium">{{ availableCount }} / {{ DOCS.length }} vorhanden</div>
-      </div>
-      <div class="space-y-1">
+        <Card
+          v-if="['partial','unknown'].includes(form.approvals_status)"
+          :class="form.approvals_status === 'partial' ? 'bg-amber-50 border-amber-200' : 'bg-zinc-100 border-zinc-300'"
+        >
+          <CardContent class="p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold">
+                <span v-if="form.approvals_status === 'partial'">Welche Bewilligung fehlt wofür? *</span>
+                <span v-else>Was ist unklar und muss geprüft werden? *</span>
+              </label>
+              <SkipFieldSwitch v-model="approvalsNotesSkipped" />
+            </div>
+            <Textarea
+              v-model="form.approvals_notes"
+              rows="3"
+              :placeholder="form.approvals_status === 'partial' ? 'Terrasse: nicht bewilligt\nDachbodenausbau: nicht im Grundbuch eingetragen' : 'Eigentümer weiß nicht ob Anbau bewilligt'"
+            />
+          </CardContent>
+        </Card>
+      </CardContent>
+    </Card>
+
+    <!-- Dokumenten-Checkliste -->
+    <Card>
+      <CardHeader class="pb-3">
+        <div class="flex items-center justify-between">
+          <CardTitle class="text-base">Dokumenten-Checkliste</CardTitle>
+          <Badge variant="secondary">{{ availableCount }} / {{ DOCS.length }} vorhanden</Badge>
+        </div>
+      </CardHeader>
+      <CardContent class="space-y-1.5">
         <DocumentChecklistItem
           v-for="d in DOCS" :key="d.key"
           :doc-key="d.key"
@@ -183,8 +234,8 @@ const approvalsNotesSkipped = computed({
           :model-value="getDocStatus(d.key)"
           @update:model-value="setDocStatus(d.key, $event)"
         />
-      </div>
-    </div>
+      </CardContent>
+    </Card>
 
   </div>
 </template>

@@ -1,5 +1,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { RotateCcw } from 'lucide-vue-next';
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -80,19 +83,20 @@ onUnmounted(() => {
 
 <template>
   <div class="space-y-2">
-    <div class="relative">
+    <Card class="relative border-dashed">
       <canvas
         ref="canvas"
-        class="w-full h-48 bg-white border-2 border-border rounded-md touch-none"
+        class="w-full h-48 rounded-xl touch-none bg-white"
         @mousedown="start" @mousemove="move" @mouseup="end" @mouseleave="end"
         @touchstart="start" @touchmove="move" @touchend="end"
       ></canvas>
       <div v-if="!modelValue" class="absolute inset-0 flex items-center justify-center pointer-events-none text-zinc-400 text-sm">
         Hier unterschreiben
       </div>
-    </div>
-    <button @click="clear" type="button" class="text-xs text-muted-foreground underline">
+    </Card>
+    <Button variant="ghost" size="sm" @click="clear" type="button">
+      <RotateCcw class="h-3 w-3" />
       Zurücksetzen
-    </button>
+    </Button>
   </div>
 </template>

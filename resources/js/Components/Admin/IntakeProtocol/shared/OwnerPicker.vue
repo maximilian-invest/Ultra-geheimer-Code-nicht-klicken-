@@ -1,5 +1,15 @@
 <script setup>
-import { ref, inject, watch } from 'vue';
+import { ref, inject, watch, computed } from 'vue';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { ChevronDown } from 'lucide-vue-next';
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -62,102 +72,122 @@ function onNameBlur() {
 watch(() => props.form.owner_customer_id, (v) => {
   if (v) showSuggestions.value = false;
 });
+
+const initial = computed(() => {
+  const n = (props.form.owner?.name || '').trim();
+  if (!n) return '?';
+  return n.charAt(0).toUpperCase();
+});
 </script>
 
 <template>
   <div class="space-y-3">
 
-    <!-- Badge oben: wenn bestehender Kontakt verknuepft ist -->
-    <div v-if="form.owner_customer_id"
-         class="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs text-green-900">
-      <span class="text-base">✓</span>
-      <span>Bestehender Kontakt ausgewählt — Änderungen lösen die Verknüpfung auf.</span>
-    </div>
+    <!-- Selected Owner Card (wenn bestehender Kontakt) -->
+    <Card v-if="form.owner_customer_id" class="border-green-200 bg-green-50/50">
+      <CardContent class="p-3 flex items-center gap-3">
+        <Avatar size="sm">
+          <AvatarFallback class="bg-green-600 text-white">{{ initial }}</AvatarFallback>
+        </Avatar>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium truncate">{{ form.owner.name }}</div>
+          <div class="text-xs text-muted-foreground truncate">
+            {{ [form.owner.email, form.owner.phone].filter(Boolean).join(' · ') || '—' }}
+          </div>
+        </div>
+        <Badge variant="secondary" class="shrink-0">Bestehender Kontakt</Badge>
+      </CardContent>
+    </Card>
 
     <!-- Name (immer sichtbar, treibt Autocomplete) -->
-    <div class="relative">
-      <label class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
+    <div class="relative space-y-1.5">
+      <label class="text-sm font-medium block">
         Name des Eigentümers <span class="text-red-500">*</span>
       </label>
-      <input
+      <Input
         v-model="form.owner.name"
         @input="onNameInput"
         @focus="onNameInput"
         @blur="onNameBlur"
         placeholder="Vor- und Nachname"
         autocomplete="off"
-        class="w-full h-11 rounded-lg border border-border px-3 bg-white"
+        class="h-11"
       />
       <!-- Autocomplete-Panel (nur wenn es Vorschlaege gibt) -->
-      <div
+      <Card
         v-if="showSuggestions && suggestions.length"
-        class="absolute left-0 right-0 top-full mt-1 bg-white border border-border rounded-lg shadow-lg z-20 max-h-64 overflow-y-auto"
+        class="absolute left-0 right-0 top-full mt-1 shadow-lg z-20 max-h-64 overflow-y-auto p-0"
       >
         <button
           v-for="c in suggestions" :key="c.id"
           type="button"
           @mousedown.prevent="pickContact(c)"
-          class="w-full text-left px-3 py-2 hover:bg-zinc-50 border-b border-zinc-100 last:border-b-0"
+          class="w-full text-left px-3 py-2 hover:bg-zinc-50 border-b border-border/40 last:border-b-0"
         >
           <div class="text-sm font-medium">{{ c.full_name }}</div>
           <div class="text-[11px] text-muted-foreground">
             {{ [c.email, c.phone].filter(Boolean).join(' · ') }}
           </div>
         </button>
-        <div class="px-3 py-2 text-[11px] text-muted-foreground border-t border-zinc-100 bg-zinc-50">
-          💡 Auswählen übernimmt E-Mail/Telefon. Oder einfach weiter tippen für neuen Eigentümer.
+        <div class="px-3 py-2 text-[11px] text-muted-foreground border-t border-border/40 bg-zinc-50">
+          Auswählen übernimmt E-Mail/Telefon. Oder einfach weiter tippen für neuen Eigentümer.
         </div>
-      </div>
+      </Card>
     </div>
 
     <!-- Email + Phone (immer sichtbar, optional, aber E-Mail empfohlen fuers PDF) -->
-    <div class="grid grid-cols-1 gap-3">
-      <div>
-        <label class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
-          E-Mail <span class="text-[10px] normal-case text-muted-foreground">(für PDF-Versand empfohlen)</span>
+    <div class="space-y-3">
+      <div class="space-y-1.5">
+        <label class="text-sm font-medium block">
+          E-Mail <span class="text-xs font-normal text-muted-foreground">(für PDF-Versand empfohlen)</span>
         </label>
-        <input
+        <Input
           v-model="form.owner.email"
           type="email"
           placeholder="name@example.com"
           autocomplete="off"
-          class="w-full h-11 rounded-lg border border-border px-3 bg-white"
+          class="h-11"
         />
       </div>
-      <div>
-        <label class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
-          Telefon
-        </label>
-        <input
+      <div class="space-y-1.5">
+        <label class="text-sm font-medium block">Telefon</label>
+        <Input
           v-model="form.owner.phone"
           type="tel"
           inputmode="tel"
           placeholder="+43 …"
           autocomplete="off"
-          class="w-full h-11 rounded-lg border border-border px-3 bg-white"
+          class="h-11"
         />
       </div>
     </div>
 
     <!-- Wohnsitz (optional, zusammenklappbar) -->
-    <details class="bg-white border border-border rounded-xl p-3">
-      <summary class="text-xs font-medium text-muted-foreground cursor-pointer select-none">
-        Wohnsitz-Adresse <span class="text-[10px]">(optional — nur falls abweichend vom Objekt)</span>
-      </summary>
-      <div class="mt-3 space-y-2">
-        <input
-          v-model="form.owner.address"
-          placeholder="Straße + Hausnr."
-          class="w-full h-10 rounded-lg border border-border px-3"
-        />
-        <div class="grid grid-cols-[1fr_2fr] gap-2">
-          <input v-model="form.owner.zip" placeholder="PLZ" inputmode="numeric"
-                 class="h-10 rounded-lg border border-border px-3" />
-          <input v-model="form.owner.city" placeholder="Stadt"
-                 class="h-10 rounded-lg border border-border px-3" />
-        </div>
-      </div>
-    </details>
+    <Collapsible>
+      <Card>
+        <CollapsibleTrigger as-child>
+          <button type="button" class="w-full flex items-center justify-between p-3 text-left">
+            <span class="text-xs font-medium text-muted-foreground">
+              Wohnsitz-Adresse <span class="text-[10px]">(optional — nur falls abweichend vom Objekt)</span>
+            </span>
+            <ChevronDown class="h-4 w-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div class="p-3 pt-0 space-y-2">
+            <Input
+              v-model="form.owner.address"
+              placeholder="Straße + Hausnr."
+              class="h-10"
+            />
+            <div class="grid grid-cols-[1fr_2fr] gap-2">
+              <Input v-model="form.owner.zip" placeholder="PLZ" inputmode="numeric" class="h-10" />
+              <Input v-model="form.owner.city" placeholder="Stadt" class="h-10" />
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
 
   </div>
 </template>

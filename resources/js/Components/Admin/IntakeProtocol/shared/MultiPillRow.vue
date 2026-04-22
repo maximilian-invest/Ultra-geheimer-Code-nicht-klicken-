@@ -2,7 +2,11 @@
 // Multi-Select Pills. modelValue ist Array<string> (direkt) oder JSON-String
 // (fuer form.flooring, form.bathroom_equipment — dort ist das DB-Feld ein String).
 // Wir geben beim Toggle wieder in der gleichen Form zurueck wie wir's bekommen.
+//
+// IMPORTANT: Laut MEMORY verliert ToggleGroup mit `useForwardPropsEmits` + spread
+// bei async-geladenen Werten die Reaktivitaet. Wir binden :model-value explizit.
 import { computed } from 'vue';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 const props = defineProps({
   modelValue: { type: [Array, String], default: () => [] },
@@ -31,28 +35,27 @@ const selected = computed(() => {
   return [];
 });
 
-function toggle(value) {
-  const cur = [...selected.value];
-  const idx = cur.indexOf(value);
-  if (idx >= 0) cur.splice(idx, 1);
-  else cur.push(value);
-  // Ausgabe im gleichen Typ zurueck wie der Input
-  emit('update:modelValue', isStringMode.value ? JSON.stringify(cur) : cur);
+function onUpdate(newArr) {
+  const arr = Array.isArray(newArr) ? newArr : [];
+  emit('update:modelValue', isStringMode.value ? JSON.stringify(arr) : arr);
 }
 </script>
 
 <template>
-  <div class="flex flex-wrap gap-1.5">
-    <button
+  <ToggleGroup
+    type="multiple"
+    variant="outline"
+    size="sm"
+    :model-value="selected"
+    @update:model-value="onUpdate"
+    class="flex-wrap justify-start"
+  >
+    <ToggleGroupItem
       v-for="(opt, i) in options" :key="i"
-      type="button"
-      @click="toggle(normalize(opt).value)"
-      :class="[
-        'px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors',
-        selected.includes(normalize(opt).value)
-          ? 'bg-[#EE7600] text-white'
-          : 'bg-white border border-border text-foreground hover:border-[#EE7600]/40'
-      ]"
-    >{{ normalize(opt).label }}</button>
-  </div>
+      :value="normalize(opt).value"
+      class="rounded-full px-3 h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary"
+    >
+      {{ normalize(opt).label }}
+    </ToggleGroupItem>
+  </ToggleGroup>
 </template>

@@ -15,6 +15,17 @@ import Step10_Photos from './steps/Step10_Photos.vue';
 import Step11_SignatureSummary from './steps/Step11_SignatureSummary.vue';
 import { useIntakeForm } from './composables/useIntakeForm';
 import { useAutoSave } from './composables/useAutoSave';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { WifiOff } from 'lucide-vue-next';
 
 const emit = defineEmits(['close', 'submitted']);
 
@@ -151,39 +162,41 @@ async function submit() {
 }
 
 onBeforeUnmount(() => stopRetry());
+
+// Resume-Prompt als Dialog-Modell
+const resumeDialogOpen = computed({
+  get: () => resumePrompt.value !== null,
+  set: (v) => { if (!v) resumePrompt.value = null; },
+});
 </script>
 
 <template>
   <div class="fixed inset-0 z-50 bg-zinc-50 flex flex-col" style="overflow-y:auto">
 
-    <!-- Resume-Prompt: erscheint beim Re-Öffnen wenn lokaler Draft existiert -->
-    <div v-if="resumePrompt"
-         class="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl p-5 max-w-md w-full shadow-xl space-y-3">
-        <div class="flex items-center gap-2">
-          <span class="text-2xl">📝</span>
-          <h3 class="font-semibold text-base">Entwurf gefunden</h3>
-        </div>
-        <p class="text-sm text-zinc-700">
-          Es gibt einen nicht abgeschlossenen Aufnahmeprotokoll-Entwurf aus Schritt
-          <strong>{{ resumePrompt.step }}</strong> von {{ TOTAL_STEPS }},
-          gespeichert {{ resumeAgeHuman(resumePrompt.updatedAt) }}.
-        </p>
+    <!-- Resume-Prompt als shadcn-Dialog -->
+    <Dialog v-model:open="resumeDialogOpen">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Entwurf gefunden</DialogTitle>
+          <DialogDescription>
+            Es gibt einen nicht abgeschlossenen Aufnahmeprotokoll-Entwurf aus Schritt
+            <strong>{{ resumePrompt?.step }}</strong> von {{ TOTAL_STEPS }},
+            gespeichert {{ resumeAgeHuman(resumePrompt?.updatedAt) }}.
+          </DialogDescription>
+        </DialogHeader>
         <p class="text-xs text-muted-foreground">
           „Weitermachen" lädt die Daten zurück. „Neu starten" verwirft den Entwurf.
         </p>
-        <div class="flex gap-2 pt-2">
-          <button type="button" @click="discardDraft"
-                  class="flex-1 h-11 rounded-lg border border-border text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+        <DialogFooter class="gap-2 sm:gap-2">
+          <Button variant="outline" class="flex-1 h-11" @click="discardDraft">
             Neu starten
-          </button>
-          <button type="button" @click="resumeDraft"
-                  class="flex-[2] h-11 rounded-lg bg-[#EE7600] text-white text-sm font-semibold">
+          </Button>
+          <Button class="flex-[2] h-11" @click="resumeDraft">
             Weitermachen
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <StepHeader
       :current-step="currentStep"
@@ -192,11 +205,14 @@ onBeforeUnmount(() => stopRetry());
       @cancel="handleCancel"
     />
 
-    <div v-if="offline" class="bg-orange-50 text-orange-700 text-xs px-4 py-2 text-center">
-      📡 Offline — Änderungen werden später gespeichert
+    <div v-if="offline" class="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-center gap-2">
+      <WifiOff class="h-3.5 w-3.5 text-amber-700" />
+      <Badge variant="outline" class="border-amber-300 bg-amber-100 text-amber-800">
+        Offline — Änderungen werden später gespeichert
+      </Badge>
     </div>
 
-    <div class="flex-1 mx-auto w-full" style="max-width:640px">
+    <div class="flex-1 mx-auto w-full max-w-2xl">
       <component
         :is="currentStepComponent"
         :form="form"

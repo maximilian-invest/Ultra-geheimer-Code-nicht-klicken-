@@ -96,6 +96,9 @@ class IntakeProtocolController extends Controller
                 $property = $this->buildProperty($form, $customerId, $brokerId);
                 $property->save();
 
+                // 3b) Photos: persist each as property_files row with base64-decoded binary
+                $this->storeSubmittedPhotos($property->id, (array) ($form['photos'] ?? []));
+
                 // 4) Signature
                 $signaturePath = $this->storeSignature($property->id, $signatureDataUrl);
 
@@ -290,6 +293,54 @@ class IntakeProtocolController extends Controller
         $path = "intake-protocols/{$propertyId}/signature-" . time() . '.png';
         \Storage::put($path, $binary);
         return $path;
+    }
+
+    /**
+     * Persist submitted photos into property_files, decoding base64 data URLs
+     * and saving the binary to the public disk. The category ('exterior',
+     * 'interior', 'floor_plan', 'documents') is encoded into the label so we
+     * can keep the existing property_files schema unchanged.
+     */
+    private function storeSubmittedPhotos(int $propertyId, array $photos): void
+    {
+        if (empty($photos)) return;
+
+        $labelMap = [
+            'exterior'   => 'Außenansicht',
+            'interior'   => 'Innenraum',
+            'floor_plan' => 'Grundriss',
+            'documents'  => 'Dokument',
+        ];
+
+        foreach ($photos as $photo) {
+            if (!is_array($photo)) continue;
+            if (empty($photo['dataUrl'])) continue;
+            if (!preg_match('/^data:image\/(\w+);base64,(.+)$/', $photo['dataUrl'], $m)) continue;
+
+            $ext = $m[1] === 'jpeg' ? 'jpg' : $m[1];
+            $binary = base64_decode($m[2]);
+            if (!$binary) continue;
+
+            $category = (string) ($photo['category'] ?? 'exterior');
+            $label = $labelMap[$category] ?? 'Foto';
+
+            $filename = 'property-' . $propertyId . '-' . \Illuminate\Support\Str::random(8) . '.' . $ext;
+            $path = 'properties/' . $propertyId . '/' . $filename;
+
+            \Storage::disk('public')->put($path, $binary);
+
+            \DB::table('property_files')->insert([
+                'property_id'         => $propertyId,
+                'label'               => $label,
+                'filename'            => $photo['filename'] ?? $filename,
+                'path'                => $path,
+                'mime_type'           => 'image/' . $m[1],
+                'file_size'           => strlen($binary),
+                'sort_order'          => 0,
+                'is_website_download' => 0,
+                'created_at'          => now(),
+            ]);
+        }
     }
 
     private function generateAndStorePdf(

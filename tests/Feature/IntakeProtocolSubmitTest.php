@@ -110,4 +110,52 @@ class IntakeProtocolSubmitTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'portal@test.at', 'user_type' => 'customer']);
         Mail::assertSent(PortalAccessMail::class, fn($m) => $m->hasTo('portal@test.at'));
     }
+
+    public function test_photos_in_submit_are_stored_as_property_files(): void
+    {
+        Storage::fake('public');
+        Mail::fake();
+
+        $user = User::factory()->create(['user_type' => 'makler']);
+        $this->actingAs($user);
+
+        $pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+        $response = $this->postJson('/api/admin_api.php?action=intake_protocol_submit', [
+            'form_data' => [
+                'object_type' => 'Wohnung',
+                'marketing_type' => 'kauf',
+                'address' => 'Photostr', 'house_number' => '1',
+                'zip' => '5020', 'city' => 'Salzburg',
+                'owner' => ['name' => 'F', 'email' => 'f@test.at'],
+                'portal_access_granted' => false,
+                'documents_available' => [],
+                'approvals_status' => 'complete',
+                'broker_notes' => '',
+                'photos' => [
+                    ['dataUrl' => "data:image/png;base64,$pixel", 'filename' => 'exterior.png', 'category' => 'exterior'],
+                    ['dataUrl' => "data:image/png;base64,$pixel", 'filename' => 'interior.png', 'category' => 'interior'],
+                ],
+            ],
+            'signature_data_url' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+            'signed_by_name' => 'F',
+            'disclaimer_text' => 'D',
+        ]);
+
+        $response->assertStatus(200);
+        $property = Property::latest()->first();
+        $this->assertNotNull($property);
+
+        $files = \DB::table('property_files')->where('property_id', $property->id)->get();
+        $this->assertCount(2, $files);
+        $this->assertTrue($files->contains('label', 'Außenansicht'));
+        $this->assertTrue($files->contains('label', 'Innenraum'));
+        $this->assertTrue($files->contains('filename', 'exterior.png'));
+        $this->assertTrue($files->contains('filename', 'interior.png'));
+
+        // Binary was written to the public disk
+        foreach ($files as $file) {
+            $this->assertTrue(Storage::disk('public')->exists($file->path));
+        }
+    }
 }

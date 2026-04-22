@@ -56,22 +56,22 @@
   }
   if (avatarEl) {
     if (brokerImage) {
-      avatarEl.innerHTML = `<img src="${esc(brokerImage)}" alt="${esc(brokerName)}" class="w-full h-full object-cover" />`;
+      avatarEl.innerHTML = `<img src="${esc(brokerImage)}" alt="${esc(brokerName)}" loading="lazy" decoding="async" class="w-full h-full object-cover" />`;
     } else {
       avatarEl.textContent = initials || 'SR';
     }
   }
 
-  /* ─── Betriebskosten: Gesamtsumme in der Sidebar + Aufschluesselung unten ─── */
+  /* ─── Betriebskosten in der Sidebar — ausklappbar wenn Aufschluesselung ─── */
   const costItems = [
     { key: 'operating_costs',       label: 'Betriebskosten' },
     { key: 'heating_costs',         label: 'Heizkosten' },
-    { key: 'warm_water_costs',      label: 'Warmwasserkosten' },
-    { key: 'cooling_costs',         label: 'Kuehlungskosten' },
+    { key: 'warm_water_costs',      label: 'Warmwasser' },
+    { key: 'cooling_costs',         label: 'Kühlung' },
     { key: 'maintenance_reserves',  label: 'Rücklage' },
-    { key: 'admin_costs',           label: 'Verwaltungskosten' },
-    { key: 'elevator_costs',        label: 'Aufzugskosten' },
-    { key: 'parking_costs_monthly', label: 'Stellplatzkosten' },
+    { key: 'admin_costs',           label: 'Verwaltung' },
+    { key: 'elevator_costs',        label: 'Aufzug' },
+    { key: 'parking_costs_monthly', label: 'Stellplatz' },
     { key: 'other_costs',           label: 'Sonstige Kosten' },
   ];
   const filled = costItems
@@ -82,44 +82,234 @@
 
   const bkTotalEl = document.getElementById('prop-bk-total');
   if (bkTotalEl && bkTotal > 0) {
-    bkTotalEl.textContent = `zzgl. Betriebskosten: EUR ${fmt(bkTotal)} / Monat`;
-  }
-
-  const breakdownEl = document.getElementById('costs-breakdown');
-  if (breakdownEl && filled.length) {
-    breakdownEl.innerHTML = `
-      <div class="mt-16">
-        <h2 class="text-sm font-bold uppercase tracking-widest mb-6" style="color:#9A958C">Nebenkosten (mtl.)</h2>
-        <div class="rounded-2xl overflow-hidden" style="background:#fff;border:1px solid #F0ECE6">
-          ${filled.map((it, i) => `
-            <div class="flex items-center justify-between px-6 py-4" style="${i < filled.length - 1 ? 'border-bottom:1px solid #F0ECE6' : ''}">
-              <span class="text-sm" style="color:#5A564E">${esc(it.label)}</span>
-              <span class="text-sm font-semibold tabular-nums" style="color:#0A0A08">EUR ${fmt(it.val)}</span>
+    // Wenn mehr als 1 Position eingetragen ist -> Aufschluesselung ausklappbar anbieten.
+    const hasBreakdown = filled.length > 1;
+    if (hasBreakdown) {
+      bkTotalEl.innerHTML = `
+        <button type="button" id="bk-toggle" class="w-full flex items-center justify-between text-left py-0.5"
+                style="color:#5A564E">
+          <span class="text-sm">zzgl. Betriebskosten: <span style="color:#0A0A08;font-weight:500">EUR ${fmt(bkTotal)} / Monat</span></span>
+          <svg id="bk-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9A958C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.2s;flex-shrink:0;margin-left:8px"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="bk-body" style="display:none;margin-top:8px;padding:10px 0;border-top:1px solid #F0ECE6">
+          ${filled.map(it => `
+            <div class="flex items-center justify-between py-1 text-[12px]">
+              <span style="color:#5A564E">${esc(it.label)}</span>
+              <span class="tabular-nums" style="color:#0A0A08">€ ${fmt(it.val)}</span>
             </div>`).join('')}
           ${parseFloat(p.monthly_costs || 0) > 0 && Math.abs(parseFloat(p.monthly_costs) - sumSub) > 1 ? `
-            <div class="flex items-center justify-between px-6 py-4" style="background:#FAF8F5;border-top:1px solid #F0ECE6">
-              <span class="text-sm font-bold" style="color:#0A0A08">Gesamt (mtl.)</span>
-              <span class="text-sm font-bold tabular-nums" style="color:#0A0A08">EUR ${fmt(parseFloat(p.monthly_costs))}</span>
-            </div>` : `
-            <div class="flex items-center justify-between px-6 py-4" style="background:#FAF8F5;border-top:1px solid #F0ECE6">
-              <span class="text-sm font-bold" style="color:#0A0A08">Gesamt (mtl.)</span>
-              <span class="text-sm font-bold tabular-nums" style="color:#0A0A08">EUR ${fmt(sumSub)}</span>
-            </div>`}
-        </div>
-      </div>`;
+            <div class="flex items-center justify-between py-1 text-[12px] mt-1" style="border-top:1px solid #F0ECE6;padding-top:6px">
+              <span style="color:#0A0A08;font-weight:600">Gesamt</span>
+              <span class="tabular-nums font-semibold" style="color:#0A0A08">€ ${fmt(parseFloat(p.monthly_costs))}</span>
+            </div>` : ''}
+        </div>`;
+      const bkToggle = document.getElementById('bk-toggle');
+      const bkBody = document.getElementById('bk-body');
+      const bkChevron = document.getElementById('bk-chevron');
+      if (bkToggle && bkBody) {
+        bkToggle.addEventListener('click', () => {
+          const open = bkBody.style.display !== 'none';
+          bkBody.style.display = open ? 'none' : 'block';
+          if (bkChevron) bkChevron.style.transform = open ? 'rotate(0)' : 'rotate(180deg)';
+        });
+      }
+    } else {
+      // Nur 1 Position -> kein Toggle, nur Text.
+      bkTotalEl.innerHTML = `zzgl. Betriebskosten: <span style="color:#0A0A08;font-weight:500">EUR ${fmt(bkTotal)} / Monat</span>`;
+    }
   }
 
-  /* ─── Allgemeinräume (website-only, nur wenn gepflegt) ─── */
-  const commonAreasEl = document.getElementById('common-areas');
-  const commonAreasTxt = (p.common_areas || '').toString().trim();
-  if (commonAreasEl && commonAreasTxt) {
-    commonAreasEl.innerHTML = `
-      <div class="mt-16">
-        <h2 class="text-sm font-bold uppercase tracking-widest mb-6" style="color:#9A958C">Allgemeinräume</h2>
-        <div class="rounded-2xl p-6" style="background:#fff;border:1px solid #F0ECE6;color:#0A0A08;line-height:1.7;font-size:0.95rem">
-          ${commonAreasTxt.split(/\n\s*\n/).map(p => '<p class="mb-3 last:mb-0">' + esc(p.trim()).replace(/\n/g, '<br>') + '</p>').join('')}
+  /* ─── Einmalige Nebenkosten beim Kauf (rechts unter Kaufpreis) ─── */
+  // Nur Positionen mit Wert > 0 werden angezeigt. Leere Felder zeigen nichts.
+  // Neue Projekte bekommen bei Anlage oesterreichische Standardsaetze (im Admin UI).
+  const nkEl = document.getElementById('prop-nebenkosten');
+  const priceNum = parseFloat(p.purchase_price || p.price || 0) || 0;
+  const showNk = !isRental && priceNum > 0;
+  if (nkEl && showNk) {
+    const pct = (v) => {
+      const raw = parseFloat(v);
+      return isFinite(raw) && raw > 0 ? raw : 0;
+    };
+    // Absolute EUR-Werte fuer jede Position aus den Property-Feldern.
+    const items = [
+      { label: 'Grunderwerbsteuer',     pct: pct(p.land_transfer_tax_pct),     eur: priceNum * pct(p.land_transfer_tax_pct) / 100 },
+      { label: 'Grundbuch-Eintragung',  pct: pct(p.land_register_fee_pct),     eur: priceNum * pct(p.land_register_fee_pct) / 100 },
+      { label: 'Pfandrecht-Eintragung', pct: pct(p.mortgage_register_fee_pct), eur: priceNum * pct(p.mortgage_register_fee_pct) / 100 },
+      { label: 'Vertragserrichtung',    pct: pct(p.contract_fee_pct),          eur: priceNum * pct(p.contract_fee_pct) / 100 },
+    ].filter(it => it.eur > 0);
+    // Maklerprovision: Provisionsfrei-Flag dominiert.
+    if (p.buyer_commission_free) {
+      items.push({ label: 'Maklerprovision', pct: 0, eur: 0, free: true });
+    } else {
+      const provPct = pct(p.buyer_commission_percent);
+      if (provPct > 0) {
+        items.push({
+          label: 'Maklerprovision',
+          pct: provPct,
+          eur: priceNum * provPct / 100,
+        });
+      }
+    }
+    const sumNk = items.reduce((s, it) => s + it.eur, 0);
+
+    if (items.length > 0) {
+      const fmtPct = (v) => v > 0 ? v.toString().replace('.', ',') + '%' : '';
+      const rows = items.map(it => {
+        const right = it.free
+          ? `<span class="text-[12px] font-medium" style="color:#D4743B">provisionsfrei</span>`
+          : `<span class="tabular-nums font-medium" style="color:#0A0A08">€ ${fmt(it.eur)}</span>`;
+        return `
+        <div class="flex items-center justify-between py-1.5 text-[13px]">
+          <span style="color:#5A564E">${esc(it.label)}${it.pct ? ` <span style="color:#9A958C;font-size:11px">(${fmtPct(it.pct)})</span>` : ''}</span>
+          ${right}
+        </div>`;
+      }).join('');
+
+      const note = p.nebenkosten_note ? `
+        <div class="text-[11px] mt-2 pt-2" style="color:#9A958C;border-top:1px solid #F0ECE6">${esc(p.nebenkosten_note)}</div>` : '';
+
+      nkEl.innerHTML = `
+        <button type="button" id="nk-toggle" class="w-full flex items-center justify-between text-left py-2"
+                style="border-top:1px solid #F0ECE6;border-bottom:1px solid #F0ECE6">
+          <span class="text-[11px] font-bold uppercase tracking-widest" style="color:#9A958C">Nebenkosten (Kauf)</span>
+          <span class="flex items-center gap-2">
+            <span class="text-[13px] tabular-nums font-semibold" style="color:#0A0A08">ca. € ${fmt(sumNk)}</span>
+            <svg id="nk-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9A958C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.2s"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+        <div id="nk-body" style="display:none" class="pt-2">${rows}${note}
+          <div class="text-[10.5px] mt-2" style="color:#9A958C">
+            Gesetzliche Nebenkosten zusätzlich zum Kaufpreis (ca.). Finaler Betrag abhängig von konkreter Finanzierung.
+          </div>
+        </div>`;
+      const toggle = document.getElementById('nk-toggle');
+      const body = document.getElementById('nk-body');
+      const chevron = document.getElementById('nk-chevron');
+      if (toggle && body) {
+        toggle.addEventListener('click', () => {
+          const open = body.style.display !== 'none';
+          body.style.display = open ? 'none' : 'block';
+          if (chevron) chevron.style.transform = open ? 'rotate(0)' : 'rotate(180deg)';
+        });
+      }
+    }
+  }
+
+  // (Die frühere separate "Nebenkosten (mtl.)"-Kachel ist weg — Infos sind in der Sidebar ausklappbar.)
+
+  /* ─── Allgemeinräume werden weiter unten als Zeile in der Details-Tabelle gerendert ─── */
+  const COMMON_AREA_LABELS = {
+    fahrradraum:          'Fahrradraum',
+    muellraum:            'Müllraum',
+    trockenraum:          'Trockenraum',
+    waschkueche:          'Waschküche',
+    kinderwagenraum:      'Kinderwagenraum',
+    hobbyraum:            'Hobbyraum',
+    partyraum:            'Partyraum',
+    fitnessraum:          'Fitnessraum',
+    gemeinschaftssauna:   'Gemeinschafts-Sauna',
+    spielplatz:           'Kinderspielplatz',
+    dachterrasse:         'Gemeinschafts-Dachterrasse',
+    gemeinschaftsgarten:  'Gemeinschaftsgarten',
+    heizraum:             'Heizraum',
+    lagerraum:            'Lagerraum',
+  };
+  const parseCommonAreas = (raw) => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    const t = String(raw).trim();
+    if (!t) return [];
+    if (t.startsWith('[')) {
+      try { return JSON.parse(t) || []; } catch { return []; }
+    }
+    return t.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+  };
+  const commonAreaItems = parseCommonAreas(p.common_areas)
+    .map(item => COMMON_AREA_LABELS[item] || item)
+    .filter(Boolean);
+
+  /* ─── OpenStreetMap — Lage (verschleiert + klappbar + minimalistisch) ─── */
+  const mapEl = document.getElementById('prop-map');
+  const hasCoords = mapEl && p.latitude && p.longitude
+    && !isNaN(parseFloat(p.latitude)) && !isNaN(parseFloat(p.longitude))
+    && parseFloat(p.latitude) !== 0 && parseFloat(p.longitude) !== 0;
+  if (hasCoords) {
+    const lat = parseFloat(p.latitude);
+    const lng = parseFloat(p.longitude);
+    const regionLabel = [p.zip, p.city].filter(Boolean).join(' ') || 'Region';
+    // Flag steuert, ob die Karte beim Laden offen ist (Detail-Website: zu,
+    // Kunden-Link: offen — siehe window.SR_MAP_OPEN)
+    const startOpen = window.SR_MAP_OPEN === true;
+    mapEl.innerHTML = `
+      <details class="sr-map-details" ${startOpen ? 'open' : ''}>
+        <summary class="inline-flex items-center gap-1.5 text-xs cursor-pointer list-none select-none hover:opacity-80"
+                 style="color:#D4743B">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>Lage auf Karte ansehen</span>
+          <svg class="sr-map-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.2s"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
+        <div class="mt-3 rounded-xl overflow-hidden" style="background:#fff;border:1px solid #F0ECE6">
+          <div id="prop-map-canvas" class="sr-map-canvas" style="height:320px;width:100%;background:#F0ECE6"></div>
+          <div class="px-4 py-2 text-[11px]" style="color:#9A958C;border-top:1px solid #F0ECE6">
+            Ungefährer Standort in ${esc(regionLabel)}. Die exakte Adresse wird nach Terminvereinbarung mitgeteilt.
+          </div>
         </div>
-      </div>`;
+      </details>`;
+    // Styles fuer Karte + Chevron-Rotation + monochromes Black/White-Theme
+    if (!document.getElementById('sr-map-style')) {
+      const style = document.createElement('style');
+      style.id = 'sr-map-style';
+      style.textContent = `
+        .sr-map-details summary::-webkit-details-marker{display:none}
+        .sr-map-details[open] summary .sr-map-chev{transform:rotate(180deg)}
+        /* Schwarz/Weiss-Look: nur grayscale + leicht mehr Kontrast,
+           keine Aufhellung (sonst werden die light-Tiles komplett weiss). */
+        .sr-map-canvas .leaflet-tile-pane{
+          filter:grayscale(1) contrast(1.1);
+        }
+        .sr-map-canvas .leaflet-container{background:#FAF8F5}
+        .sr-map-canvas .leaflet-control-attribution{
+          background:rgba(255,255,255,0.9);font-size:10px;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    // Leaflet init — bei open=false warten wir bis summary geklickt wird,
+    // sonst berechnet Leaflet die Groesse falsch (display:none container).
+    const initMap = () => {
+      if (typeof L === 'undefined') return;
+      const canvas = document.getElementById('prop-map-canvas');
+      if (!canvas || canvas.dataset.inited === '1') return;
+      canvas.dataset.inited = '1';
+      const map = L.map(canvas, {
+        scrollWheelZoom: false,
+        zoomControl: true,
+        attributionControl: true,
+      }).setView([lat, lng], 13);  // etwas raus fuer Stadt-Kontext
+      // CARTO Positron (light_all) — inkl. Stadtnamen + Straßennamen.
+      // Per grayscale-Filter oben werden die Straßen quasi schwarz.
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap · &copy; CARTO',
+      }).addTo(map);
+      // Orangefarbener Umkreis (ca. 350m) — keine exakte Adresse, nur Region
+      L.circle([lat, lng], {
+        radius: 350,
+        color: '#D4743B',
+        weight: 2.5,
+        fillColor: '#D4743B',
+        fillOpacity: 0.2,
+      }).addTo(map);
+    };
+    const details = mapEl.querySelector('.sr-map-details');
+    if (details?.open) {
+      setTimeout(initMap, 0);
+    } else if (details) {
+      details.addEventListener('toggle', () => {
+        if (details.open) setTimeout(initMap, 0);
+      });
+    }
   }
 
   /* ─── Gallery ─── */
@@ -130,7 +320,7 @@
     imgs.slice(0, 3).forEach((src, i) => {
       const cls = i === 0 ? 'md:col-span-2 md:row-span-2' : '';
       gh += `<div class="relative overflow-hidden cursor-pointer gallery-img ${cls}" style="min-height:${i===0?'400px':'200px'}" data-idx="${i}">
-        <img src="${esc(src)}" alt="" class="w-full h-full object-cover hover-scale" />
+        <img src="${esc(src)}" alt="" loading="${i === 0 ? 'eager' : 'lazy'}" decoding="async" fetchpriority="${i === 0 ? 'high' : 'auto'}" class="w-full h-full object-cover hover-scale" />
         ${i === 0 && imgs.length > 3 ? `<div class="absolute bottom-4 right-4 px-3 py-1.5 rounded-full text-xs font-semibold text-white" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(8px)">${Math.min(3, imgs.length)} / ${imgs.length}</div>` : ''}
       </div>`;
     });
@@ -159,29 +349,23 @@
 
   if (p.bathrooms) statItems.push({ icon: 'bath', val: p.bathrooms, label: 'Badezimmer' });
 
-  // Balkon: manuell vor Range
+  // Balkon: nur mit echter m²-Angabe oder Range. Kein "Ja"-Fallback mehr.
   if (p.area_balcony) {
     statItems.push({ icon: 'balcony', val: `${p.area_balcony} m²`, label: 'Balkon' });
   } else if (isNewbuildProj && p.balcony_terrace_range) {
     statItems.push({ icon: 'balcony', val: p.balcony_terrace_range, label: 'Balkon/Terrasse' });
-  } else if (p.features?.includes('Balkon')) {
-    statItems.push({ icon: 'balcony', val: 'Ja', label: 'Balkon' });
   }
 
-  // Terrasse: nur manuell (wenn Balkon schon Range belegt hat)
-  if (p.area_terrace) {
+  // Terrasse: nur wenn eigener m²-Wert (ansonsten wird Balkon+Terrasse zusammengefuehrt)
+  if (p.area_terrace && !p.area_balcony) {
     statItems.push({ icon: 'terrace', val: `${p.area_terrace} m²`, label: 'Terrasse' });
-  } else if (!p.area_balcony && !isNewbuildProj && p.features?.includes('Terrasse')) {
-    statItems.push({ icon: 'terrace', val: 'Ja', label: 'Terrasse' });
   }
 
-  // Garten: manuell vor Range
+  // Garten: nur mit echter m²-Angabe oder Range. Kein "Ja"-Fallback.
   if (p.area_garden) {
     statItems.push({ icon: 'garden', val: `${p.area_garden} m²`, label: 'Garten' });
   } else if (isNewbuildProj && p.garden_range) {
     statItems.push({ icon: 'garden', val: p.garden_range, label: 'Garten' });
-  } else if (p.features?.includes('Garten')) {
-    statItems.push({ icon: 'garden', val: 'Ja', label: 'Garten' });
   }
 
   if (p.year_built) statItems.push({ icon: 'year', val: p.year_built, label: 'Baujahr' });
@@ -279,6 +463,8 @@
       layers: svg('<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>'),
       clock: svg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
       sun: svg('<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'),
+      star: svg('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'),
+      grid: svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>'),
     };
 
     const CONDITION_LABELS = {
@@ -301,80 +487,140 @@
       massiv: 'Massivbauweise', holz: 'Holzbauweise', fertigteil: 'Fertigteilbau',
       mischbau: 'Mischbauweise', sonstige: 'Sonstige',
     };
+    const QUALITY_LABELS = {
+      einfach: 'Einfach', normal: 'Normal',
+      gehoben: 'Gehoben', luxurioes: 'Luxuriös', luxuriös: 'Luxuriös',
+    };
     const translate = (val, map) => val && map[String(val).toLowerCase()] ? map[String(val).toLowerCase()] : val;
 
-    const rows = [];  // [icon, label, value]
+    // Details in 4 logische Gruppen aufgeteilt. Jede Gruppe wird nur
+    // angezeigt, wenn sie mindestens eine Zeile enthält.
     const isNewbuild = (p.property_category === 'newbuild') || /Neubauprojekt/i.test(p.type || '');
+    const groups = {
+      flaechen:  { title: 'Flächen & Räume',    rows: [] },
+      bau:       { title: 'Bau & Ausstattung',  rows: [] },
+      energie:   { title: 'Energie & Heizung',  rows: [] },
+      weiteres:  { title: 'Weiteres',           rows: [] },
+    };
 
-    if (p.type) rows.push([ICONS.home, 'Objekttyp', p.type]);
-
-    // Wohnfläche: Manueller Wert hat Vorrang, sonst Unit-Range bei Neubau
+    // === Flächen & Räume ============================================
+    if (p.type) groups.flaechen.rows.push([ICONS.home, 'Objekttyp', p.type]);
     if (p.area_living) {
-      rows.push([ICONS.ruler, 'Wohnfläche', `${p.area_living} m²`]);
+      groups.flaechen.rows.push([ICONS.ruler, 'Wohnfläche', `${p.area_living} m²`]);
     } else if (isNewbuild && p.area_range) {
-      rows.push([ICONS.ruler, 'Wohnfläche', p.area_range]);
+      groups.flaechen.rows.push([ICONS.ruler, 'Wohnfläche', p.area_range]);
     }
-
-    if (p.total_area && p.total_area != p.area_living) rows.push([ICONS.ruler, 'Gesamtfläche', `${p.total_area} m²`]);
-    if (p.free_area) rows.push([ICONS.ruler, 'Grundstücksfläche', `${p.free_area} m²`]);
-    if (p.total_units) rows.push([ICONS.layers, 'Wohneinheiten', p.total_units]);
-
-    // Zimmer: manuell vor Unit-Range
+    if (p.total_area && p.total_area != p.area_living) {
+      groups.flaechen.rows.push([ICONS.ruler, 'Gesamtfläche', `${p.total_area} m²`]);
+    }
+    if (p.free_area) groups.flaechen.rows.push([ICONS.ruler, 'Grundstücksfläche', `${p.free_area} m²`]);
+    if (p.total_units) groups.flaechen.rows.push([ICONS.layers, 'Wohneinheiten', p.total_units]);
     if (p.rooms) {
-      rows.push([ICONS.door, 'Zimmer', p.rooms]);
+      groups.flaechen.rows.push([ICONS.door, 'Zimmer', p.rooms]);
     } else if (isNewbuild && p.rooms_range) {
-      rows.push([ICONS.door, 'Zimmer', p.rooms_range]);
+      groups.flaechen.rows.push([ICONS.door, 'Zimmer', p.rooms_range]);
     }
-
-    if (p.bathrooms) rows.push([ICONS.drop, 'Badezimmer', p.bathrooms]);
-    if (p.floor_count) rows.push([ICONS.layers, 'Stockwerke', p.floor_count]);
-
-    // Balkon — manueller Wert vor Unit-Range
+    if (p.bathrooms) groups.flaechen.rows.push([ICONS.drop, 'Badezimmer', p.bathrooms]);
+    if (p.floor_count) groups.flaechen.rows.push([ICONS.layers, 'Stockwerke', p.floor_count]);
     if (p.area_balcony) {
-      rows.push([ICONS.layout, 'Balkon', `${p.area_balcony} m²`]);
+      groups.flaechen.rows.push([ICONS.layout, 'Balkon', `${p.area_balcony} m²`]);
     } else if (isNewbuild && p.balcony_terrace_range) {
-      rows.push([ICONS.layout, 'Balkon/Terrasse', p.balcony_terrace_range]);
+      groups.flaechen.rows.push([ICONS.layout, 'Balkon/Terrasse', p.balcony_terrace_range]);
     }
-    // Terrasse manuell (zusaetzlich zu Balkon wenn beide eingetragen sind)
-    if (p.area_terrace) rows.push([ICONS.layout, 'Terrasse', `${p.area_terrace} m²`]);
-    if (p.area_loggia) rows.push([ICONS.layout, 'Loggia', `${p.area_loggia} m²`]);
-
-    // Garten: manuell vor Unit-Range
+    if (p.area_terrace) groups.flaechen.rows.push([ICONS.layout, 'Terrasse', `${p.area_terrace} m²`]);
+    if (p.area_loggia)  groups.flaechen.rows.push([ICONS.layout, 'Loggia',   `${p.area_loggia} m²`]);
     if (p.area_garden) {
-      rows.push([ICONS.tree, 'Garten', `${p.area_garden} m²`]);
+      groups.flaechen.rows.push([ICONS.tree, 'Garten', `${p.area_garden} m²`]);
     } else if (isNewbuild && p.garden_range) {
-      rows.push([ICONS.tree, 'Garten', p.garden_range]);
+      groups.flaechen.rows.push([ICONS.tree, 'Garten', p.garden_range]);
+    }
+    if (p.area_basement) groups.flaechen.rows.push([ICONS.box, 'Kellerfläche', `${p.area_basement} m²`]);
+
+    // === Bau & Ausstattung ==========================================
+    if (p.year_built)        groups.bau.rows.push([ICONS.calendar, 'Baujahr', p.year_built]);
+    if (p.year_renovated)    groups.bau.rows.push([ICONS.calendar, 'Sanierungsjahr', p.year_renovated]);
+    if (p.construction_end)  groups.bau.rows.push([ICONS.flag, 'Fertigstellung', p.construction_end]);
+    if (p.construction_type) groups.bau.rows.push([ICONS.hammer, 'Bauart', translate(p.construction_type, CONSTRUCTION_TYPE_LABELS)]);
+    if (p.realty_condition)  groups.bau.rows.push([ICONS.check, 'Zustand', translate(p.realty_condition, CONDITION_LABELS)]);
+    if (p.condition_note)    groups.bau.rows.push([ICONS.check, 'Zustand-Details', p.condition_note]);
+    if (p.quality)           groups.bau.rows.push([ICONS.star, 'Qualität', translate(p.quality, QUALITY_LABELS)]);
+    if (p.flooring)          groups.bau.rows.push([ICONS.grid, 'Bodenbelag', p.flooring]);
+    if (p.furnishing)        groups.bau.rows.push([ICONS.sofa, 'Möblierung', translate(p.furnishing, FURNISHING_LABELS)]);
+    if (p.ownership_type)    groups.bau.rows.push([ICONS.key, 'Eigentumsform', translate(p.ownership_type, OWNERSHIP_LABELS)]);
+    if (commonAreaItems.length) {
+      groups.bau.rows.push([ICONS.layers, 'Allgemeinräume', commonAreaItems.join(' · ')]);
     }
 
-    // Keller: manueller Wert — Units haben kein Keller-Feld, daher nur manuell
-    if (p.area_basement) rows.push([ICONS.box, 'Kellerfläche', `${p.area_basement} m²`]);
-    if (p.year_built) rows.push([ICONS.calendar, 'Baujahr', p.year_built]);
-    if (p.year_renovated) rows.push([ICONS.calendar, 'Renoviert', p.year_renovated]);
-    if (p.construction_end) rows.push([ICONS.flag, 'Fertigstellung', p.construction_end]);
-    if (p.construction_type) rows.push([ICONS.hammer, 'Bauart', translate(p.construction_type, CONSTRUCTION_TYPE_LABELS)]);
-    if (p.realty_condition) rows.push([ICONS.check, 'Zustand', translate(p.realty_condition, CONDITION_LABELS)]);
-    if (p.ownership_type) rows.push([ICONS.key, 'Eigentumsform', translate(p.ownership_type, OWNERSHIP_LABELS)]);
-    if (p.furnishing) rows.push([ICONS.sofa, 'Möblierung', translate(p.furnishing, FURNISHING_LABELS)]);
-    // Heizung / Warmwasser / Befeuerung aus building_details
-    if (p.heating_types && p.heating_types.length) rows.push([ICONS.thermometer, 'Heizungsart', p.heating_types.join(', ')]);
-    if (p.heating_fuel) rows.push([ICONS.flame, 'Befeuerung', p.heating_fuel]);
-    if (p.heating_hot_water) rows.push([ICONS.drop, 'Warmwasser', p.heating_hot_water]);
-    if (p.heating && (!p.heating_types || !p.heating_types.length)) rows.push([ICONS.thermometer, 'Heizung', p.heating]);
-    if (p.energy_primary_source) rows.push([ICONS.sun, 'Primärenergie', p.energy_primary_source]);
-    if (p.energy_hwb) rows.push([ICONS.zap, 'HWB', `${p.energy_hwb} kWh/m²a`]);
-    if (p.energy_fgee) rows.push([ICONS.zap, 'fGEE', p.energy_fgee]);
-    if (p.energy_class) rows.push([ICONS.zap, 'Energieklasse', p.energy_class]);
-    if (p.energy_certificate && !p.energy_hwb) rows.push([ICONS.zap, 'Energieausweis', p.energy_certificate]);
-    if (p.heating_demand_value && !p.energy_hwb) rows.push([ICONS.zap, 'Heizwärmebedarf', `${p.heating_demand_value} kWh/m²a`]);
-    if (p.operating_costs) rows.push([ICONS.euro, 'Betriebskosten', `€ ${Number(p.operating_costs).toLocaleString('de-AT')}`]);
-    if (p.condition_note) rows.push([ICONS.check, 'Zustand-Details', p.condition_note]);
-    if (p.available_from) rows.push([ICONS.clock, 'Beziehbar ab', p.available_from]);
-    if (p.city) rows.push([ICONS.mapPin, 'Region', p.city]);
+    // === Energie & Heizung ==========================================
+    if (p.heating_types && p.heating_types.length) {
+      groups.energie.rows.push([ICONS.thermometer, 'Heizungsart', p.heating_types.join(', ')]);
+    } else if (p.heating) {
+      groups.energie.rows.push([ICONS.thermometer, 'Heizung', p.heating]);
+    }
+    if (p.heating_fuel)          groups.energie.rows.push([ICONS.flame, 'Befeuerung', p.heating_fuel]);
+    if (p.heating_hot_water)     groups.energie.rows.push([ICONS.drop, 'Warmwasser', p.heating_hot_water]);
+    if (p.energy_primary_source) groups.energie.rows.push([ICONS.sun, 'Primärenergie', p.energy_primary_source]);
+    if (p.heating_demand_value)  groups.energie.rows.push([ICONS.zap, 'HWB', `${p.heating_demand_value} kWh/m²a`]);
+    if (p.energy_efficiency_value) groups.energie.rows.push([ICONS.zap, 'fGEE', p.energy_efficiency_value]);
+    if (p.heating_demand_class)  groups.energie.rows.push([ICONS.zap, 'Energieklasse', p.heating_demand_class]);
+    if (p.energy_certificate && !p.heating_demand_value) {
+      groups.energie.rows.push([ICONS.zap, 'Energieausweis', p.energy_certificate]);
+    }
 
-    if (rows.length) {
-      detailsEl.innerHTML = `<h2 class="text-xl font-bold mb-4" style="color:#0A0A08">Details</h2>
-        <style>.detail-icon{color:#9A958C;flex-shrink:0}</style>
-        <div class="divide-y" style="border-color:#F0ECE6">${rows.map(([ic, k, v]) => `<div class="flex items-center justify-between py-3 gap-3"><span class="flex items-center gap-2.5 text-sm" style="color:#9A958C">${ic}<span>${k}</span></span><span class="text-sm font-medium" style="color:#0A0A08">${v}</span></div>`).join('')}</div>`;
+    // === Weiteres (Verfuegbarkeit, Lage) ============================
+    // Hinweis: Monatliche Kosten stehen nur noch in der Sidebar (ausklappbar).
+    if (p.available_from
+        && typeof p.available_from === 'string'
+        && p.available_from.trim() !== ''
+        && !/^0{4}-0{2}-0{2}/.test(p.available_from)
+        && !isNaN(new Date(p.available_from).getTime())) {
+      const d = new Date(p.available_from);
+      const formatted = `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
+      groups.weiteres.rows.push([ICONS.clock, 'Beziehbar ab', formatted]);
+    }
+    if (p.city) groups.weiteres.rows.push([ICONS.mapPin, 'Region', p.city]);
+
+    const renderRow = ([ic, k, v]) =>
+      `<div class="flex items-center justify-between py-3 gap-3">
+        <span class="flex items-center gap-2.5 text-sm" style="color:#9A958C">${ic}<span>${k}</span></span>
+        <span class="text-sm font-medium text-right" style="color:#0A0A08">${v}</span>
+      </div>`;
+
+    // Jede Gruppe ist eigenes <details>-Element — accordion-artig ausklappbar.
+    // Erste Gruppe (Flächen & Räume) ist per Default offen, alle anderen zu.
+    const groupKeys = Object.keys(groups);
+    const renderGroup = (key, idx) => {
+      const g = groups[key];
+      if (g.rows.length === 0) return '';
+      const open = idx === 0 ? 'open' : '';
+      return `
+      <details class="detail-group mb-3" ${open}>
+        <summary class="flex items-center justify-between py-3 px-1 cursor-pointer list-none select-none"
+                 style="border-bottom:1px solid #F0ECE6">
+          <h3 class="text-[11px] font-bold uppercase tracking-widest" style="color:#0A0A08">${g.title}</h3>
+          <span class="flex items-center gap-2">
+            <span class="text-[10px]" style="color:#9A958C">${g.rows.length} ${g.rows.length === 1 ? 'Eintrag' : 'Einträge'}</span>
+            <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9A958C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 style="transition:transform 0.2s"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </summary>
+        <div class="divide-y pt-1" style="border-color:#F0ECE6">
+          ${g.rows.map(renderRow).join('')}
+        </div>
+      </details>`;
+    };
+
+    const hasAny = groupKeys.some(k => groups[k].rows.length > 0);
+    if (hasAny) {
+      detailsEl.innerHTML = `
+        <h2 class="text-xl font-bold mb-4" style="color:#0A0A08">Details</h2>
+        <style>
+          .detail-icon{color:#9A958C;flex-shrink:0}
+          .detail-group summary::-webkit-details-marker{display:none}
+          .detail-group[open] summary .chev{transform:rotate(180deg)}
+          .detail-group summary:hover h3{color:#D4743B}
+        </style>
+        ${groupKeys.map((k, i) => renderGroup(k, i)).join('')}`;
     }
   }
 
@@ -411,7 +657,6 @@
     if (available.length + reserved.length > 0) {
       uh += `<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr style="border-bottom:2px solid #E5E0D8">
         <th class="text-left py-3 font-semibold" style="color:#9A958C">Einheit</th>
-        <th class="text-left py-3 font-semibold" style="color:#9A958C">Typ</th>
         <th class="text-left py-3 font-semibold" style="color:#9A958C">Zimmer</th>
         <th class="text-left py-3 font-semibold" style="color:#9A958C">Fläche</th>
         <th class="text-left py-3 font-semibold" style="color:#9A958C">Preis</th>
@@ -423,7 +668,6 @@
         const label = badge === 'reserved' ? 'Reserviert' : 'Verfügbar';
         uh += `<tr class="units-row" style="border-bottom:1px solid #F0ECE6">
           <td class="py-3 font-semibold" style="color:#0A0A08">${esc(u.unit_number || '')}</td>
-          <td class="py-3" style="color:#5A564E">${esc(u.unit_type || '')}</td>
           <td class="py-3" style="color:#5A564E">${u.rooms ? parseFloat(u.rooms) : '-'}</td>
           <td class="py-3" style="color:#5A564E">${u.area_m2 ? parseFloat(u.area_m2) + ' m²' : '-'}</td>
           <td class="py-3 font-semibold" style="color:#0A0A08">${u.price ? 'EUR ' + fmt(parseFloat(u.price)) : '-'}</td>
@@ -462,7 +706,7 @@
           const pr = fmtPrice(o.price, o.isNewbuild);
           return `<a href="/objekt.html?id=${o.id}" class="hover-lift hover-glow rounded-2xl overflow-hidden block" style="background:#fff;border:1px solid #F0ECE6">
             <div class="card-img relative">
-              ${img ? `<img src="${esc(img)}" alt="${esc(o.title)}" class="w-full h-full object-cover" />` : `<div class="w-full h-full flex items-center justify-center" style="background:#F0ECE6;min-height:200px"><span class="text-sm" style="color:#9A958C">Kein Bild</span></div>`}
+              ${img ? `<img src="${esc(img)}" alt="${esc(o.title)}" loading="lazy" decoding="async" class="w-full h-full object-cover" />` : `<div class="w-full h-full flex items-center justify-center" style="background:#F0ECE6;min-height:200px"><span class="text-sm" style="color:#9A958C">Kein Bild</span></div>`}
               <div class="absolute inset-0" style="background:linear-gradient(to top,rgba(0,0,0,0.5) 0%,transparent 50%)"></div>
               <div class="absolute top-4 left-4"><span class="px-3 py-1.5 rounded-full text-xs font-semibold uppercase text-white" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(12px)">${esc(o.type)}</span></div>
               <div class="absolute bottom-4 left-4"><div class="text-white text-xl font-bold">${pr}</div></div>
@@ -519,6 +763,95 @@
 
     document.querySelectorAll('.gallery-img').forEach(el => {
       el.addEventListener('click', () => openLightbox(parseInt(el.dataset.idx) || 0));
+    });
+  }
+
+  /* ─── Anfrage-Modal ─── */
+  const refId = p.ref_id || ('ID-' + p.id);
+  const propLabel = mapped.title;
+  const subjectText = `Anfrage ${refId} — ${propLabel}`.slice(0, 180);
+
+  const openBtn = document.getElementById('open-inquiry');
+  const modal   = document.getElementById('inquiry-modal');
+  const form    = document.getElementById('inquiry-form');
+  const subDisp = document.getElementById('inquiry-subject-display');
+  const subInp  = document.getElementById('inquiry-subject-readonly');
+  const propIdInp = document.getElementById('inquiry-property-id');
+  const errEl   = document.getElementById('inquiry-error');
+  const okEl    = document.getElementById('inquiry-success');
+  const submitBtn = document.getElementById('inquiry-submit');
+  const submitLbl = document.getElementById('inquiry-submit-label');
+
+  if (openBtn && modal && form) {
+    if (subDisp) subDisp.textContent = subjectText;
+    if (subInp) subInp.value = subjectText;
+    if (propIdInp) propIdInp.value = p.id;
+
+    const openModal = () => {
+      modal.style.display = 'block';
+      document.body.style.overflow = 'hidden';
+      if (errEl) errEl.classList.add('hidden');
+      if (okEl) okEl.classList.add('hidden');
+      setTimeout(() => form.querySelector('input[name="name"]')?.focus(), 100);
+    };
+    const closeModal = () => {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    };
+
+    openBtn.addEventListener('click', openModal);
+    document.getElementById('inquiry-close')?.addEventListener('click', closeModal);
+    document.getElementById('inquiry-cancel')?.addEventListener('click', closeModal);
+    document.getElementById('inquiry-backdrop')?.addEventListener('click', closeModal);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.style.display === 'block') closeModal();
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (errEl) errEl.classList.add('hidden');
+      if (okEl) okEl.classList.add('hidden');
+      submitBtn.disabled = true;
+      if (submitLbl) submitLbl.textContent = 'Wird gesendet …';
+
+      const fd = new FormData(form);
+      const payload = {
+        name:        String(fd.get('name') || '').trim(),
+        email:       String(fd.get('email') || '').trim(),
+        phone:       String(fd.get('phone') || '').trim(),
+        message:     String(fd.get('message') || '').trim(),
+        property_id: parseInt(fd.get('property_id'), 10) || null,
+        honeypot:    String(fd.get('honeypot') || ''),
+      };
+
+      try {
+        const r = await fetch('https://kundenportal.sr-homes.at/api/website/inquiry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const j = await r.json().catch(() => ({ success: false, error: 'Ungültige Antwort' }));
+        if (r.ok && j.success) {
+          if (okEl) {
+            okEl.textContent = '✓ Anfrage gesendet. Wir melden uns bei Ihnen.';
+            okEl.classList.remove('hidden');
+          }
+          form.reset();
+          // Nach 3s schliessen, damit User Bestaetigung sieht
+          setTimeout(closeModal, 2500);
+        } else {
+          const msg = j.error || 'Nachricht konnte nicht gesendet werden.';
+          if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
+        }
+      } catch (err) {
+        if (errEl) {
+          errEl.textContent = 'Netzwerkfehler. Bitte versuchen Sie es später erneut.';
+          errEl.classList.remove('hidden');
+        }
+      } finally {
+        submitBtn.disabled = false;
+        if (submitLbl) submitLbl.textContent = 'Anfrage senden';
+      }
     });
   }
 })();

@@ -9,6 +9,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
+  <!-- Leaflet (OpenStreetMap) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
 </head>
 <body data-page="detail" class="bg-[#FAF8F5]">
 
@@ -39,6 +46,8 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9A958C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
             <span id="prop-address" class="text-sm" style="color:#9A958C"></span>
           </div>
+          <!-- Karte direkt unter der Adresse (einklappbar) -->
+          <div id="prop-map" class="mt-3"></div>
         </div>
         <div id="stats-grid"></div>
         <div id="description"></div>
@@ -54,10 +63,11 @@
         <div class="p-8 rounded-2xl" style="background:#fff;border:1px solid #F0ECE6">
           <div id="prop-price-label" class="text-xs font-bold uppercase tracking-widest mb-2" style="color:#9A958C">Kaufpreis</div>
           <div id="prop-price" class="text-2xl md:text-3xl font-black tracking-tight mb-2" style="color:#0A0A08"></div>
-          <div id="prop-bk-total" class="text-sm mb-6" style="color:#5A564E"></div>
-          <a href="kontakt.html" class="flex items-center justify-center gap-2 w-full py-4 rounded-full text-sm font-bold text-white mb-4" style="background:#D4743B">
-            Anfrage senden <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
-          </a>
+          <div id="prop-bk-total" class="text-sm mb-4" style="color:#5A564E"></div>
+          <div id="prop-nebenkosten" class="mb-6"></div>
+          <button id="open-inquiry" type="button" class="flex items-center justify-center gap-2 w-full py-4 rounded-full text-sm font-bold text-white mb-4 hover:brightness-110 transition" style="background:#D4743B">
+            Anfrage senden <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
           <div class="flex gap-3">
             <button class="flex-1 flex items-center justify-center gap-2 py-3 rounded-full text-sm font-medium" style="border:1.5px solid #E5E0D8;color:#5A564E">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> Merken
@@ -90,13 +100,68 @@
     <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16" id="related"></div>
   </section>
 </div>
+
+<!-- Inquiry Modal (wird per JS mit Objekt-Daten befüllt) -->
+<div id="inquiry-modal" class="fixed inset-0 z-[100]" style="display:none">
+  <div class="absolute inset-0" style="background:rgba(10,10,8,0.7);backdrop-filter:blur(4px)" id="inquiry-backdrop"></div>
+  <div class="absolute inset-0 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="w-full max-w-lg rounded-2xl shadow-2xl max-h-full overflow-y-auto" style="background:#fff">
+      <div class="flex items-start justify-between px-6 py-5 border-b" style="border-color:#F0ECE6">
+        <div>
+          <h3 class="text-lg font-bold" style="color:#0A0A08">Anfrage zum Objekt</h3>
+          <p id="inquiry-subject-display" class="text-xs mt-1" style="color:#9A958C"></p>
+        </div>
+        <button type="button" id="inquiry-close" class="text-zinc-400 hover:text-zinc-900 transition" aria-label="Schließen">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="inquiry-form" class="px-6 py-5 space-y-4">
+        <!-- Honeypot: unsichtbares Feld gegen Bots -->
+        <input type="text" name="honeypot" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;top:-9999px" />
+        <!-- Versteckt: property_id -->
+        <input type="hidden" name="property_id" id="inquiry-property-id" />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="text-[11px] font-semibold uppercase tracking-wider mb-1.5 block" style="color:#9A958C">Name *</label>
+            <input type="text" name="name" required placeholder="Ihr Name" class="w-full px-3 py-2.5 rounded-lg text-sm" style="background:#FAF8F5;border:1px solid #E5E0D8;color:#0A0A08" />
+          </div>
+          <div>
+            <label class="text-[11px] font-semibold uppercase tracking-wider mb-1.5 block" style="color:#9A958C">E-Mail *</label>
+            <input type="email" name="email" required placeholder="ihre@email.at" class="w-full px-3 py-2.5 rounded-lg text-sm" style="background:#FAF8F5;border:1px solid #E5E0D8;color:#0A0A08" />
+          </div>
+        </div>
+        <div>
+          <label class="text-[11px] font-semibold uppercase tracking-wider mb-1.5 block" style="color:#9A958C">Telefon</label>
+          <input type="tel" name="phone" placeholder="+43 ..." class="w-full px-3 py-2.5 rounded-lg text-sm" style="background:#FAF8F5;border:1px solid #E5E0D8;color:#0A0A08" />
+        </div>
+        <div>
+          <label class="text-[11px] font-semibold uppercase tracking-wider mb-1.5 block" style="color:#9A958C">Betreff</label>
+          <input type="text" id="inquiry-subject-readonly" readonly class="w-full px-3 py-2.5 rounded-lg text-sm cursor-not-allowed" style="background:#F0ECE6;border:1px solid #E5E0D8;color:#5A564E" />
+          <p class="text-[10px] mt-1" style="color:#9A958C">Der Betreff ist objekt-spezifisch und kann nicht geändert werden.</p>
+        </div>
+        <div>
+          <label class="text-[11px] font-semibold uppercase tracking-wider mb-1.5 block" style="color:#9A958C">Nachricht *</label>
+          <textarea name="message" required rows="5" placeholder="Ihre Nachricht zum Objekt..." class="w-full px-3 py-2.5 rounded-lg text-sm resize-none" style="background:#FAF8F5;border:1px solid #E5E0D8;color:#0A0A08"></textarea>
+        </div>
+        <div id="inquiry-error" class="text-[12px] hidden rounded-lg px-3 py-2" style="background:rgba(220,38,38,0.08);color:#dc2626"></div>
+        <div id="inquiry-success" class="text-[13px] hidden rounded-lg px-3 py-2" style="background:rgba(34,197,94,0.08);color:#16a34a"></div>
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button type="button" id="inquiry-cancel" class="px-4 py-2.5 rounded-full text-sm font-medium" style="color:#5A564E;border:1px solid #E5E0D8">Abbrechen</button>
+          <button type="submit" id="inquiry-submit" class="px-5 py-2.5 rounded-full text-sm font-bold text-white" style="background:#D4743B">
+            <span id="inquiry-submit-label">Anfrage senden</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 </main>
 
 <!-- Footer -->
 <div id="footer-placeholder"></div>
 <div class="grain"></div>
-<script src="js/app.js?v=3"></script>
-<script src="js/detail.js?v=3"></script>
+<script src="js/app.js?v=13"></script>
+<script src="js/detail.js?v=13"></script>
 <script src="js/preview.js?v=2"></script>
 </body>
 </html>

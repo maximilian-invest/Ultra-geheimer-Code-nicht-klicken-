@@ -56,6 +56,79 @@ table.data td.label { color: #737373; font-size: 9pt; width: 35%; }
 <p style="white-space: pre-line;">{{ $broker_notes }}</p>
 @endif
 
+@if(!empty($sanierungen))
+<h2>Sanierungen</h2>
+<table class="data">
+    @foreach($sanierungen as $san)
+    <tr>
+        <td class="label">{{ $san['label'] ?? $san['category'] ?? '–' }}</td>
+        <td>
+            @if(!empty($san['year'])) {{ $san['year'] }} @endif
+            @if(!empty($san['description'])) — {{ $san['description'] }} @endif
+        </td>
+    </tr>
+    @endforeach
+</table>
+@endif
+
+@php
+$docLabels = [
+    'grundbuchauszug' => 'Grundbuchauszug',
+    'energieausweis' => 'Energieausweis',
+    'plaene' => 'Grundrisse / Pläne',
+    'nutzwertgutachten' => 'Nutzwertgutachten',
+    'ruecklagenstand' => 'Rücklagenstand',
+    'wohnungseigentumsvertrag' => 'Wohnungseigentumsvertrag',
+    'hausordnung' => 'Hausordnung',
+    'letzte_jahresabrechnung' => 'Letzte Jahresabrechnung',
+    'betriebskostenabrechnung' => 'Betriebskostenabrechnung',
+    'schaetzwert_gutachten' => 'Schätzwert-Gutachten',
+    'baubewilligung' => 'Baubewilligung',
+    'mietvertrag' => 'Mietvertrag',
+    'hypothekenvertrag' => 'Hypothekenvertrag',
+];
+$docStatusSymbols = ['available' => '✓ vorhanden', 'missing' => '✗ fehlt', 'na' => 'nicht zutreffend'];
+@endphp
+
+@if(!empty($documents_available))
+<h2>Dokumenten-Checkliste</h2>
+<table class="data">
+    @foreach($documents_available as $key => $status)
+    <tr>
+        <td class="label">{{ $docLabels[$key] ?? $key }}</td>
+        <td>{{ $docStatusSymbols[$status] ?? $status }}</td>
+    </tr>
+    @endforeach
+</table>
+@endif
+
+@if(!empty($approvals_status))
+<h2>Bewilligungen</h2>
+<table class="data">
+    <tr>
+        <td class="label">Status</td>
+        <td>
+            @if($approvals_status === 'complete') ✓ Alles bewilligt
+            @elseif($approvals_status === 'partial') ⚠ Teilweise bewilligt
+            @else ❓ Unbekannt / zu prüfen
+            @endif
+        </td>
+    </tr>
+    @if(!empty($approvals_notes))
+    <tr><td class="label">Details</td><td style="white-space: pre-line;">{{ $approvals_notes }}</td></tr>
+    @endif
+</table>
+@endif
+
+@if(!empty($open_fields) && count($open_fields) > 0)
+<h2>Offene Felder (später zu ergänzen)</h2>
+<p style="font-size: 9pt; color: #92400e;">
+    @foreach($open_fields as $field)
+        {{ $field }}@if(!$loop->last), @endif
+    @endforeach
+</p>
+@endif
+
 <div class="signature-block">
     <div class="disclaimer">{{ $disclaimer_text }}</div>
     <div style="margin-top: 20px;">

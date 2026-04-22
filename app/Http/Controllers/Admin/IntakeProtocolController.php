@@ -378,4 +378,55 @@ class IntakeProtocolController extends Controller
         }
         return $missing;
     }
+
+    public function getPdf(Request $request)
+    {
+        $protocolId = (int) $request->query('protocol_id');
+        $protocol = \App\Models\IntakeProtocol::find($protocolId);
+        if (!$protocol || !$protocol->pdf_path) abort(404);
+
+        $fullPath = storage_path('app/' . $protocol->pdf_path);
+        if (!is_file($fullPath)) abort(404);
+
+        return response()->file($fullPath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="aufnahmeprotokoll-' . $protocol->property_id . '.pdf"',
+        ]);
+    }
+
+    public function resendEmail(Request $request): JsonResponse
+    {
+        $data = $request->json()->all();
+        $protocolId = (int) ($data['protocol_id'] ?? 0);
+        $type = (string) ($data['type'] ?? 'protocol');
+
+        $protocol = \App\Models\IntakeProtocol::find($protocolId);
+        if (!$protocol) return response()->json(['error' => 'not found'], 404);
+
+        $property = $protocol->property;
+        $owner = $protocol->customer;
+        $broker = $protocol->broker;
+
+        if (!$owner || empty($owner->email)) {
+            return response()->json(['error' => 'kein Eigentümer mit Email verknüpft'], 422);
+        }
+
+        $emailService = app(\App\Services\IntakeProtocolEmailService::class);
+
+        if ($type === 'protocol') {
+            $form = is_string($protocol->form_snapshot) ? json_decode($protocol->form_snapshot, true) : [];
+            $missingDocs = $this->computeMissingDocs($form['documents_available'] ?? []);
+            $emailService->sendProtocol(
+                owner: ['name' => $owner->name, 'email' => $owner->email, 'phone' => $owner->phone],
+                property: $property->toArray(),
+                broker: ['name' => $broker->name, 'email' => $broker->email],
+                missingDocs: $missingDocs,
+                protocolPdfPath: storage_path('app/' . $protocol->pdf_path),
+            );
+            $protocol->update(['owner_email_sent_at' => now()]);
+            return response()->json(['success' => true, 'type' => 'protocol']);
+        }
+
+        return response()->json(['error' => 'invalid type'], 422);
+    }
 }

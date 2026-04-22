@@ -52,6 +52,33 @@ class ContactController extends Controller
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
+    public function create(Request $request): JsonResponse
+    {
+        $input = $request->json()->all();
+        $name = trim($input['full_name'] ?? '');
+        $email = trim($input['email'] ?? '');
+        if ($name === '' && $email === '') {
+            return response()->json(['error' => 'Name oder E-Mail erforderlich'], 400);
+        }
+        $allowed = ['kunde','partner','bautraeger','intern','makler','eigentuemer'];
+        $role = in_array($input['role'] ?? '', $allowed) ? $input['role'] : 'kunde';
+        $propertyIds = array_values(array_unique(array_map('intval', (array) ($input['property_ids'] ?? []))));
+        $aliases = array_values(array_filter(array_map('trim', (array) ($input['aliases'] ?? []))));
+
+        $id = DB::table('contacts')->insertGetId([
+            'full_name'    => $name ?: null,
+            'email'        => $email ?: null,
+            'phone'        => trim($input['phone'] ?? '') ?: null,
+            'role'         => $role,
+            'property_ids' => json_encode($propertyIds),
+            'aliases'      => json_encode($aliases),
+            'source'       => 'manual',
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ]);
+        return response()->json(['success' => true, 'id' => $id]);
+    }
+
     public function update(Request $request): JsonResponse
     {
         $input = $request->json()->all();

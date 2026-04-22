@@ -105,15 +105,15 @@ defineExpose({ load })
 </script>
 
 <template>
-  <div>
-    <div class="flex items-center gap-2 mb-4">
-      <div class="relative flex-1">
+  <div class="space-y-4 w-full">
+    <!-- Header: konsistent mit allen Kontakte-Tabs -->
+    <div class="flex items-center gap-2 w-full">
+      <div class="relative flex-1 min-w-0">
         <Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <Input v-model="search" @input="onSearchInput" class="pl-9" placeholder="Hausverwaltung suchen…" />
       </div>
       <Button size="sm" class="bg-[#EE7600] hover:bg-[#EE7600]/90 text-white" @click="openCreate">
-        <Plus class="w-4 h-4 mr-1" />
-        Neue Hausverwaltung
+        <Plus class="w-4 h-4 mr-1" /> Neue Hausverwaltung
       </Button>
     </div>
 
@@ -128,13 +128,18 @@ defineExpose({ load })
     <div v-else class="space-y-2">
       <div
         v-for="m in managers" :key="m.id"
-        class="rounded-xl border border-border/60 bg-card p-4 hover:border-border transition-colors"
+        class="rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-border/20"
       >
-        <div class="flex items-start justify-between gap-4">
+        <div class="p-4 flex items-start justify-between gap-4">
+          <!-- Avatar (Building2-Icon fuer HV) -->
+          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background:rgba(238,118,6,0.1);color:#ee7606">
+            <Building2 class="w-4 h-4" />
+          </div>
+          <!-- Main info -->
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="font-semibold text-sm">{{ m.company_name }}</span>
-              <Badge v-if="m.property_count" variant="outline" class="text-[10px]">
+              <span class="font-semibold text-sm truncate">{{ m.company_name }}</span>
+              <Badge v-if="m.property_count" variant="outline" class="text-[10px] font-medium">
                 {{ m.property_count }} Objekt{{ m.property_count > 1 ? 'e' : '' }}
               </Badge>
             </div>
@@ -142,11 +147,12 @@ defineExpose({ load })
               Ansprechpartner: {{ m.contact_person }}
             </div>
             <div class="text-xs text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1">
-              <span class="flex items-center gap-1"><Mail class="w-3 h-3" /> {{ m.email }}</span>
-              <span v-if="m.phone" class="flex items-center gap-1"><Phone class="w-3 h-3" /> {{ m.phone }}</span>
-              <span v-if="addressLine(m)" class="flex items-center gap-1"><MapPin class="w-3 h-3" /> {{ addressLine(m) }}</span>
+              <span class="inline-flex items-center gap-1"><Mail class="w-3 h-3" />{{ m.email }}</span>
+              <span v-if="m.phone" class="inline-flex items-center gap-1"><Phone class="w-3 h-3" />{{ m.phone }}</span>
+              <span v-if="addressLine(m)" class="inline-flex items-center gap-1"><MapPin class="w-3 h-3" />{{ addressLine(m) }}</span>
             </div>
           </div>
+          <!-- Actions -->
           <div class="flex items-center gap-1 shrink-0">
             <Button variant="ghost" size="icon" class="h-8 w-8" @click="openEdit(m)" title="Bearbeiten">
               <Pencil class="w-3.5 h-3.5" />

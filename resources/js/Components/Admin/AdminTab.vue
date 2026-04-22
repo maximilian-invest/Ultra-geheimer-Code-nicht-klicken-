@@ -1,7 +1,7 @@
 <script setup>
 import { catBadgeStyle, catLabel } from '@/utils/categoryBadge.js';
 import { ref, inject, onMounted, watch, computed } from "vue";
-import { Search, Users, Pencil, Trash2, Plus, X, ChevronRight, Building, Building2, Clock, KeyRound, Mail, MapPin, Phone } from "lucide-vue-next";
+import { Search, Users, Pencil, Trash2, Plus, X, ChevronRight, Building, Building2, Clock, KeyRound, Mail, MapPin, Phone, Tag } from "lucide-vue-next";
 import HausverwaltungenTab from "@/Components/Admin/HausverwaltungenTab.vue";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,16 +43,39 @@ const timelineLoading = ref(false);
 // Owners (customers)
 const ownersList = ref([]);
 const ownersLoading = ref(false);
+const ownersSearch = ref('');
 
 // Team/Makler management
 const teamList = ref([]);
 const teamLoading = ref(false);
+const teamSearch = ref('');
 const showTeamForm = ref(false);
 const teamForm = ref({ name: '', email: '', password: '', phone: '', email_address: '', imap_host: '', imap_port: 993, imap_username: '', imap_password: '', smtp_host: '', smtp_port: 587, smtp_username: '', smtp_password: '', property_ids: [] });
 const teamSaving = ref(false);
 const teamError = ref('');
 const editingBroker = ref(null);
 const allPropertiesForTeam = ref([]);
+
+// Client-side Suche fuer Team + Owners (Server-Filter waere Overkill fuer die kleinen Listen).
+const filteredTeam = computed(() => {
+    const q = teamSearch.value.trim().toLowerCase();
+    if (!q) return teamList.value;
+    return teamList.value.filter(b =>
+        (b.name || '').toLowerCase().includes(q) ||
+        (b.email || '').toLowerCase().includes(q) ||
+        (b.email_accounts || '').toLowerCase().includes(q)
+    );
+});
+const filteredOwners = computed(() => {
+    const q = ownersSearch.value.trim().toLowerCase();
+    if (!q) return ownersList.value;
+    return ownersList.value.filter(o =>
+        (o.name || '').toLowerCase().includes(q) ||
+        (o.email || '').toLowerCase().includes(q) ||
+        (o.phone || '').toLowerCase().includes(q) ||
+        (o.city || '').toLowerCase().includes(q)
+    );
+});
 
 const ROLES = [
     { value: 'kunde', label: 'Kunde' },
@@ -90,6 +113,13 @@ async function loadContacts() {
     contactsLoading.value = false;
 }
 
+// Debounced Auto-Search: beim Tippen nach 300ms Server-Suche ausloesen.
+let contactSearchDebounce = null;
+function onContactSearchInput() {
+    if (contactSearchDebounce) clearTimeout(contactSearchDebounce);
+    contactSearchDebounce = setTimeout(() => loadContacts(), 300);
+}
+
 function startEditContact(c) {
     editingContact.value = JSON.parse(JSON.stringify(c));
     editingContact.value._newAlias = "";
@@ -105,6 +135,19 @@ function startEditContact(c) {
     }
 }
 
+function startNewContact() {
+    editingContact.value = {
+        id: null,
+        full_name: '',
+        email: '',
+        phone: '',
+        role: 'kunde',
+        property_ids: [],
+        aliases: [],
+        _newAlias: '',
+    };
+}
+
 function togglePropertyId(pid) {
     if (!editingContact.value) return;
     const ids = editingContact.value.property_ids || [];
@@ -116,13 +159,17 @@ function togglePropertyId(pid) {
 
 async function saveContact() {
     if (!editingContact.value) return;
+    const isNew = !editingContact.value.id;
+    const action = isNew ? "contact_create" : "contact_update";
     try {
-        await fetch(API.value + "&action=contact_update", {
+        const r = await fetch(API.value + "&action=" + action, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify(editingContact.value),
         });
+        const d = await r.json().catch(() => ({}));
+        if (d.error) { toast("Fehler: " + d.error); return; }
         editingContact.value = null;
-        toast("Kontakt gespeichert");
+        toast(isNew ? "Kontakt angelegt" : "Kontakt gespeichert");
         loadContacts();
         loadOwners();
     } catch (e) { toast("Fehler: " + e.message); }
@@ -486,70 +533,101 @@ async function deletePortalUser() {
 </script>
 
 <template>
-    <div class="px-4 py-6 space-y-4">
-        <!-- Sub-tabs -->
-        <div class="flex gap-1 border-b border-[var(--border)] pb-2">
-            <button @click="switchSub('contacts')" class="btn btn-sm" :class="adminSubTab === 'contacts' ? 'btn-primary' : 'btn-ghost'">
-                <Users class="w-3.5 h-3.5" /> Kontakte
-                <span v-if="contactsCount" class="text-[10px] px-1 rounded bg-[var(--muted)] text-[var(--muted-foreground)]">{{ contactsCount }}</span>
-            </button>
-            <button @click="switchSub('owners')" class="btn btn-sm" :class="adminSubTab === 'owners' ? 'btn-primary' : 'btn-ghost'">
-                <Building class="w-3.5 h-3.5" /> Eigentümer
-            </button>
-            <button @click="switchSub('team')" class="btn btn-sm" :class="adminSubTab === 'team' ? 'btn-primary' : 'btn-ghost'">
-                <Users class="w-3.5 h-3.5" /> Team
-                <span v-if="teamList.length" class="text-[10px] px-1 rounded bg-[var(--muted)] text-[var(--muted-foreground)]">{{ teamList.length }}</span>
-            </button>
-            <button @click="switchSub('managers')" class="btn btn-sm" :class="adminSubTab === 'managers' ? 'btn-primary' : 'btn-ghost'">
-                <Building2 class="w-3.5 h-3.5" /> Hausverwaltungen
+    <div class="px-4 py-6 w-full space-y-5 overflow-x-hidden" style="box-sizing:border-box">
+        <!-- Sub-tabs: nur aktiver Tab markiert, keine durchgehende Unterstrich-Linie -->
+        <div class="flex items-center gap-0 w-full overflow-x-hidden">
+            <button
+                v-for="t in [
+                    { key:'contacts', icon: Users,     label:'Kontakte',        count: contactsCount },
+                    { key:'owners',   icon: Building,  label:'Eigentümer',      count: ownersList.length },
+                    { key:'team',     icon: Users,     label:'Team',            count: teamList.length },
+                    { key:'managers', icon: Building2, label:'Hausverwaltungen', count: null },
+                ]"
+                :key="t.key"
+                @click="switchSub(t.key)"
+                :class="[
+                    'flex-shrink-0 text-[13px] px-4 py-2.5 rounded-none border-b-2 transition-colors flex items-center gap-1.5',
+                    adminSubTab === t.key
+                        ? 'border-zinc-900 text-zinc-900 font-medium'
+                        : 'border-transparent text-muted-foreground hover:text-zinc-900'
+                ]"
+            >
+                <component :is="t.icon" class="w-3.5 h-3.5" />
+                {{ t.label }}
+                <span v-if="t.count" class="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground tabular-nums">{{ t.count }}</span>
             </button>
         </div>
 
         <!-- CONTACTS -->
-        <div v-if="adminSubTab === 'contacts'">
-            <div class="flex items-center gap-2 mb-4">
-                <div class="relative flex-1">
+        <div v-if="adminSubTab === 'contacts'" class="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden px-2.5">
+            <!-- Header: Such-Input + Add-Button (einheitlich mit allen Tabs) -->
+            <div class="flex items-center gap-2">
+                <div class="relative flex-1 min-w-0">
                     <Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <Input v-model="contactSearch" @keyup.enter="loadContacts()" class="pl-9" placeholder="Kontakt suchen..." />
+                    <Input v-model="contactSearch" @input="onContactSearchInput" @keyup.enter="loadContacts()" class="pl-9" placeholder="Kontakt suchen…" />
                 </div>
-                <Button variant="outline" size="sm" @click="loadContacts()">Suchen</Button>
+                <Button size="sm" class="bg-[#EE7600] hover:bg-[#EE7600]/90 text-white" @click="startNewContact">
+                    <Plus class="w-4 h-4 mr-1" /> Neuer Kontakt
+                </Button>
             </div>
 
-            <div v-if="contactsLoading" class="text-center py-8"><span class="spinner"></span></div>
-            <div v-else-if="!contactsList.length" class="text-center py-8 text-[var(--muted-foreground)] text-sm">Keine Kontakte gefunden</div>
+            <div v-if="contactsLoading" class="text-sm text-muted-foreground py-8 text-center">Lädt…</div>
+            <div v-else-if="!contactsList.length" class="text-center py-12 text-sm text-muted-foreground">
+                <Users class="w-10 h-10 mx-auto mb-2 text-muted-foreground/40" />
+                <div>Keine Kontakte gefunden.</div>
+            </div>
             <div v-else class="space-y-2">
-                <div v-for="c in contactsList" :key="c.id" class="card">
-                    <div class="px-3 sm:px-6 py-3 flex items-center gap-2 sm:gap-4">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center font-medium text-xs flex-shrink-0 bg-[var(--muted)] text-[var(--muted-foreground)]">
+                <div v-for="c in contactsList" :key="c.id"
+                     class="rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-border/20">
+                    <div class="p-4 flex items-start justify-between gap-4">
+                        <!-- Avatar (einheitlich: orange Tint) -->
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm shrink-0" style="background:rgba(238,118,6,0.1);color:#ee7606">
                             {{ (c.full_name || '?').charAt(0).toUpperCase() }}
                         </div>
+                        <!-- Main info -->
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
-                                <div class="text-sm font-semibold truncate">{{ c.full_name }}</div>
-                                <span v-if="c.role && c.role !== 'kunde'" class="text-[9px] px-1.5 py-0.5 rounded font-medium" :style="roleBadgeStyle(c.role)">{{ roleLabel(c.role) }}</span>
+                                <span class="font-semibold text-sm truncate">{{ c.full_name }}</span>
+                                <Badge v-if="c.role && c.role !== 'kunde'" class="text-[10px] font-medium border-0" :style="roleBadgeStyle(c.role)">
+                                    {{ roleLabel(c.role) }}
+                                </Badge>
+                                <Badge v-if="leadProfiles[c.id]?.priority" class="text-[10px] font-medium border-0" :style="priorityBadgeStyle(leadProfiles[c.id].priority)">
+                                    {{ priorityLabel(leadProfiles[c.id].priority) }}
+                                </Badge>
+                                <Badge v-if="c.property_ids && c.property_ids.length" variant="outline" class="text-[10px] font-medium">
+                                    {{ c.property_ids.length }} Objekt{{ c.property_ids.length !== 1 ? 'e' : '' }}
+                                </Badge>
                             </div>
-                            <div class="text-xs text-[var(--muted-foreground)] truncate">
-                                {{ c.email || '-' }}
-                                <span v-if="c.phone" class="hidden sm:inline"> &middot; {{ c.phone }}</span>
-                                <span v-if="c.aliases && c.aliases.length" class="hidden sm:inline"> &middot; {{ c.aliases.length }} Alias(e)</span>
-                                <span v-if="c.property_ids && c.property_ids.length" class="hidden sm:inline"> &middot; {{ c.property_ids.length }} Objekt(e)</span>
+                            <div class="text-xs text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                                <span v-if="c.email" class="inline-flex items-center gap-1"><Mail class="w-3 h-3" />{{ c.email }}</span>
+                                <span v-if="c.phone" class="inline-flex items-center gap-1"><Phone class="w-3 h-3" />{{ c.phone }}</span>
+                                <span v-if="c.aliases && c.aliases.length" class="inline-flex items-center gap-1 text-muted-foreground/70">+{{ c.aliases.length }} Alias</span>
                             </div>
                         </div>
-                        <div class="flex gap-1 flex-shrink-0">
-                            <button @click="toggleLeadProfile(c)" class="btn btn-sm" :class="expandedLeadProfile === c.id ? 'btn-primary' : 'btn-outline'" title="Lead-Profil anzeigen/bearbeiten">
-                                <span class="text-[11px]">🏷️</span><span class="hidden sm:inline text-xs">Profil</span>
-                                <span v-if="leadProfiles[c.id]?.priority" class="text-[10px] px-1.5 py-0.5 rounded-full ml-0.5" :style="priorityBadgeStyle(leadProfiles[c.id].priority)">{{ priorityLabel(leadProfiles[c.id].priority) }}</span>
-                            </button>
-                            <button @click="openTimeline(c)" class="btn btn-outline btn-sm" title="Zeitstrahl anzeigen"><Clock class="w-3.5 h-3.5" /><span class="hidden sm:inline">Timeline</span></button>
-                            <button @click="startEditContact(c)" class="btn btn-outline btn-sm"><Pencil class="w-3.5 h-3.5" /></button>
-                            <button @click="deleteContact(c)" class="btn btn-ghost btn-icon btn-sm" style="color:hsl(var(--destructive))"><Trash2 class="w-3.5 h-3.5" /></button>
+                        <!-- Actions (einheitlich: nur ghost-Icon-Buttons) -->
+                        <div class="flex items-center gap-1 shrink-0">
+                            <Button variant="ghost" size="icon" class="h-8 w-8"
+                                    :class="expandedLeadProfile === c.id ? 'text-orange-600 bg-orange-50' : ''"
+                                    @click="toggleLeadProfile(c)" title="Lead-Profil">
+                                <Tag class="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" class="h-8 w-8" @click="openTimeline(c)" title="Timeline">
+                                <Clock class="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" class="h-8 w-8" @click="startEditContact(c)" title="Bearbeiten">
+                                <Pencil class="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" class="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    @click="deleteContact(c)" title="Löschen">
+                                <Trash2 class="w-3.5 h-3.5" />
+                            </Button>
                         </div>
                     </div>
                     <!-- Lead-Profil Panel (aufklappbar) -->
-                    <div v-if="expandedLeadProfile === c.id" class="border-t border-[var(--border)] px-3 sm:px-6 py-4">
+                    <div v-if="expandedLeadProfile === c.id" class="border-t border-border/60 bg-muted/30 px-4 py-4">
                         <div v-if="loadingLeadProfile[c.id]" class="flex items-center gap-2 py-2">
                             <span class="spinner" style="width:14px;height:14px"></span>
-                            <span class="text-xs" style="color:var(--muted-foreground)">Lade Lead-Profil...</span>
+                            <span class="text-xs text-muted-foreground">Lade Lead-Profil…</span>
                         </div>
                         <div v-else-if="leadProfiles[c.id]">
                             <div class="flex items-center justify-between mb-3">
@@ -652,7 +730,7 @@ async function deletePortalUser() {
             <div v-if="editingContact" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
                 <div class="bg-[var(--card)] rounded-xl shadow-lg w-full max-w-md mx-4 flex flex-col" style="max-height:90vh">
                     <div class="px-6 py-4 flex items-center justify-between border-b border-[var(--border)] flex-shrink-0">
-                        <h3 class="text-sm font-semibold">Kontakt bearbeiten</h3>
+                        <h3 class="text-sm font-semibold">{{ editingContact.id ? 'Kontakt bearbeiten' : 'Neuer Kontakt' }}</h3>
                         <button @click="editingContact = null" class="btn btn-ghost btn-icon btn-sm"><X class="w-4 h-4" /></button>
                     </div>
                     <div class="p-6 space-y-4 overflow-y-auto flex-1">
@@ -716,35 +794,65 @@ async function deletePortalUser() {
         </div>
 
         <!-- TEAM -->
-        <div v-if="adminSubTab === 'team'">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-semibold">Makler-Team</h3>
-                <button @click="resetTeamForm(); showTeamForm = true" class="btn btn-sm" style="background:#ee7606;color:white;border:none">
-                    <Plus class="w-3.5 h-3.5" /> Makler hinzufügen
-                </button>
+        <div v-if="adminSubTab === 'team'" class="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden px-2.5">
+            <!-- Header: Such-Input + Add-Button (einheitlich mit allen Tabs) -->
+            <div class="flex items-center gap-2">
+                <div class="relative flex-1 min-w-0">
+                    <Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <Input v-model="teamSearch" class="pl-9" placeholder="Team-Mitglied suchen…" />
+                </div>
+                <Button size="sm" class="bg-[#EE7600] hover:bg-[#EE7600]/90 text-white" @click="resetTeamForm(); showTeamForm = true">
+                    <Plus class="w-4 h-4 mr-1" /> Makler hinzufügen
+                </Button>
             </div>
 
             <!-- Broker list -->
-            <div v-if="teamLoading" class="text-center py-8"><span class="spinner"></span></div>
+            <div v-if="teamLoading" class="text-sm text-muted-foreground py-8 text-center">Lädt…</div>
+            <div v-else-if="!filteredTeam.length" class="text-center py-12 text-sm text-muted-foreground">
+                <Users class="w-10 h-10 mx-auto mb-2 text-muted-foreground/40" />
+                <div v-if="teamSearch">Keine Treffer für „{{ teamSearch }}".</div>
+                <template v-else>
+                    <div>Noch kein Team-Mitglied angelegt.</div>
+                    <div class="text-xs mt-1">Klick „Makler hinzufügen" um zu beginnen.</div>
+                </template>
+            </div>
             <div v-else class="space-y-2">
-                <div v-for="b in teamList" :key="b.id" class="card p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-sm font-semibold">{{ b.name }} <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full ml-1" :style="b.user_type === 'assistenz' ? 'background:#dbeafe;color:#2563eb' : 'background:#f0fdf4;color:#16a34a'">{{ b.user_type === 'assistenz' ? 'Assistenz' : 'Makler' }}</span></div>
-                            <div class="text-xs text-[var(--muted-foreground)]">{{ b.email }}</div>
-                            <div class="flex items-center gap-3 mt-1 text-[11px] text-[var(--muted-foreground)]">
-                                <span>{{ b.property_count || 0 }} Objekte</span>
-                                <span v-if="b.email_accounts">📧 {{ b.email_accounts }}</span>
-                                <span class="px-1.5 py-0.5 rounded text-[10px]"
-                                    :style="b.user_type === 'admin' ? 'background:rgba(139,92,246,0.1);color:#8b5cf6' : 'background:rgba(16,185,129,0.1);color:#10b981'">
-                                    {{ b.user_type === 'admin' ? 'Admin' : 'Makler' }}
-                                </span>
+                <div v-for="b in filteredTeam" :key="b.id"
+                     class="rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-border/20">
+                    <div class="p-4 flex items-start justify-between gap-4">
+                        <!-- Avatar (einheitlich orange) -->
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm shrink-0" style="background:rgba(238,118,6,0.1);color:#ee7606">
+                            {{ (b.name || '?').charAt(0).toUpperCase() }}
+                        </div>
+                        <!-- Main info -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-semibold text-sm truncate">{{ b.name }}</span>
+                                <Badge class="text-[10px] font-medium border-0"
+                                       :style="b.user_type === 'admin'
+                                           ? 'background:rgba(139,92,246,0.12);color:#7c3aed'
+                                           : b.user_type === 'assistenz'
+                                               ? 'background:rgba(37,99,235,0.12);color:#2563eb'
+                                               : 'background:rgba(16,185,129,0.12);color:#059669'">
+                                    {{ b.user_type === 'admin' ? 'Admin' : b.user_type === 'assistenz' ? 'Assistenz' : 'Makler' }}
+                                </Badge>
+                                <Badge v-if="b.property_count" variant="outline" class="text-[10px] font-medium">
+                                    {{ b.property_count }} Objekt{{ b.property_count !== 1 ? 'e' : '' }}
+                                </Badge>
+                            </div>
+                            <div class="text-xs text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                                <span class="inline-flex items-center gap-1"><Mail class="w-3 h-3" />{{ b.email }}</span>
+                                <span v-if="b.email_accounts" class="inline-flex items-center gap-1 text-muted-foreground/70">📧 {{ b.email_accounts }}</span>
                             </div>
                         </div>
-                        <button @click="editBroker(b)" class="btn btn-outline btn-sm"><Pencil class="w-3.5 h-3.5" /> Bearbeiten</button>
+                        <!-- Actions (einheitlich: nur ghost-Icon-Buttons) -->
+                        <div class="flex items-center gap-1 shrink-0">
+                            <Button variant="ghost" size="icon" class="h-8 w-8" @click="editBroker(b)" title="Bearbeiten">
+                                <Pencil class="w-3.5 h-3.5" />
+                            </Button>
+                        </div>
                     </div>
                 </div>
-                <div v-if="!teamList.length && !teamLoading" class="text-center py-8 text-sm text-[var(--muted-foreground)]">Noch keine Makler angelegt.</div>
             </div>
 
             <!-- Create/Edit form (modal) -->
@@ -897,119 +1005,131 @@ async function deletePortalUser() {
         </div>
 
         <!-- OWNERS -->
-        <div v-if="adminSubTab === 'owners'" class="mx-auto max-w-5xl space-y-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h3 class="text-base font-semibold">Eigentümer</h3>
-                    <p class="text-xs text-muted-foreground mt-0.5">{{ ownersList.length }} gesamt</p>
+        <div v-if="adminSubTab === 'owners'" class="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden px-2.5">
+            <!-- Header: konsistent mit allen Tabs -->
+            <div class="flex items-center gap-2">
+                <div class="relative flex-1 min-w-0">
+                    <Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <Input v-model="ownersSearch" class="pl-9" placeholder="Eigentümer suchen…" />
                 </div>
-                <Button size="sm" @click="showNewOwnerForm = !showNewOwnerForm" style="background:#ee7606;color:white">
-                    <Plus class="w-4 h-4" /> Neuer Eigentümer
+                <Button size="sm" class="bg-[#EE7600] hover:bg-[#EE7600]/90 text-white" @click="showNewOwnerForm = !showNewOwnerForm">
+                    <Plus class="w-4 h-4 mr-1" /> Neuer Eigentümer
                 </Button>
             </div>
 
             <!-- New Owner Form -->
-            <Card v-if="showNewOwnerForm">
-                <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div v-if="showNewOwnerForm" class="rounded-xl bg-card shadow-sm overflow-hidden border border-border/20">
+                <div class="px-4 py-3 border-b border-border/60 bg-muted/30 flex items-center justify-between">
                     <div>
-                        <CardTitle class="text-base">Neuen Eigentümer anlegen</CardTitle>
-                        <CardDescription>Alle Felder ausser Name sind optional.</CardDescription>
+                        <div class="text-sm font-semibold">Neuen Eigentümer anlegen</div>
+                        <div class="text-xs text-muted-foreground">Alle Felder außer Name sind optional.</div>
                     </div>
-                    <Button variant="ghost" size="icon-sm" @click="showNewOwnerForm = false"><X class="w-4 h-4" /></Button>
-                </CardHeader>
-                <CardContent class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Button variant="ghost" size="icon" class="h-8 w-8" @click="showNewOwnerForm = false">
+                        <X class="w-4 h-4" />
+                    </Button>
+                </div>
+                <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="space-y-1.5">
-                        <label class="text-sm font-medium">Name <span class="text-red-500">*</span></label>
+                        <label class="text-xs font-medium text-muted-foreground">Name <span class="text-red-500">*</span></label>
                         <Input v-model="newOwnerForm.name" placeholder="Vor- und Nachname" />
                     </div>
                     <div class="space-y-1.5">
-                        <label class="text-sm font-medium">E-Mail</label>
+                        <label class="text-xs font-medium text-muted-foreground">E-Mail</label>
                         <Input v-model="newOwnerForm.email" type="email" placeholder="email@beispiel.at" />
                     </div>
                     <div class="space-y-1.5">
-                        <label class="text-sm font-medium">Telefon</label>
+                        <label class="text-xs font-medium text-muted-foreground">Telefon</label>
                         <Input v-model="newOwnerForm.phone" placeholder="+43 ..." />
                     </div>
                     <div class="space-y-1.5">
-                        <label class="text-sm font-medium">Adresse</label>
+                        <label class="text-xs font-medium text-muted-foreground">Adresse</label>
                         <Input v-model="newOwnerForm.address" placeholder="Straße Nr." />
                     </div>
                     <div class="space-y-1.5">
-                        <label class="text-sm font-medium">PLZ</label>
+                        <label class="text-xs font-medium text-muted-foreground">PLZ</label>
                         <Input v-model="newOwnerForm.zip" placeholder="5020" />
                     </div>
                     <div class="space-y-1.5">
-                        <label class="text-sm font-medium">Ort</label>
+                        <label class="text-xs font-medium text-muted-foreground">Ort</label>
                         <Input v-model="newOwnerForm.city" placeholder="Salzburg" />
                     </div>
                     <div class="space-y-1.5 sm:col-span-2">
-                        <label class="text-sm font-medium">Notizen</label>
+                        <label class="text-xs font-medium text-muted-foreground">Notizen</label>
                         <Textarea v-model="newOwnerForm.notes" rows="2" placeholder="Interne Notizen..." />
                     </div>
-                </CardContent>
-                <CardFooter class="flex justify-end gap-2">
+                </div>
+                <div class="px-4 py-3 border-t border-border/60 bg-muted/30 flex justify-end gap-2">
                     <Button variant="outline" size="sm" @click="showNewOwnerForm = false">Abbrechen</Button>
-                    <Button size="sm" :disabled="newOwnerSaving || !newOwnerForm.name" @click="createOwner" style="background:#ee7606;color:white">
-                        {{ newOwnerSaving ? 'Wird angelegt...' : 'Anlegen' }}
+                    <Button size="sm" class="bg-[#EE7600] hover:bg-[#EE7600]/90 text-white" :disabled="newOwnerSaving || !newOwnerForm.name" @click="createOwner">
+                        {{ newOwnerSaving ? 'Wird angelegt…' : 'Anlegen' }}
                     </Button>
-                </CardFooter>
-            </Card>
+                </div>
+            </div>
 
-            <div v-if="ownersLoading" class="text-center py-8"><span class="spinner"></span></div>
-            <Card v-else-if="!ownersList.length">
-                <CardContent class="py-12 text-center text-sm text-muted-foreground">Keine Eigentümer vorhanden</CardContent>
-            </Card>
+            <div v-if="ownersLoading" class="text-sm text-muted-foreground py-8 text-center">Lädt…</div>
+            <div v-else-if="!filteredOwners.length" class="text-center py-12 text-sm text-muted-foreground">
+                <Building class="w-10 h-10 mx-auto mb-2 text-muted-foreground/40" />
+                <div v-if="ownersSearch">Keine Treffer für „{{ ownersSearch }}".</div>
+                <template v-else>
+                    <div>Keine Eigentümer vorhanden.</div>
+                    <div class="text-xs mt-1">Klick „Neuer Eigentümer" um zu beginnen.</div>
+                </template>
+            </div>
 
-            <div v-else class="space-y-3">
-                <Card v-for="owner in ownersList" :key="owner.id">
-                    <CardContent class="p-4 sm:p-6">
-                        <!-- Header Row -->
-                        <div class="flex items-start gap-4">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0" style="background:rgba(238,118,6,0.1);color:#ee7606">
+            <div v-else class="space-y-2">
+                <div v-for="owner in filteredOwners" :key="owner.id"
+                     class="rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-border/20">
+                    <div class="p-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <!-- Avatar -->
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm shrink-0" style="background:rgba(238,118,6,0.1);color:#ee7606">
                                 {{ (owner.name || '?').charAt(0).toUpperCase() }}
                             </div>
+                            <!-- Main info -->
                             <div class="flex-1 min-w-0">
-                                <div class="text-sm font-semibold truncate">{{ owner.name }}</div>
-                                <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-semibold text-sm truncate">{{ owner.name }}</span>
+                                    <Badge variant="outline" class="text-[10px] font-medium">
+                                        {{ owner.property_count }} Objekt{{ owner.property_count !== 1 ? 'e' : '' }}
+                                    </Badge>
+                                    <Badge v-if="owner.portal_user" class="text-[10px] font-medium border-0" style="background:rgba(16,185,129,0.12);color:#059669">
+                                        <KeyRound class="w-3 h-3" /> Portalzugang
+                                    </Badge>
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1">
                                     <span v-if="owner.email" class="inline-flex items-center gap-1"><Mail class="w-3 h-3" />{{ owner.email }}</span>
                                     <span v-if="owner.phone" class="inline-flex items-center gap-1"><Phone class="w-3 h-3" />{{ owner.phone }}</span>
                                     <span v-if="owner.address" class="inline-flex items-center gap-1"><MapPin class="w-3 h-3" />{{ owner.address }}{{ owner.zip ? ', ' + owner.zip : '' }} {{ owner.city || '' }}</span>
                                 </div>
-                                <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                                    <Badge variant="secondary" class="text-[10px] font-medium">
-                                        {{ owner.property_count }} Objekt{{ owner.property_count !== 1 ? 'e' : '' }}
-                                    </Badge>
-                                    <Badge v-if="owner.portal_user" class="text-[10px] font-medium border-0" style="background:rgba(16,185,129,0.12);color:#059669">
-                                        <KeyRound class="w-3 h-3" /> Portalzugang aktiv
-                                    </Badge>
-                                    <Badge v-else variant="outline" class="text-[10px] font-medium text-muted-foreground">
-                                        Kein Portalzugang
-                                    </Badge>
-                                </div>
                             </div>
-                            <div class="flex items-center gap-1.5 flex-shrink-0">
-                                <Button variant="outline" size="sm" @click="openPortalDialog(owner)" :disabled="!owner.portal_user && (!owner.email || owner.email.startsWith('placeholder'))">
+                            <!-- Actions -->
+                            <div class="flex items-center gap-1 shrink-0">
+                                <Button variant="ghost" size="icon" class="h-8 w-8"
+                                        @click="openPortalDialog(owner)" title="Portalzugang"
+                                        :disabled="!owner.portal_user && (!owner.email || owner.email.startsWith('placeholder'))">
                                     <KeyRound class="w-3.5 h-3.5" />
-                                    <span class="hidden sm:inline">Portalzugang</span>
                                 </Button>
-                                <Button variant="outline" size="icon-sm" @click="startEditOwner(owner)"><Pencil class="w-3.5 h-3.5" /></Button>
-                                <Button variant="ghost" size="icon-sm" class="text-destructive hover:text-destructive" @click="deleteOwner(owner)"><Trash2 class="w-3.5 h-3.5" /></Button>
+                                <Button variant="ghost" size="icon" class="h-8 w-8" @click="startEditOwner(owner)" title="Bearbeiten">
+                                    <Pencil class="w-3.5 h-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" class="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        @click="deleteOwner(owner)" title="Löschen">
+                                    <Trash2 class="w-3.5 h-3.5" />
+                                </Button>
                             </div>
                         </div>
 
-                        <!-- Properties -->
-                        <div v-if="owner.properties && owner.properties.length" class="mt-4 pt-4 border-t border-border space-y-1.5">
-                            <div class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-2">Objekte</div>
-                            <div v-for="prop in owner.properties" :key="prop.id" class="flex items-center gap-2 text-xs">
-                                <Badge variant="outline" class="text-[10px] font-medium">{{ prop.ref_id }}</Badge>
-                                <span class="truncate">{{ prop.address }}, {{ prop.city }}</span>
-                                <Badge :variant="prop.status === 'verkauft' ? 'default' : 'outline'" class="text-[10px] font-medium ml-auto">{{ prop.status }}</Badge>
+                        <!-- Objekte-Liste (in-row, kompakt) -->
+                        <div v-if="owner.properties && owner.properties.length" class="mt-3 pt-3 border-t border-border/60 space-y-1 min-w-0">
+                            <div v-for="prop in owner.properties" :key="prop.id" class="flex items-center gap-2 text-xs min-w-0">
+                                <Badge variant="outline" class="text-[10px] font-mono shrink-0">{{ prop.ref_id }}</Badge>
+                                <span class="truncate text-muted-foreground min-w-0 flex-1">{{ prop.address }}, {{ prop.city }}</span>
+                                <Badge v-if="prop.status === 'verkauft'" class="text-[10px] font-medium border-0 shrink-0" style="background:rgba(71,85,105,0.12);color:#475569">verkauft</Badge>
                             </div>
                         </div>
 
                         <!-- Inline Edit Form -->
-                        <div v-if="editingOwner === owner.id" class="mt-4 pt-4 border-t border-border">
+                        <div v-if="editingOwner === owner.id" class="mt-4 pt-4 border-t border-border/60 bg-muted/30 -mx-4 -mb-4 px-4 py-4">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div class="space-y-1.5">
                                     <label class="text-sm font-medium">Name <span class="text-red-500">*</span></label>
@@ -1047,8 +1167,8 @@ async function deletePortalUser() {
                                 </div>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1122,8 +1242,7 @@ async function deletePortalUser() {
         </Dialog>
 
         <!-- HAUSVERWALTUNGEN (Phase 1) -->
-        <div v-if="adminSubTab === 'managers'">
+        <div v-if="adminSubTab === 'managers'" class="w-full max-w-full min-w-0 overflow-x-hidden px-2.5">
             <HausverwaltungenTab />
         </div>
-
 </template>

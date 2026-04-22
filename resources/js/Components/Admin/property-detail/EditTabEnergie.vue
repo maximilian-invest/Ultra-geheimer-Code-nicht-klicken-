@@ -225,15 +225,39 @@ const hotWaterOptions = [
         />
         <span class="text-[13px] text-zinc-900">Photovoltaik-Anlage vorhanden</span>
       </label>
-      <label class="col-span-2 flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-zinc-50 cursor-pointer">
-        <input
-          type="checkbox"
-          :checked="!!form.has_charging_station"
-          @change="form.has_charging_station = $event.target.checked ? 1 : 0"
-          class="w-4 h-4 accent-zinc-900 cursor-pointer"
-        />
-        <span class="text-[13px] text-zinc-900">E-Auto-Ladestation vorhanden</span>
-      </label>
+      <div class="col-span-2 flex items-center flex-wrap gap-1.5 px-2 py-1.5">
+        <span class="text-[13px] text-zinc-900 mr-2">E-Auto-Ladestation:</span>
+        <button
+          type="button"
+          @click="form.charging_station_status = 'none'; form.has_charging_station = 0;"
+          class="px-3 py-1 rounded-md text-[12px] font-medium transition-colors"
+          :class="(form.charging_station_status || (form.has_charging_station ? 'installed' : 'none')) === 'none'
+            ? 'bg-zinc-900 text-white'
+            : 'border border-border text-foreground hover:bg-zinc-50'"
+        >
+          keine
+        </button>
+        <button
+          type="button"
+          @click="form.charging_station_status = 'prepared'; form.has_charging_station = 0;"
+          class="px-3 py-1 rounded-md text-[12px] font-medium transition-colors"
+          :class="form.charging_station_status === 'prepared'
+            ? 'bg-zinc-900 text-white'
+            : 'border border-border text-foreground hover:bg-zinc-50'"
+        >
+          Vorkehrung getroffen
+        </button>
+        <button
+          type="button"
+          @click="form.charging_station_status = 'installed'; form.has_charging_station = 1;"
+          class="px-3 py-1 rounded-md text-[12px] font-medium transition-colors"
+          :class="(form.charging_station_status === 'installed') || (!form.charging_station_status && form.has_charging_station)
+            ? 'bg-zinc-900 text-white'
+            : 'border border-border text-foreground hover:bg-zinc-50'"
+        >
+          vorhanden
+        </button>
+      </div>
     </AccordionSection>
   </div>
 </template>

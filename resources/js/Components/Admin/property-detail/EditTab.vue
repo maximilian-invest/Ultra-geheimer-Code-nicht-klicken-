@@ -93,6 +93,9 @@ const form = reactive({
   has_pool: false, has_sauna: false, has_fireplace: false,
   has_alarm: false, has_barrier_free: false, has_guest_wc: false,
   has_storage_room: false, has_washing_connection: false, has_cellar: false,
+  has_photovoltaik: false, has_charging_station: false,
+  charging_station_status: null,
+  common_areas: "",
   garage_spaces: null, parking_spaces: null, parking_type: "",
   highlights: "",
   realty_description: "", location_description: "", equipment_description: "", other_description: "",
@@ -116,6 +119,7 @@ const form = reactive({
   admin_costs: null, elevator_costs: null, parking_costs_monthly: null,
   other_costs: null, monthly_costs: null,
   land_register_fee_pct: null, land_transfer_tax_pct: null, contract_fee_pct: null,
+  mortgage_register_fee_pct: null, nebenkosten_note: "", show_nebenkosten_on_website: true,
   buyer_commission_free: false,
   building_details: {},
 });

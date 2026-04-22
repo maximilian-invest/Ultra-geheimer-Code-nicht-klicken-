@@ -25,6 +25,7 @@ class Property extends Model
         'heating_costs', 'warm_water_costs', 'cooling_costs', 'admin_costs',
         'elevator_costs', 'parking_costs_monthly', 'other_costs', 'monthly_costs',
         'land_register_fee_pct', 'land_transfer_tax_pct', 'contract_fee_pct',
+        'mortgage_register_fee_pct', 'nebenkosten_note', 'show_nebenkosten_on_website',
         'buyer_commission_free',
 
         // Areas
@@ -51,6 +52,8 @@ class Property extends Model
         'has_pool', 'has_sauna', 'has_fireplace', 'has_alarm',
         'has_barrier_free', 'has_guest_wc', 'has_storage_room',
         'has_washing_connection', 'has_cellar',
+        'has_photovoltaik', 'has_charging_station', 'charging_station_status',
+        'common_areas',
 
         // Parking
         'garage_spaces', 'parking_spaces', 'parking_type', 'parking_price',
@@ -134,6 +137,8 @@ class Property extends Model
             'land_register_fee_pct' => 'decimal:2',
             'land_transfer_tax_pct' => 'decimal:2',
             'contract_fee_pct' => 'decimal:2',
+            'mortgage_register_fee_pct' => 'decimal:2',
+            'show_nebenkosten_on_website' => 'boolean',
             'internal_rating' => 'decimal:1',
             // New boolean fields
             'buyer_commission_free' => 'boolean',
@@ -175,6 +180,32 @@ class Property extends Model
             // New json field
             'building_details' => 'array',
         ];
+    }
+
+    /**
+     * Oesterreich-Standardsaetze fuer Nebenkosten beim Kauf.
+     * Werden beim Anlegen einer neuen Property automatisch gesetzt,
+     * wenn der Aufrufer nichts explizit uebergibt. Pro Objekt kann dann
+     * im Cockpit ueberschrieben oder geleert werden.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $property): void {
+            $defaults = [
+                'land_transfer_tax_pct' => 3.5,
+                'land_register_fee_pct' => 1.1,
+                'mortgage_register_fee_pct' => 1.2,
+                'contract_fee_pct' => 1.5,
+                'buyer_commission_percent' => 3.0,
+            ];
+            foreach ($defaults as $col => $val) {
+                // Nur Default setzen, wenn der Aufrufer das Feld gar nicht gesetzt hat.
+                // Wenn explizit null/0 uebergeben wurde, bleibt das wie es ist.
+                if (!array_key_exists($col, $property->getAttributes())) {
+                    $property->{$col} = $val;
+                }
+            }
+        });
     }
 
     public function customer(): BelongsTo

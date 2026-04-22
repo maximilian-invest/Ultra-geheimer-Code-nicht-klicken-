@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from 'vue';
-import PillRow from '../shared/PillRow.vue';
 import SkipFieldSwitch from '../shared/SkipFieldSwitch.vue';
 
 const props = defineProps({
@@ -10,59 +9,8 @@ const props = defineProps({
   unmarkSkipped: Function,
 });
 
-const hasBk = computed({
-  get: () => props.form.operating_costs !== null && props.form.operating_costs !== '',
-  set: (v) => { props.form.operating_costs = v ? 0 : null; }
-});
+const isKauf = computed(() => props.form.marketing_type !== 'miete' && props.form.marketing_type !== 'pacht');
 
-const hasReserve = computed({
-  get: () => props.form.maintenance_reserves !== null && props.form.maintenance_reserves !== '',
-  set: (v) => { props.form.maintenance_reserves = v ? 0 : null; }
-});
-
-const priceSkipped = computed({
-  get: () => props.isSkipped('purchase_price'),
-  set: (v) => v ? props.markSkipped('purchase_price') : props.unmarkSkipped('purchase_price'),
-});
-
-const commissionSkipped = computed({
-  get: () => props.isSkipped('commission_percent'),
-  set: (v) => v ? props.markSkipped('commission_percent') : props.unmarkSkipped('commission_percent'),
-});
-
-// Commission preset: maps display pill to numeric value
-const COMMISSION_OPTIONS = [
-  { value: 3.0, label: '3 %' },
-  { value: 3.5, label: '3,5 %' },
-  { value: 4.0, label: '4 %' },
-  { value: null, label: 'Anders' },  // null = custom input visible
-];
-
-const commissionPresetValue = computed({
-  get: () => {
-    const v = props.form.commission_percent;
-    if (v === 3.0 || v === 3.5 || v === 4.0) return v;
-    // If the value doesn't match a preset, it's "custom" (but null sentinel means "custom mode" only when no value set)
-    return v ?? null;
-  },
-  set: (v) => {
-    // v is the clicked preset value (or null for "Anders")
-    if (v === null) {
-      // "Anders" keeps current value but forces custom input visibility
-      if (props.form.commission_percent === 3.0 || props.form.commission_percent === 3.5 || props.form.commission_percent === 4.0) {
-        props.form.commission_percent = null;
-      }
-    } else {
-      props.form.commission_percent = v;
-    }
-  }
-});
-
-const showCustomCommission = computed(() =>
-  !(props.form.commission_percent === 3.0 || props.form.commission_percent === 3.5 || props.form.commission_percent === 4.0)
-);
-
-// Label for "Preis" changes depending on rental vs sale
 const priceLabel = computed(() => {
   if (props.form.marketing_type === 'miete') return 'Monatsmiete (€)';
   if (props.form.marketing_type === 'pacht') return 'Pacht (€ / Monat)';
@@ -70,16 +18,49 @@ const priceLabel = computed(() => {
 });
 
 const priceField = computed({
-  get: () => props.form.marketing_type === 'miete' || props.form.marketing_type === 'pacht'
-    ? props.form.rental_price
-    : props.form.purchase_price,
+  get: () => isKauf.value ? props.form.purchase_price : props.form.rental_price,
   set: (v) => {
-    if (props.form.marketing_type === 'miete' || props.form.marketing_type === 'pacht') {
-      props.form.rental_price = v;
-    } else {
-      props.form.purchase_price = v;
-    }
+    if (isKauf.value) props.form.purchase_price = v;
+    else props.form.rental_price = v;
   }
+});
+
+const priceSkipped = computed({
+  get: () => props.isSkipped(isKauf.value ? 'purchase_price' : 'rental_price'),
+  set: (v) => {
+    const k = isKauf.value ? 'purchase_price' : 'rental_price';
+    v ? props.markSkipped(k) : props.unmarkSkipped(k);
+  }
+});
+
+// Betriebskosten-Zeilen — 1:1 wie im Property-Editor (EditTabKosten.vue)
+const COST_ROWS = [
+  { key: 'operating_costs',       label: 'Betriebskosten' },
+  { key: 'maintenance_reserves',  label: 'Rücklage' },
+  { key: 'heating_costs',         label: 'Heizkosten' },
+  { key: 'warm_water_costs',      label: 'Warmwasser' },
+  { key: 'cooling_costs',         label: 'Kühlung' },
+  { key: 'admin_costs',           label: 'Verwaltung' },
+  { key: 'elevator_costs',        label: 'Aufzug' },
+  { key: 'parking_costs_monthly', label: 'Parkplatz' },
+  { key: 'other_costs',           label: 'Sonstige' },
+];
+
+const sumCosts = computed(() => {
+  let s = 0;
+  for (const r of COST_ROWS) {
+    const v = parseFloat(props.form[r.key]);
+    if (!isNaN(v)) s += v;
+  }
+  return s;
+});
+
+const monthlyCostsHint = computed(() => {
+  const sum = sumCosts.value;
+  if (props.form.monthly_costs != null && props.form.monthly_costs !== '') {
+    return `Override: ${props.form.monthly_costs} € (Summe Zeilen: ${sum.toFixed(2)} €)`;
+  }
+  return `Summe aller Zeilen: ${sum.toFixed(2)} €`;
 });
 </script>
 
@@ -98,52 +79,53 @@ const priceField = computed({
       <p class="text-[11px] text-muted-foreground">Richtwert — kann später angepasst werden</p>
     </div>
 
-    <!-- Laufende Kosten -->
+    <!-- Miet-Spezifisch -->
+    <div v-if="!isKauf" class="bg-white border border-border rounded-xl p-4 space-y-2">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-muted-foreground block mb-1">Warmmiete (€)</label>
+          <input v-model.number="form.rent_warm" type="number" inputmode="decimal"
+                 class="w-full h-11 rounded-md border border-border px-3" />
+        </div>
+        <div>
+          <label class="text-xs text-muted-foreground block mb-1">Kaution (€)</label>
+          <input v-model.number="form.rent_deposit" type="number" inputmode="decimal"
+                 class="w-full h-11 rounded-md border border-border px-3" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Laufende Kosten — alle Felder aus dem Property-Editor 1:1 -->
     <div class="bg-white border border-border rounded-xl p-4 space-y-3">
-      <div class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Laufende Kosten</div>
-
-      <div class="space-y-2">
-        <div class="flex items-center gap-2">
-          <input type="checkbox" v-model="hasBk" id="has-bk" class="h-4 w-4 accent-[#EE7600]" />
-          <label for="has-bk" class="text-sm">Monatliche Betriebskosten</label>
+      <div class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Laufende Kosten (mtl.)</div>
+      <div class="grid grid-cols-2 gap-3">
+        <div v-for="r in COST_ROWS" :key="r.key">
+          <label class="text-[11px] text-muted-foreground block mb-1">{{ r.label }}</label>
+          <input v-model.number="form[r.key]" type="number" step="0.01" inputmode="decimal"
+                 placeholder="€"
+                 class="w-full h-11 rounded-md border border-border px-3" />
         </div>
-        <input v-if="hasBk" v-model.number="form.operating_costs" type="number" inputmode="decimal"
-               class="w-full h-11 rounded-md border border-border px-3" placeholder="€ / Monat" />
       </div>
 
-      <div class="space-y-2">
-        <div class="flex items-center gap-2">
-          <input type="checkbox" v-model="hasReserve" id="has-res" class="h-4 w-4 accent-[#EE7600]" />
-          <label for="has-res" class="text-sm">Rücklage (mtl.)</label>
-        </div>
-        <input v-if="hasReserve" v-model.number="form.maintenance_reserves" type="number" inputmode="decimal"
-               class="w-full h-11 rounded-md border border-border px-3" placeholder="€ / Monat" />
+      <div class="pt-2 border-t border-border/40">
+        <label class="text-[11px] text-muted-foreground block mb-1">
+          Gesamt mtl. <span class="text-[10px]">(optional — wenn leer, wird Summe verwendet)</span>
+        </label>
+        <input v-model.number="form.monthly_costs" type="number" step="0.01" inputmode="decimal"
+               placeholder="auto-Summe"
+               class="w-full h-11 rounded-md border border-border px-3" />
+        <p class="text-[10px] text-muted-foreground mt-1">💡 {{ monthlyCostsHint }}</p>
       </div>
     </div>
 
-    <!-- Provision -->
+    <!-- Verfügbar ab -->
     <div class="bg-white border border-border rounded-xl p-4 space-y-2">
-      <div class="flex items-center justify-between">
-        <label class="text-sm font-medium">Provision (% vom Kaufpreis)</label>
-        <SkipFieldSwitch v-model="commissionSkipped" />
-      </div>
-      <PillRow
-        :model-value="commissionPresetValue"
-        :options="COMMISSION_OPTIONS"
-        @update:model-value="commissionPresetValue = $event"
-      />
-      <input v-if="showCustomCommission"
-             v-model.number="form.commission_percent" type="number" step="0.1" inputmode="decimal"
-             class="w-full h-11 rounded-md border border-border px-3 mt-2" placeholder="z.B. 3.25" />
-      <p class="text-[11px] text-muted-foreground">+ 20 % USt. — wird im Alleinvermittlungsauftrag angedruckt</p>
-    </div>
-
-    <!-- Käuferprovision (nur Kauf) -->
-    <div v-if="form.marketing_type === 'kauf'" class="bg-white border border-border rounded-xl p-4 space-y-2">
-      <label class="text-sm font-medium">Käuferprovision (%)</label>
-      <input v-model.number="form.buyer_commission_percent" type="number" step="0.1" inputmode="decimal"
-             class="w-full h-11 rounded-md border border-border px-3" placeholder="z.B. 3.0" />
-      <p class="text-[11px] text-muted-foreground">Was der Käufer zahlt — wird auf Website/Portalen angezeigt</p>
+      <label class="text-xs text-muted-foreground block mb-1">Verfügbar ab</label>
+      <input v-model="form.available_from" type="date"
+             class="w-full h-11 rounded-md border border-border px-3" />
+      <p class="text-[11px] text-muted-foreground">
+        💡 Provisionen werden nicht hier erfasst — die richtet der Makler später im Cockpit vor dem Inserieren ein.
+      </p>
     </div>
 
   </div>

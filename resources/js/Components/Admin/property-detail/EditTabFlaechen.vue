@@ -152,6 +152,7 @@ const areaFields = [
   { key: "free_area", label: "Grundstück" },
   { key: "area_balcony", label: "Balkon", countKey: "balcony_count" },
   { key: "area_terrace", label: "Terrasse", countKey: "terrace_count" },
+  { key: "area_dachterrasse", label: "Dachterrasse", countKey: "dachterrasse_count" },
   { key: "area_garden", label: "Garten", countKey: "garden_count" },
   { key: "area_loggia", label: "Loggia", countKey: "loggia_count" },
   { key: "area_basement", label: "Keller", countKey: "basement_count" },

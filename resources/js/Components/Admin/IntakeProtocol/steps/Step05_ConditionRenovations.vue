@@ -8,58 +8,75 @@ const CONDITIONS = ['neuwertig', 'gebraucht', 'saniert', 'kernsaniert', 'renovie
 const CONSTRUCTION_TYPES = ['Massiv', 'Holz', 'Fertigteil', 'Mischbauweise'];
 
 const SAN_CATEGORIES = [
-  { key: 'general',   label: 'Generalsanierung',   hasYear: true },
-  { key: 'windows',   label: 'Fenster',            hasYear: true },
-  { key: 'doors',     label: 'Türen',              hasYear: true },
-  { key: 'floors',    label: 'Fußböden',           hasYear: true },
-  { key: 'heating',   label: 'Heizung',            hasYear: true },
-  { key: 'pipes',     label: 'Leitungssystem',     hasYear: true },
-  { key: 'connections', label: 'Anschlüsse',        hasYear: true },
-  { key: 'facade',    label: 'Fassade',            hasYear: true },
-  { key: 'bathrooms', label: 'Bäder',              hasYear: true },
-  { key: 'kitchen',   label: 'Küche',              hasYear: true },
-  { key: 'other',     label: 'Sonstige Sanierungen', hasYear: true },
-  { key: 'required',  label: 'Erforderliche Maßnahmen', hasYear: false },
+  { key: 'general',     label: 'Generalsanierung',        hasYear: true },
+  { key: 'windows',     label: 'Fenster',                 hasYear: true },
+  { key: 'doors',       label: 'Türen',                   hasYear: true },
+  { key: 'floors',      label: 'Fußböden',                hasYear: true },
+  { key: 'heating',     label: 'Heizung',                 hasYear: true },
+  { key: 'pipes',       label: 'Leitungssystem',          hasYear: true },
+  { key: 'connections', label: 'Anschlüsse',              hasYear: true },
+  { key: 'facade',      label: 'Fassade',                 hasYear: true },
+  { key: 'bathrooms',   label: 'Bäder',                   hasYear: true },
+  { key: 'kitchen',     label: 'Küche',                   hasYear: true },
+  { key: 'other',       label: 'Sonstige Sanierungen',    hasYear: true },
+  { key: 'required',    label: 'Erforderliche Maßnahmen', hasYear: false },
 ];
 
+// Per-Kategorie reaktive Eingaben. `added`-Flag = User hat die Kategorie explizit
+// eingeblendet (kein Leerstring-Trick mehr, der beim watch/trim verloren ging).
 const inputs = reactive({});
-for (const c of SAN_CATEGORIES) inputs[c.key] = { year: '', note: '' };
+for (const c of SAN_CATEGORIES) inputs[c.key] = { year: '', note: '', added: false };
 
+// Initialisiere aus form.property_history falls vorhanden
 if (Array.isArray(props.form.property_history)) {
   for (const entry of props.form.property_history) {
     const key = entry.category;
-    if (inputs[key]) inputs[key] = { year: String(entry.year ?? ''), note: String(entry.description ?? '') };
+    if (inputs[key]) {
+      inputs[key] = {
+        year: entry.year != null ? String(entry.year) : '',
+        note: String(entry.description ?? ''),
+        added: true,
+      };
+    }
   }
 }
 
+// Sync → form.property_history: nur Einträge, die added=true sind.
 watch(inputs, () => {
   const out = [];
   for (const c of SAN_CATEGORIES) {
     const v = inputs[c.key];
+    if (!v.added) continue;
     const year = String(v.year || '').trim();
     const note = String(v.note || '').trim();
-    if (year === '' && note === '') continue;
-    out.push({ category: c.key, title: c.label, year: year ? parseInt(year) : null, description: note });
+    out.push({
+      category: c.key,
+      title: c.label,
+      year: year ? parseInt(year) : null,
+      description: note,
+    });
   }
   props.form.property_history = out;
 }, { deep: true });
 
-const addedCategories = computed(() =>
-  SAN_CATEGORIES.filter(c => inputs[c.key].year.trim() !== '' || inputs[c.key].note.trim() !== '')
-);
-const availableCategories = computed(() =>
-  SAN_CATEGORIES.filter(c => !addedCategories.value.includes(c))
-);
+const addedCategories = computed(() => SAN_CATEGORIES.filter(c => inputs[c.key].added));
+const availableCategories = computed(() => SAN_CATEGORIES.filter(c => !inputs[c.key].added));
 
 function addCategory(key) {
+  inputs[key].added = true;
+}
+
+function removeCategory(key) {
+  inputs[key].added = false;
   inputs[key].year = '';
-  inputs[key].note = ' ';
+  inputs[key].note = '';
 }
 </script>
 
 <template>
   <div class="p-4 space-y-5">
 
+    <!-- Zustand -->
     <div class="bg-white border border-border rounded-xl p-4 space-y-3">
       <div class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Zustand & Qualität</div>
       <div>
@@ -101,8 +118,13 @@ function addCategory(key) {
       </div>
     </div>
 
+    <!-- Sanierungen -->
     <div class="bg-white border border-border rounded-xl p-4 space-y-3">
       <div class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sanierungen</div>
+
+      <div v-if="addedCategories.length === 0" class="text-[12px] text-muted-foreground bg-zinc-50 rounded-lg p-3">
+        💡 Tippe auf eine Kategorie unten um eine Sanierung anzulegen.
+      </div>
 
       <div v-for="c in addedCategories" :key="c.key" class="bg-zinc-50 rounded-lg p-3">
         <div class="flex gap-2 items-center mb-1.5">
@@ -113,6 +135,9 @@ function addCategory(key) {
             inputmode="numeric"
             class="w-20 h-9 rounded-md border border-border px-2 text-sm text-right"
           />
+          <button type="button" @click="removeCategory(c.key)"
+                  class="w-8 h-8 rounded-md bg-white border border-border text-red-500 text-sm hover:bg-red-50"
+                  title="Entfernen">×</button>
         </div>
         <input
           v-model="inputs[c.key].note"
@@ -125,7 +150,7 @@ function addCategory(key) {
         <div class="text-[11px] text-muted-foreground mb-1.5">Kategorien hinzufügen:</div>
         <div class="flex flex-wrap gap-1.5">
           <button v-for="c in availableCategories" :key="c.key" type="button" @click="addCategory(c.key)"
-                  class="bg-white border border-dashed border-border text-muted-foreground text-[11px] rounded-full px-2.5 py-1">
+                  class="bg-white border border-dashed border-[#EE7600]/40 text-[#EE7600] text-[11px] rounded-full px-2.5 py-1 hover:bg-[#EE7600]/5 active:scale-95 transition">
             + {{ c.label }}
           </button>
         </div>

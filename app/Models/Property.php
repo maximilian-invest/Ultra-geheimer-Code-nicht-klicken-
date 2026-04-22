@@ -53,6 +53,7 @@ class Property extends Model
         'has_barrier_free', 'has_guest_wc', 'has_storage_room',
         'has_washing_connection', 'has_cellar',
         'has_photovoltaik', 'has_charging_station', 'charging_station_status',
+        'has_wohnraumlueftung', 'has_dachterrasse', 'area_dachterrasse', 'dachterrasse_count',
         'common_areas',
 
         // Parking
@@ -171,6 +172,9 @@ class Property extends Model
             'has_storage_room' => 'boolean',
             'has_washing_connection' => 'boolean',
             'has_cellar' => 'boolean',
+            'has_wohnraumlueftung' => 'boolean',
+            'has_dachterrasse' => 'boolean',
+            'area_dachterrasse' => 'decimal:2',
             'commission_incl_vat' => 'boolean',
             // New date field
             'closing_date' => 'date',

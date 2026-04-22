@@ -225,6 +225,15 @@ const hotWaterOptions = [
         />
         <span class="text-[13px] text-zinc-900">Photovoltaik-Anlage vorhanden</span>
       </label>
+      <label class="col-span-2 flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-zinc-50 cursor-pointer">
+        <input
+          type="checkbox"
+          :checked="!!form.has_wohnraumlueftung"
+          @change="form.has_wohnraumlueftung = $event.target.checked ? 1 : 0"
+          class="w-4 h-4 accent-zinc-900 cursor-pointer"
+        />
+        <span class="text-[13px] text-zinc-900">Wohnraumlüftung (KWL)</span>
+      </label>
       <div class="col-span-2 flex items-center flex-wrap gap-1.5 px-2 py-1.5">
         <span class="text-[13px] text-zinc-900 mr-2">E-Auto-Ladestation:</span>
         <button

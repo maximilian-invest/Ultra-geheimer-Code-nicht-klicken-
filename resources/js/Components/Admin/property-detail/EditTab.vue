@@ -95,6 +95,8 @@ const form = reactive({
   has_storage_room: false, has_washing_connection: false, has_cellar: false,
   has_photovoltaik: false, has_charging_station: false,
   charging_station_status: null,
+  has_wohnraumlueftung: false,
+  has_dachterrasse: false, area_dachterrasse: null, dachterrasse_count: null,
   common_areas: "",
   garage_spaces: null, parking_spaces: null, parking_type: "",
   highlights: "",

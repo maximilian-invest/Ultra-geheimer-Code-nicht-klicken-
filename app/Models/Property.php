@@ -96,6 +96,9 @@ class Property extends Model
         // Aufnahmeprotokoll
         'encumbrances', 'parking_assignment', 'documents_available',
         'approvals_status', 'approvals_notes', 'internal_notes',
+
+        // Pricing + Sanierungen (benutzt von Aufnahmeprotokoll)
+        'purchase_price', 'property_history',
     ];
 
     protected function casts(): array

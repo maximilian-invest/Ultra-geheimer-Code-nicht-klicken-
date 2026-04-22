@@ -51,7 +51,7 @@
 
     return '<div style="border-radius:20px;overflow:hidden;background:#fff;border:1px solid #F0ECE6;transition:transform 0.5s cubic-bezier(0.22,1,0.36,1),box-shadow 0.5s cubic-bezier(0.22,1,0.36,1)" onmouseover="this.style.transform=\'translateY(-4px)\';this.style.boxShadow=\'0 24px 48px -12px rgba(10,10,8,0.1)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">' +
       '<div style="position:relative;height:220px;overflow:hidden">' +
-        (img ? '<img src="' + esc(img) + '" alt="' + esc(p.title) + '" style="width:100%;height:100%;object-fit:cover;filter:grayscale(20%)" />' : '<div style="width:100%;height:100%;background:#F0ECE6"></div>') +
+        (img ? '<img src="' + esc(img) + '" alt="' + esc(p.title) + '" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;filter:grayscale(20%)" />' : '<div style="width:100%;height:100%;background:#F0ECE6"></div>') +
         '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.4) 0%,transparent 50%)"></div>' +
         /* VERKAUFT stamp */
         '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-12deg);z-index:3;padding:8px 28px;border:3px solid #D4743B;border-radius:8px;font-size:1.1rem;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;color:#D4743B;opacity:0.85;pointer-events:none">Verkauft</div>' +

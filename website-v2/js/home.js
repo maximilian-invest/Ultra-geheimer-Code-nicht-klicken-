@@ -144,7 +144,7 @@
     const initials = broker ? broker.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : '?';
     return '<div style="position:relative;border-radius:20px;overflow:hidden;background:#fff;border:1px solid #F0ECE6;transition:transform 0.6s cubic-bezier(0.22,1,0.36,1);box-shadow:0 2px 12px rgba(0,0,0,0.04)" onmouseover="this.style.transform=\'translateY(-6px)\';this.style.boxShadow=\'0 12px 32px rgba(0,0,0,0.08)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.04)\'">' +
       '<div style="position:relative;height:260px;overflow:hidden">' +
-        (img ? '<img src="' + esc(img) + '" alt="' + esc(p.title) + '" style="width:100%;height:100%;object-fit:cover" />' : '<div style="width:100%;height:100%;background:#F0ECE6"></div>') +
+        (img ? '<img src="' + esc(img) + '" alt="' + esc(p.title) + '" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover" />' : '<div style="width:100%;height:100%;background:#F0ECE6"></div>') +
         '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.6) 0%,rgba(0,0,0,0.05) 50%,transparent 100%)"></div>' +
         '<div style="position:absolute;top:16px;left:16px;z-index:2;display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:100px;font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:#fff;background:#D4743B"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Verkauft</div>' +
         (soldDate ? '<div style="position:absolute;top:16px;right:16px;z-index:2;padding:5px 12px;border-radius:100px;font-size:0.65rem;font-weight:600;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.4);backdrop-filter:blur(12px)">' + soldDate + '</div>' : '') +
@@ -189,7 +189,7 @@
     const titleSize = idx === 0 ? 'text-3xl md:text-4xl' : 'text-xl md:text-2xl';
     return `
       <a href="/objekt.html?id=${p.id}" class="cursor-pointer group relative overflow-hidden rounded-3xl block" style="height:${h}px;background:#fff">
-        <img src="${esc(img)}" alt="${esc(p.title)}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-105" />
+        <img src="${esc(img)}" alt="${esc(p.title)}" loading="${idx === 0 ? 'eager' : 'lazy'}" decoding="async" fetchpriority="${idx === 0 ? 'high' : 'auto'}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-105" />
         <div class="absolute inset-0" style="background:linear-gradient(to top,rgba(0,0,0,0.8) 0%,rgba(0,0,0,0.1) 50%,transparent 100%)"></div>
         <div class="absolute top-5 left-5 flex gap-2">
           <span class="px-4 py-2 rounded-full text-xs font-bold tracking-widest uppercase text-white" style="background:rgba(0,0,0,0.4);backdrop-filter:blur(12px)">${esc(p.type)}</span>
@@ -219,7 +219,7 @@
     return `
       <a href="/objekt.html?id=${p.id}" class="hover-lift hover-glow cursor-pointer rounded-2xl overflow-hidden block" style="background:#fff;border:1px solid #F0ECE6">
         <div class="card-img relative">
-          <img src="${esc(img)}" alt="${esc(p.title)}" class="w-full h-full object-cover" />
+          <img src="${esc(img)}" alt="${esc(p.title)}" loading="lazy" decoding="async" class="w-full h-full object-cover" />
           <div class="absolute inset-0" style="background:linear-gradient(to top,rgba(0,0,0,0.5) 0%,transparent 50%)"></div>
           <div class="absolute top-4 left-4 flex gap-2">
             <span class="px-3 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase text-white" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(12px)">${esc(p.type)}</span>

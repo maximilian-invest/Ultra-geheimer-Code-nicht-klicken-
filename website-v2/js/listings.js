@@ -50,7 +50,7 @@
     return `
       <a href="/objekt.html?id=${p.id}" class="hover-lift hover-glow cursor-pointer rounded-2xl overflow-hidden block" style="background:#fff;border:1px solid #F0ECE6">
         <div class="card-img relative">
-          ${img ? `<img src="${esc(img)}" alt="${esc(p.title)}" class="w-full h-full object-cover" />` : `<div class="w-full h-full flex items-center justify-center" style="background:#F0ECE6"><span class="text-sm" style="color:#9A958C">Kein Bild</span></div>`}
+          ${img ? `<img src="${esc(img)}" alt="${esc(p.title)}" loading="lazy" decoding="async" class="w-full h-full object-cover" />` : `<div class="w-full h-full flex items-center justify-center" style="background:#F0ECE6"><span class="text-sm" style="color:#9A958C">Kein Bild</span></div>`}
           <div class="absolute inset-0" style="background:linear-gradient(to top,rgba(0,0,0,0.5) 0%,transparent 50%)"></div>
           <div class="absolute top-4 left-4 flex gap-2">
             <span class="px-3 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase text-white" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(12px)">${esc(p.type)}</span>

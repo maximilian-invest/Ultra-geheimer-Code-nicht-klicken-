@@ -615,7 +615,9 @@ function navBadge(key) {
                     </div>
                 </div>
             </div>
-            <div class="flex-1 overflow-x-hidden" :class="tab === 'inbox' ? 'overflow-hidden h-full' : 'overflow-y-auto'">
+            <div class="flex-1 min-w-0 overflow-x-hidden"
+                 :class="tab === 'inbox' ? 'overflow-hidden h-full' : 'overflow-y-auto'"
+                 style="scrollbar-gutter: stable">
                 <TodayTab v-if="tab === 'today'" :stats="stats" :dark-mode="darkMode" />
                 <!-- <PrioritiesTab v-if="tab === 'priorities'" /> -->
                 <InboxTab v-if="tab === 'inbox'" />

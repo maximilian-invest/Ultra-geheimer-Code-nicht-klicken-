@@ -42,6 +42,96 @@ function minMaxRange(key, unit = "m²") {
   return `${min.toLocaleString("de-AT")} – ${max.toLocaleString("de-AT")} ${unit}`.trim();
 }
 
+// Allgemeinraeume — fixe Liste fuer Checkbox-Auswahl.
+// Wird als JSON-Array im DB-Feld common_areas gespeichert (Strings als Keys).
+const COMMON_AREA_OPTIONS = [
+  { key: "fahrradraum",            label: "Fahrradraum" },
+  { key: "muellraum",              label: "Müllraum" },
+  { key: "trockenraum",            label: "Trockenraum" },
+  { key: "waschkueche",            label: "Waschküche" },
+  { key: "kinderwagenraum",        label: "Kinderwagenraum" },
+  { key: "hobbyraum",              label: "Hobbyraum" },
+  { key: "partyraum",              label: "Partyraum" },
+  { key: "fitnessraum",            label: "Fitnessraum" },
+  { key: "gemeinschaftssauna",     label: "Gemeinschafts-Sauna" },
+  { key: "spielplatz",             label: "Kinderspielplatz" },
+  { key: "dachterrasse",           label: "Gemeinschafts-Dachterrasse" },
+  { key: "gemeinschaftsgarten",    label: "Gemeinschaftsgarten" },
+  { key: "heizraum",               label: "Heizraum" },
+  { key: "lagerraum",              label: "Lagerraum" },
+];
+
+// Parser: common_areas kann JSON-Array sein (neu), Freitext (alt) oder leer.
+const commonAreaSet = computed(() => {
+  const raw = props.form.common_areas;
+  if (!raw) return new Set();
+  if (Array.isArray(raw)) return new Set(raw);
+  if (typeof raw === "string") {
+    const t = raw.trim();
+    if (t.startsWith("[")) {
+      try { return new Set(JSON.parse(t) || []); }
+      catch { return new Set(); }
+    }
+    // Fallback: alte Freitext-Werte per Komma trennen, klein machen, gegen bekannte Keys matchen.
+    const knownKeys = COMMON_AREA_OPTIONS.map(o => o.key);
+    const found = new Set();
+    t.toLowerCase().split(/[,;\n]/).map(s => s.trim()).forEach(token => {
+      const key = knownKeys.find(k => token.includes(k) || k.includes(token.replace(/[üöäß]/g, c => ({ü:'u',ö:'o',ä:'a',ß:'ss'})[c] || c)));
+      if (key) found.add(key);
+    });
+    return found;
+  }
+  return new Set();
+});
+
+function toggleCommonArea(key) {
+  const current = new Set(commonAreaSet.value);
+  if (current.has(key)) current.delete(key);
+  else current.add(key);
+  // Als JSON-Array speichern fuer saubere Weiterverarbeitung.
+  props.form.common_areas = JSON.stringify(Array.from(current));
+}
+
+// Feld-Zaehler pro Sektion
+function countFilled(keys) {
+  let filled = 0;
+  for (const k of keys) {
+    const v = props.form?.[k];
+    if (v === null || v === undefined) continue;
+    if (typeof v === 'string' && v.trim() === '') continue;
+    if (typeof v === 'boolean' && v === false) continue;
+    if (typeof v === 'number' && v === 0) continue;
+    if (Array.isArray(v) && v.length === 0) continue;
+    filled++;
+  }
+  return filled;
+}
+// Merkmale-Counter: zaehlt die aktiven Booleans aus der features-Liste
+const featuresFilled = computed(() => {
+  if (!Array.isArray(props.features)) return 0;
+  return props.features.filter(f => !!props.form?.[f.key]).length;
+});
+const commonAreasFilled = computed(() => commonAreaSet.value.size);
+
+const SECTION_FIELDS = {
+  flaechen:   ['living_area', 'realty_area', 'free_area', 'total_area', 'area_balcony', 'area_terrace', 'area_garden', 'area_loggia', 'area_basement', 'rooms_amount', 'floor_count'],
+  detailzimmer: ['bedrooms', 'bathrooms', 'toilets', 'floor_number'],
+  stellplatz: ['garage_spaces', 'parking_spaces'],
+  ausstattung:['quality', 'year_renovated', 'flooring', 'bathroom_equipment', 'orientation'],
+};
+const sectionCounts = computed(() => {
+  const out = {};
+  for (const [key, fields] of Object.entries(SECTION_FIELDS)) {
+    out[key] = { filled: countFilled(fields), total: fields.length };
+  }
+  // Merkmale = Anzahl Features + Booleans (nur ausgewaehlte, ansonsten 0 von N)
+  out.ausstattung.filled += featuresFilled.value;
+  out.ausstattung.total += Array.isArray(props.features) ? props.features.length : 0;
+  // Allgemeinraeume: Anzahl angekreuzter aus fester Liste
+  out.allgemein = { filled: commonAreasFilled.value, total: COMMON_AREA_OPTIONS.length };
+  return out;
+});
+
 // Range-Labels per Feld fuer Neubau
 const neubauRanges = computed(() => ({
   living_area:   minMaxRange("area_m2", "m²"),
@@ -186,7 +276,7 @@ watch(() => props.form?.id, loadParking);
     <!-- Left column -->
     <div class="flex flex-col gap-4">
       <!-- Flächen -->
-      <AccordionSection title="Flächen (m²)" color="#ea580c" :default-open="true">
+      <AccordionSection title="Flächen (m²)" color="#ea580c" :default-open="true" :filled="sectionCounts.flaechen.filled" :total="sectionCounts.flaechen.total">
         <div v-for="field in areaFields" :key="field.key">
           <label :class="labelCls + ' flex items-center gap-1.5 flex-wrap'">
             <span>{{ field.label }}</span>
@@ -224,40 +314,35 @@ watch(() => props.form?.id, loadParking);
           />
         </div>
 
-        <!-- Zimmer & Stockwerke unten in der Flaechen-Section (auch fuer Neubau) -->
-        <div class="col-span-2 mt-1 pt-3 border-t border-zinc-200/60">
-          <div class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Zimmer &amp; Stockwerke</div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label :class="labelCls + ' flex items-center gap-1.5 flex-wrap'">
-                <span>Zimmer</span>
-                <FieldExportBadges field="rooms_amount" />
-                <span v-if="isNewbuild && neubauRanges.rooms_amount"
-                      class="text-[9px] text-orange-600 font-normal tabular-nums ml-auto"
-                      :title="'Bereich aus Einheiten — wird verwendet wenn Feld leer ist'">
-                  ∅ {{ neubauRanges.rooms_amount }}
-                </span>
-              </label>
-              <Input
-                v-if="isNewbuild"
-                v-model="form.rooms_amount"
-                type="number"
-                step="0.5"
-                :placeholder="neubauRanges.rooms_amount ? neubauRanges.rooms_amount : 'z.B. 3'"
-                :class="inputCls"
-              />
-              <Input v-else v-model="form.rooms_amount" type="number" step="0.5" :class="inputCls" />
-            </div>
-            <div>
-              <label :class="labelCls">Stockwerke gesamt <FieldExportBadges field="floor_count" /></label>
-              <Input v-model="form.floor_count" type="number" :class="inputCls" placeholder="z.B. 3" />
-            </div>
-          </div>
+        <!-- Zimmer + Stockwerke als regulaere Flaechen-Felder (auch fuer Neubau) -->
+        <div>
+          <label :class="labelCls + ' flex items-center gap-1.5 flex-wrap'">
+            <span>Zimmer</span>
+            <FieldExportBadges field="rooms_amount" />
+            <span v-if="isNewbuild && neubauRanges.rooms_amount"
+                  class="text-[9px] text-orange-600 font-normal tabular-nums ml-auto"
+                  :title="'Bereich aus Einheiten — wird verwendet wenn Feld leer ist'">
+              ∅ {{ neubauRanges.rooms_amount }}
+            </span>
+          </label>
+          <Input
+            v-if="isNewbuild"
+            v-model="form.rooms_amount"
+            type="number"
+            step="0.5"
+            :placeholder="neubauRanges.rooms_amount ? neubauRanges.rooms_amount : 'z.B. 3'"
+            :class="inputCls"
+          />
+          <Input v-else v-model="form.rooms_amount" type="number" step="0.5" :class="inputCls" />
+        </div>
+        <div>
+          <label :class="labelCls">Stockwerke gesamt <FieldExportBadges field="floor_count" /></label>
+          <Input v-model="form.floor_count" type="number" :class="inputCls" placeholder="z.B. 3" />
         </div>
       </AccordionSection>
 
       <!-- Stellplätze -->
-      <AccordionSection title="Stellplätze" color="#0891b2" :default-open="true">
+      <AccordionSection title="Stellplätze" color="#0891b2" :default-open="true" :filled="sectionCounts.stellplatz.filled" :total="sectionCounts.stellplatz.total">
         <div v-if="!parkingSpaces.length" class="text-[12px] text-muted-foreground py-2">
           Keine Stellplätze angelegt.
         </div>
@@ -343,7 +428,7 @@ watch(() => props.form?.id, loadParking);
     <div class="flex flex-col gap-4">
       <!-- Detailzimmer (Schlafzimmer/Badezimmer/WCs/Stockwerk) nur bei Bestand.
            Zimmer-Anzahl + Stockwerke gesamt sind jetzt unter Flächen integriert. -->
-      <AccordionSection v-if="!isNewbuild" title="Detailzimmer" color="#8b5cf6" :default-open="true">
+      <AccordionSection v-if="!isNewbuild" title="Detailzimmer" color="#8b5cf6" :default-open="true" :filled="sectionCounts.detailzimmer.filled" :total="sectionCounts.detailzimmer.total">
         <div>
           <label :class="labelCls">Schlafzimmer <FieldExportBadges field="bedrooms" /></label>
           <Input v-model="form.bedrooms" type="number" :class="inputCls" />
@@ -362,8 +447,32 @@ watch(() => props.form?.id, loadParking);
         </div>
       </AccordionSection>
 
+      <!-- Allgemeinräume (Gemeinschaftsräume im Gebäude) -->
+      <AccordionSection v-if="!isChild" title="Allgemeinräume" color="#8b5cf6" :default-open="false" :filled="sectionCounts.allgemein.filled" :total="sectionCounts.allgemein.total">
+        <div class="col-span-2 text-[10.5px] text-muted-foreground mb-1 leading-relaxed">
+          Gemeinschafts- und Nebenräume im Gebäude. Werden auf der Website als Liste angezeigt.
+        </div>
+        <div class="col-span-2 flex flex-wrap gap-1.5">
+          <button
+            v-for="opt in COMMON_AREA_OPTIONS"
+            :key="opt.key"
+            type="button"
+            @click="toggleCommonArea(opt.key)"
+            class="px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors"
+            :class="commonAreaSet.has(opt.key)
+              ? 'bg-zinc-900 text-white'
+              : 'border border-border text-foreground hover:bg-zinc-50'"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+        <div class="col-span-2 mt-1">
+          <FieldExportBadges field="common_areas" />
+        </div>
+      </AccordionSection>
+
       <!-- Ausstattung & Merkmale -->
-      <AccordionSection v-if="!isChild" title="Ausstattung & Merkmale" color="#06b6d4" :default-open="false">
+      <AccordionSection v-if="!isChild" title="Ausstattung & Merkmale" color="#06b6d4" :default-open="false" :filled="sectionCounts.ausstattung.filled" :total="sectionCounts.ausstattung.total">
         <div>
           <label :class="labelCls">Qualität <FieldExportBadges field="quality" /></label>
           <Select v-model="form.quality">

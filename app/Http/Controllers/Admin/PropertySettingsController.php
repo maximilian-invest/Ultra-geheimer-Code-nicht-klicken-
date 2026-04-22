@@ -762,6 +762,12 @@ class PropertySettingsController extends Controller
             $update['property_history'] = is_array($data['property_history']) ? json_encode($data['property_history'], JSON_UNESCAPED_UNICODE) : $data['property_history'];
         }
 
+        // Projektname wird vom Titel abgeleitet — das Feld existiert nicht mehr im UI.
+        // Wenn der Titel gesetzt wird, synchronisieren wir project_name mit.
+        if (array_key_exists('title', $update)) {
+            $update['project_name'] = $update['title'];
+        }
+
         // Altzustand laden bevor wir speichern, fuer den Activity-Diff.
         $oldRow = $propId ? (array) (DB::table('properties')->where('id', $propId)->first() ?: []) : [];
 

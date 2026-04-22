@@ -290,4 +290,14 @@ class Property extends Model
     {
         return $this->hasMany(Property::class, 'parent_id');
     }
+
+    public function latestIntakeProtocol()
+    {
+        return $this->hasOne(\App\Models\IntakeProtocol::class)->latestOfMany();
+    }
+
+    public function intakeProtocols(): HasMany
+    {
+        return $this->hasMany(\App\Models\IntakeProtocol::class);
+    }
 }

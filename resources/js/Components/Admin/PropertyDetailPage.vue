@@ -18,6 +18,7 @@ import ActivityTab from "@/Components/Admin/property-detail/ActivityTab.vue";
 import PropertyLinksTab from '@/Components/Admin/Property/PropertyLinksTab.vue';
 import ExposeParser from '@/Components/Admin/property-detail/ExposeParser.vue';
 import TypeSelector from '@/Components/Admin/property-detail/TypeSelector.vue';
+import IntakeOpenFieldsBanner from '@/Components/Admin/IntakeProtocol/IntakeOpenFieldsBanner.vue';
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -43,6 +44,10 @@ const tabChangeGuardActive = ref(false);
 const pendingTabChange = ref(null);
 const showUnsavedChangesDialog = ref(false);
 
+// Neuestes Aufnahmeprotokoll des Objekts (fuer den Warn-Banner).
+// Wird beim Laden der vollen Property-Daten aus der API befuellt.
+const intakeProtocol = ref(null);
+
 const isNewbuild = computed(() => props.property?.property_category === 'newbuild');
 
 // The property list feeds us a partial row (only the columns the list SELECTs).
@@ -58,6 +63,8 @@ async function refreshFullProperty() {
     if (d && d.property) {
       Object.assign(props.property, d.property);
     }
+    // intake_protocol ist optional und kann null sein wenn noch keins existiert.
+    intakeProtocol.value = d && d.intake_protocol ? d.intake_protocol : null;
   } catch (e) { /* silent — existing partial data stays */ }
 }
 
@@ -373,6 +380,9 @@ function handleExposeParsed(result) {
         </Button>
       </div>
     </div>
+
+    <!-- Warnbanner fuer uebersprungene Felder aus dem Aufnahmeprotokoll -->
+    <IntakeOpenFieldsBanner :protocol="intakeProtocol" />
 
     <!-- Tab Bar -->
     <Tabs v-model="activeTab" class="flex-1 flex flex-col min-h-0">

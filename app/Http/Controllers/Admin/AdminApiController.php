@@ -2015,7 +2015,32 @@ class AdminApiController extends Controller
                 $prop->owner_phone = $customer->phone ?? $prop->owner_phone;
             }
         }
-        return response()->json(['property' => $prop], 200, [], JSON_UNESCAPED_UNICODE);
+
+        // Neuestes Aufnahmeprotokoll mitliefern, damit das PropertyDetailPage
+        // einen Warn-Banner fuer uebersprungene Felder anzeigen kann.
+        $intakeProtocol = null;
+        $latestProto = DB::table('intake_protocols')
+            ->where('property_id', $id)
+            ->orderByDesc('id')
+            ->first();
+        if ($latestProto) {
+            $openFields = [];
+            if (!empty($latestProto->open_fields)) {
+                $decoded = json_decode($latestProto->open_fields, true);
+                if (is_array($decoded)) $openFields = $decoded;
+            }
+            $intakeProtocol = [
+                'id' => $latestProto->id,
+                'created_at' => $latestProto->created_at,
+                'signed_at' => $latestProto->signed_at ?? null,
+                'open_fields' => $openFields,
+            ];
+        }
+
+        return response()->json([
+            'property' => $prop,
+            'intake_protocol' => $intakeProtocol,
+        ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     private function updateProperty(Request $request): JsonResponse

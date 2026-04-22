@@ -19,6 +19,7 @@ import PropertyLinksTab from '@/Components/Admin/Property/PropertyLinksTab.vue';
 import ExposeParser from '@/Components/Admin/property-detail/ExposeParser.vue';
 import TypeSelector from '@/Components/Admin/property-detail/TypeSelector.vue';
 import IntakeOpenFieldsBanner from '@/Components/Admin/IntakeProtocol/IntakeOpenFieldsBanner.vue';
+import OwnerMailComposer from '@/Components/Admin/IntakeProtocol/OwnerMailComposer.vue';
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -44,9 +45,21 @@ const tabChangeGuardActive = ref(false);
 const pendingTabChange = ref(null);
 const showUnsavedChangesDialog = ref(false);
 
-// Neuestes Aufnahmeprotokoll des Objekts (fuer den Warn-Banner).
+// Neuestes Aufnahmeprotokoll des Objekts (fuer den Warn-Banner + Mail-Button).
 // Wird beim Laden der vollen Property-Daten aus der API befuellt.
 const intakeProtocol = ref(null);
+
+// Mail-Composer-Dialog (wird geöffnet wenn User auf „E-Mail an Eigentümer" klickt)
+const showMailComposer = ref(false);
+
+function openMailComposer() { showMailComposer.value = true; }
+function onMailSent(info) {
+  showMailComposer.value = false;
+  // intakeProtocol-Objekt aktualisieren damit Banner verschwindet / "erneut senden" zeigt
+  if (intakeProtocol.value && info?.sent_at) {
+    intakeProtocol.value.owner_email_sent_at = info.sent_at;
+  }
+}
 
 const isNewbuild = computed(() => props.property?.property_category === 'newbuild');
 
@@ -383,6 +396,47 @@ function handleExposeParsed(result) {
 
     <!-- Warnbanner fuer uebersprungene Felder aus dem Aufnahmeprotokoll -->
     <IntakeOpenFieldsBanner :protocol="intakeProtocol" />
+
+    <!-- Mail-Status-Banner — sichtbar wenn ein Protokoll existiert -->
+    <div v-if="intakeProtocol && intakeProtocol.owner_email" class="px-3 sm:px-5 mt-3">
+      <!-- Noch nicht versendet: gelb, primäre Aktion -->
+      <div v-if="!intakeProtocol.owner_email_sent_at"
+           class="bg-amber-50 border border-amber-300 rounded-lg p-3 flex items-center gap-3">
+        <span class="text-xl">📧</span>
+        <div class="flex-1 text-sm">
+          <div class="font-semibold text-amber-900">
+            E-Mail an Eigentümer noch ausstehend
+          </div>
+          <div class="text-xs text-amber-800 mt-0.5">
+            Das Aufnahmeprotokoll-PDF kann an <strong>{{ intakeProtocol.owner_email }}</strong> versendet werden.
+          </div>
+        </div>
+        <button type="button" @click="openMailComposer"
+                class="h-10 px-4 rounded-lg bg-[#EE7600] text-white text-sm font-semibold whitespace-nowrap">
+          📧 E-Mail verfassen
+        </button>
+      </div>
+      <!-- Schon versendet: grün-info, sekundäre Resend-Aktion -->
+      <div v-else
+           class="bg-green-50 border border-green-200 rounded-lg p-2.5 flex items-center gap-3">
+        <span class="text-base">✓</span>
+        <div class="flex-1 text-xs text-green-900">
+          Aufnahme-Mail versendet am
+          <strong>{{ new Date(intakeProtocol.owner_email_sent_at).toLocaleString('de-AT') }}</strong>
+          an {{ intakeProtocol.owner_email }}
+        </div>
+        <button type="button" @click="openMailComposer"
+                class="h-8 px-3 rounded-md border border-green-700/30 text-green-900 text-xs font-medium hover:bg-green-100 whitespace-nowrap">
+          ↻ Erneut senden
+        </button>
+      </div>
+    </div>
+
+    <!-- Mail-Composer-Dialog -->
+    <OwnerMailComposer v-if="showMailComposer && intakeProtocol"
+                       :protocol-id="intakeProtocol.id"
+                       @close="showMailComposer = false"
+                       @sent="onMailSent" />
 
     <!-- Tab Bar -->
     <Tabs v-model="activeTab" class="flex-1 flex flex-col min-h-0">

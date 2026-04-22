@@ -69,8 +69,6 @@ class IntakeProtocolController extends Controller
         $signatureDataUrl = (string) ($payload['signature_data_url'] ?? '');
         $signedByName = trim((string) ($payload['signed_by_name'] ?? ''));
         $disclaimerText = trim((string) ($payload['disclaimer_text'] ?? ''));
-        $customSubject = isset($payload['mail_subject']) ? trim((string) $payload['mail_subject']) : null;
-        $customBody    = isset($payload['mail_body'])    ? trim((string) $payload['mail_body'])    : null;
 
         if ($disclaimerText === '' || $signedByName === '' || $signatureDataUrl === '') {
             return response()->json(['error' => 'signature/disclaimer/name required'], 422);
@@ -80,7 +78,7 @@ class IntakeProtocolController extends Controller
         $broker = \App\Models\User::find($brokerId);
 
         try {
-            $result = \DB::transaction(function () use ($form, $signatureDataUrl, $signedByName, $disclaimerText, $brokerId, $broker, $request, $customSubject, $customBody) {
+            $result = \DB::transaction(function () use ($form, $signatureDataUrl, $signedByName, $disclaimerText, $brokerId, $broker, $request) {
 
                 // 1) Customer
                 $ownerData = is_array($form['owner'] ?? null) ? $form['owner'] : [];
@@ -138,6 +136,10 @@ class IntakeProtocolController extends Controller
                 $protocol->update(['pdf_path' => $pdfPath]);
 
                 // 8) Mails
+                // NUR Portal-Zugang wird sofort versendet (braucht der Eigentuemer sonst nicht).
+                // Die Protokoll-Mail an den Eigentuemer schickt der Makler spaeter bewusst
+                // aus der Property-Detail-Seite (MailComposer) — damit er sie in Ruhe
+                // von zuhause aus bearbeiten kann, nicht mehr vor Ort.
                 $emailService = app(\App\Services\IntakeProtocolEmailService::class);
 
                 if ($portalAccessGranted && $initialPassword && !empty($ownerData['email'])) {
@@ -150,25 +152,13 @@ class IntakeProtocolController extends Controller
                     $protocol->update(['portal_email_sent_at' => now()]);
                 }
 
+                // Vermittlungsauftrag-PDF vorhalten falls spaeter noetig (bei Missing-Docs)
                 $missingDocs = $this->computeMissingDocs($form['documents_available'] ?? []);
-                $vermittlungsPath = null;
                 if (count($missingDocs) > 0) {
-                    $vermittlungsPath = $this->generateVermittlungsauftrag($property, $ownerData, $broker);
+                    $this->generateVermittlungsauftrag($property, $ownerData, $broker);
                 }
-
-                if (!empty($ownerData['email'])) {
-                    $emailService->sendProtocol(
-                        owner: $ownerData,
-                        property: $property->toArray(),
-                        broker: ['name' => $broker->name, 'email' => $broker->email],
-                        missingDocs: $missingDocs,
-                        protocolPdfPath: storage_path('app/' . $pdfPath),
-                        vermittlungsauftragPdfPath: $vermittlungsPath ? storage_path('app/' . $vermittlungsPath) : null,
-                        customSubject: $customSubject,
-                        customBody: $customBody,
-                    );
-                    $protocol->update(['owner_email_sent_at' => now()]);
-                }
+                // owner_email_sent_at bleibt bewusst null — Banner auf Property-Detail
+                // triggert dann den MailComposer-Dialog.
 
                 // 9) Draft cleanup
                 if (!empty($form['draft_key'])) {
@@ -493,9 +483,50 @@ class IntakeProtocolController extends Controller
         ];
     }
 
+    /**
+     * Liefert Default-Betreff + Default-Body fuer die Eigentuemer-Mail.
+     * Akzeptiert:
+     *   - `form_data` (Payload direkt aus dem Wizard), ODER
+     *   - `protocol_id` (liefert Daten aus persistiertem Protokoll) —
+     *     wird vom MailComposer auf der Property-Detail-Seite genutzt.
+     */
     public function previewMail(Request $request): JsonResponse
     {
-        $payload = $request->json()->all();
+        $payload = $request->method() === 'GET' ? $request->query() : $request->json()->all();
+
+        // Variante A: protocol_id → vorhandenes Protokoll
+        $protocolId = isset($payload['protocol_id']) ? (int) $payload['protocol_id'] : 0;
+        if ($protocolId > 0) {
+            $protocol = \App\Models\IntakeProtocol::with(['customer', 'broker', 'property'])->find($protocolId);
+            if (!$protocol) return response()->json(['error' => 'not found'], 404);
+
+            $form = is_string($protocol->form_snapshot) ? json_decode($protocol->form_snapshot, true) : [];
+            if (!is_array($form)) $form = [];
+            $customer = $protocol->customer;
+            $ownerData = $customer ? [
+                'name'  => $customer->name ?? '',
+                'email' => $customer->email ?? '',
+                'phone' => $customer->phone ?? '',
+            ] : (is_array($form['owner'] ?? null) ? $form['owner'] : []);
+            $broker = $protocol->broker;
+            $missingDocs = $this->computeMissingDocs($form['documents_available'] ?? []);
+            $content = $this->computeDefaultMailContent(
+                $form,
+                $ownerData,
+                ['name' => $broker?->name ?? '', 'email' => $broker?->email ?? ''],
+                $missingDocs,
+            );
+            return response()->json([
+                'success' => true,
+                'subject' => $content['subject'],
+                'body'    => $content['body'],
+                'missing_docs' => $missingDocs,
+                'owner_email' => $ownerData['email'] ?? null,
+                'already_sent_at' => $protocol->owner_email_sent_at?->toIso8601String(),
+            ]);
+        }
+
+        // Variante B: form_data — Wizard-Preview (historisch, bleibt erhalten)
         $form = is_array($payload['form_data'] ?? null) ? $payload['form_data'] : [];
         $ownerData = is_array($form['owner'] ?? null) ? $form['owner'] : [];
         $brokerId = (int) \Auth::id();
@@ -518,11 +549,18 @@ class IntakeProtocolController extends Controller
         ]);
     }
 
+    /**
+     * Versendet (oder re-versendet) die Protokoll-Mail an den Eigentuemer.
+     * Vom MailComposer auf der Property-Detail-Seite aufgerufen.
+     * Akzeptiert optional custom_subject + custom_body — sonst Default-Template.
+     */
     public function resendEmail(Request $request): JsonResponse
     {
         $data = $request->json()->all();
         $protocolId = (int) ($data['protocol_id'] ?? 0);
         $type = (string) ($data['type'] ?? 'protocol');
+        $customSubject = isset($data['subject']) ? trim((string) $data['subject']) : null;
+        $customBody    = isset($data['body'])    ? trim((string) $data['body'])    : null;
 
         $protocol = \App\Models\IntakeProtocol::find($protocolId);
         if (!$protocol) return response()->json(['error' => 'not found'], 404);
@@ -540,15 +578,33 @@ class IntakeProtocolController extends Controller
         if ($type === 'protocol') {
             $form = is_string($protocol->form_snapshot) ? json_decode($protocol->form_snapshot, true) : [];
             $missingDocs = $this->computeMissingDocs($form['documents_available'] ?? []);
+
+            // Vermittlungsauftrag-PDF anhaengen falls Missing-Docs vorhanden
+            $vermittlungsPath = null;
+            if (count($missingDocs) > 0) {
+                $vermittlungsRelative = "intake-protocols/{$property->id}/vermittlungsauftrag.pdf";
+                $vermittlungsFull = storage_path('app/' . $vermittlungsRelative);
+                if (is_file($vermittlungsFull)) {
+                    $vermittlungsPath = $vermittlungsFull;
+                }
+            }
+
             $emailService->sendProtocol(
                 owner: ['name' => $owner->name, 'email' => $owner->email, 'phone' => $owner->phone],
                 property: $property->toArray(),
                 broker: ['name' => $broker->name, 'email' => $broker->email],
                 missingDocs: $missingDocs,
                 protocolPdfPath: storage_path('app/' . $protocol->pdf_path),
+                vermittlungsauftragPdfPath: $vermittlungsPath,
+                customSubject: $customSubject,
+                customBody: $customBody,
             );
             $protocol->update(['owner_email_sent_at' => now()]);
-            return response()->json(['success' => true, 'type' => 'protocol']);
+            return response()->json([
+                'success' => true,
+                'type' => 'protocol',
+                'sent_at' => now()->toIso8601String(),
+            ]);
         }
 
         return response()->json(['error' => 'invalid type'], 422);

@@ -2030,11 +2030,19 @@ class AdminApiController extends Controller
                 $decoded = json_decode($latestProto->open_fields, true);
                 if (is_array($decoded)) $openFields = $decoded;
             }
+            // Customer-E-Mail (falls verlinkt) fuer Mail-Status mitliefern
+            $customerEmail = null;
+            if (!empty($latestProto->customer_id)) {
+                $cust = DB::table('customers')->where('id', $latestProto->customer_id)->first();
+                if ($cust) $customerEmail = $cust->email ?? null;
+            }
             $intakeProtocol = [
                 'id' => $latestProto->id,
                 'created_at' => $latestProto->created_at,
                 'signed_at' => $latestProto->signed_at ?? null,
                 'open_fields' => $openFields,
+                'owner_email_sent_at' => $latestProto->owner_email_sent_at ?? null,
+                'owner_email' => $customerEmail,
             ];
         }
 

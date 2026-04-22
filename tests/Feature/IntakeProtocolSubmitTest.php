@@ -77,8 +77,11 @@ class IntakeProtocolSubmitTest extends TestCase
             'category' => 'Aufnahmeprotokoll',
         ]);
 
-        Mail::assertSent(IntakeProtocolMail::class, fn($m) => $m->hasTo('hans@test.at'));
+        // Neue UX: Protokoll-Mail wird NICHT sofort versendet — der Makler triggert
+        // sie spaeter ueber den MailComposer auf der Property-Detail-Seite.
+        Mail::assertNotSent(IntakeProtocolMail::class);
         Mail::assertNotSent(PortalAccessMail::class);
+        $this->assertNull(\App\Models\IntakeProtocol::latest()->first()->owner_email_sent_at);
     }
 
     public function test_submit_with_portal_access_grants_user_and_sends_portal_mail(): void
@@ -179,5 +182,86 @@ class IntakeProtocolSubmitTest extends TestCase
         $this->assertStringContainsString('X-01', $response->json('subject'));
         $this->assertStringContainsString('Hans', $response->json('body'));
         $this->assertStringContainsString('Grundbuchauszug', $response->json('body'));
+    }
+
+    public function test_resend_email_with_custom_content_updates_owner_email_sent_at(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+        $user = User::factory()->create(['user_type' => 'makler']);
+        $this->actingAs($user);
+
+        // Zuerst: Submit eines Protokolls (schickt keine Mail mehr)
+        $this->postJson('/api/admin_api.php?action=intake_protocol_submit', [
+            'form_data' => [
+                'object_type' => 'Wohnung', 'marketing_type' => 'kauf',
+                'address' => 'Mailstr', 'house_number' => '1', 'zip' => '5020', 'city' => 'Salzburg',
+                'owner' => ['name' => 'Eve Owner', 'email' => 'eve@test.at'],
+                'portal_access_granted' => false,
+                'documents_available' => [],
+                'approvals_status' => 'complete',
+                'broker_notes' => '',
+            ],
+            'signature_data_url' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+            'signed_by_name' => 'Eve',
+            'disclaimer_text' => 'D',
+        ])->assertStatus(200);
+
+        $protocol = IntakeProtocol::latest()->first();
+        $this->assertNull($protocol->owner_email_sent_at);
+
+        // Jetzt: Mail mit Custom-Content via MailComposer senden
+        $response = $this->postJson('/api/admin_api.php?action=intake_protocol_resend_email', [
+            'protocol_id' => $protocol->id,
+            'type' => 'protocol',
+            'subject' => 'Mein custom Betreff',
+            'body' => "Lieber Eve,\n\ndies ist ein editierter Text.\n\nLG",
+        ]);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+
+        Mail::assertSent(IntakeProtocolMail::class, function ($m) {
+            return $m->hasTo('eve@test.at')
+                && $m->customSubject === 'Mein custom Betreff'
+                && str_contains($m->customBody, 'editierter Text');
+        });
+
+        $protocol->refresh();
+        $this->assertNotNull($protocol->owner_email_sent_at);
+    }
+
+    public function test_preview_mail_accepts_protocol_id(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+        $user = User::factory()->create(['user_type' => 'makler', 'email' => 'm@test.at']);
+        $this->actingAs($user);
+
+        $this->postJson('/api/admin_api.php?action=intake_protocol_submit', [
+            'form_data' => [
+                'ref_id' => 'PID-42',
+                'object_type' => 'Haus', 'marketing_type' => 'kauf',
+                'address' => 'Zweitstr', 'house_number' => '7', 'zip' => '5020', 'city' => 'Salzburg',
+                'owner' => ['name' => 'Bob Eigentuemer', 'email' => 'bob@test.at'],
+                'documents_available' => ['energieausweis' => 'missing'],
+                'approvals_status' => 'complete',
+                'broker_notes' => '',
+            ],
+            'signature_data_url' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+            'signed_by_name' => 'Bob',
+            'disclaimer_text' => 'D',
+        ])->assertStatus(200);
+
+        $protocolId = IntakeProtocol::latest()->first()->id;
+
+        $response = $this->postJson('/api/admin_api.php?action=intake_protocol_preview_mail', [
+            'protocol_id' => $protocolId,
+        ]);
+
+        $response->assertStatus(200)->assertJson(['success' => true, 'owner_email' => 'bob@test.at']);
+        $this->assertStringContainsString('PID-42', $response->json('subject'));
+        $this->assertStringContainsString('Bob', $response->json('body'));
+        $this->assertStringContainsString('Energieausweis', $response->json('body'));
+        $this->assertNull($response->json('already_sent_at'));
     }
 }

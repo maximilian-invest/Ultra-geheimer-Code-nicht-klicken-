@@ -15,6 +15,8 @@ class IntakeProtocolEmailService
         array $missingDocs,
         string $protocolPdfPath,
         ?string $vermittlungsauftragPdfPath = null,
+        ?string $customSubject = null,
+        ?string $customBody = null,
     ): void {
         Mail::send(new IntakeProtocolMail(
             property: $property,
@@ -23,6 +25,8 @@ class IntakeProtocolEmailService
             missingDocs: $missingDocs,
             protocolPdfPath: $protocolPdfPath,
             vermittlungsauftragPdfPath: $vermittlungsauftragPdfPath,
+            customSubject: $customSubject,
+            customBody: $customBody,
         ));
     }
 

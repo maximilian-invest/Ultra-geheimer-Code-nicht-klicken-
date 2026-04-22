@@ -20,24 +20,37 @@ class IntakeProtocolMail extends Mailable
         public array $missingDocs,
         public string $protocolPdfPath,
         public ?string $vermittlungsauftragPdfPath = null,
+        public ?string $customSubject = null,
+        public ?string $customBody = null,
     ) {}
 
     public function envelope(): Envelope
     {
         $refId = $this->property['ref_id'] ?? 'neu';
-        $subject = count($this->missingDocs) > 0
+        $defaultSubject = count($this->missingDocs) > 0
             ? "Ihr Aufnahmeprotokoll · {$refId} — noch fehlende Unterlagen"
             : "Ihr Aufnahmeprotokoll · {$refId}";
 
         return new Envelope(
             to: $this->owner['email'],
-            subject: $subject,
+            subject: $this->customSubject ?: $defaultSubject,
             replyTo: [$this->broker['email'] ?? 'office@sr-homes.at'],
         );
     }
 
     public function content(): Content
     {
+        if ($this->customBody) {
+            return new Content(
+                view: 'emails.intake-protocol-custom',
+                with: [
+                    'body' => $this->customBody,
+                    'owner' => $this->owner,
+                    'broker' => $this->broker,
+                ],
+            );
+        }
+
         $view = count($this->missingDocs) > 0
             ? 'emails.intake-protocol-missing-docs'
             : 'emails.intake-protocol-complete';

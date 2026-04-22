@@ -69,6 +69,8 @@ class IntakeProtocolController extends Controller
         $signatureDataUrl = (string) ($payload['signature_data_url'] ?? '');
         $signedByName = trim((string) ($payload['signed_by_name'] ?? ''));
         $disclaimerText = trim((string) ($payload['disclaimer_text'] ?? ''));
+        $customSubject = isset($payload['mail_subject']) ? trim((string) $payload['mail_subject']) : null;
+        $customBody    = isset($payload['mail_body'])    ? trim((string) $payload['mail_body'])    : null;
 
         if ($disclaimerText === '' || $signedByName === '' || $signatureDataUrl === '') {
             return response()->json(['error' => 'signature/disclaimer/name required'], 422);
@@ -78,7 +80,7 @@ class IntakeProtocolController extends Controller
         $broker = \App\Models\User::find($brokerId);
 
         try {
-            $result = \DB::transaction(function () use ($form, $signatureDataUrl, $signedByName, $disclaimerText, $brokerId, $broker, $request) {
+            $result = \DB::transaction(function () use ($form, $signatureDataUrl, $signedByName, $disclaimerText, $brokerId, $broker, $request, $customSubject, $customBody) {
 
                 // 1) Customer
                 $ownerData = is_array($form['owner'] ?? null) ? $form['owner'] : [];
@@ -162,6 +164,8 @@ class IntakeProtocolController extends Controller
                         missingDocs: $missingDocs,
                         protocolPdfPath: storage_path('app/' . $pdfPath),
                         vermittlungsauftragPdfPath: $vermittlungsPath ? storage_path('app/' . $vermittlungsPath) : null,
+                        customSubject: $customSubject,
+                        customBody: $customBody,
                     );
                     $protocol->update(['owner_email_sent_at' => now()]);
                 }
@@ -442,6 +446,75 @@ class IntakeProtocolController extends Controller
         return response()->file($fullPath, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="aufnahmeprotokoll-' . $protocol->property_id . '.pdf"',
+        ]);
+    }
+
+    public function computeDefaultMailContent(array $form, array $owner, array $broker, array $missingDocs): array
+    {
+        $refId = $form['ref_id'] ?? 'neu';
+        $subject = count($missingDocs) > 0
+            ? "Ihr Aufnahmeprotokoll · {$refId} — noch fehlende Unterlagen"
+            : "Ihr Aufnahmeprotokoll · {$refId}";
+
+        $ownerName = trim((string) ($owner['name'] ?? '')) ?: 'Damen und Herren';
+        $address = trim(($form['address'] ?? '') . ' ' . ($form['house_number'] ?? ''));
+        $brokerName = $broker['name'] ?? 'Ihr SR-Homes Team';
+
+        // Plain-Text Version — User kann bearbeiten, wir rendern das spaeter in einen
+        // simplen HTML-Wrapper, der Umbrueche respektiert.
+        if (count($missingDocs) === 0) {
+            $body = "Sehr geehrte/r {$ownerName},\n\n"
+                  . "vielen Dank für unseren heutigen Termin zur Aufnahme Ihrer Immobilie {$address}.\n\n"
+                  . "Anbei finden Sie das unterschriebene Aufnahmeprotokoll als PDF-Anhang zu Ihrer Unterlage.\n\n"
+                  . "Wir melden uns in den nächsten Tagen mit dem Vermittlungsauftrag und den weiteren Schritten.\n\n"
+                  . "Herzliche Grüße\n"
+                  . "{$brokerName}\n"
+                  . "SR-Homes Immobilien";
+        } else {
+            $missingList = implode("\n", array_map(fn($d) => "· {$d}", $missingDocs));
+            $brokerEmail = $broker['email'] ?? 'office@sr-homes.at';
+            $body = "Sehr geehrte/r {$ownerName},\n\n"
+                  . "vielen Dank für unseren heutigen Termin zur Aufnahme Ihrer Immobilie {$address}.\n\n"
+                  . "Anbei finden Sie das unterschriebene Aufnahmeprotokoll als PDF.\n\n"
+                  . "Damit wir Ihr Objekt bestmöglich vermarkten können, benötigen wir noch folgende Unterlagen:\n\n"
+                  . $missingList . "\n\n"
+                  . "Zwei Möglichkeiten:\n\n"
+                  . "Variante A — Sie senden uns diese Unterlagen per E-Mail an {$brokerEmail}.\n\n"
+                  . "Variante B — Sie unterschreiben den beigefügten Vermittlungsauftrag, dann holen wir die fehlenden Unterlagen direkt bei Ihrer Hausverwaltung ein.\n\n"
+                  . "Herzliche Grüße\n"
+                  . "{$brokerName}\n"
+                  . "SR-Homes Immobilien";
+        }
+
+        return [
+            'subject' => $subject,
+            'body'    => $body,
+            'missing_docs' => $missingDocs,
+        ];
+    }
+
+    public function previewMail(Request $request): JsonResponse
+    {
+        $payload = $request->json()->all();
+        $form = is_array($payload['form_data'] ?? null) ? $payload['form_data'] : [];
+        $ownerData = is_array($form['owner'] ?? null) ? $form['owner'] : [];
+        $brokerId = (int) \Auth::id();
+        $broker = \App\Models\User::find($brokerId);
+
+        $missingDocs = $this->computeMissingDocs($form['documents_available'] ?? []);
+        $content = $this->computeDefaultMailContent(
+            $form,
+            $ownerData,
+            ['name' => $broker?->name ?? '', 'email' => $broker?->email ?? ''],
+            $missingDocs,
+        );
+
+        return response()->json([
+            'success' => true,
+            'subject' => $content['subject'],
+            'body'    => $content['body'],
+            'missing_docs' => $missingDocs,
+            'owner_email' => $ownerData['email'] ?? null,
         ]);
     }
 

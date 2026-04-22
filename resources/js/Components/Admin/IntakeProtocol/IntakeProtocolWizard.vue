@@ -83,6 +83,8 @@ async function submit() {
       signature_data_url: form.signature_data_url,
       signed_by_name: form.signed_by_name,
       disclaimer_text: DISCLAIMER_TEXT,
+      mail_subject: form.mail_subject || null,
+      mail_body: form.mail_body || null,
     }),
   });
   const d = await r.json();

@@ -824,6 +824,7 @@ class AdminApiController extends Controller
             'intake_protocol_draft_save' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->draftSave($request),
             'intake_protocol_draft_load' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->draftLoad($request),
             'intake_protocol_submit' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->submit($request),
+            'intake_protocol_preview_mail' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->previewMail($request),
             'intake_protocol_get_pdf' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->getPdf($request),
             'intake_protocol_resend_email' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->resendEmail($request),
 

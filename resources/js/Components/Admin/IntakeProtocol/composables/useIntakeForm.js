@@ -28,6 +28,7 @@ function initialForm() {
     // Step 6
     has_balcony: false, area_balcony: null, balcony_count: null,
     has_terrace: false, area_terrace: null, terrace_count: null,
+    has_dachterrasse: false, area_dachterrasse: null, dachterrasse_count: null,
     has_loggia: false, area_loggia: null, loggia_count: null,
     has_garden: false, area_garden: null,
     has_basement: false, area_basement: null,
@@ -36,25 +37,27 @@ function initialForm() {
     has_alarm: false, has_barrier_free: false, has_guest_wc: false,
     has_storage_room: false,
     common_areas: [],
+    // flooring + bathroom_equipment: Multi-Select → JSON-Array als String speichern
     flooring: '', bathroom_equipment: '', orientation: '',
     garage_spaces: null, parking_spaces: null,
     parking_type: '', parking_assignment: '',
     // Step 7
     energy_certificate: '', heating_demand_value: null, heating_demand_class: '',
     energy_efficiency_value: null, energy_valid_until: null,
-    heating: '', has_photovoltaik: false, charging_station_status: '',
+    heating: '', has_photovoltaik: false, has_wohnraumlueftung: false,
+    charging_station_status: '',
     // Step 8
     property_manager_id: null,
     encumbrances: '',
     approvals_status: '',
     approvals_notes: '',
     documents_available: {},
-    // Step 9
+    // Step 9 — Kosten (Provisionen bewusst NICHT im Wizard, werden im Cockpit gesetzt)
     purchase_price: null, rental_price: null, rent_warm: null, rent_deposit: null,
     operating_costs: null, maintenance_reserves: null,
-    heating_costs: null, warm_water_costs: null,
-    admin_costs: null, elevator_costs: null,
-    commission_percent: null, buyer_commission_percent: null,
+    heating_costs: null, warm_water_costs: null, cooling_costs: null,
+    admin_costs: null, elevator_costs: null, parking_costs_monthly: null,
+    other_costs: null, monthly_costs: null,
     available_from: null,
     // Step 10
     photos: [],
@@ -63,6 +66,8 @@ function initialForm() {
     open_fields: [],
     signature_data_url: '',
     signed_by_name: '',
+    mail_subject: '',
+    mail_body: '',
   };
 }
 

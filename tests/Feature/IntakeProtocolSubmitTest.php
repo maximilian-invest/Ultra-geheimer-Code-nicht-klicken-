@@ -158,4 +158,26 @@ class IntakeProtocolSubmitTest extends TestCase
             $this->assertTrue(Storage::disk('public')->exists($file->path));
         }
     }
+
+    public function test_preview_mail_returns_default_content(): void
+    {
+        $user = \App\Models\User::factory()->create(['user_type' => 'makler', 'name' => 'TestMakler', 'email' => 'm@test.at']);
+        $this->actingAs($user);
+
+        $response = $this->postJson('/api/admin_api.php?action=intake_protocol_preview_mail', [
+            'form_data' => [
+                'ref_id' => 'X-01',
+                'address' => 'Teststr', 'house_number' => '1', 'zip' => '5020', 'city' => 'Salzburg',
+                'owner' => ['name' => 'Hans', 'email' => 'hans@test.at'],
+                'documents_available' => ['grundbuchauszug' => 'missing', 'energieausweis' => 'available'],
+            ],
+        ]);
+
+        $response->assertStatus(200)
+                 ->assertJson(['success' => true])
+                 ->assertJsonPath('owner_email', 'hans@test.at');
+        $this->assertStringContainsString('X-01', $response->json('subject'));
+        $this->assertStringContainsString('Hans', $response->json('body'));
+        $this->assertStringContainsString('Grundbuchauszug', $response->json('body'));
+    }
 }

@@ -823,6 +823,7 @@ class AdminApiController extends Controller
             // Aufnahmeprotokoll
             'intake_protocol_draft_save' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->draftSave($request),
             'intake_protocol_draft_load' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->draftLoad($request),
+            'intake_protocol_submit' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->submit($request),
 
             // Tasks
             'getTasks'                  => app(TaskController::class)->index($request),

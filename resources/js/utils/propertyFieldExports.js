@@ -128,6 +128,14 @@ export const FIELD_EXPORTS = {
   garage_spaces:       { targets: ['w'] },
   parking_spaces:      { targets: ['w'] },
   parking_type:        { targets: ['l'] },
+  parking_assignment:  { targets: ['i', 'w'], tips: { w: 'Website: Stellplatz-Zuordnung' } },
+
+  // === AUFNAHMEPROTOKOLL — INTERN (niemals exportieren) ===
+  encumbrances:         { targets: ['l'], tips: { l: 'Intern: Belastungen / Rechte — nicht auf Website/Portalen' } },
+  approvals_status:     { targets: ['l'], tips: { l: 'Intern: Bewilligungs-Status — nicht öffentlich' } },
+  approvals_notes:      { targets: ['l'], tips: { l: 'Intern: Bewilligungs-Notizen' } },
+  documents_available:  { targets: ['l'], tips: { l: 'Intern: Dokumenten-Checkliste' } },
+  internal_notes:       { targets: ['l'], tips: { l: 'Intern: Notizen vom Termin' } },
 
   // === ENERGIE ===
   energy_certificate:  { targets: ['i', 'w'] },

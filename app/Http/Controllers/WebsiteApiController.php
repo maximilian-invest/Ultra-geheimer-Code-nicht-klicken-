@@ -76,7 +76,7 @@ class WebsiteApiController extends Controller
                     'main_image_id', 'website_gallery_ids',
                     'total_units', 'energy_certificate', 'heating_demand_value',
                     'energy_efficiency_value', 'heating_demand_class', 'energy_valid_until',
-                    'garage_spaces', 'parking_spaces', 'has_basement',
+                    'garage_spaces', 'parking_spaces', 'parking_assignment', 'has_basement',
                     'has_garden', 'has_elevator', 'has_balcony', 'has_terrace',
                     'has_loggia', 'has_fitted_kitchen', 'has_air_conditioning',
                     'has_pool', 'has_sauna', 'has_fireplace', 'has_barrier_free',
@@ -102,7 +102,20 @@ class WebsiteApiController extends Controller
                 ->orderBy('id', 'desc')
                 ->get();
 
+            // Aufnahmeprotokoll: interne Felder duerfen NIE auf die Website
+            // durchschlagen. Sind zwar nicht im Select oben — aber
+            // defense-in-depth: nach jeder Select-Aenderung hier explizit
+            // rausschmeissen, falls sie ueber JOIN/Schema-Aenderung reinkommen.
+            $internalFields = ['encumbrances', 'approvals_status', 'approvals_notes', 'documents_available', 'internal_notes'];
+
             foreach ($properties as &$p) {
+                // Defense-in-depth: niemals interne Aufnahmeprotokoll-Felder
+                // exponieren (sind nicht im Select, aber Paranoia schadet nicht).
+                foreach ($internalFields as $f) {
+                    if (is_array($p)) unset($p[$f]);
+                    elseif (is_object($p)) unset($p->$f);
+                }
+
                 // Main image
                 if ($p->main_image_id) {
                     $p->main_image_url = url("/api/website/image/{$p->main_image_id}");
@@ -380,6 +393,15 @@ class WebsiteApiController extends Controller
 
         if (!$p) {
             return response()->json(['error' => 'Not found'], 404);
+        }
+
+        // Aufnahmeprotokoll: interne Felder duerfen NIE auf die Website
+        // durchschlagen. `first()` ohne Select holt alle Spalten inkl. der
+        // Aufnahmeprotokoll-Felder — daher hier explizit entfernen.
+        $internalFields = ['encumbrances', 'approvals_status', 'approvals_notes', 'documents_available', 'internal_notes'];
+        foreach ($internalFields as $f) {
+            if (is_array($p)) unset($p[$f]);
+            elseif (is_object($p)) unset($p->$f);
         }
 
         // Map DB field names to what the React frontend expects

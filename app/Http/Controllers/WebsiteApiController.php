@@ -68,24 +68,35 @@ class WebsiteApiController extends Controller
                 })
                 ->select([
                     'id', 'ref_id', 'title', 'project_name', 'address', 'city', 'zip',
+                    'latitude', 'longitude',
                     'object_type as type', 'property_category', 'realty_status', 'marketing_type', 'purchase_price as price',
                     'living_area as area_living', 'free_area', 'total_area', 'rooms_amount as rooms', 'bathrooms',
                     'area_balcony', 'area_terrace', 'area_garden', 'area_loggia', 'area_basement',
                     'construction_year as year_built', 'year_renovated', 'realty_description as description', 'highlights',
                     'main_image_id', 'website_gallery_ids',
                     'total_units', 'energy_certificate', 'heating_demand_value',
+                    'energy_efficiency_value', 'heating_demand_class', 'energy_valid_until',
                     'garage_spaces', 'parking_spaces', 'has_basement',
                     'has_garden', 'has_elevator', 'has_balcony', 'has_terrace',
                     'has_loggia', 'has_fitted_kitchen', 'has_air_conditioning',
                     'has_pool', 'has_sauna', 'has_fireplace', 'has_barrier_free',
                     'has_guest_wc', 'has_storage_room', 'has_alarm',
                     'condition_note', 'realty_condition', 'construction_type',
-                    'ownership_type', 'furnishing', 'available_from', 'construction_end',
-                    'common_areas', 'has_photovoltaik', 'has_charging_station',
+                    'ownership_type', 'furnishing', 'quality', 'flooring',
+                    'available_from', 'construction_end',
+                    'common_areas', 'has_photovoltaik', 'has_charging_station', 'charging_station_status',
                     'sold_at', 'broker_id', 'broker_name_override',
                     'purchase_price', 'rental_price', 'heating',
-                    'building_details', 'energy_primary_source', 'operating_costs',
+                    'building_details', 'energy_primary_source',
+                    // Monatliche Betriebskosten-Aufschluesselung (Sidebar "zzgl. Betriebskosten" + Aufschluesselungs-Tabelle)
+                    'operating_costs', 'heating_costs', 'warm_water_costs', 'cooling_costs',
+                    'maintenance_reserves', 'admin_costs', 'elevator_costs',
+                    'parking_costs_monthly', 'other_costs', 'monthly_costs',
                     'floor_count', 'floor_number',
+                    // Nebenkosten-Daten fuer die Website-Darstellung rechts unter dem Kaufpreis
+                    'buyer_commission_percent', 'commission_makler', 'buyer_commission_text', 'buyer_commission_free',
+                    'land_transfer_tax_pct', 'land_register_fee_pct', 'mortgage_register_fee_pct', 'contract_fee_pct',
+                    'nebenkosten_note', 'show_nebenkosten_on_website',
                     'external_image_url'
                 ])
                 ->orderBy('id', 'desc')
@@ -104,7 +115,8 @@ class WebsiteApiController extends Controller
                         ->orderBy('sort_order')
                         ->first();
                     if ($firstImg) {
-                        $p->main_image_url = url('/storage/' . $firstImg->path);
+                        // Ueber /api/website/img/{id} mit Resize -> Listings brauchen nur ~800px Breite
+                        $p->main_image_url = url("/api/website/img/{$firstImg->id}?w=800");
                     } else if (!empty($p->external_image_url)) {
                         // Fallback: external image URL (e.g. from immoji)
                         $p->main_image_url = $p->external_image_url;
@@ -133,15 +145,17 @@ class WebsiteApiController extends Controller
                 if (!empty($galleryIds)) {
                     $galleryUrls = array_map(fn($id) => url("/api/website/image/{$id}"), $galleryIds);
                 }
-                // Add property_images (PropertyEditor uploads)
+                // Add property_images (PropertyEditor uploads) — via Resize-Endpoint
+                // w=800 reicht fuer Listings-Cards; Detail-Seite holt Grosse separat.
                 $piImages = DB::table('property_images')
                     ->where('property_id', $p->id)
                     ->where('is_public', 1)
                     ->orderByDesc('is_title_image')
                     ->orderBy('sort_order')
-                    ->pluck('path');
-                foreach ($piImages as $path) {
-                    $url = url('/storage/' . $path);
+                    ->select('id')
+                    ->pluck('id');
+                foreach ($piImages as $iid) {
+                    $url = url("/api/website/img/{$iid}?w=800");
                     if (!in_array($url, $galleryUrls)) $galleryUrls[] = $url;
                 }
                 // Add property_files
@@ -189,7 +203,11 @@ class WebsiteApiController extends Controller
                 if (!empty($p->has_storage_room)) $features[] = 'Abstellraum';
                 if (!empty($p->has_alarm)) $features[] = 'Alarmanlage';
                 if (!empty($p->has_photovoltaik)) $features[] = 'Photovoltaik';
-                if (!empty($p->has_charging_station)) $features[] = 'E-Ladestation';
+                // E-Ladestation: drei Zustaende — installed / prepared / none.
+                $chargingStatus = $p->charging_station_status
+                    ?: (!empty($p->has_charging_station) ? 'installed' : 'none');
+                if ($chargingStatus === 'installed') $features[] = 'E-Ladestation';
+                elseif ($chargingStatus === 'prepared') $features[] = 'Vorkehrung für E-Ladestation';
                 if ($p->garage_spaces > 0) $features[] = 'Garage';
                 if ($p->parking_spaces > 0) $features[] = 'Stellplatz';
                 $p->features = $features;
@@ -286,7 +304,7 @@ class WebsiteApiController extends Controller
                 if (!$mainImageUrl && !empty($u->external_image_url)) {
                     $mainImageUrl = $u->external_image_url;
                 }
-                // Fallback: title image from parent property
+                // Fallback: title image from parent property (via Resize-Endpoint)
                 if (!$mainImageUrl) {
                     $titleImg = DB::table('property_images')
                         ->where('property_id', $u->parent_property_id)
@@ -295,7 +313,7 @@ class WebsiteApiController extends Controller
                         ->orderBy('sort_order')
                         ->first();
                     if ($titleImg) {
-                        $mainImageUrl = url('/storage/' . $titleImg->path);
+                        $mainImageUrl = url("/api/website/img/{$titleImg->id}?w=800");
                     }
                 }
 
@@ -386,11 +404,21 @@ class WebsiteApiController extends Controller
             $p->broker_title = 'Immobilienmakler/in';
         } elseif (!empty($p->broker_id)) {
             $broker = DB::table('users')->where('id', $p->broker_id)
-                ->first(['name', 'email', 'phone', 'signature_title', 'signature_phone', 'profile_image']);
+                ->first(['name', 'email', 'signature_email', 'phone', 'signature_title', 'signature_phone', 'profile_image']);
             if ($broker) {
                 $p->broker_name = $broker->name;
                 $p->broker_title = $broker->signature_title ?: 'Immobilienmakler/in';
-                $p->broker_email = $broker->email;
+                // Oeffentliche E-Mail: Priorisierung in dieser Reihenfolge:
+                //   1) Portal-E-Mail aus email_accounts (das ist die im Admin hinterlegte Arbeits-E-Mail)
+                //   2) signature_email (expliziter Override im Settings-Dialog)
+                //   3) Login-E-Mail (users.email) als letzter Fallback
+                $portalEmail = DB::table('email_accounts')
+                    ->where('user_id', $p->broker_id)
+                    ->where('is_active', 1)
+                    ->orderBy('id', 'asc')
+                    ->value('email_address');
+                $p->broker_email = $portalEmail
+                    ?: ($broker->signature_email ?: $broker->email);
                 $p->broker_phone = $broker->signature_phone ?: $broker->phone;
                 $p->broker_image = $broker->profile_image ? url('/storage/' . $broker->profile_image) : null;
             }
@@ -416,7 +444,11 @@ class WebsiteApiController extends Controller
         if (!empty($p->garage_spaces) && $p->garage_spaces > 0) $features[] = 'Garage';
         if (!empty($p->parking_spaces) && $p->parking_spaces > 0) $features[] = 'Stellplatz';
         if (!empty($p->has_photovoltaik)) $features[] = 'Photovoltaik';
-        if (!empty($p->has_charging_station)) $features[] = 'E-Ladestation';
+        // E-Ladestation: drei Zustaende — installed / prepared / none.
+        $chargingStatus = $p->charging_station_status
+            ?: (!empty($p->has_charging_station) ? 'installed' : 'none');
+        if ($chargingStatus === 'installed') $features[] = 'E-Ladestation';
+        elseif ($chargingStatus === 'prepared') $features[] = 'Vorkehrung für E-Ladestation';
         $p->features = $features;
 
         // Heizung/Warmwasser/Befeuerung aus building_details JSON
@@ -429,6 +461,7 @@ class WebsiteApiController extends Controller
         $p->heating_hot_water = $heatingBlock['hot_water'] ?? null;
 
         // All images — prefer property_images (PropertyEditor), fallback to property_files
+        // Auf der Detail-Seite groessere Breite (1400px) — reicht fuer 2x-Retina-Darstellung.
         $piImages = DB::table('property_images')
             ->where('property_id', $id)
             ->where('is_public', 1)
@@ -438,7 +471,7 @@ class WebsiteApiController extends Controller
             ->map(fn($f) => [
                 'id' => $f->id,
                 'label' => $f->category ?? $f->title ?? '',
-                'url' => url('/storage/' . $f->path),
+                'url' => url("/api/website/img/{$f->id}?w=1400"),
                 'is_title' => (bool) $f->is_title_image,
             ]);
 
@@ -447,7 +480,7 @@ class WebsiteApiController extends Controller
             $titleImg = DB::table('property_images')
                 ->where('property_id', $id)->where('is_public', 1)
                 ->orderByDesc('is_title_image')->orderBy('sort_order')->first();
-            $p->main_image_url = $titleImg ? url('/storage/' . $titleImg->path) : null;
+            $p->main_image_url = $titleImg ? url("/api/website/img/{$titleImg->id}?w=1400") : null;
         }
 
         // Combine both image sources (property_images + property_files)
@@ -475,7 +508,8 @@ class WebsiteApiController extends Controller
         $units = DB::table("property_units")
             ->where("property_id", $id)
             ->where("is_parking", 0)
-            ->select("id", "unit_number", "unit_type", "status", "price", "rooms", "area_m2")
+            ->select("id", "unit_number", "unit_type", "status", "price", "rooms", "area_m2",
+                     "balcony_terrace_m2", "garden_m2")
             ->orderByRaw("CAST(REGEXP_REPLACE(unit_number, '[^0-9]', '') AS UNSIGNED)")
             ->get();
         $parking = DB::table("property_units")
@@ -524,6 +558,69 @@ class WebsiteApiController extends Controller
      * GET /api/website/image/{id}
      * Public: Serves a property image file
      */
+    /**
+     * GET /api/website/img/{id}?w=1200&q=82
+     * Serviert ein property_images-Eintrag mit on-the-fly Resize + Cache.
+     * Resized Versions werden in storage/app/public/cache/img/ abgelegt.
+     */
+    public function resizedImage($id, Request $request)
+    {
+        $img = DB::table('property_images')->find($id);
+        if (!$img || !$img->path) abort(404);
+
+        $w = max(100, min(2400, (int) $request->query('w', 1200)));
+        $q = max(50, min(95, (int) $request->query('q', 82)));
+
+        $sourcePath = storage_path('app/public/' . $img->path);
+        if (!is_file($sourcePath)) abort(404);
+
+        // Cache-Pfad: Hash aus Pfad+Breite+Qualitaet.
+        $cacheKey = md5($img->path . '|' . $w . '|' . $q) . '.jpg';
+        $cacheDir = storage_path('app/public/cache/img');
+        $cachePath = $cacheDir . '/' . $cacheKey;
+
+        // Cache-Miss oder Source neuer als Cache -> neu generieren.
+        $needsGen = !is_file($cachePath) || filemtime($cachePath) < filemtime($sourcePath);
+        if ($needsGen) {
+            if (!is_dir($cacheDir)) @mkdir($cacheDir, 0755, true);
+            try {
+                $data = file_get_contents($sourcePath);
+                $src = @imagecreatefromstring($data);
+                if (!$src) {
+                    // Fallback: Original ausliefern (z.B. SVG)
+                    return response()->file($sourcePath, [
+                        'Content-Type' => $img->mime_type ?: 'image/jpeg',
+                        'Cache-Control' => 'public, max-age=31536000, immutable',
+                    ]);
+                }
+                $srcW = imagesx($src);
+                $srcH = imagesy($src);
+                if ($srcW > $w) {
+                    $newH = (int) round($srcH * $w / $srcW);
+                    $dst = imagescale($src, $w, $newH);
+                } else {
+                    $dst = $src;
+                }
+                // EXIF-Orientation respektieren (fuer Handy-Fotos im Portrait)
+                imagejpeg($dst, $cachePath, $q);
+                if ($dst !== $src) imagedestroy($dst);
+                imagedestroy($src);
+            } catch (\Throwable $e) {
+                \Log::warning('resizedImage failed', ['id' => $id, 'error' => $e->getMessage()]);
+                return response()->file($sourcePath, [
+                    'Content-Type' => $img->mime_type ?: 'image/jpeg',
+                    'Cache-Control' => 'public, max-age=3600',
+                ]);
+            }
+        }
+
+        return response()->file($cachePath, [
+            'Content-Type' => 'image/jpeg',
+            'Cache-Control' => 'public, max-age=31536000, immutable',
+            'Access-Control-Allow-Origin' => '*',
+        ]);
+    }
+
     public function image($id)
     {
         $file = DB::table('property_files')->find($id);
@@ -625,5 +722,137 @@ class WebsiteApiController extends Controller
             'url' => $url,
             'content_type' => $contentType
         ]);
+    }
+
+    /**
+     * POST /api/website/inquiry
+     * Nimmt eine Anfrage von der oeffentlichen Website entgegen und schickt sie
+     * per E-Mail an den zustaendigen Makler (oder office@sr-homes.at als Fallback).
+     * Das Subject enthaelt die Ref-ID — dadurch wird die eingehende Antwort vom
+     * IMAP-Fetcher automatisch der richtigen Immobilie zugeordnet.
+     */
+    public function inquiry(Request $request)
+    {
+        $data = $request->validate([
+            'name'        => 'required|string|max:200',
+            'email'       => 'required|email|max:200',
+            'phone'       => 'nullable|string|max:60',
+            'message'     => 'required|string|max:5000',
+            'property_id' => 'nullable|integer',
+            'honeypot'    => 'nullable|string|max:0', // Spam-Schutz: muss leer sein
+        ]);
+
+        // Honeypot (bot protection)
+        if (!empty($data['honeypot'] ?? null)) {
+            return response()->json(['success' => true]);
+        }
+
+        $property = null;
+        $recipientEmail = 'office@sr-homes.at';
+        $recipientName = 'SR-Homes';
+        $subject = 'Anfrage über sr-homes.at';
+
+        if (!empty($data['property_id'])) {
+            $property = DB::table('properties')
+                ->where('id', $data['property_id'])
+                ->first(['id', 'ref_id', 'title', 'project_name', 'address', 'city', 'zip', 'broker_id']);
+            if ($property) {
+                $refId = $property->ref_id ?: ('ID-' . $property->id);
+                $label = $property->title ?: ($property->project_name ?: trim(($property->address ?? '') . ', ' . ($property->city ?? '')));
+                $subject = "Anfrage {$refId} — {$label}";
+
+                // Broker-Zuordnung: Portal-Mail aus email_accounts > signature_email > users.email
+                if ($property->broker_id) {
+                    $portalEmail = DB::table('email_accounts')
+                        ->where('user_id', $property->broker_id)
+                        ->where('is_active', 1)
+                        ->orderBy('id', 'asc')
+                        ->value('email_address');
+                    $broker = DB::table('users')
+                        ->where('id', $property->broker_id)
+                        ->first(['name', 'email', 'signature_email']);
+                    if ($broker) {
+                        $recipientEmail = $portalEmail
+                            ?: ($broker->signature_email ?: $broker->email);
+                        $recipientName = $broker->name ?: $recipientName;
+                    }
+                }
+            }
+        }
+
+        // Body zusammenbauen (HTML + Text).
+        $bodyText  = "Neue Anfrage über die Website sr-homes.at:\n\n";
+        $bodyText .= "Name:    {$data['name']}\n";
+        $bodyText .= "E-Mail:  {$data['email']}\n";
+        if (!empty($data['phone'])) $bodyText .= "Telefon: {$data['phone']}\n";
+        if ($property) {
+            $bodyText .= "\nZum Objekt:\n";
+            $bodyText .= "  Ref-ID:  {$property->ref_id}\n";
+            $bodyText .= "  Titel:   " . ($property->title ?: $property->project_name) . "\n";
+            $bodyText .= "  Adresse: " . trim(($property->address ?? '') . ', ' . ($property->zip ?? '') . ' ' . ($property->city ?? '')) . "\n";
+            $bodyText .= "  Link:    " . url('/objekt.html?id=' . $property->id) . "\n";
+        }
+        $bodyText .= "\n--- Nachricht ---\n" . $data['message'] . "\n";
+
+        // Direkt in portal_emails schreiben als inbound Mail — die Inbox-UI
+        // zeigt die Anfrage dann wie eine echte E-Mail und die Ref-ID macht
+        // Property-Assignment moeglich.
+        $bodyHtml = '<p>' . nl2br(e($bodyText)) . '</p>';
+
+        try {
+            $emailId = DB::table('portal_emails')->insertGetId([
+                'message_id'      => 'website-inquiry-' . bin2hex(random_bytes(8)) . '@sr-homes.at',
+                'direction'       => 'inbound',
+                'from_email'      => $data['email'],
+                'from_name'       => $data['name'],
+                'to_email'        => $recipientEmail,
+                'subject'         => $subject,
+                'body_text'       => $bodyText,
+                'body_html'       => $bodyHtml,
+                'has_attachment'  => 0,
+                'email_date'      => now(),
+                'property_id'     => $property?->id,
+                'matched_ref_id'  => $property?->ref_id,
+                'stakeholder'     => 'Interessent',
+                'category'        => 'Anfrage Website',
+                'is_processed'    => 0,
+                'is_read'         => 0,
+                'has_reply'       => 0,
+                'imap_folder'     => 'website-inquiry',
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ]);
+
+            // Activity-Eintrag fuer die Timeline der Immobilie.
+            if ($property?->id) {
+                DB::table('activities')->insert([
+                    'property_id'     => $property->id,
+                    'activity_date'   => now(),
+                    'stakeholder'     => $data['name'] . ' <' . $data['email'] . '>',
+                    'activity'        => 'Anfrage über Website: ' . mb_strimwidth($data['message'], 0, 200, '…'),
+                    'category'        => 'Anfrage',
+                    'source_email_id' => $emailId,
+                    'created_at'      => now(),
+                    'updated_at'      => now(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            \Log::error('Website inquiry persist failed', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'error' => 'Nachricht konnte nicht gespeichert werden. Bitte versuchen Sie es später erneut.'], 500);
+        }
+
+        // Best-effort: Mail-Benachrichtigung zusätzlich probieren (schlägt ggf. fehl,
+        // stört aber die Haupt-Funktion nicht, weil die Anfrage schon gespeichert ist).
+        try {
+            \Illuminate\Support\Facades\Mail::raw($bodyText, function ($m) use ($recipientEmail, $recipientName, $subject, $data) {
+                $m->to($recipientEmail, $recipientName)
+                  ->replyTo($data['email'], $data['name'])
+                  ->subject($subject);
+            });
+        } catch (\Throwable $e) {
+            \Log::info('Website inquiry mail notification skipped', ['error' => $e->getMessage()]);
+        }
+
+        return response()->json(['success' => true]);
     }
 }

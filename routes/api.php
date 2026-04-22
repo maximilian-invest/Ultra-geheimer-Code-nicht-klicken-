@@ -29,9 +29,15 @@ Route::prefix('website')->middleware('throttle:60,1')->group(function () {
     Route::get('/properties', [\App\Http\Controllers\WebsiteApiController::class, 'properties']);
     Route::get('/property/{id}', [\App\Http\Controllers\WebsiteApiController::class, 'property']);
     Route::get('/image/{id}', [\App\Http\Controllers\WebsiteApiController::class, 'image']);
+    // Resize-Endpoint fuer property_images (mit on-the-fly resize + Cache).
+    Route::get('/img/{id}', [\App\Http\Controllers\WebsiteApiController::class, 'resizedImage']);
     Route::get('/content', [\App\Http\Controllers\WebsiteApiController::class, 'content']);
     Route::post('/upload', [\App\Http\Controllers\WebsiteApiController::class, 'upload']);
 });
+
+// Website Inquiry: tightened rate limit, POST only.
+Route::post('/website/inquiry', [\App\Http\Controllers\WebsiteApiController::class, 'inquiry'])
+    ->middleware('throttle:10,1');
 Route::get('/openimmo/willhaben.xml', [\App\Http\Controllers\OpenImmoController::class, 'willhabenFeed']);
 Route::get('/openimmo/status', [\App\Http\Controllers\OpenImmoController::class, 'feedStatus']);
 

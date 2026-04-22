@@ -47,9 +47,9 @@ const skippedRefId = computed({
 
     <!-- Objekttyp -->
     <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="text-base">
-          Hauptkategorie <span class="text-red-500">*</span>
+      <CardHeader>
+        <CardTitle>
+          Hauptkategorie <span class="text-destructive">*</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -59,14 +59,14 @@ const skippedRefId = computed({
             type="button"
             @click="selectType(t.key)"
             :class="[
-              'rounded-xl p-3 text-center transition-colors border',
+              'rounded-md p-3 text-center transition-colors border',
               form.object_type === t.key
-                ? 'bg-primary/5 border-2 border-primary shadow-sm'
-                : 'bg-white border-border hover:border-primary/30'
+                ? 'border-primary bg-accent'
+                : 'border-input hover:bg-accent hover:text-accent-foreground'
             ]"
           >
             <div class="text-2xl">{{ t.icon }}</div>
-            <div class="text-[11px] font-medium mt-1">{{ t.label }}</div>
+            <div class="text-xs font-medium mt-1">{{ t.label }}</div>
           </button>
         </div>
       </CardContent>
@@ -74,8 +74,8 @@ const skippedRefId = computed({
 
     <!-- Subtyp -->
     <Card v-if="subtypes.length">
-      <CardHeader class="pb-3">
-        <CardTitle class="text-base">Bauweise / Subtyp</CardTitle>
+      <CardHeader>
+        <CardTitle>Bauweise / Subtyp</CardTitle>
       </CardHeader>
       <CardContent>
         <PillRow v-model="form.object_subtype" :options="subtypes" />
@@ -84,9 +84,9 @@ const skippedRefId = computed({
 
     <!-- Vermarktung -->
     <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="text-base">
-          Vermarktungsart <span class="text-red-500">*</span>
+      <CardHeader>
+        <CardTitle>
+          Vermarktungsart <span class="text-destructive">*</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -100,9 +100,9 @@ const skippedRefId = computed({
 
     <!-- Ref-ID -->
     <Card>
-      <CardHeader class="pb-3">
+      <CardHeader>
         <div class="flex items-center justify-between">
-          <CardTitle class="text-base">Ref-ID</CardTitle>
+          <CardTitle>Ref-ID</CardTitle>
           <SkipFieldSwitch v-model="skippedRefId" />
         </div>
       </CardHeader>
@@ -110,9 +110,9 @@ const skippedRefId = computed({
         <Input
           v-model="form.ref_id"
           :placeholder="refIdSuggestion || 'z.B. Kau-Woh-Mus-01'"
-          class="h-11 font-mono"
+          class="font-mono"
         />
-        <p class="text-[11px] text-muted-foreground">
+        <p class="text-xs text-muted-foreground">
           Leer lassen für Auto-Vorschlag: <code>{{ refIdSuggestion || 'wird nach Eigentümer-Auswahl vorgeschlagen' }}</code>
         </p>
       </CardContent>

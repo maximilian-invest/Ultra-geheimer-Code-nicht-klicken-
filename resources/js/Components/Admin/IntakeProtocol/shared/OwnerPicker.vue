@@ -2,14 +2,15 @@
 import { ref, inject, watch, computed } from 'vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { ChevronDown } from 'lucide-vue-next';
+import { ChevronDown, UserCheck } from 'lucide-vue-next';
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -81,37 +82,40 @@ const initial = computed(() => {
 </script>
 
 <template>
-  <div class="space-y-3">
+  <div class="space-y-4">
 
-    <!-- Selected Owner Card (wenn bestehender Kontakt) -->
-    <Card v-if="form.owner_customer_id" class="border-green-200 bg-green-50/50">
-      <CardContent class="p-3 flex items-center gap-3">
-        <Avatar size="sm">
-          <AvatarFallback class="bg-green-600 text-white">{{ initial }}</AvatarFallback>
-        </Avatar>
-        <div class="flex-1 min-w-0">
-          <div class="text-sm font-medium truncate">{{ form.owner.name }}</div>
-          <div class="text-xs text-muted-foreground truncate">
-            {{ [form.owner.email, form.owner.phone].filter(Boolean).join(' · ') || '—' }}
+    <!-- Selected Owner (wenn bestehender Kontakt) -->
+    <Alert v-if="form.owner_customer_id" variant="success">
+      <UserCheck class="size-4" />
+      <AlertDescription>
+        <div class="flex items-center gap-3">
+          <Avatar size="sm">
+            <AvatarFallback>{{ initial }}</AvatarFallback>
+          </Avatar>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium truncate">{{ form.owner.name }}</div>
+            <div class="text-xs truncate opacity-80">
+              {{ [form.owner.email, form.owner.phone].filter(Boolean).join(' · ') || '—' }}
+            </div>
           </div>
+          <span class="text-xs whitespace-nowrap">Bestehender Kontakt</span>
         </div>
-        <Badge variant="secondary" class="shrink-0">Bestehender Kontakt</Badge>
-      </CardContent>
-    </Card>
+      </AlertDescription>
+    </Alert>
 
     <!-- Name (immer sichtbar, treibt Autocomplete) -->
-    <div class="relative space-y-1.5">
-      <label class="text-sm font-medium block">
-        Name des Eigentümers <span class="text-red-500">*</span>
-      </label>
+    <div class="relative space-y-2">
+      <Label for="owner-name">
+        Name des Eigentümers <span class="text-destructive">*</span>
+      </Label>
       <Input
+        id="owner-name"
         v-model="form.owner.name"
         @input="onNameInput"
         @focus="onNameInput"
         @blur="onNameBlur"
         placeholder="Vor- und Nachname"
         autocomplete="off"
-        class="h-11"
       />
       <!-- Autocomplete-Panel (nur wenn es Vorschlaege gibt) -->
       <Card
@@ -122,42 +126,42 @@ const initial = computed(() => {
           v-for="c in suggestions" :key="c.id"
           type="button"
           @mousedown.prevent="pickContact(c)"
-          class="w-full text-left px-3 py-2 hover:bg-zinc-50 border-b border-border/40 last:border-b-0"
+          class="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground transition-colors border-b last:border-b-0"
         >
           <div class="text-sm font-medium">{{ c.full_name }}</div>
-          <div class="text-[11px] text-muted-foreground">
+          <div class="text-xs text-muted-foreground">
             {{ [c.email, c.phone].filter(Boolean).join(' · ') }}
           </div>
         </button>
-        <div class="px-3 py-2 text-[11px] text-muted-foreground border-t border-border/40 bg-zinc-50">
+        <div class="px-3 py-2 text-xs text-muted-foreground border-t bg-muted/50">
           Auswählen übernimmt E-Mail/Telefon. Oder einfach weiter tippen für neuen Eigentümer.
         </div>
       </Card>
     </div>
 
     <!-- Email + Phone (immer sichtbar, optional, aber E-Mail empfohlen fuers PDF) -->
-    <div class="space-y-3">
-      <div class="space-y-1.5">
-        <label class="text-sm font-medium block">
+    <div class="space-y-4">
+      <div class="space-y-2">
+        <Label for="owner-email">
           E-Mail <span class="text-xs font-normal text-muted-foreground">(für PDF-Versand empfohlen)</span>
-        </label>
+        </Label>
         <Input
+          id="owner-email"
           v-model="form.owner.email"
           type="email"
           placeholder="name@example.com"
           autocomplete="off"
-          class="h-11"
         />
       </div>
-      <div class="space-y-1.5">
-        <label class="text-sm font-medium block">Telefon</label>
+      <div class="space-y-2">
+        <Label for="owner-phone">Telefon</Label>
         <Input
+          id="owner-phone"
           v-model="form.owner.phone"
           type="tel"
           inputmode="tel"
           placeholder="+43 …"
           autocomplete="off"
-          class="h-11"
         />
       </div>
     </div>
@@ -168,7 +172,7 @@ const initial = computed(() => {
         <CollapsibleTrigger as-child>
           <button type="button" class="w-full flex items-center justify-between p-3 text-left">
             <span class="text-xs font-medium text-muted-foreground">
-              Wohnsitz-Adresse <span class="text-[10px]">(optional — nur falls abweichend vom Objekt)</span>
+              Wohnsitz-Adresse <span class="text-xs">(optional — nur falls abweichend vom Objekt)</span>
             </span>
             <ChevronDown class="h-4 w-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
           </button>
@@ -178,11 +182,10 @@ const initial = computed(() => {
             <Input
               v-model="form.owner.address"
               placeholder="Straße + Hausnr."
-              class="h-10"
             />
             <div class="grid grid-cols-[1fr_2fr] gap-2">
-              <Input v-model="form.owner.zip" placeholder="PLZ" inputmode="numeric" class="h-10" />
-              <Input v-model="form.owner.city" placeholder="Stadt" class="h-10" />
+              <Input v-model="form.owner.zip" placeholder="PLZ" inputmode="numeric" />
+              <Input v-model="form.owner.city" placeholder="Stadt" />
             </div>
           </div>
         </CollapsibleContent>

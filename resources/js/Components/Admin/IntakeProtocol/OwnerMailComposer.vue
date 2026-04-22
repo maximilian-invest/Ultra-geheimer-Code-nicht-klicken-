@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RotateCcw, Send, AlertCircle } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -105,77 +107,73 @@ onMounted(() => load());
 
 <template>
   <Dialog :open="open" @update:open="handleOpenChange">
-    <DialogContent class="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0">
-      <DialogHeader class="px-5 py-3 border-b border-border">
+    <DialogContent class="sm:max-w-2xl">
+      <DialogHeader>
         <DialogTitle>
           {{ isResend ? 'E-Mail erneut senden' : 'E-Mail an Eigentümer' }}
         </DialogTitle>
-        <DialogDescription v-if="isResend" class="text-[11px]">
+        <DialogDescription v-if="isResend">
           Bereits einmal versendet am {{ new Date(alreadySentAt).toLocaleString('de-AT') }}
         </DialogDescription>
       </DialogHeader>
 
-      <!-- Body -->
-      <div class="flex-1 overflow-y-auto p-5 space-y-3">
-        <div v-if="loading" class="text-sm text-muted-foreground italic">Vorschau wird geladen…</div>
-        <div v-else class="space-y-3">
-          <div class="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
-            <span>An: <strong>{{ ownerEmail || '(keine E-Mail)' }}</strong></span>
-            <Badge v-if="missingDocs.length > 0" variant="outline" class="border-amber-300 bg-amber-50 text-amber-700">
-              {{ missingDocs.length }} fehlende Dokument(e)
-            </Badge>
-          </div>
-
-          <div class="space-y-1.5">
-            <label class="text-sm font-medium">Betreff</label>
-            <Input v-model="subject" class="h-11 text-sm font-medium" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-sm font-medium">Nachricht</label>
-            <Textarea
-              v-model="body"
-              rows="14"
-              class="text-[13px] leading-relaxed font-[ui-monospace,monospace]"
-              style="white-space:pre-wrap"
-            />
-          </div>
-          <Button variant="link" size="sm" class="px-0 h-auto" @click="resetToDefault">
-            <RotateCcw class="h-3 w-3" />
-            Auf Standard-Text zurücksetzen
-          </Button>
-
-          <p class="text-[11px] text-muted-foreground">
-            Das unterschriebene Aufnahmeprotokoll-PDF wird automatisch angehängt.
-            <span v-if="missingDocs.length > 0">Ebenso der Alleinvermittlungsauftrag.</span>
-          </p>
+      <div v-if="loading" class="text-sm text-muted-foreground italic">Vorschau wird geladen…</div>
+      <div v-else class="space-y-4">
+        <div class="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+          <span>An: <strong>{{ ownerEmail || '(keine E-Mail)' }}</strong></span>
+          <Badge v-if="missingDocs.length > 0" variant="outline">
+            {{ missingDocs.length }} fehlende Dokument(e)
+          </Badge>
         </div>
+
+        <div class="space-y-2">
+          <Label for="mail-subject">Betreff</Label>
+          <Input id="mail-subject" v-model="subject" />
+        </div>
+        <div class="space-y-2">
+          <Label for="mail-body">Nachricht</Label>
+          <Textarea
+            id="mail-body"
+            v-model="body"
+            rows="14"
+            class="text-xs leading-relaxed font-mono"
+            style="white-space:pre-wrap"
+          />
+        </div>
+        <Button variant="link" size="sm" class="px-0 h-auto" @click="resetToDefault">
+          <RotateCcw class="h-3 w-3" />
+          Auf Standard-Text zurücksetzen
+        </Button>
+
+        <p class="text-xs text-muted-foreground">
+          Das unterschriebene Aufnahmeprotokoll-PDF wird automatisch angehängt.
+          <span v-if="missingDocs.length > 0">Ebenso der Alleinvermittlungsauftrag.</span>
+        </p>
       </div>
 
-      <!-- Footer -->
-      <div class="px-5 py-3 border-t border-border space-y-2">
-        <div v-if="error" class="flex items-start gap-2 bg-red-50 border border-red-300 text-red-800 text-xs rounded p-2">
-          <AlertCircle class="h-4 w-4 shrink-0 mt-0.5" />
-          <span>{{ error }}</span>
-        </div>
-        <DialogFooter class="gap-2 sm:gap-2">
-          <Button
-            variant="outline"
-            class="flex-1 h-11"
-            :disabled="sending"
-            @click="handleOpenChange(false)"
-          >
-            Abbrechen
-          </Button>
-          <Button
-            class="flex-[2] h-11"
-            :disabled="sending || loading || !ownerEmail"
-            @click="send"
-          >
-            <Send class="h-4 w-4" />
-            {{ sending ? 'Wird gesendet…' : (isResend ? 'Erneut senden' : 'Senden') }}
-          </Button>
-        </DialogFooter>
-      </div>
+      <Alert v-if="error" variant="destructive">
+        <AlertCircle class="size-4" />
+        <AlertDescription>{{ error }}</AlertDescription>
+      </Alert>
+
+      <DialogFooter class="gap-2 sm:gap-2">
+        <Button
+          variant="outline"
+          class="flex-1"
+          :disabled="sending"
+          @click="handleOpenChange(false)"
+        >
+          Abbrechen
+        </Button>
+        <Button
+          class="flex-[2]"
+          :disabled="sending || loading || !ownerEmail"
+          @click="send"
+        >
+          <Send class="h-4 w-4" />
+          {{ sending ? 'Wird gesendet…' : (isResend ? 'Erneut senden' : 'Senden') }}
+        </Button>
+      </DialogFooter>
     </DialogContent>
   </Dialog>
 </template>

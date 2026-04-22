@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Plus, X } from 'lucide-vue-next';
 
 const props = defineProps({ form: Object });
@@ -83,20 +84,20 @@ function removeCategory(key) {
 
     <!-- Zustand -->
     <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="text-base">Zustand &amp; Qualität</CardTitle>
+      <CardHeader>
+        <CardTitle>Zustand &amp; Qualität</CardTitle>
       </CardHeader>
-      <CardContent class="space-y-3">
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">Zustand <span class="text-red-500">*</span></label>
+      <CardContent class="space-y-4">
+        <div class="space-y-2">
+          <Label>Zustand <span class="text-destructive">*</span></Label>
           <PillRow v-model="form.realty_condition" :options="CONDITIONS.map(c => ({value: c, label: c.charAt(0).toUpperCase() + c.substring(1)}))" />
         </div>
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">Bauart</label>
+        <div class="space-y-2">
+          <Label>Bauart</Label>
           <PillRow v-model="form.construction_type" :options="CONSTRUCTION_TYPES" />
         </div>
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">Qualität</label>
+        <div class="space-y-2">
+          <Label>Qualität</Label>
           <PillRow v-model="form.quality" :options="[
             {value:'einfach', label:'Einfach'},
             {value:'normal', label:'Normal'},
@@ -104,52 +105,51 @@ function removeCategory(key) {
             {value:'luxurioes', label:'Luxuriös'},
           ]" />
         </div>
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">Eigentumsform</label>
+        <div class="space-y-2">
+          <Label>Eigentumsform</Label>
           <PillRow v-model="form.ownership_type" :options="[
             {value:'wohnungseigentum', label:'Wohnungseigentum'},
             {value:'baurecht', label:'Baurecht'},
             {value:'pacht', label:'Pacht'},
           ]" />
         </div>
-        <div v-if="form.marketing_type === 'miete'" class="space-y-1.5">
-          <label class="text-sm font-medium">Möblierung</label>
+        <div v-if="form.marketing_type === 'miete'" class="space-y-2">
+          <Label>Möblierung</Label>
           <PillRow v-model="form.furnishing" :options="[
             {value:'unfurnished', label:'Unmöbliert'},
             {value:'partially', label:'Teilmöbliert'},
             {value:'fully', label:'Vollmöbliert'},
           ]" />
         </div>
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">Anmerkung zum Zustand</label>
-          <Textarea v-model="form.condition_note" rows="2" />
+        <div class="space-y-2">
+          <Label for="cond-note">Anmerkung zum Zustand</Label>
+          <Textarea id="cond-note" v-model="form.condition_note" rows="2" />
         </div>
       </CardContent>
     </Card>
 
     <!-- Sanierungen -->
     <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="text-base">Sanierungen</CardTitle>
+      <CardHeader>
+        <CardTitle>Sanierungen</CardTitle>
       </CardHeader>
       <CardContent class="space-y-3">
-        <div v-if="addedCategories.length === 0" class="text-xs text-muted-foreground bg-zinc-50 rounded-lg p-3">
+        <p v-if="addedCategories.length === 0" class="text-xs text-muted-foreground">
           Tippe auf eine Kategorie unten um eine Sanierung anzulegen.
-        </div>
+        </p>
 
-        <div v-for="c in addedCategories" :key="c.key" class="bg-zinc-50 rounded-lg p-3 space-y-1.5">
+        <div v-for="c in addedCategories" :key="c.key" class="rounded-md border p-3 space-y-2">
           <div class="flex gap-2 items-center">
             <div class="flex-1 text-sm font-medium">{{ c.label }}</div>
             <Input
               v-if="c.hasYear"
               v-model="inputs[c.key].year" type="number" placeholder="Jahr"
               inputmode="numeric"
-              class="w-20 h-9 text-right"
+              class="w-20 text-right"
             />
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon-sm"
-              class="text-red-500 hover:text-red-600 hover:bg-red-50"
               @click="removeCategory(c.key)"
               aria-label="Entfernen"
             >
@@ -159,18 +159,17 @@ function removeCategory(key) {
           <Input
             v-model="inputs[c.key].note"
             placeholder="Notiz (z.B. 3-fach verglast)"
-            class="h-9 text-xs"
           />
         </div>
 
-        <div v-if="availableCategories.length" class="space-y-1.5">
-          <div class="text-xs text-muted-foreground">Kategorien hinzufügen:</div>
+        <div v-if="availableCategories.length" class="space-y-2">
+          <Label class="text-xs text-muted-foreground">Kategorien hinzufügen:</Label>
           <div class="flex flex-wrap gap-1.5">
             <Button
               v-for="c in availableCategories" :key="c.key"
               variant="outline"
               size="sm"
-              class="rounded-full border-dashed border-primary/40 text-primary hover:bg-primary/5 h-7 px-2.5 text-[11px]"
+              class="rounded-full border-dashed"
               @click="addCategory(c.key)"
             >
               <Plus class="h-3 w-3" />

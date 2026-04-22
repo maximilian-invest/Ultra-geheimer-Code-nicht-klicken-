@@ -24,7 +24,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { WifiOff } from 'lucide-vue-next';
 
 const emit = defineEmits(['close', 'submitted']);
@@ -171,7 +171,7 @@ const resumeDialogOpen = computed({
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 bg-zinc-50 flex flex-col" style="overflow-y:auto">
+  <div class="fixed inset-0 z-50 bg-background flex flex-col" style="overflow-y:auto">
 
     <!-- Resume-Prompt als shadcn-Dialog -->
     <Dialog v-model:open="resumeDialogOpen">
@@ -188,10 +188,10 @@ const resumeDialogOpen = computed({
           „Weitermachen" lädt die Daten zurück. „Neu starten" verwirft den Entwurf.
         </p>
         <DialogFooter class="gap-2 sm:gap-2">
-          <Button variant="outline" class="flex-1 h-11" @click="discardDraft">
+          <Button variant="outline" class="flex-1" @click="discardDraft">
             Neu starten
           </Button>
-          <Button class="flex-[2] h-11" @click="resumeDraft">
+          <Button class="flex-[2]" @click="resumeDraft">
             Weitermachen
           </Button>
         </DialogFooter>
@@ -205,12 +205,12 @@ const resumeDialogOpen = computed({
       @cancel="handleCancel"
     />
 
-    <div v-if="offline" class="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-center gap-2">
-      <WifiOff class="h-3.5 w-3.5 text-amber-700" />
-      <Badge variant="outline" class="border-amber-300 bg-amber-100 text-amber-800">
+    <Alert v-if="offline" variant="warning" class="rounded-none border-x-0 border-t-0">
+      <WifiOff class="size-4" />
+      <AlertDescription>
         Offline — Änderungen werden später gespeichert
-      </Badge>
-    </div>
+      </AlertDescription>
+    </Alert>
 
     <div class="flex-1 mx-auto w-full max-w-2xl">
       <component

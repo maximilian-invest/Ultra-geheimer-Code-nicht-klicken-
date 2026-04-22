@@ -50,8 +50,8 @@ function readAsDataUrl(file) {
 
 <template>
   <Card>
-    <CardHeader class="p-4 pb-2">
-      <CardTitle class="text-sm flex items-center justify-between">
+    <CardHeader>
+      <CardTitle class="flex items-center justify-between">
         <span class="flex items-center gap-2">
           <span class="text-lg">{{ icon }}</span>
           <span>{{ label }}</span>
@@ -59,24 +59,26 @@ function readAsDataUrl(file) {
         <Badge variant="secondary">{{ modelValue.length }}</Badge>
       </CardTitle>
     </CardHeader>
-    <CardContent class="p-4 pt-0 space-y-3">
+    <CardContent class="space-y-3">
       <div v-if="modelValue.length > 0" class="grid grid-cols-3 gap-2">
-        <div v-for="p in modelValue" :key="p.id" class="relative aspect-square rounded-md overflow-hidden bg-zinc-100">
+        <div v-for="p in modelValue" :key="p.id" class="relative aspect-square rounded-md overflow-hidden bg-muted">
           <img :src="p.dataUrl" class="w-full h-full object-cover" alt="" />
-          <button
+          <Button
+            variant="destructive"
+            size="icon-sm"
+            class="absolute top-1 right-1 rounded-full size-6"
             @click="remove(p.id)"
             type="button"
-            class="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-700"
             aria-label="Entfernen"
           >
             <X class="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
 
       <Button
         variant="outline"
-        class="w-full h-11 border-dashed"
+        class="w-full border-dashed"
         @click="openPicker"
       >
         <Plus class="h-4 w-4" />

@@ -2,6 +2,8 @@
 import OwnerPicker from '../shared/OwnerPicker.vue';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-vue-next';
 
 defineProps({
@@ -13,8 +15,8 @@ defineProps({
   <div class="p-4 space-y-4">
 
     <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="text-base">Eigentümer</CardTitle>
+      <CardHeader>
+        <CardTitle>Eigentümer</CardTitle>
         <CardDescription>
           Kontaktdaten. Bestehende Kontakte werden bei Namenseingabe vorgeschlagen.
         </CardDescription>
@@ -24,32 +26,33 @@ defineProps({
       </CardContent>
     </Card>
 
-    <Card class="border-primary/30 bg-primary/5">
-      <CardContent class="p-4">
+    <Card>
+      <CardContent class="pt-6">
         <div class="flex items-start gap-3">
           <Switch
+            id="portal-access"
             :model-value="form.portal_access_granted"
             @update:model-value="form.portal_access_granted = $event"
             class="mt-0.5"
           />
-          <div class="flex-1">
-            <div class="text-sm font-semibold">Eigentümer bekommt Portalzugang</div>
-            <div class="text-xs text-muted-foreground mt-1">
+          <div class="flex-1 space-y-1">
+            <Label for="portal-access" class="cursor-pointer">Eigentümer bekommt Portalzugang</Label>
+            <p class="text-xs text-muted-foreground">
               Er erhält eine separate E-Mail mit Login-Daten zum Kundenportal
               (kundenportal.sr-homes.at). Portal zeigt Aktivitäten, Dokumente,
               Interessenten-Anfragen zu seinem Objekt.
-            </div>
+            </p>
           </div>
         </div>
       </CardContent>
     </Card>
 
-    <Card v-if="form.portal_access_granted && !form.owner.email" class="border-red-300 bg-red-50">
-      <CardContent class="p-3 flex items-start gap-2 text-xs text-red-700">
-        <AlertCircle class="h-4 w-4 shrink-0 mt-0.5" />
-        <span>Ohne E-Mail kann kein Portalzugang angelegt werden. Bitte E-Mail eintragen.</span>
-      </CardContent>
-    </Card>
+    <Alert v-if="form.portal_access_granted && !form.owner.email" variant="destructive">
+      <AlertCircle class="size-4" />
+      <AlertDescription>
+        Ohne E-Mail kann kein Portalzugang angelegt werden. Bitte E-Mail eintragen.
+      </AlertDescription>
+    </Alert>
 
   </div>
 </template>

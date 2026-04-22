@@ -42,7 +42,7 @@ const totalPhotos = computed(() => (props.form.photos || []).length);
     <PhotoCategoryUploader category="documents"  label="Dokumente"      icon="📄"
                            :model-value="documents" @update:model-value="documents = $event" />
 
-    <p class="text-[11px] text-muted-foreground px-2">
+    <p class="text-xs text-muted-foreground px-2">
       Fotos werden nach dem Absenden im Hintergrund komprimiert und dem Objekt zugeordnet.
     </p>
   </div>

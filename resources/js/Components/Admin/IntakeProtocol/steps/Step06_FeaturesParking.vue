@@ -4,6 +4,7 @@ import MultiPillRow from '../shared/MultiPillRow.vue';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 defineProps({ form: Object });
@@ -68,27 +69,28 @@ const BATHROOM_OPTIONS = [
 
     <!-- Außenflaechen + Keller -->
     <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="text-base">Außenflächen &amp; Keller</CardTitle>
+      <CardHeader>
+        <CardTitle>Außenflächen &amp; Keller</CardTitle>
       </CardHeader>
       <CardContent class="space-y-2">
         <div
           v-for="a in AREA_TOGGLES"
           :key="a.key"
-          class="rounded-lg border border-border/60 p-3 space-y-2"
+          class="rounded-md border p-3 space-y-2"
         >
           <div class="flex items-center gap-3">
             <Switch
+              :id="`area-${a.key}`"
               :model-value="form[a.key]"
               @update:model-value="form[a.key] = $event"
             />
-            <span class="flex-1 text-sm font-medium">{{ a.label }}</span>
+            <Label :for="`area-${a.key}`" class="flex-1 cursor-pointer">{{ a.label }}</Label>
           </div>
           <div v-if="form[a.key]" class="grid grid-cols-2 gap-2 pt-1">
             <Input v-model.number="form[a.areaKey]" type="number" inputmode="decimal" step="0.5"
-                   placeholder="m² gesamt" class="h-9 text-sm" />
+                   placeholder="m² gesamt" />
             <Input v-if="a.countKey" v-model.number="form[a.countKey]" type="number" inputmode="numeric"
-                   placeholder="Anzahl" class="h-9 text-sm" />
+                   placeholder="Anzahl" />
           </div>
         </div>
       </CardContent>
@@ -96,14 +98,13 @@ const BATHROOM_OPTIONS = [
 
     <!-- Merkmale -->
     <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="text-base">Merkmale</CardTitle>
+      <CardHeader>
+        <CardTitle>Merkmale</CardTitle>
       </CardHeader>
       <CardContent>
         <ToggleGroup
           type="multiple"
           variant="outline"
-          size="sm"
           :model-value="FEATURE_TOGGLES.filter(f => form[f.key]).map(f => f.key)"
           @update:model-value="(keys) => FEATURE_TOGGLES.forEach(f => form[f.key] = (keys || []).includes(f.key))"
           class="grid grid-cols-2 gap-2 justify-start"
@@ -111,7 +112,7 @@ const BATHROOM_OPTIONS = [
           <ToggleGroupItem
             v-for="f in FEATURE_TOGGLES" :key="f.key"
             :value="f.key"
-            class="h-10 justify-start data-[state=on]:bg-zinc-900 data-[state=on]:text-white data-[state=on]:border-zinc-900"
+            class="justify-start"
           >
             {{ f.label }}
           </ToggleGroupItem>
@@ -121,8 +122,8 @@ const BATHROOM_OPTIONS = [
 
     <!-- Allgemeinräume -->
     <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="text-base">Allgemeinräume</CardTitle>
+      <CardHeader>
+        <CardTitle>Allgemeinräume</CardTitle>
       </CardHeader>
       <CardContent>
         <ToggleGroup
@@ -136,7 +137,7 @@ const BATHROOM_OPTIONS = [
           <ToggleGroupItem
             v-for="o in COMMON_AREA_OPTIONS" :key="o.key"
             :value="o.key"
-            class="rounded-full px-3 h-8 text-xs data-[state=on]:bg-zinc-900 data-[state=on]:text-white data-[state=on]:border-zinc-900"
+            class="rounded-full px-3"
           >
             {{ o.label }}
           </ToggleGroupItem>
@@ -146,24 +147,24 @@ const BATHROOM_OPTIONS = [
 
     <!-- Ausrichtung + Bodenbelag + Bad -->
     <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="text-base">Ausrichtung &amp; Ausstattung</CardTitle>
+      <CardHeader>
+        <CardTitle>Ausrichtung &amp; Ausstattung</CardTitle>
       </CardHeader>
-      <CardContent class="space-y-3">
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">Ausrichtung</label>
+      <CardContent class="space-y-4">
+        <div class="space-y-2">
+          <Label>Ausrichtung</Label>
           <PillRow v-model="form.orientation" :options="['N','NO','O','SO','S','SW','W','NW']" />
         </div>
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">
+        <div class="space-y-2">
+          <Label>
             Bodenbelag <span class="text-xs font-normal text-muted-foreground">(Mehrfachauswahl)</span>
-          </label>
+          </Label>
           <MultiPillRow v-model="form.flooring" :options="FLOORING_OPTIONS" />
         </div>
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">
+        <div class="space-y-2">
+          <Label>
             Badausstattung <span class="text-xs font-normal text-muted-foreground">(Mehrfachauswahl)</span>
-          </label>
+          </Label>
           <MultiPillRow v-model="form.bathroom_equipment" :options="BATHROOM_OPTIONS" />
         </div>
       </CardContent>
@@ -171,26 +172,26 @@ const BATHROOM_OPTIONS = [
 
     <!-- Stellplätze -->
     <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="text-base">Stellplätze</CardTitle>
+      <CardHeader>
+        <CardTitle>Stellplätze</CardTitle>
       </CardHeader>
-      <CardContent class="space-y-3">
-        <div class="grid grid-cols-2 gap-3">
-          <div class="space-y-1.5">
-            <label class="text-sm font-medium">Garagen</label>
-            <Input v-model.number="form.garage_spaces" type="number" inputmode="numeric" class="h-11" />
+      <CardContent class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-2">
+            <Label for="parking-garage">Garagen</Label>
+            <Input id="parking-garage" v-model.number="form.garage_spaces" type="number" inputmode="numeric" />
           </div>
-          <div class="space-y-1.5">
-            <label class="text-sm font-medium">Außenplätze</label>
-            <Input v-model.number="form.parking_spaces" type="number" inputmode="numeric" class="h-11" />
+          <div class="space-y-2">
+            <Label for="parking-outside">Außenplätze</Label>
+            <Input id="parking-outside" v-model.number="form.parking_spaces" type="number" inputmode="numeric" />
           </div>
         </div>
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">Parking-Typ</label>
+        <div class="space-y-2">
+          <Label>Parking-Typ</Label>
           <PillRow v-model="form.parking_type" :options="['Garage', 'Tiefgarage', 'Carport', 'Stellplatz']" />
         </div>
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">Zuordnung</label>
+        <div class="space-y-2">
+          <Label>Zuordnung</Label>
           <PillRow v-model="form.parking_assignment" :options="[
             {value:'assigned', label:'Dem Objekt zugeordnet'},
             {value:'shared', label:'Allgemein / gemeinsam'},

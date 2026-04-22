@@ -15,17 +15,19 @@ const isLast = computed(() => props.currentStep === props.totalSteps);
 </script>
 
 <template>
-  <div class="sticky bottom-0 z-10 bg-white border-t border-border/60 px-4 py-3 flex gap-2">
+  <div class="sticky bottom-0 bg-background border-t p-4 flex gap-2">
     <Button
       variant="outline"
-      class="flex-1 h-12"
+      size="lg"
+      class="flex-1"
       :disabled="currentStep === 1"
       @click="$emit('prev')"
     >
       Zurück
     </Button>
     <Button
-      class="flex-[2] h-12"
+      size="lg"
+      class="flex-[2]"
       :disabled="nextDisabled"
       @click="$emit('next')"
     >

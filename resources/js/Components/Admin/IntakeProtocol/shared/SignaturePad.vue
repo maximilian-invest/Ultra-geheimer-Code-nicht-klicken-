@@ -86,11 +86,11 @@ onUnmounted(() => {
     <Card class="relative border-dashed">
       <canvas
         ref="canvas"
-        class="w-full h-48 rounded-xl touch-none bg-white"
+        class="w-full h-48 rounded-xl touch-none bg-background"
         @mousedown="start" @mousemove="move" @mouseup="end" @mouseleave="end"
         @touchstart="start" @touchmove="move" @touchend="end"
       ></canvas>
-      <div v-if="!modelValue" class="absolute inset-0 flex items-center justify-center pointer-events-none text-zinc-400 text-sm">
+      <div v-if="!modelValue" class="absolute inset-0 flex items-center justify-center pointer-events-none text-muted-foreground text-sm">
         Hier unterschreiben
       </div>
     </Card>

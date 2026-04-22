@@ -53,7 +53,7 @@ function onUpdate(newArr) {
     <ToggleGroupItem
       v-for="(opt, i) in options" :key="i"
       :value="normalize(opt).value"
-      class="rounded-full px-3 h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary"
+      class="rounded-full px-3"
     >
       {{ normalize(opt).label }}
     </ToggleGroupItem>

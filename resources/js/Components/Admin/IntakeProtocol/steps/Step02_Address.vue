@@ -2,6 +2,7 @@
 import { ref, inject, computed } from 'vue';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -74,20 +75,20 @@ const hasCoords = computed(() => props.form.latitude && props.form.longitude);
   <div class="p-4 space-y-4">
 
     <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="text-base">Adresse</CardTitle>
+      <CardHeader>
+        <CardTitle>Adresse</CardTitle>
       </CardHeader>
-      <CardContent class="space-y-3">
-        <div class="relative space-y-1.5">
-          <label class="text-sm font-medium block">
-            Straße <span class="text-red-500">*</span>
-          </label>
+      <CardContent class="space-y-4">
+        <div class="relative space-y-2">
+          <Label for="addr-street">
+            Straße <span class="text-destructive">*</span>
+          </Label>
           <Input
+            id="addr-street"
             :model-value="form.address"
             @update:model-value="onAddressInput"
             @focus="showSuggestions = suggestions.length > 0"
             @blur="onAddressBlur"
-            class="h-11"
             placeholder="Beim Tippen erscheinen Vorschläge"
             autocomplete="off"
           />
@@ -99,7 +100,7 @@ const hasCoords = computed(() => props.form.latitude && props.form.longitude);
               v-for="(s, i) in suggestions" :key="i"
               type="button"
               @mousedown.prevent="pickSuggestion(s)"
-              class="w-full text-left px-3 py-2 hover:bg-zinc-50 border-b border-border/40 last:border-b-0 text-xs"
+              class="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground transition-colors border-b last:border-b-0 text-xs"
             >
               <div class="font-medium">{{ s.street || s.display_name.split(',')[0] }} {{ s.house_number }}</div>
               <div class="text-muted-foreground">{{ [s.zip, s.city].filter(Boolean).join(' ') }}</div>
@@ -107,34 +108,34 @@ const hasCoords = computed(() => props.form.latitude && props.form.longitude);
           </Card>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <div class="space-y-1.5">
-            <label class="text-sm font-medium block">Hausnr. <span class="text-red-500">*</span></label>
-            <Input v-model="form.house_number" class="h-11" />
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-2">
+            <Label for="addr-nr">Hausnr. <span class="text-destructive">*</span></Label>
+            <Input id="addr-nr" v-model="form.house_number" />
           </div>
-          <div class="space-y-1.5">
-            <label class="text-sm font-medium block">PLZ <span class="text-red-500">*</span></label>
-            <Input v-model="form.zip" inputmode="numeric" class="h-11" />
+          <div class="space-y-2">
+            <Label for="addr-zip">PLZ <span class="text-destructive">*</span></Label>
+            <Input id="addr-zip" v-model="form.zip" inputmode="numeric" />
           </div>
         </div>
 
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium block">Stadt <span class="text-red-500">*</span></label>
-          <Input v-model="form.city" class="h-11" />
+        <div class="space-y-2">
+          <Label for="addr-city">Stadt <span class="text-destructive">*</span></Label>
+          <Input id="addr-city" v-model="form.city" />
         </div>
 
-        <div v-if="isWohnung" class="grid grid-cols-3 gap-3">
-          <div class="space-y-1.5">
-            <label class="text-sm font-medium block">Stiege</label>
-            <Input v-model="form.staircase" class="h-11" />
+        <div v-if="isWohnung" class="grid grid-cols-3 gap-4">
+          <div class="space-y-2">
+            <Label for="addr-staircase">Stiege</Label>
+            <Input id="addr-staircase" v-model="form.staircase" />
           </div>
-          <div class="space-y-1.5">
-            <label class="text-sm font-medium block">Tür</label>
-            <Input v-model="form.door" class="h-11" />
+          <div class="space-y-2">
+            <Label for="addr-door">Tür</Label>
+            <Input id="addr-door" v-model="form.door" />
           </div>
-          <div class="space-y-1.5">
-            <label class="text-sm font-medium block">Etage</label>
-            <Input v-model="form.address_floor" inputmode="numeric" class="h-11" />
+          <div class="space-y-2">
+            <Label for="addr-floor">Etage</Label>
+            <Input id="addr-floor" v-model="form.address_floor" inputmode="numeric" />
           </div>
         </div>
       </CardContent>

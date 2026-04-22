@@ -10,15 +10,12 @@ defineEmits(['update:modelValue']);
 
 <template>
   <Button
-    variant="ghost"
+    :variant="modelValue ? 'secondary' : 'ghost'"
     size="xs"
-    :class="modelValue
-      ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-      : 'text-primary hover:bg-primary/10'"
     @click="$emit('update:modelValue', !modelValue)"
   >
     <Check v-if="modelValue" class="h-3 w-3" />
     <ArrowRight v-else class="h-3 w-3" />
-    <span class="text-[11px]">{{ modelValue ? 'später ergänzen' : 'später' }}</span>
+    <span>{{ modelValue ? 'später ergänzen' : 'später' }}</span>
   </Button>
 </template>

@@ -820,6 +820,10 @@ class AdminApiController extends Controller
             'geocode_address'           => $this->geocodeAddress($request),
             'geocode_autocomplete'      => $this->geocodeAutocomplete($request),
 
+            // Aufnahmeprotokoll
+            'intake_protocol_draft_save' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->draftSave($request),
+            'intake_protocol_draft_load' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->draftLoad($request),
+
             // Tasks
             'getTasks'                  => app(TaskController::class)->index($request),
             'addTask'                   => app(TaskController::class)->store($request),

@@ -7,6 +7,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // MODIFY COLUMN is MySQL-only; SQLite (used in tests) does not support it.
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
         DB::statement("ALTER TABLE activities MODIFY COLUMN category ENUM(
             'email-in','email-out','expose','besichtigung','kaufanbot','update',
             'absage','sonstiges','anfrage','eigentuemer','partner','bounce',
@@ -18,6 +22,9 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
         DB::statement("UPDATE activities SET category = 'sonstiges' WHERE category = 'hausverwaltung'");
         DB::statement("ALTER TABLE activities MODIFY COLUMN category ENUM(
             'email-in','email-out','expose','besichtigung','kaufanbot','update',

@@ -58,6 +58,11 @@ class PropertyLink extends Model
             ->pluck('property_file_id');
     }
 
+    /**
+     * Expose version IDs associated with this link (pivot is read-only by design).
+     *
+     * @return \Illuminate\Support\Collection<int,int>
+     */
     public function exposeVersionIds(): \Illuminate\Support\Collection
     {
         return \DB::table('property_link_documents')

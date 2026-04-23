@@ -50,10 +50,11 @@ function onUpdate(newArr) {
     @update:model-value="onUpdate"
     class="flex-wrap justify-start"
   >
+    <!-- Design: siehe PillRow.vue — subtile Border + Shadow + Primary-Fill -->
     <ToggleGroupItem
       v-for="(opt, i) in options" :key="i"
       :value="normalize(opt).value"
-      class="rounded-full px-3.5 h-9 text-xs font-medium border-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary data-[state=on]:shadow-sm"
+      class="rounded-full px-3.5 h-9 text-xs font-medium border border-border bg-card shadow-sm transition-all hover:shadow data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-transparent data-[state=on]:shadow-md data-[state=on]:shadow-primary/25"
     >
       {{ normalize(opt).label }}
     </ToggleGroupItem>

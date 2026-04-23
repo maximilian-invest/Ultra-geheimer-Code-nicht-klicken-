@@ -160,14 +160,15 @@ const approvalsNotesSkipped = computed({
       </CardHeader>
       <CardContent class="space-y-3">
         <p class="text-sm">Sind alle Baumaßnahmen bewilligt?</p>
+        <!-- Ampel: gleiche Design-Richtlinie wie TYPE_TILES in Step01 -->
         <div class="grid grid-cols-3 gap-2">
           <button type="button"
                   @click="form.approvals_status = 'complete'; form.approvals_notes = ''"
                   :class="[
-                    'rounded-md p-3 text-center border-2 transition-all',
+                    'rounded-lg p-3 text-center border transition-all',
                     form.approvals_status === 'complete'
-                      ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                      : 'bg-background border-input hover:bg-accent'
+                      ? 'bg-primary text-primary-foreground border-transparent shadow-lg shadow-primary/30'
+                      : 'bg-card border-border shadow-sm hover:shadow'
                   ]">
             <div class="text-xl">✓</div>
             <div class="text-xs font-medium mt-0.5">Alles bewilligt</div>
@@ -175,10 +176,10 @@ const approvalsNotesSkipped = computed({
           <button type="button"
                   @click="form.approvals_status = 'partial'"
                   :class="[
-                    'rounded-md p-3 text-center border-2 transition-all',
+                    'rounded-lg p-3 text-center border transition-all',
                     form.approvals_status === 'partial'
-                      ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                      : 'bg-background border-input hover:bg-accent'
+                      ? 'bg-primary text-primary-foreground border-transparent shadow-lg shadow-primary/30'
+                      : 'bg-card border-border shadow-sm hover:shadow'
                   ]">
             <div class="text-xl">⚠️</div>
             <div class="text-xs font-medium mt-0.5">Teilweise</div>
@@ -186,10 +187,10 @@ const approvalsNotesSkipped = computed({
           <button type="button"
                   @click="form.approvals_status = 'unknown'"
                   :class="[
-                    'rounded-md p-3 text-center border-2 transition-all',
+                    'rounded-lg p-3 text-center border transition-all',
                     form.approvals_status === 'unknown'
-                      ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                      : 'bg-background border-input hover:bg-accent'
+                      ? 'bg-primary text-primary-foreground border-transparent shadow-lg shadow-primary/30'
+                      : 'bg-card border-border shadow-sm hover:shadow'
                   ]">
             <div class="text-xl">❓</div>
             <div class="text-xs font-medium mt-0.5">Unbekannt</div>

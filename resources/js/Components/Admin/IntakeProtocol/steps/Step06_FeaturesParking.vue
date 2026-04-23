@@ -109,10 +109,11 @@ const BATHROOM_OPTIONS = [
           @update:model-value="(keys) => FEATURE_TOGGLES.forEach(f => form[f.key] = (keys || []).includes(f.key))"
           class="grid grid-cols-2 gap-2 justify-start"
         >
+          <!-- Design: subtile Border + Shadow + Primary-Fill, siehe PillRow.vue -->
           <ToggleGroupItem
             v-for="f in FEATURE_TOGGLES" :key="f.key"
             :value="f.key"
-            class="justify-start border-2 h-10 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary data-[state=on]:shadow-sm"
+            class="justify-start h-10 border border-border bg-card shadow-sm transition-all hover:shadow data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-transparent data-[state=on]:shadow-md data-[state=on]:shadow-primary/25"
           >
             {{ f.label }}
           </ToggleGroupItem>
@@ -134,10 +135,11 @@ const BATHROOM_OPTIONS = [
           @update:model-value="(v) => form.common_areas = Array.isArray(v) ? v : []"
           class="flex-wrap justify-start"
         >
+          <!-- Design: gleiche Pill-Richtlinie wie PillRow.vue -->
           <ToggleGroupItem
             v-for="o in COMMON_AREA_OPTIONS" :key="o.key"
             :value="o.key"
-            class="rounded-full px-3.5 h-9 text-xs font-medium border-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary data-[state=on]:shadow-sm"
+            class="rounded-full px-3.5 h-9 text-xs font-medium border border-border bg-card shadow-sm transition-all hover:shadow data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-transparent data-[state=on]:shadow-md data-[state=on]:shadow-primary/25"
           >
             {{ o.label }}
           </ToggleGroupItem>

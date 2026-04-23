@@ -53,16 +53,19 @@ const skippedRefId = computed({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <!-- Tiles: gleiche Design-Regel wie Pills (siehe PillRow.vue) —
+             inaktiv: subtile 1px-border + shadow-sm,
+             aktiv: primary-fill + shadow-lg mit primary-Glow. -->
         <div class="grid grid-cols-4 gap-2">
           <button
             v-for="t in TYPE_TILES" :key="t.key"
             type="button"
             @click="selectType(t.key)"
             :class="[
-              'rounded-md p-3 text-center transition-all border-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'rounded-lg p-3 text-center transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               form.object_type === t.key
-                ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                : 'bg-background border-input text-foreground hover:bg-accent hover:border-accent'
+                ? 'bg-primary text-primary-foreground border-transparent shadow-lg shadow-primary/30'
+                : 'bg-card border-border text-foreground shadow-sm hover:shadow hover:-translate-y-0.5'
             ]"
           >
             <div class="text-2xl">{{ t.icon }}</div>

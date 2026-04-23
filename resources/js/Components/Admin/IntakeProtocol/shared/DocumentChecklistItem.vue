@@ -36,21 +36,23 @@ function onUpdate(v) {
       @update:model-value="onUpdate"
       class="shrink-0"
     >
+      <!-- Semantische Farb-Kodierung: Da=grün, Fehlt=rot, N/A=grau.
+           Gleiche Design-Richtlinie: subtile Border + Shadow-Fill bei aktiv. -->
       <ToggleGroupItem
         value="available" aria-label="Vorhanden"
-        class="px-2.5 h-8 text-xs font-medium border-2 data-[state=on]:bg-emerald-600 data-[state=on]:text-white data-[state=on]:border-emerald-600"
+        class="px-2.5 h-8 text-xs font-medium border border-border bg-card shadow-sm transition-all hover:shadow data-[state=on]:bg-emerald-600 data-[state=on]:text-white data-[state=on]:border-transparent data-[state=on]:shadow-md data-[state=on]:shadow-emerald-500/25"
       >
         Da
       </ToggleGroupItem>
       <ToggleGroupItem
         value="missing" aria-label="Fehlt"
-        class="px-2.5 h-8 text-xs font-medium border-2 data-[state=on]:bg-destructive data-[state=on]:text-destructive-foreground data-[state=on]:border-destructive"
+        class="px-2.5 h-8 text-xs font-medium border border-border bg-card shadow-sm transition-all hover:shadow data-[state=on]:bg-destructive data-[state=on]:text-destructive-foreground data-[state=on]:border-transparent data-[state=on]:shadow-md data-[state=on]:shadow-destructive/25"
       >
         Fehlt
       </ToggleGroupItem>
       <ToggleGroupItem
         value="na" aria-label="Nicht anwendbar"
-        class="px-2.5 h-8 text-xs font-medium border-2 data-[state=on]:bg-muted-foreground data-[state=on]:text-background data-[state=on]:border-muted-foreground"
+        class="px-2.5 h-8 text-xs font-medium border border-border bg-card shadow-sm transition-all hover:shadow data-[state=on]:bg-muted-foreground data-[state=on]:text-background data-[state=on]:border-transparent data-[state=on]:shadow-md"
       >
         N/A
       </ToggleGroupItem>

@@ -35,10 +35,19 @@ const internal = computed({
     @update:model-value="(v) => internal = v"
     :class="['justify-start', multiline ? 'flex-wrap' : 'flex-nowrap']"
   >
+    <!--
+      Design-Richtlinie fuer selektierbare Items (gilt fuer Pills, Tiles, Ampel):
+      Inaktiv: subtile 1px-border (border-border), weißer Hintergrund (bg-card),
+               weicher shadow-sm.
+      Aktiv:   Primary-Fill (bg-primary text-primary-foreground) +
+               mittelkraftiger shadow-md + shadow-primary/25 fuer Glow.
+               Border wird transparent, damit die Farbe alleine spricht.
+      KEIN border-2 (zu hart) — alles lebt von Shadow + Fill-Wechsel.
+    -->
     <ToggleGroupItem
       v-for="(opt, i) in options" :key="i"
       :value="normalize(opt).value"
-      class="rounded-full px-3.5 h-9 text-xs font-medium border-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary data-[state=on]:shadow-sm"
+      class="rounded-full px-3.5 h-9 text-xs font-medium border border-border bg-card shadow-sm transition-all hover:shadow data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-transparent data-[state=on]:shadow-md data-[state=on]:shadow-primary/25"
     >
       {{ normalize(opt).label }}
     </ToggleGroupItem>

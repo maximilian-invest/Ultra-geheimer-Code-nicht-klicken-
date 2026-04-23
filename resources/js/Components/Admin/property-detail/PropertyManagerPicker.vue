@@ -145,11 +145,47 @@ watch(() => props.managerId, async (id) => {
 }, { immediate: true })
 
 function onDocClick(e) {
-  if (triggerRef.value && !triggerRef.value.contains(e.target)) open.value = false
+  if (triggerRef.value && !triggerRef.value.contains(e.target) && !popupRef.value?.contains(e.target)) {
+    open.value = false
+  }
 }
 
-onMounted(() => { document.addEventListener('click', onDocClick) })
-onBeforeUnmount(() => { document.removeEventListener('click', onDocClick) })
+// Position-Tracking fuer die Teleport-Dropdown — damit das Menu auch dann
+// korrekt sitzt wenn der Picker in einem Accordion / Card / overflow:hidden-
+// Container gerendert wird. Wir berechnen die Koordinaten beim Oeffnen und
+// bei Scroll/Resize neu.
+const popupRef = ref(null)
+const popupStyle = ref({ top: '0px', left: '0px', width: '0px' })
+
+function updatePopupPosition() {
+  if (!open.value || !triggerRef.value) return
+  const rect = triggerRef.value.getBoundingClientRect()
+  popupStyle.value = {
+    position: 'fixed',
+    top: (rect.bottom + 4) + 'px',
+    left: rect.left + 'px',
+    width: rect.width + 'px',
+    zIndex: 60,
+  }
+}
+
+watch(open, async (v) => {
+  if (v) {
+    await nextTick()
+    updatePopupPosition()
+  }
+})
+
+onMounted(() => {
+  document.addEventListener('click', onDocClick)
+  window.addEventListener('scroll', updatePopupPosition, true)
+  window.addEventListener('resize', updatePopupPosition)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocClick)
+  window.removeEventListener('scroll', updatePopupPosition, true)
+  window.removeEventListener('resize', updatePopupPosition)
+})
 </script>
 
 <template>
@@ -172,48 +208,55 @@ onBeforeUnmount(() => { document.removeEventListener('click', onDocClick) })
       <ChevronDown class="w-4 h-4 text-muted-foreground shrink-0" />
     </button>
 
-    <div v-if="open" class="absolute z-20 left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg p-1 max-h-72 overflow-y-auto">
-      <div class="relative mb-1">
-        <Search class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <input v-model="search" type="text"
-               class="w-full border-0 bg-muted/50 rounded-md pl-7 pr-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-               placeholder="Suchen…" @click.stop />
-      </div>
-
-      <div v-if="loading" class="text-xs text-muted-foreground py-3 text-center">Lädt…</div>
-
-      <div v-else>
-        <button v-for="m in filtered" :key="m.id" type="button"
-                class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/60 text-left"
-                @click="select(m)">
-          <Building2 class="w-3.5 h-3.5 text-[#EE7600] shrink-0" />
-          <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium truncate">{{ m.company_name }}</div>
-            <div class="text-[11px] text-muted-foreground truncate">
-              {{ [m.email, m.address_city].filter(Boolean).join(' · ') }}
-            </div>
-          </div>
-        </button>
-
-        <div v-if="!filtered.length && !showCreateOption" class="text-xs text-muted-foreground py-3 text-center">
-          Keine Treffer.
+    <!-- Dropdown wird nach <body> geteleported damit es NICHT von Card/Accordion
+         overflow:hidden abgeschnitten wird. Position wird via updatePopupPosition
+         synchron zur Trigger-Box mitgefuehrt (scroll/resize watched). -->
+    <Teleport to="body">
+      <div v-if="open" ref="popupRef" :style="popupStyle"
+           class="bg-popover border border-border rounded-lg shadow-lg p-1 max-h-72 overflow-y-auto"
+           @click.stop>
+        <div class="relative mb-1">
+          <Search class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input v-model="search" type="text"
+                 class="w-full border-0 bg-muted/50 rounded-md pl-7 pr-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                 placeholder="Suchen…" @click.stop />
         </div>
 
-        <button v-if="showCreateOption" type="button"
-                class="w-full flex items-center gap-2 px-2 py-2 mt-1 border-t border-border rounded-md hover:bg-accent/60 text-left text-[#c2410c]"
-                @click="openCreateDialog">
-          <Plus class="w-4 h-4 shrink-0" />
-          <span class="text-sm font-medium">Neue Hausverwaltung „{{ search }}" anlegen</span>
-        </button>
+        <div v-if="loading" class="text-xs text-muted-foreground py-3 text-center">Lädt…</div>
 
-        <button v-if="selectedManager" type="button"
-                class="w-full flex items-center gap-2 px-2 py-2 mt-1 border-t border-border rounded-md hover:bg-accent/60 text-left text-red-600"
-                @click="clearSelection">
-          <X class="w-4 h-4 shrink-0" />
-          <span class="text-sm">Zuordnung entfernen</span>
-        </button>
+        <div v-else>
+          <button v-for="m in filtered" :key="m.id" type="button"
+                  class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/60 text-left"
+                  @click="select(m)">
+            <Building2 class="w-3.5 h-3.5 text-[#EE7600] shrink-0" />
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium truncate">{{ m.company_name }}</div>
+              <div class="text-[11px] text-muted-foreground truncate">
+                {{ [m.email, m.address_city].filter(Boolean).join(' · ') }}
+              </div>
+            </div>
+          </button>
+
+          <div v-if="!filtered.length && !showCreateOption" class="text-xs text-muted-foreground py-3 text-center">
+            Keine Treffer.
+          </div>
+
+          <button v-if="showCreateOption" type="button"
+                  class="w-full flex items-center gap-2 px-2 py-2 mt-1 border-t border-border rounded-md hover:bg-accent/60 text-left text-[#c2410c]"
+                  @click="openCreateDialog">
+            <Plus class="w-4 h-4 shrink-0" />
+            <span class="text-sm font-medium">Neue Hausverwaltung „{{ search }}" anlegen</span>
+          </button>
+
+          <button v-if="selectedManager" type="button"
+                  class="w-full flex items-center gap-2 px-2 py-2 mt-1 border-t border-border rounded-md hover:bg-accent/60 text-left text-red-600"
+                  @click="clearSelection">
+            <X class="w-4 h-4 shrink-0" />
+            <span class="text-sm">Zuordnung entfernen</span>
+          </button>
+        </div>
       </div>
-    </div>
+    </Teleport>
 
     <HausverwaltungFormDialog
       v-model:open="dialogOpen"

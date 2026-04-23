@@ -185,8 +185,13 @@ class WebsiteApiController extends Controller
                 }
                 $p->gallery_urls = $galleryUrls;
 
-                // Units for Neubauprojekt — compute ranges from units
-                if (stripos($p->type, 'Neubauprojekt') !== false || $p->total_units > 0) {
+                // Units nur bei echten Neubauprojekten (property_category='newbuild'
+                // ODER object_type enthaelt "Neubauprojekt"). total_units allein
+                // ist kein verlaessliches Kriterium — kann durch KI-Import
+                // faelschlich gesetzt worden sein bei einer Einzelwohnung.
+                $isNewbuild = $p->property_category === 'newbuild'
+                    || stripos((string) $p->type, 'Neubauprojekt') !== false;
+                if ($isNewbuild) {
                     $units = DB::table('property_units')
                         ->where('property_id', $p->id)
                         ->where('is_parking', 0)
@@ -528,22 +533,32 @@ class WebsiteApiController extends Controller
             $seen[] = $img['url'];
             return true;
         })->values();
-        // Units for development projects
-        $units = DB::table("property_units")
-            ->where("property_id", $id)
-            ->where("is_parking", 0)
-            ->select("id", "unit_number", "unit_type", "status", "price", "rooms", "area_m2",
-                     "balcony_terrace_m2", "garden_m2")
-            ->orderByRaw("CAST(REGEXP_REPLACE(unit_number, '[^0-9]', '') AS UNSIGNED)")
-            ->get();
-        $parking = DB::table("property_units")
-            ->where("property_id", $id)
-            ->where("is_parking", 1)
-            ->select("id", "unit_number", "unit_type", "status", "price")
-            ->orderByRaw("CAST(REGEXP_REPLACE(unit_number, '[^0-9]', '') AS UNSIGNED)")
-            ->get();
-        $p->units = $units;
-        $p->parking = $parking;
+        // Units NUR bei echten Neubauprojekten an die Website liefern. Eine
+        // Einzel-Eigentumswohnung soll keine "TOP 1"-Unit auf der Detailseite
+        // zeigen (passiert wenn KI-Import faelschlich Units aus dem Expose
+        // extrahiert hat).
+        $isNewbuildDetail = ($p->property_category ?? null) === 'newbuild'
+            || stripos((string) ($p->type ?? $p->object_type ?? ''), 'Neubauprojekt') !== false;
+        if ($isNewbuildDetail) {
+            $units = DB::table("property_units")
+                ->where("property_id", $id)
+                ->where("is_parking", 0)
+                ->select("id", "unit_number", "unit_type", "status", "price", "rooms", "area_m2",
+                         "balcony_terrace_m2", "garden_m2")
+                ->orderByRaw("CAST(REGEXP_REPLACE(unit_number, '[^0-9]', '') AS UNSIGNED)")
+                ->get();
+            $parking = DB::table("property_units")
+                ->where("property_id", $id)
+                ->where("is_parking", 1)
+                ->select("id", "unit_number", "unit_type", "status", "price")
+                ->orderByRaw("CAST(REGEXP_REPLACE(unit_number, '[^0-9]', '') AS UNSIGNED)")
+                ->get();
+            $p->units = $units;
+            $p->parking = $parking;
+        } else {
+            $p->units = [];
+            $p->parking = [];
+        }
 
         // Compute ranges from units for Neubauprojekte (area/rooms/balcony/garden)
         if ($units->count() > 0) {

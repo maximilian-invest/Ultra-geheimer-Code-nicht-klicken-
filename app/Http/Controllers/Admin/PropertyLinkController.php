@@ -159,7 +159,11 @@ class PropertyLinkController extends Controller
             'expires_at' => ['nullable', 'date'],
             'file_ids' => ['required', 'array', 'min:1'],
             'file_ids.*' => ['required'],
-            'expose_version_id' => ['nullable', 'integer', 'exists:property_expose_versions,id'],
+            'expose_version_id' => [
+                'nullable', 'integer',
+                \Illuminate\Validation\Rule::exists('property_expose_versions', 'id')
+                    ->where('property_id', $property->id),
+            ],
         ]);
 
         $validFileIds = $this->resolveFileIds($property, $data['file_ids']);
@@ -283,7 +287,11 @@ class PropertyLinkController extends Controller
             'expires_at' => ['nullable', 'date'],
             'file_ids' => ['required', 'array', 'min:1'],
             'file_ids.*' => ['required'],
-            'expose_version_id' => ['nullable', 'integer', 'exists:property_expose_versions,id'],
+            'expose_version_id' => [
+                'nullable', 'integer',
+                \Illuminate\Validation\Rule::exists('property_expose_versions', 'id')
+                    ->where('property_id', $property->id),
+            ],
         ]);
 
         $validFileIds = $this->resolveFileIds($property, $data['file_ids']);

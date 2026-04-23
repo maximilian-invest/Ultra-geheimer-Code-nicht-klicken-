@@ -48,6 +48,40 @@ class PropertyLinkExposeTest extends TestCase
         $this->assertTrue($pivots->contains(fn($r) => $r->expose_version_id === $version->id));
     }
 
+    public function test_store_rejects_expose_version_id_from_other_property(): void
+    {
+        $user = User::factory()->create(['user_type' => 'makler']);
+        $propertyA = Property::factory()->create();
+        $propertyB = Property::factory()->create();
+
+        // Version gehoert zu A
+        $versionA = PropertyExposeVersion::create([
+            'property_id' => $propertyA->id,
+            'config_json' => ['pages' => []],
+            'is_active'   => true,
+        ]);
+
+        $fileIdB = DB::table('property_files')->insertGetId([
+            'property_id' => $propertyB->id,
+            'filename' => 'x.pdf', 'label' => 'X', 'mime_type' => 'application/pdf',
+            'file_size' => 1, 'sort_order' => 0,
+            'path' => 'p/x.pdf', 'is_website_download' => 0,
+            'created_at' => now(),
+        ]);
+
+        // Versuch, die Version von A an Link fuer B anzuhaengen → muss fehlschlagen
+        $response = $this->actingAs($user)->postJson(
+            "/admin/properties/{$propertyB->id}/links",
+            [
+                'name' => 'Wrong',
+                'file_ids' => [$fileIdB],
+                'expose_version_id' => $versionA->id,
+            ]
+        );
+
+        $response->assertStatus(422);
+    }
+
     public function test_show_response_includes_active_expose(): void
     {
         $user = User::factory()->create(['user_type' => 'makler']);

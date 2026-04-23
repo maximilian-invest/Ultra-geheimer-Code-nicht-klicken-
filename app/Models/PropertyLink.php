@@ -58,6 +58,14 @@ class PropertyLink extends Model
             ->pluck('property_file_id');
     }
 
+    public function exposeVersionIds(): \Illuminate\Support\Collection
+    {
+        return \DB::table('property_link_documents')
+            ->where('property_link_id', $this->id)
+            ->whereNotNull('expose_version_id')
+            ->pluck('expose_version_id');
+    }
+
     public function isAccessible(): bool
     {
         if ($this->revoked_at !== null) {

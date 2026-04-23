@@ -113,17 +113,95 @@ class AnthropicService
         $result = $this->chat($systemPrompt, $userMessage, $maxTokens);
         if (!$result) return null;
 
-        // Extract JSON from response
-        $result = trim($result);
-        if (preg_match('/```(?:json)?\s*([\s\S]*?)```/', $result, $m)) {
-            $result = trim($m[1]);
+        return $this->tolerantJsonDecode($result);
+    }
+
+    /**
+     * Tolerant JSON-Parser fuer LLM-Output:
+     * 1. Entfernt Markdown-Fences (```json ... ```)
+     * 2. Versucht strict json_decode
+     * 3. Falls fehlschlaegt: escape raw control-characters in String-Values
+     *    (LLMs vergessen oft \n-Escape bei langen Freitext-Feldern)
+     * 4. Gibt null zurueck wenn nichts klappt
+     */
+    public function tolerantJsonDecode(string $raw): ?array
+    {
+        $raw = trim($raw);
+
+        // 1. Markdown-Fence strippen
+        if (preg_match('/```(?:json)?\s*([\s\S]*?)```/', $raw, $m)) {
+            $raw = trim($m[1]);
         }
 
-        $decoded = json_decode($result, true);
-        if ($decoded === null && $result) {
-            \Log::warning('chatJson: Failed to parse AI response as JSON', ['raw' => mb_substr($result, 0, 2000)]);
+        // 2. Strict
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) return $decoded;
+
+        // 3. Repair: Control-Chars in Strings escapen.
+        //    Naive aber effektiv: wir gehen zeichenweise durch und wenn
+        //    wir in einem String-Literal sind, werden \n, \r, \t escaped.
+        $repaired = $this->escapeControlCharsInJsonStrings($raw);
+        $decoded = json_decode($repaired, true);
+        if (is_array($decoded)) {
+            \Log::info('tolerantJsonDecode: repaired via control-char escape');
+            return $decoded;
         }
-        return $decoded;
+
+        \Log::warning('tolerantJsonDecode: Failed to parse even after repair', [
+            'err' => json_last_error_msg(),
+            'raw' => mb_substr($raw, 0, 2000),
+        ]);
+        return null;
+    }
+
+    /**
+     * Ersetzt raw \n \r \t INNERHALB von JSON-String-Literals durch \\n \\r \\t.
+     * Ausserhalb von String-Literals (also zwischen Keys/Structures) bleiben
+     * Whitespaces unveraendert.
+     */
+    private function escapeControlCharsInJsonStrings(string $json): string
+    {
+        $out = '';
+        $inString = false;
+        $escapeNext = false;
+        $len = strlen($json);
+        for ($i = 0; $i < $len; $i++) {
+            $c = $json[$i];
+
+            if ($escapeNext) {
+                $out .= $c;
+                $escapeNext = false;
+                continue;
+            }
+
+            if ($c === '\\') {
+                $out .= $c;
+                $escapeNext = true;
+                continue;
+            }
+
+            if ($c === '"') {
+                $out .= $c;
+                $inString = !$inString;
+                continue;
+            }
+
+            if ($inString) {
+                // Raw control-chars in Strings → escape
+                if ($c === "\n") { $out .= '\\n'; continue; }
+                if ($c === "\r") { $out .= '\\r'; continue; }
+                if ($c === "\t") { $out .= '\\t'; continue; }
+                // Andere Control-Chars (0x00–0x1F ausser oben) → unicode-escape
+                $o = ord($c);
+                if ($o < 0x20) {
+                    $out .= sprintf('\\u%04x', $o);
+                    continue;
+                }
+            }
+
+            $out .= $c;
+        }
+        return $out;
     }
 
     /**
@@ -209,11 +287,7 @@ class AnthropicService
     {
         $result = $this->chatWithImages($systemPrompt, $textMessage, $imageBase64s, $maxTokens);
         if (!$result) return null;
-        $result = trim($result);
-        if (preg_match('/```(?:json)?\s*([\s\S]*?)```/', $result, $m)) {
-            $result = trim($m[1]);
-        }
-        return json_decode($result, true);
+        return $this->tolerantJsonDecode($result);
     }
 
     public function analyzeEmail(string $subject, string $body, string $fromName, array $properties, array $context = []): array

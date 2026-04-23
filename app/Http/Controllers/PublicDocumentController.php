@@ -416,6 +416,79 @@ class PublicDocumentController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    public function expose(Request $request, string $token): Response
+    {
+        $link = PropertyLink::where('token', $token)->first();
+        if (!$link) return response()->view('docs.error', ['reason' => 'not_found'], 404);
+        if ($link->revoked_at) return response()->view('docs.error', ['reason' => 'revoked', 'link' => $link], 410);
+        if ($link->expires_at?->isPast()) return response()->view('docs.error', ['reason' => 'expired', 'link' => $link], 410);
+
+        $pdfBypass = $request->query('pdf_bypass');
+        $session = $this->resolveSessionFromCookie($request, $link);
+
+        // Session required, unless the PDF-bypass HMAC is valid (used when Puppeteer
+        // renders via exposePdf() which does not have the user's cookie).
+        if (!$session && !$pdfBypass) {
+            return response('Forbidden', 403);
+        }
+
+        // Resolve expose version from pivot.
+        $versionId = \DB::table('property_link_documents')
+            ->where('property_link_id', $link->id)
+            ->whereNotNull('expose_version_id')
+            ->value('expose_version_id');
+
+        if (!$versionId) return response('Not found', 404);
+
+        if ($pdfBypass) {
+            $expected = hash_hmac('sha256', $versionId . '|' . $token, config('app.key'));
+            if (!hash_equals($expected, $pdfBypass)) return response('Forbidden', 403);
+        }
+
+        $version = \App\Models\PropertyExposeVersion::find($versionId);
+        if (!$version) return response('Not found', 404);
+
+        if ($session) {
+            $this->logger->recordEvent($session, 'expose_view');
+        }
+
+        $pagination = app(\App\Services\Expose\ExposePaginationService::class);
+        $ctx = \App\Services\Expose\ExposeRenderContext::build($version, $pagination);
+        return response()->view('expose.layout', ['ctx' => $ctx]);
+    }
+
+    public function exposePdf(Request $request, string $token): Response
+    {
+        $link = PropertyLink::where('token', $token)->first();
+        if (!$link) return response('Not found', 404);
+        if ($link->revoked_at || $link->expires_at?->isPast()) return response('Gone', 410);
+
+        $session = $this->resolveSessionFromCookie($request, $link);
+        if (!$session) return response('Forbidden', 403);
+
+        $versionId = \DB::table('property_link_documents')
+            ->where('property_link_id', $link->id)
+            ->whereNotNull('expose_version_id')
+            ->value('expose_version_id');
+
+        if (!$versionId) return response('Not found', 404);
+
+        $bypass = hash_hmac('sha256', $versionId . '|' . $token, config('app.key'));
+        $url = url("/docs/{$token}/expose") . '?pdf_bypass=' . $bypass;
+
+        $pdfService = app(\App\Services\Expose\ExposePdfService::class);
+        $binary = $pdfService->renderFromUrl($url);
+
+        $this->logger->recordEvent($session, 'expose_pdf_download');
+
+        $filename = 'Expose-' . \Illuminate\Support\Str::slug($link->property->title ?? 'immobilie') . '.pdf';
+        return response($binary, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Length'      => strlen($binary),
+        ]);
+    }
+
     protected function resolveSessionFromCookie(Request $request, PropertyLink $link): ?PropertyLinkSession
     {
         $cookieName = 'sr_link_session_' . substr($link->token, 0, 8);

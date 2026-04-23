@@ -84,6 +84,8 @@ Route::prefix('docs')->group(function () {
     Route::post('{token}/unlock', [\App\Http\Controllers\PublicDocumentController::class, 'unlock']);
     Route::get('{token}/file/{fileId}/{mode}', [\App\Http\Controllers\PublicDocumentController::class, 'file'])->where('mode', 'view|download');
     Route::post('{token}/event', [\App\Http\Controllers\PublicDocumentController::class, 'event']);
+    Route::get('{token}/expose', [\App\Http\Controllers\PublicDocumentController::class, 'expose'])->name('docs.expose');
+    Route::get('{token}/expose.pdf', [\App\Http\Controllers\PublicDocumentController::class, 'exposePdf'])->name('docs.expose.pdf');
 });
 
 require __DIR__.'/auth.php';

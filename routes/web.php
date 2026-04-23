@@ -72,6 +72,10 @@ Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])->group(fu
         [\App\Http\Controllers\Admin\ExposeController::class, 'preview']);
     Route::post('/admin/properties/{property}/expose/captions',
         [\App\Http\Controllers\Admin\ExposeController::class, 'updateCaptions']);
+    Route::get('/admin/properties/{property}/expose/config',
+        [\App\Http\Controllers\Admin\ExposeController::class, 'config']);
+    Route::put('/admin/properties/{property}/expose/config',
+        [\App\Http\Controllers\Admin\ExposeController::class, 'updateConfig']);
 });
 
 // DSGVO export + delete for link sessions (admin)

@@ -64,6 +64,78 @@ class ExposeController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * Liefert die aktuelle aktive Version + den Medien-Pool als JSON für
+     * den Editor-Frontend. Wenn keine Version existiert: Default-Config
+     * on-the-fly gebaut (aber nicht gespeichert) damit der Editor sofort
+     * was anzeigen kann.
+     */
+    public function config(Property $property): JsonResponse
+    {
+        $version = PropertyExposeVersion::where('property_id', $property->id)
+            ->where('is_active', true)
+            ->first();
+
+        $config = $version?->config_json ?? $this->builder->build($property);
+
+        // Bild-Pool für Picker-UI (nur public, keine Grundrisse).
+        $images = $property->images()
+            ->where('is_public', true)
+            ->where('is_floorplan', false)
+            ->reorder()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'path', 'category', 'is_title_image']);
+
+        $imgList = $images->map(fn($img) => [
+            'id'             => $img->id,
+            'url'            => asset('storage/' . $img->path),
+            'category'       => $img->category,
+            'is_title_image' => (bool) $img->is_title_image,
+        ])->values();
+
+        return response()->json([
+            'version_id' => $version?->id,
+            'config'     => $config,
+            'images'     => $imgList,
+        ]);
+    }
+
+    /**
+     * Speichert die vom Editor manipulierte Config als neue aktive Version.
+     * Vorherige aktive Version wird deaktiviert.
+     */
+    public function updateConfig(Request $request, Property $property): JsonResponse
+    {
+        $data = $request->validate([
+            'config'                  => ['required', 'array'],
+            'config.pages'            => ['required', 'array'],
+            'config.pages.*.type'     => ['required', 'string', 'in:cover,details,haus,lage,impressionen,kontakt'],
+            'config.pages.*.layout'   => ['nullable', 'string', 'in:L1,L2,L3,L4,L5,LM,M1,M3,M4'],
+            'config.pages.*.image_id' => ['nullable', 'integer'],
+            'config.pages.*.image_ids'=> ['nullable', 'array'],
+            'config.pages.*.caption'  => ['nullable', 'string', 'max:300'],
+        ]);
+
+        PropertyExposeVersion::where('property_id', $property->id)
+            ->where('is_active', true)
+            ->update(['is_active' => false]);
+
+        $version = PropertyExposeVersion::create([
+            'property_id' => $property->id,
+            'created_by'  => $request->user()?->id,
+            'name'        => 'Exposé ' . now()->format('d.m.Y H:i'),
+            'config_json' => $data['config'],
+            'is_active'   => true,
+        ]);
+
+        return response()->json([
+            'success'    => true,
+            'version_id' => $version->id,
+            'page_count' => count($data['config']['pages']),
+        ]);
+    }
+
     /** HTML-Preview der aktiven Version (oder einer bestimmten). */
     public function preview(Request $request, Property $property): Response
     {

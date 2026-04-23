@@ -6,13 +6,13 @@ use App\Models\Property;
 
 /**
  * Baut eine Default-Exposé-Konfiguration aus einer Property.
- * Entscheidet, welches Bild Cover ist, verteilt den Rest auf Impressionen-Seiten
- * und streut Editorial-Mixed-Seiten (M1: 3 Bilder + Text-Zelle) ein, sobald
- * genug Material da ist (≥ 5 Nicht-Cover-Bilder).
+ * Variiert zwischen klassischen Bild-Layouts (L1–L5, LM) und Editorial-
+ * Mixed-Layouts (M1/M3/M4) für Abwechslung — aber nicht auf jeder Seite,
+ * damit das Exposé nicht überladen wirkt.
  */
 class ExposeConfigBuilder
 {
-    /** Standard-Zitate-Pool, wird benutzt wenn die Property nichts hinterlegt hat. */
+    /** Fallback-Zitate wenn die Property keinen eigenen Pool hat. */
     private const DEFAULT_CAPTIONS = [
         'Wo Tageslicht den Raum formt.',
         'Ein Ort, an dem Tage länger bleiben.',
@@ -20,6 +20,9 @@ class ExposeConfigBuilder
         'Zuhause ist, wo das Herz bleibt.',
         'Das nächste Kapitel beginnt hier.',
     ];
+
+    /** Editorial-Layouts rotieren in dieser Reihenfolge durch das Exposé. */
+    private const EDITORIAL_CYCLE = ['M1', 'M4', 'M3'];
 
     /** Seitenreihenfolge: cover → details → haus → lage → impressionen × n → kontakt. */
     public function build(Property $property): array
@@ -45,19 +48,20 @@ class ExposeConfigBuilder
         ];
         $pages[] = ['type' => 'lage'];
 
-        // Bild auf der Haus-Seite wird aus dem Impressionen-Pool entfernt.
+        // Haus-Bild aus Impressionen-Pool entfernen.
         $forImpressionen = $rest->slice(1)->values();
         $captions = $this->captionPool($property);
+        $editorialIdx = 0;
 
-        foreach ($this->chunkForImpressionen($forImpressionen->pluck('id')->all(), count($captions) > 0) as $idx => $chunk) {
+        foreach ($this->chunkForImpressionen($forImpressionen->pluck('id')->all()) as $chunk) {
             $page = [
                 'type'      => 'impressionen',
                 'layout'    => $chunk['layout'],
                 'image_ids' => $chunk['ids'],
             ];
-            // Editorial-Mixed-Layouts bekommen einen rotierenden Caption-Text.
-            if ($chunk['layout'] === 'M1' && $captions) {
-                $page['caption'] = $captions[$idx % count($captions)];
+            if (in_array($chunk['layout'], self::EDITORIAL_CYCLE, true) && !empty($captions)) {
+                $page['caption'] = $captions[$editorialIdx % count($captions)];
+                $editorialIdx++;
             }
             $pages[] = $page;
         }
@@ -71,49 +75,57 @@ class ExposeConfigBuilder
     }
 
     /**
-     * Verteilt Bilder auf Impressionen-Seiten. Streut bei ≥ 5 verfügbaren
-     * Bildern einen Editorial-Mixed (M1: 3 Bilder + Text-Zelle) alle 2 Seiten
-     * ein, damit der Bild-Flow Atemluft bekommt. M1 verbraucht 3 Bilder.
+     * Verteilt Bilder auf Impressionen-Seiten mit Variation. Grundidee:
+     *  - Klassische Seiten (L4, LM) zeigen pure Bilder.
+     *  - Editorial-Seiten (M1/M3/M4) unterbrechen den Flow mit Text +/- Bildern.
+     *  - Reihenfolge: alle 2 klassische Seiten kommt eine Editorial-Seite.
+     *  - Masonry (LM) wird bei 4+ Bildern bevorzugt gegenüber L4 für mehr
+     *    visuelle Asymmetrie (1 großes + 3 kleine).
      *
-     * @param  bool  $editorialAllowed  false → nur klassische L-Layouts
      * @return array<int, array{layout: string, ids: array<int>}>
      */
-    private function chunkForImpressionen(array $imageIds, bool $editorialAllowed): array
+    private function chunkForImpressionen(array $imageIds): array
     {
         $chunks = [];
         $i = 0;
         $n = count($imageIds);
         $pagesSinceLastEditorial = 0;
+        $classicalPageIdx = 0;
+
+        // Alterniere zwischen L4 (gleichmäßig) und LM (Masonry) für Variation.
+        $classicalCycle = ['LM', 'L4'];
 
         while ($i < $n) {
             $remaining = $n - $i;
 
-            // Editorial-Mixed einstreuen: wenn erlaubt, ≥ 3 Bilder übrig,
-            // und seit der letzten Editorial mindestens 1 klassische Seite.
-            // Nicht auf der ersten Impressionen-Seite (zu früh, bricht Flow).
-            $useEditorial = $editorialAllowed
-                && $remaining >= 3
-                && $i > 0
-                && $pagesSinceLastEditorial >= 1
-                && $remaining !== 3 // bei genau 3 bevorzugen wir L3 statt M1 (kein nachfolgender Rest)
-                && $remaining !== 4;
-
-            if ($useEditorial) {
-                $chunks[] = [
-                    'layout' => 'M1',
-                    'ids'    => array_slice($imageIds, $i, 3),
-                ];
-                $i += 3;
-                $pagesSinceLastEditorial = 0;
-                continue;
+            // Editorial einstreuen? Regel:
+            //  - Mindestens eine klassische Seite vorher (nicht gleich am Anfang)
+            //  - Genug Bilder für das Layout übrig (M1=3, M3=3, M4=1)
+            //  - Seit letzter Editorial-Seite mindestens 1 klassische
+            //  - Editorials werden zyklisch durchrotiert (M1 → M4 → M3 → M1 …)
+            $editorialSlot = $i > 0 && $pagesSinceLastEditorial >= 1;
+            if ($editorialSlot) {
+                $nextEditorial = self::EDITORIAL_CYCLE[count($chunks) % count(self::EDITORIAL_CYCLE)];
+                $need = $this->imageCountFor($nextEditorial);
+                if ($remaining >= $need && $remaining > $need) {
+                    // Nur wenn danach noch eine klassische Seite möglich ist,
+                    // damit die Editorial nicht als letzte einsame Seite steht.
+                    $chunks[] = [
+                        'layout' => $nextEditorial,
+                        'ids'    => array_slice($imageIds, $i, $need),
+                    ];
+                    $i += $need;
+                    $pagesSinceLastEditorial = 0;
+                    continue;
+                }
             }
 
+            // Klassische Seite
             [$layout, $count] = match (true) {
                 $remaining === 1 => ['L1', 1],
                 $remaining === 2 => ['L2', 2],
                 $remaining === 3 => ['L3', 3],
-                $remaining === 5 => ['L5', 5],
-                $remaining >= 4  => ['L4', 4],
+                $remaining >= 4  => [$classicalCycle[$classicalPageIdx % count($classicalCycle)], 4],
                 default          => ['L1', 1],
             };
             $chunks[] = [
@@ -122,11 +134,24 @@ class ExposeConfigBuilder
             ];
             $i += $count;
             $pagesSinceLastEditorial++;
+            $classicalPageIdx++;
         }
+
         return $chunks;
     }
 
-    /** Liest den Property-Pool zeilenweise, fällt auf Default-Vorschläge zurück. */
+    /** Wie viele Bilder braucht ein Editorial-Layout? */
+    private function imageCountFor(string $layout): int
+    {
+        return match ($layout) {
+            'M1' => 3,
+            'M3' => 3,
+            'M4' => 1,
+            default => 1,
+        };
+    }
+
+    /** Liest Makler-Pool zeilenweise; fällt auf Default zurück. */
     private function captionPool(Property $property): array
     {
         $raw = (string) ($property->expose_captions_pool ?? '');

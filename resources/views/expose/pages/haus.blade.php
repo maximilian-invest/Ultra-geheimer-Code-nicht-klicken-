@@ -24,16 +24,15 @@
   .haus-page .layout {
     position: absolute; top: 112px; left: 48px; right: 48px; bottom: 28px;
     display: flex; gap: 32px;
-    align-items: center; /* Text vertikal mittig statt nur oben */
   }
   .haus-page .txt { flex: 1.2; }
-  .haus-page .img-wrap { flex: 1; border-radius: 3px; overflow: hidden; align-self: stretch; }
+  .haus-page .img-wrap { flex: 1; border-radius: 3px; overflow: hidden; }
   .haus-page .img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .haus-page .lead {
-    font-family: Georgia, serif; font-style: italic; font-size: 22px; line-height: 1.4;
-    color: var(--text-primary); margin-bottom: 18px;
+    font-family: Georgia, serif; font-style: italic; font-size: 19px; line-height: 1.4;
+    color: var(--text-primary); margin-bottom: 15px;
   }
-  .haus-page .p { font-size: 15px; line-height: 1.65; color: #333; margin-bottom: 10px; }
+  .haus-page .p { font-size: 14px; line-height: 1.6; color: #333; margin-bottom: 9px; }
   .haus-page .cols-2 { column-count: 2; column-gap: 24px; column-rule: 1px solid var(--border); }
   .haus-page .cols-3 { column-count: 3; column-gap: 18px; column-rule: 1px solid var(--border); }
   .haus-page .cont-hint {

@@ -72,8 +72,11 @@ class ExposeConfigBuilderTest extends TestCase
         $this->assertCount(3, $impressionen[0]['image_ids']);
     }
 
-    public function test_eight_images_produce_two_impressionen_pages(): void
+    public function test_many_images_produce_mixed_impressionen_with_editorial_variation(): void
     {
+        // 8 Bilder total: 1 Cover, 1 fürs Haus, 6 in Impressionen.
+        // Der Generator variert: klassische Bildseiten (LM/L4) UND Editorial-
+        // Mixed-Seiten (M1/M3/M4) werden ineinander eingestreut.
         $specs = array_fill(0, 8, []);
         $specs[0]['is_title_image'] = true;
         $p = $this->mkProperty($specs);
@@ -84,12 +87,19 @@ class ExposeConfigBuilderTest extends TestCase
             fn($page) => $page['type'] === 'impressionen'
         ));
 
-        // 8 Bilder total: 1 Cover, 1 fürs Haus, 6 in Impressionen → L4 (4) + L2 (2).
-        $this->assertCount(2, $impressionen);
-        $this->assertEquals('L4', $impressionen[0]['layout']);
-        $this->assertCount(4, $impressionen[0]['image_ids']);
-        $this->assertEquals('L2', $impressionen[1]['layout']);
-        $this->assertCount(2, $impressionen[1]['image_ids']);
+        // Mindestens 2 Seiten
+        $this->assertGreaterThanOrEqual(2, count($impressionen));
+
+        // Alle Layouts aus zulässigem Set
+        $validLayouts = ['L1','L2','L3','L4','L5','LM','M1','M3','M4'];
+        foreach ($impressionen as $page) {
+            $this->assertContains($page['layout'], $validLayouts);
+        }
+
+        // Mindestens eine Editorial-Seite bei ≥ 6 Nicht-Cover-Bildern
+        $editorialLayouts = ['M1', 'M3', 'M4'];
+        $hasEditorial = collect($impressionen)->contains(fn($p) => in_array($p['layout'], $editorialLayouts, true));
+        $this->assertTrue($hasEditorial, 'Erwarte mindestens eine Editorial-Seite zur Auflockerung.');
     }
 
     public function test_haus_image_is_different_from_cover(): void

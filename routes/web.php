@@ -64,6 +64,14 @@ Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])
         Route::post('/{link}/reactivate', [\App\Http\Controllers\Admin\PropertyLinkController::class, 'reactivate']);
     });
 
+// Exposé (Admin: generate/preview)
+Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])->group(function () {
+    Route::post('/admin/properties/{property}/expose',
+        [\App\Http\Controllers\Admin\ExposeController::class, 'store']);
+    Route::get('/admin/properties/{property}/expose/preview',
+        [\App\Http\Controllers\Admin\ExposeController::class, 'preview']);
+});
+
 // DSGVO export + delete for link sessions (admin)
 Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])->prefix('admin/dsgvo')->group(function () {
     Route::get('/links', [\App\Http\Controllers\Admin\DsgvoLinkController::class, 'export']);

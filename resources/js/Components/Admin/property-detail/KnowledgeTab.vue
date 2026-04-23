@@ -108,24 +108,42 @@ async function applyExposeToKB() {
   if (result.fields) {
     for (const [k, v] of Object.entries(result.fields)) {
       if (v !== null && v !== undefined && v !== "") {
-        entries.push({ title: k, content: String(v), category: "dokument_extrakt" });
+        entries.push({
+          title: k,
+          content: String(v),
+          category: "dokument_extrakt",
+          source_type: "ai_extract",
+        });
       }
     }
   }
-  if (entries.length > 0) {
-    try {
-      for (const entry of entries) {
-        await fetch(API.value + "&action=feed_knowledge", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ property_id: props.property.id, ...entry }),
-        });
+  if (entries.length === 0) {
+    toast('Keine Felder zum Speichern gefunden');
+    exposeResult.value = null;
+    showExposeParser.value = false;
+    return;
+  }
+  try {
+    // add_knowledge akzeptiert ein Array oder einzelnes Item — ein Batch-Call ist schneller
+    const r = await fetch(API.value + "&action=add_knowledge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(entries.map(e => ({ property_id: props.property.id, ...e }))),
+    });
+    const d = await r.json();
+    if (r.ok && d.success) {
+      const count = d.count ?? (d.inserted_ids?.length ?? 0);
+      if (count > 0) {
+        toast(count + ' Einträge in Wissens-DB gespeichert');
+        await loadKBEntries();
+      } else {
+        toast('Keine Einträge gespeichert — Backend hat alle Felder verworfen (ungültige Kategorie?)');
       }
-      toast(entries.length + " Eintraege in Wissens-DB gespeichert");
-      await loadKBEntries();
-    } catch (e) {
-      toast("Fehler: " + e.message);
+    } else {
+      toast('Fehler: ' + (d.error || 'Backend hat keine Einträge bestätigt'));
     }
+  } catch (e) {
+    toast('Fehler: ' + e.message);
   }
   exposeResult.value = null;
   showExposeParser.value = false;

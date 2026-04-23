@@ -262,6 +262,28 @@ function persistParking() {
   const bd = readBD();
   bd.parking_spaces = clean;
   writeBD(bd);
+
+  // Flat-Felder synchronisieren — OverviewTab + Immoji-Export lesen die flachen
+  // parking_spaces / garage_spaces / area_garage aus der properties-Tabelle.
+  // Ohne diese Sync wuerde die Uebersicht 1 Stellplatz zeigen obwohl 2 in der
+  // strukturierten Liste stehen.
+  let outdoorTotal = 0;
+  let garageTotal = 0;
+  let garageArea = 0;
+  for (const e of clean) {
+    const cnt = Math.max(0, Number(e.count) || 0);
+    // garage + tiefgarage + carport zaehlen als „Garage"
+    if (['garage', 'tiefgarage', 'carport'].includes((e.type || '').toLowerCase())) {
+      garageTotal += cnt;
+      garageArea += (Number(e.area) || 0) * cnt;
+    } else {
+      // outdoor / stellplatz / sonstiges
+      outdoorTotal += cnt;
+    }
+  }
+  props.form.parking_spaces = outdoorTotal || null;
+  props.form.garage_spaces = garageTotal || null;
+  if (garageArea > 0) props.form.area_garage = garageArea;
 }
 
 // Jede Änderung sofort in das JSON schreiben (Save läuft normal über

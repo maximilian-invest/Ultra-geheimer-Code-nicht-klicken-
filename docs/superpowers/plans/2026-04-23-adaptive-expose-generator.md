@@ -502,6 +502,8 @@ class ExposeConfigBuilder
     public function build(Property $property): array
     {
         $images = $property->images()
+            ->reorder() // Property::images() bringt ein festes orderBy('sort_order') mit —
+                        // ohne reorder() wird unsere is_title_image-Priorisierung ignoriert.
             ->where('is_public', true)
             ->where('is_floorplan', false)
             ->orderByDesc('is_title_image')
@@ -515,14 +517,16 @@ class ExposeConfigBuilder
         $pages = [];
         $pages[] = ['type' => 'cover', 'image_id' => $coverImage?->id];
         $pages[] = ['type' => 'details'];
+        // "haus" teilt sich das Cover-Bild — kein Bild aus dem Impressionen-Pool
+        // wird verbraucht. Das macht den Default-Flow konsistent: alle Nicht-Cover-
+        // Bilder landen ausnahmslos in Impressionen.
         $pages[] = [
             'type'     => 'haus',
-            'image_id' => $rest->first()?->id,
+            'image_id' => $coverImage?->id,
         ];
         $pages[] = ['type' => 'lage'];
 
-        // Bild, das bei "haus" verwendet wurde, nicht nochmal in Impressionen.
-        $forImpressionen = $rest->slice(1)->values();
+        $forImpressionen = $rest;
         foreach ($this->chunkForImpressionen($forImpressionen->pluck('id')->all()) as $chunk) {
             $pages[] = [
                 'type'      => 'impressionen',

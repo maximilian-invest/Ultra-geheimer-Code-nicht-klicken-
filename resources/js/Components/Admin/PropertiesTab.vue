@@ -1,15 +1,17 @@
 <script setup>
 import { catBadgeStyle, catLabel } from '@/utils/categoryBadge.js';
 import { ref, inject, computed, reactive, watch, onMounted } from "vue";
-import { Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, LayoutList, LayoutGrid, ArrowUp, ArrowDown } from "lucide-vue-next";
+import { Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, Mail } from "lucide-vue-next";
 import PropertyDetailPage from '@/Components/Admin/PropertyDetailPage.vue';
 import IntakeProtocolWizard from '@/Components/Admin/IntakeProtocol/IntakeProtocolWizard.vue';
 import IntakeDraftsList from '@/Components/Admin/IntakeProtocol/IntakeDraftsList.vue';
+import OwnerMailComposer from '@/Components/Admin/IntakeProtocol/OwnerMailComposer.vue';
+import { router } from '@inertiajs/vue3';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
@@ -266,10 +268,38 @@ function resumeIntakeDraft(draftKey) {
   showIntakeWizard.value = true;
 }
 
-function onIntakeWizardClosed() {
+// Nach-Submit Dialog: zeigt Erfolg + bietet Mail-Review an
+const postSubmitInfo = ref(null);  // { property_id, protocol_id } | null
+const showPostSubmitMailComposer = ref(false);
+
+function onIntakeWizardClosed(submittedInfo = null) {
   showIntakeWizard.value = false;
   activeIntakeDraftKey.value = '';
   loadIntakeDraftCount();
+
+  if (submittedInfo?.property_id) {
+    // Property-Liste neu laden (Inertia only-reload, kein Page-Refresh)
+    router.reload({ only: ['properties'], preserveScroll: true });
+    // Success-Dialog oeffnen mit Link zur Mail-Review
+    postSubmitInfo.value = {
+      property_id: submittedInfo.property_id,
+      protocol_id: submittedInfo.protocol_id,
+    };
+  }
+}
+
+function openPostSubmitMail() {
+  showPostSubmitMailComposer.value = true;
+}
+
+function onPostSubmitMailSent() {
+  showPostSubmitMailComposer.value = false;
+  postSubmitInfo.value = null;
+  toast('E-Mail versendet');
+}
+
+function closePostSubmitDialog() {
+  postSubmitInfo.value = null;
 }
 
 // Beim Mount: Count initial laden, damit Badge passt
@@ -2895,8 +2925,42 @@ async function toggleWebsiteDownload(f) {
     <IntakeProtocolWizard
       v-if="showIntakeWizard"
       :initial-draft-key="activeIntakeDraftKey"
-      @close="onIntakeWizardClosed"
-      @submitted="(info) => { onIntakeWizardClosed(); }"
+      @close="onIntakeWizardClosed()"
+      @submitted="(info) => onIntakeWizardClosed(info)"
+    />
+
+    <!-- Success-Dialog nach Aufnahmeprotokoll-Submit: bietet direkt die Mail-Review -->
+    <Dialog :open="postSubmitInfo !== null && !showPostSubmitMailComposer" @update:open="(v) => { if (!v) closePostSubmitDialog() }">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle class="flex items-center gap-2">
+            <span class="inline-flex items-center justify-center size-8 rounded-full bg-green-100 text-green-700">
+              <Check class="size-4" />
+            </span>
+            Aufnahmeprotokoll angelegt
+          </DialogTitle>
+          <DialogDescription>
+            Das Objekt ist in der Übersicht. PDF wurde erstellt.
+            Soll der Eigentümer jetzt per E-Mail informiert werden?
+            Du kannst den Text vorher anpassen.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="flex gap-2 pt-3">
+          <Button variant="outline" class="flex-1" @click="closePostSubmitDialog">Später</Button>
+          <Button class="flex-[2] bg-orange-500 hover:bg-orange-600 text-white" @click="openPostSubmitMail">
+            <Mail class="size-4 mr-1" />
+            E-Mail jetzt verfassen
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    <!-- OwnerMailComposer direkt nach Submit (wenn User auf "Mail jetzt" klickt) -->
+    <OwnerMailComposer
+      v-if="showPostSubmitMailComposer && postSubmitInfo?.protocol_id"
+      :protocol-id="postSubmitInfo.protocol_id"
+      @close="showPostSubmitMailComposer = false"
+      @sent="onPostSubmitMailSent"
     />
 
     <!-- Delete Confirmation -->

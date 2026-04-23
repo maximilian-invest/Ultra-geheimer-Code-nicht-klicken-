@@ -110,7 +110,14 @@ class IntakeProtocolSubmitTest extends TestCase
             'disclaimer_text' => 'D',
         ])->assertStatus(200);
 
-        $this->assertDatabaseHas('users', ['email' => 'portal@test.at', 'user_type' => 'customer']);
+        // user_type muss 'eigentuemer' sein — sonst findet checkPortalAccess
+        // den User nicht und der Portal-Status fehlt auf der Property-Detailseite.
+        $this->assertDatabaseHas('users', ['email' => 'portal@test.at', 'user_type' => 'eigentuemer']);
+        // Property muss denormalisierte owner_* Felder fuer die OverviewTab-Anzeige erhalten.
+        $this->assertDatabaseHas('properties', [
+            'owner_name'  => 'P1',
+            'owner_email' => 'portal@test.at',
+        ]);
         Mail::assertSent(PortalAccessMail::class, fn($m) => $m->hasTo('portal@test.at'));
     }
 

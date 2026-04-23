@@ -306,12 +306,16 @@ class IntakeProtocolController extends Controller
         $existing = \DB::table('users')->where('email', $email)->first();
         if ($existing) return;
 
+        // WICHTIG: user_type muss 'eigentuemer' sein, sonst findet
+        // PropertySettingsController::checkPortalAccess den User nicht und
+        // der Portal-Status wird auf der Property-Detailseite nicht angezeigt.
         \DB::table('users')->insert([
             'name' => $ownerData['name'] ?? $email,
             'email' => $email,
             'password' => bcrypt($password),
-            'user_type' => 'customer',
+            'user_type' => 'eigentuemer',
             'customer_id' => $customerId,
+            'email_verified_at' => now(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -363,6 +367,15 @@ class IntakeProtocolController extends Controller
                 $props[$key] = $form[$key];
             }
         }
+
+        // Denormalisierte Owner-Felder: OverviewTab liest owner_name/owner_email/
+        // owner_phone direkt von der Property (hasOwner haengt zwar an customer_id,
+        // der Anzeigetext aber an owner_name). Ohne diese Felder wuerde der
+        // Eigentuemer-Block leer bleiben, obwohl die Verknuepfung besteht.
+        $ownerData = is_array($form['owner'] ?? null) ? $form['owner'] : [];
+        if (!empty($ownerData['name']))  $props['owner_name']  = trim((string) $ownerData['name']);
+        if (!empty($ownerData['email'])) $props['owner_email'] = trim((string) $ownerData['email']);
+        if (!empty($ownerData['phone'])) $props['owner_phone'] = trim((string) $ownerData['phone']);
         // ref_id: wenn der Makler keine vorgegeben hat, generieren wir eine
         // auftrag-basierte Kennung. ref_id ist in MySQL unique & not-null.
         if (empty($props['ref_id'])) {

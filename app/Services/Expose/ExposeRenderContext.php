@@ -23,6 +23,7 @@ class ExposeRenderContext
         ExposePaginationService $pagination,
     ): self {
         $property = $version->property;
+        $property->loadMissing('images');
         $config = $version->config_json;
 
         return new self(
@@ -40,6 +41,6 @@ class ExposeRenderContext
     public function image(?int $imageId): ?\App\Models\PropertyImage
     {
         if (!$imageId) return null;
-        return $this->property->images()->find($imageId);
+        return $this->property->images->firstWhere('id', $imageId);
     }
 }

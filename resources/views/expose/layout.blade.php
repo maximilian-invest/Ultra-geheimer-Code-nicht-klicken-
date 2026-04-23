@@ -8,7 +8,9 @@
     @include('expose.styles')
 </head>
 <body>
+    @php($allowedTypes = ['cover', 'details', 'haus', 'lage', 'impressionen', 'kontakt'])
     @foreach ($ctx->pages as $i => $page)
+        @continue(!in_array($page['type'] ?? '', $allowedTypes, true))
         @php($pageNum = sprintf('%02d / %02d', $i + 1, count($ctx->pages)))
         @include("expose.pages.{$page['type']}", ['page' => $page, 'pageNum' => $pageNum, 'ctx' => $ctx])
     @endforeach

@@ -38,7 +38,7 @@ const internal = computed({
     <ToggleGroupItem
       v-for="(opt, i) in options" :key="i"
       :value="normalize(opt).value"
-      class="rounded-full px-3"
+      class="rounded-full px-3.5 h-9 text-xs font-medium border-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary data-[state=on]:shadow-sm"
     >
       {{ normalize(opt).label }}
     </ToggleGroupItem>

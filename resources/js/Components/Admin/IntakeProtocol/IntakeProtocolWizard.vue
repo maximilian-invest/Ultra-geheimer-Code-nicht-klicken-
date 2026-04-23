@@ -176,7 +176,11 @@ const resumeDialogOpen = computed({
        weil jeder Parent mit transform/filter/perspective eine neue containing-block
        Kontext aufmacht und den Overlay in den Parent-Scope einsperrt. -->
   <Teleport to="body">
-  <div class="fixed inset-0 z-[100] bg-white dark:bg-zinc-950 flex flex-col overflow-y-auto">
+  <!-- Canonical Layout: Header (fix oben) / Body (scrollt) / Nav (fix unten).
+       Outer container hat KEIN overflow — nur der mittlere Body scrollt.
+       Damit bleiben Header und Nav zuverlaessig an Position, egal wie lang
+       der Step-Content wird. -->
+  <div class="fixed inset-0 z-[100] bg-background flex flex-col">
 
     <!-- Resume-Prompt als shadcn-Dialog -->
     <Dialog v-model:open="resumeDialogOpen">
@@ -203,38 +207,46 @@ const resumeDialogOpen = computed({
       </DialogContent>
     </Dialog>
 
-    <StepHeader
-      :current-step="currentStep"
-      :total-steps="TOTAL_STEPS"
-      :title="STEP_TITLES[currentStep - 1]"
-      @cancel="handleCancel"
-    />
-
-    <Alert v-if="offline" variant="warning" class="rounded-none border-x-0 border-t-0">
-      <WifiOff class="size-4" />
-      <AlertDescription>
-        Offline — Änderungen werden später gespeichert
-      </AlertDescription>
-    </Alert>
-
-    <div class="flex-1 mx-auto w-full max-w-2xl">
-      <component
-        :is="currentStepComponent"
-        :form="form"
-        :is-skipped="isSkipped"
-        :mark-skipped="markSkipped"
-        :unmark-skipped="unmarkSkipped"
-        :disclaimer-text="DISCLAIMER_TEXT"
+    <!-- TOP: Header + optionale Offline-Anzeige (kein Scroll) -->
+    <div class="shrink-0">
+      <StepHeader
+        :current-step="currentStep"
+        :total-steps="TOTAL_STEPS"
+        :title="STEP_TITLES[currentStep - 1]"
+        @cancel="handleCancel"
       />
+      <Alert v-if="offline" variant="warning" class="rounded-none border-x-0 border-t-0">
+        <WifiOff class="size-4" />
+        <AlertDescription>
+          Offline — Änderungen werden später gespeichert
+        </AlertDescription>
+      </Alert>
     </div>
 
-    <StepNavigation
-      :current-step="currentStep"
-      :total-steps="TOTAL_STEPS"
-      :next-disabled="nextDisabled"
-      @prev="goPrev"
-      @next="goNext"
-    />
+    <!-- MIDDLE: Body scrollt unabhaengig -->
+    <div class="flex-1 overflow-y-auto">
+      <div class="mx-auto w-full max-w-2xl">
+        <component
+          :is="currentStepComponent"
+          :form="form"
+          :is-skipped="isSkipped"
+          :mark-skipped="markSkipped"
+          :unmark-skipped="unmarkSkipped"
+          :disclaimer-text="DISCLAIMER_TEXT"
+        />
+      </div>
+    </div>
+
+    <!-- BOTTOM: Navigation (kein Scroll, auf iOS safe-area Respekt) -->
+    <div class="shrink-0">
+      <StepNavigation
+        :current-step="currentStep"
+        :total-steps="TOTAL_STEPS"
+        :next-disabled="nextDisabled"
+        @prev="goPrev"
+        @next="goNext"
+      />
+    </div>
 
   </div>
   </Teleport>

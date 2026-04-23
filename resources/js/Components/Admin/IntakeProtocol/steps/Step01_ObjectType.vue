@@ -59,10 +59,10 @@ const skippedRefId = computed({
             type="button"
             @click="selectType(t.key)"
             :class="[
-              'rounded-md p-3 text-center transition-colors border',
+              'rounded-md p-3 text-center transition-all border-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               form.object_type === t.key
-                ? 'border-primary bg-accent'
-                : 'border-input hover:bg-accent hover:text-accent-foreground'
+                ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                : 'bg-background border-input text-foreground hover:bg-accent hover:border-accent'
             ]"
           >
             <div class="text-2xl">{{ t.icon }}</div>

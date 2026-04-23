@@ -112,7 +112,7 @@ const BATHROOM_OPTIONS = [
           <ToggleGroupItem
             v-for="f in FEATURE_TOGGLES" :key="f.key"
             :value="f.key"
-            class="justify-start"
+            class="justify-start border-2 h-10 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary data-[state=on]:shadow-sm"
           >
             {{ f.label }}
           </ToggleGroupItem>
@@ -137,7 +137,7 @@ const BATHROOM_OPTIONS = [
           <ToggleGroupItem
             v-for="o in COMMON_AREA_OPTIONS" :key="o.key"
             :value="o.key"
-            class="rounded-full px-3"
+            class="rounded-full px-3.5 h-9 text-xs font-medium border-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary data-[state=on]:shadow-sm"
           >
             {{ o.label }}
           </ToggleGroupItem>

@@ -17,7 +17,14 @@ function onUpdate(v) {
 </script>
 
 <template>
-  <div class="rounded-md border p-2 flex items-center gap-2">
+  <div
+    :class="[
+      'rounded-md border p-2 flex items-center gap-2 transition-colors',
+      modelValue === 'available' && 'border-l-4 border-l-emerald-500',
+      modelValue === 'missing' && 'border-l-4 border-l-destructive',
+      modelValue === 'na' && 'border-l-4 border-l-muted-foreground/40',
+    ]"
+  >
     <div class="flex-1 text-sm">
       {{ label }}
     </div>
@@ -29,13 +36,22 @@ function onUpdate(v) {
       @update:model-value="onUpdate"
       class="shrink-0"
     >
-      <ToggleGroupItem value="available" aria-label="Vorhanden" class="px-2 text-xs">
+      <ToggleGroupItem
+        value="available" aria-label="Vorhanden"
+        class="px-2.5 h-8 text-xs font-medium border-2 data-[state=on]:bg-emerald-600 data-[state=on]:text-white data-[state=on]:border-emerald-600"
+      >
         Da
       </ToggleGroupItem>
-      <ToggleGroupItem value="missing" aria-label="Fehlt" class="px-2 text-xs">
+      <ToggleGroupItem
+        value="missing" aria-label="Fehlt"
+        class="px-2.5 h-8 text-xs font-medium border-2 data-[state=on]:bg-destructive data-[state=on]:text-destructive-foreground data-[state=on]:border-destructive"
+      >
         Fehlt
       </ToggleGroupItem>
-      <ToggleGroupItem value="na" aria-label="Nicht anwendbar" class="px-2 text-xs">
+      <ToggleGroupItem
+        value="na" aria-label="Nicht anwendbar"
+        class="px-2.5 h-8 text-xs font-medium border-2 data-[state=on]:bg-muted-foreground data-[state=on]:text-background data-[state=on]:border-muted-foreground"
+      >
         N/A
       </ToggleGroupItem>
     </ToggleGroup>

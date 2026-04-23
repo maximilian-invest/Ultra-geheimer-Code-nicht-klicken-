@@ -164,10 +164,10 @@ const approvalsNotesSkipped = computed({
           <button type="button"
                   @click="form.approvals_status = 'complete'; form.approvals_notes = ''"
                   :class="[
-                    'rounded-md p-3 text-center border transition-colors',
+                    'rounded-md p-3 text-center border-2 transition-all',
                     form.approvals_status === 'complete'
-                      ? 'border-primary bg-accent'
-                      : 'border-input hover:bg-accent hover:text-accent-foreground'
+                      ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                      : 'bg-background border-input hover:bg-accent'
                   ]">
             <div class="text-xl">✓</div>
             <div class="text-xs font-medium mt-0.5">Alles bewilligt</div>
@@ -175,10 +175,10 @@ const approvalsNotesSkipped = computed({
           <button type="button"
                   @click="form.approvals_status = 'partial'"
                   :class="[
-                    'rounded-md p-3 text-center border transition-colors',
+                    'rounded-md p-3 text-center border-2 transition-all',
                     form.approvals_status === 'partial'
-                      ? 'border-primary bg-accent'
-                      : 'border-input hover:bg-accent hover:text-accent-foreground'
+                      ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                      : 'bg-background border-input hover:bg-accent'
                   ]">
             <div class="text-xl">⚠️</div>
             <div class="text-xs font-medium mt-0.5">Teilweise</div>
@@ -186,10 +186,10 @@ const approvalsNotesSkipped = computed({
           <button type="button"
                   @click="form.approvals_status = 'unknown'"
                   :class="[
-                    'rounded-md p-3 text-center border transition-colors',
+                    'rounded-md p-3 text-center border-2 transition-all',
                     form.approvals_status === 'unknown'
-                      ? 'border-primary bg-accent'
-                      : 'border-input hover:bg-accent hover:text-accent-foreground'
+                      ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                      : 'bg-background border-input hover:bg-accent'
                   ]">
             <div class="text-xl">❓</div>
             <div class="text-xs font-medium mt-0.5">Unbekannt</div>

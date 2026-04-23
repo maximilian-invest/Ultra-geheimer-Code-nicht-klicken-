@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { Button } from '@/components/ui/button';
-import { ChevronRight } from 'lucide-vue-next';
+import { ChevronRight, ChevronLeft } from 'lucide-vue-next';
 
 const props = defineProps({
   currentStep: { type: Number, required: true },
@@ -15,7 +15,10 @@ const isLast = computed(() => props.currentStep === props.totalSteps);
 </script>
 
 <template>
-  <div class="sticky bottom-0 bg-background border-t p-4 flex gap-2">
+  <div
+    class="bg-background border-t p-4 flex gap-2"
+    style="padding-bottom: calc(1rem + env(safe-area-inset-bottom));"
+  >
     <Button
       variant="outline"
       size="lg"
@@ -23,6 +26,7 @@ const isLast = computed(() => props.currentStep === props.totalSteps);
       :disabled="currentStep === 1"
       @click="$emit('prev')"
     >
+      <ChevronLeft class="mr-1 size-4" />
       Zurück
     </Button>
     <Button
@@ -32,7 +36,7 @@ const isLast = computed(() => props.currentStep === props.totalSteps);
       @click="$emit('next')"
     >
       {{ isLast ? 'Absenden' : submitLabel }}
-      <ChevronRight v-if="!isLast" class="ml-1 h-4 w-4" />
+      <ChevronRight v-if="!isLast" class="ml-1 size-4" />
     </Button>
   </div>
 </template>

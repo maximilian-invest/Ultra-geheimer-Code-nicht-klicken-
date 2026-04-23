@@ -228,6 +228,7 @@ class IntakeProtocolController extends Controller
                             loginEmail: $ownerData['email'],
                             initialPassword: $initialPassword,
                             broker: ['name' => $broker->name, 'email' => $broker->email],
+                            brokerId: $brokerId,
                         );
                         $protocol->update(['portal_email_sent_at' => now()]);
                     } catch (\Throwable $e) {
@@ -709,6 +710,7 @@ class IntakeProtocolController extends Controller
                 vermittlungsauftragPdfPath: $vermittlungsPath,
                 customSubject: $customSubject,
                 customBody: $customBody,
+                brokerId: $broker?->id,
             );
             $protocol->update(['owner_email_sent_at' => now()]);
             return response()->json([

@@ -2,7 +2,7 @@
     $p = $ctx->property;
     $lat = (float) ($p->latitude ?? 47.7529);
     $lng = (float) ($p->longitude ?? 13.0260);
-    $mapId = 'map-' . substr(md5($p->id . '-' . microtime()), 0, 8);
+    $mapId = 'map-' . $p->id;
     $text = $p->location_description ?? '';
     $paragraphs = array_values(array_filter(array_map('trim', preg_split('/\n\s*\n+/', $text))));
     $lead = '';

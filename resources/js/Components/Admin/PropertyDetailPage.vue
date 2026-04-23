@@ -398,10 +398,12 @@ function handleExposeParsed(result) {
     <!-- Warnbanner fuer uebersprungene Felder aus dem Aufnahmeprotokoll -->
     <IntakeOpenFieldsBanner :protocol="intakeProtocol" />
 
-    <!-- Mail-Status-Banner — sichtbar wenn ein Protokoll existiert -->
-    <div v-if="intakeProtocol && intakeProtocol.owner_email" class="px-3 sm:px-5 mt-3">
-      <!-- Noch nicht versendet: warning -->
-      <Alert v-if="!intakeProtocol.owner_email_sent_at" variant="warning">
+    <!-- Mail-Status-Banner — sichtbar wenn ein Protokoll existiert und Mail ausstehend.
+         Der "schon versendet"-Zustand wird als schlanke Action-Zeile rechts in den Header
+         oder als kleiner Status-Chip dargestellt, nicht als permanenter Banner. -->
+    <div v-if="intakeProtocol && intakeProtocol.owner_email && !intakeProtocol.owner_email_sent_at"
+         class="px-3 sm:px-5 mt-3">
+      <Alert variant="warning">
         <Mail class="size-4" />
         <AlertTitle>E-Mail an Eigentümer noch ausstehend</AlertTitle>
         <AlertDescription>
@@ -409,22 +411,6 @@ function handleExposeParsed(result) {
             <span>Das Aufnahmeprotokoll-PDF kann an <strong>{{ intakeProtocol.owner_email }}</strong> versendet werden.</span>
             <Button @click="openMailComposer" class="shrink-0">
               <Mail class="h-4 w-4" /> E-Mail verfassen
-            </Button>
-          </div>
-        </AlertDescription>
-      </Alert>
-      <!-- Schon versendet: success -->
-      <Alert v-else variant="success">
-        <Check class="size-4" />
-        <AlertDescription>
-          <div class="flex items-center justify-between gap-3">
-            <span>
-              Aufnahme-Mail versendet am
-              <strong>{{ new Date(intakeProtocol.owner_email_sent_at).toLocaleString('de-AT') }}</strong>
-              an {{ intakeProtocol.owner_email }}
-            </span>
-            <Button variant="outline" size="sm" @click="openMailComposer" class="shrink-0">
-              <RotateCcw class="h-3 w-3" /> Erneut senden
             </Button>
           </div>
         </AlertDescription>

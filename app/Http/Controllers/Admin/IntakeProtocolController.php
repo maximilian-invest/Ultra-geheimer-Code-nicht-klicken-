@@ -713,6 +713,23 @@ class IntakeProtocolController extends Controller
                 brokerId: $broker?->id,
             );
             $protocol->update(['owner_email_sent_at' => now()]);
+
+            // Activity-Eintrag fuer den Versand (Timeline / Briefing / Metriken).
+            // `email-out`-Kategorie ist die Standard-Kategorie fuer ausgehende Mails.
+            \DB::table('activities')->insert([
+                'property_id'     => $property->id,
+                'stakeholder'     => $owner->name ?: $owner->email,
+                'activity'        => 'Aufnahmeprotokoll per E-Mail versendet an ' . $owner->email
+                                     . (count($missingDocs) > 0
+                                        ? ' (mit Hinweis auf fehlende Unterlagen: ' . implode(', ', $missingDocs) . ')'
+                                        : ''),
+                'category'        => 'email-out',
+                'activity_date'   => now(),
+                'link_session_id' => 'intake_protocol:' . $protocol->id,
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ]);
+
             return response()->json([
                 'success' => true,
                 'type' => 'protocol',

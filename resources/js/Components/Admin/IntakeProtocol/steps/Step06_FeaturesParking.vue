@@ -113,7 +113,7 @@ const BATHROOM_OPTIONS = [
           <ToggleGroupItem
             v-for="f in FEATURE_TOGGLES" :key="f.key"
             :value="f.key"
-            class="justify-start h-10 border border-border bg-card shadow-sm transition-all hover:shadow data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-transparent data-[state=on]:shadow-md data-[state=on]:shadow-primary/25"
+            class="justify-start h-10 border border-border bg-card shadow-sm transition-all hover:shadow data-[state=on]:bg-orange-500 data-[state=on]:text-white data-[state=on]:border-transparent data-[state=on]:shadow-md data-[state=on]:shadow-orange-500/40"
           >
             {{ f.label }}
           </ToggleGroupItem>
@@ -139,7 +139,7 @@ const BATHROOM_OPTIONS = [
           <ToggleGroupItem
             v-for="o in COMMON_AREA_OPTIONS" :key="o.key"
             :value="o.key"
-            class="rounded-full px-3.5 h-9 text-xs font-medium border border-border bg-card shadow-sm transition-all hover:shadow data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-transparent data-[state=on]:shadow-md data-[state=on]:shadow-primary/25"
+            class="rounded-full px-3.5 h-9 text-xs font-medium border border-border bg-card shadow-sm transition-all hover:shadow data-[state=on]:bg-orange-500 data-[state=on]:text-white data-[state=on]:border-transparent data-[state=on]:shadow-md data-[state=on]:shadow-orange-500/40"
           >
             {{ o.label }}
           </ToggleGroupItem>

@@ -167,7 +167,7 @@ const approvalsNotesSkipped = computed({
                   :class="[
                     'rounded-lg p-3 text-center border transition-all',
                     form.approvals_status === 'complete'
-                      ? 'bg-primary text-primary-foreground border-transparent shadow-lg shadow-primary/30'
+                      ? 'bg-orange-500 text-white border-transparent shadow-lg shadow-orange-500/40'
                       : 'bg-card border-border shadow-sm hover:shadow'
                   ]">
             <div class="text-xl">✓</div>
@@ -178,7 +178,7 @@ const approvalsNotesSkipped = computed({
                   :class="[
                     'rounded-lg p-3 text-center border transition-all',
                     form.approvals_status === 'partial'
-                      ? 'bg-primary text-primary-foreground border-transparent shadow-lg shadow-primary/30'
+                      ? 'bg-orange-500 text-white border-transparent shadow-lg shadow-orange-500/40'
                       : 'bg-card border-border shadow-sm hover:shadow'
                   ]">
             <div class="text-xl">⚠️</div>
@@ -189,7 +189,7 @@ const approvalsNotesSkipped = computed({
                   :class="[
                     'rounded-lg p-3 text-center border transition-all',
                     form.approvals_status === 'unknown'
-                      ? 'bg-primary text-primary-foreground border-transparent shadow-lg shadow-primary/30'
+                      ? 'bg-orange-500 text-white border-transparent shadow-lg shadow-orange-500/40'
                       : 'bg-card border-border shadow-sm hover:shadow'
                   ]">
             <div class="text-xl">❓</div>

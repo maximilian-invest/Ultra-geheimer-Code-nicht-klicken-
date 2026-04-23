@@ -64,7 +64,7 @@ const skippedRefId = computed({
             :class="[
               'rounded-lg p-3 text-center transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               form.object_type === t.key
-                ? 'bg-primary text-primary-foreground border-transparent shadow-lg shadow-primary/30'
+                ? 'bg-orange-500 text-white border-transparent shadow-lg shadow-orange-500/40'
                 : 'bg-card border-border text-foreground shadow-sm hover:shadow hover:-translate-y-0.5'
             ]"
           >

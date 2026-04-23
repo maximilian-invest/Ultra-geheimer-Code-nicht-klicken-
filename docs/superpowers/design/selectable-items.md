@@ -4,9 +4,13 @@
 
 ## Kernprinzip
 
-**Subtile 1px-Border + shadow-Wechsel + Primary-Fill bei Aktiv.**
+**Subtile 1px-Border + shadow-Wechsel + Orange-Fill bei Aktiv.**
 **Keine `border-2`. Keine dicken schwarzen Rahmen.**
 Shadow und Farb-Fill tragen das Feedback, nicht die Border.
+
+**Selection-Farbe:** `orange-500` (passt zur SR-Homes-Brand `#EE7600`).
+Der Theme-`--primary` (near-black) ist bewusst nicht die Selection-Farbe —
+Primary-Schwarz ist für CTAs (Absenden, Speichern), Orange für Auswahl-Status.
 
 ## Canonical Classes
 
@@ -16,11 +20,11 @@ Shadow und Farb-Fill tragen das Feedback, nicht die Border.
 rounded-full px-3.5 h-9 text-xs font-medium
 border border-border bg-card shadow-sm transition-all
 hover:shadow
-data-[state=on]:bg-primary
-data-[state=on]:text-primary-foreground
+data-[state=on]:bg-orange-500
+data-[state=on]:text-white
 data-[state=on]:border-transparent
 data-[state=on]:shadow-md
-data-[state=on]:shadow-primary/25
+data-[state=on]:shadow-orange-500/40
 ```
 
 ### Große Tiles (4-Spalten-Kacheln, Ampel-Karten)
@@ -31,8 +35,8 @@ rounded-lg p-3 text-center border transition-all
 bg-card border-border shadow-sm
 hover:shadow hover:-translate-y-0.5
 [active:]
-bg-primary text-primary-foreground border-transparent
-shadow-lg shadow-primary/30
+bg-orange-500 text-white border-transparent
+shadow-lg shadow-orange-500/40
 ```
 
 ### Feature-Toggles (breite Text-Buttons)
@@ -41,11 +45,11 @@ shadow-lg shadow-primary/30
 justify-start h-10
 border border-border bg-card shadow-sm transition-all
 hover:shadow
-data-[state=on]:bg-primary
-data-[state=on]:text-primary-foreground
+data-[state=on]:bg-orange-500
+data-[state=on]:text-white
 data-[state=on]:border-transparent
 data-[state=on]:shadow-md
-data-[state=on]:shadow-primary/25
+data-[state=on]:shadow-orange-500/40
 ```
 
 ### Semantische Tri-State (DocumentChecklistItem: Da / Fehlt / N/A)

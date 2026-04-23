@@ -56,38 +56,59 @@ class ExposeConfigBuilderTest extends TestCase
         $this->assertEquals($titleImage->id, $coverPage['image_id']);
     }
 
-    public function test_four_images_produce_one_L4_impressionen_page(): void
+    public function test_five_images_produce_one_L3_impressionen_page(): void
     {
         $p = $this->mkProperty([[], [], [], [], ['is_title_image' => true]]);
 
         $config = (new ExposeConfigBuilder())->build($p);
         $impressionen = array_values(array_filter(
             $config['pages'],
-            fn($p) => $p['type'] === 'impressionen'
+            fn($page) => $page['type'] === 'impressionen'
         ));
 
+        // 5 Bilder total: 1 Cover, 1 fürs Haus, 3 in Impressionen → L3.
         $this->assertCount(1, $impressionen);
-        $this->assertEquals('L4', $impressionen[0]['layout']);
-        $this->assertCount(4, $impressionen[0]['image_ids']);
+        $this->assertEquals('L3', $impressionen[0]['layout']);
+        $this->assertCount(3, $impressionen[0]['image_ids']);
     }
 
-    public function test_seven_images_produce_two_impressionen_pages(): void
+    public function test_eight_images_produce_two_impressionen_pages(): void
     {
-        $specs = array_fill(0, 8, []); // index 0 wird Title
+        $specs = array_fill(0, 8, []);
         $specs[0]['is_title_image'] = true;
         $p = $this->mkProperty($specs);
 
         $config = (new ExposeConfigBuilder())->build($p);
         $impressionen = array_values(array_filter(
             $config['pages'],
-            fn($p) => $p['type'] === 'impressionen'
+            fn($page) => $page['type'] === 'impressionen'
         ));
 
-        // 7 Nicht-Cover-Bilder → L4 (4) + L3 (3)
+        // 8 Bilder total: 1 Cover, 1 fürs Haus, 6 in Impressionen → L4 (4) + L2 (2).
         $this->assertCount(2, $impressionen);
         $this->assertEquals('L4', $impressionen[0]['layout']);
         $this->assertCount(4, $impressionen[0]['image_ids']);
-        $this->assertEquals('L3', $impressionen[1]['layout']);
-        $this->assertCount(3, $impressionen[1]['image_ids']);
+        $this->assertEquals('L2', $impressionen[1]['layout']);
+        $this->assertCount(2, $impressionen[1]['image_ids']);
+    }
+
+    public function test_haus_image_is_different_from_cover(): void
+    {
+        $p = $this->mkProperty([
+            ['is_title_image' => true],  // cover
+            [],                          // for haus
+            [],                          // impressionen
+            [],                          // impressionen
+        ]);
+
+        $config = (new ExposeConfigBuilder())->build($p);
+        $pages = collect($config['pages']);
+
+        $cover = $pages->firstWhere('type', 'cover');
+        $haus  = $pages->firstWhere('type', 'haus');
+
+        $this->assertNotNull($cover['image_id']);
+        $this->assertNotNull($haus['image_id']);
+        $this->assertNotEquals($cover['image_id'], $haus['image_id']);
     }
 }

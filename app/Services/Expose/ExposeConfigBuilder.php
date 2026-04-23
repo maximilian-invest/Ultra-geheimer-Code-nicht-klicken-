@@ -33,12 +33,13 @@ class ExposeConfigBuilder
         $pages[] = ['type' => 'details'];
         $pages[] = [
             'type'     => 'haus',
-            'image_id' => $coverImage?->id,
+            'image_id' => $rest->first()?->id,
         ];
         $pages[] = ['type' => 'lage'];
 
-        // Alle Nicht-Cover-Bilder kommen in Impressionen.
-        $forImpressionen = $rest;
+        // Bild auf der Haus-Seite wird aus dem Impressionen-Pool entfernt —
+        // es erscheint auf genau einer Seite, nicht doppelt.
+        $forImpressionen = $rest->slice(1)->values();
         foreach ($this->chunkForImpressionen($forImpressionen->pluck('id')->all()) as $chunk) {
             $pages[] = [
                 'type'      => 'impressionen',

@@ -4,6 +4,9 @@
     $lng = (float) ($p->longitude ?? 13.0260);
     $mapId = 'map-' . $p->id;
     $text = $p->location_description ?? '';
+    $addressLine = trim(($p->address ?? '') . ' ' . ($p->house_number ?? ''));
+    $zipCityLine = trim(($p->zip ?? '') . ' ' . ($p->city ?? ''));
+    $fullAddress = trim($addressLine . ($zipCityLine ? ' · ' . $zipCityLine : ''));
     $paragraphs = array_values(array_filter(array_map('trim', preg_split('/\n\s*\n+/', $text))));
     $lead = '';
     $rest = [];
@@ -48,7 +51,9 @@
     <div class="grid">
         <div class="map-container">
             <div id="{{ $mapId }}" class="mapbox"></div>
-            @if ($p->city)
+            @if ($fullAddress)
+                <div class="map-badge">{{ $fullAddress }}</div>
+            @elseif ($p->city)
                 <div class="map-badge">{{ strtoupper($p->city) }}</div>
             @endif
         </div>
@@ -75,10 +80,21 @@
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                 subdomains: 'abcd', maxZoom: 19
             }).addTo(map);
+
+            // Umriss-Kreis (Kontext ~400m) + genauer Marker (Pin) auf der Adresse.
             L.circle([{{ $lat }}, {{ $lng }}], {
-                radius: 400, color: '#ee7600', weight: 2.5,
-                fillColor: '#ee7600', fillOpacity: 0.22
+                radius: 400, color: '#ee7600', weight: 2, opacity: 0.8,
+                fillColor: '#ee7600', fillOpacity: 0.15
             }).addTo(map);
+
+            var pin = L.divIcon({
+                className: 'expose-pin',
+                html: '<div style="width:18px;height:18px;border-radius:50%;background:#ee7600;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+            });
+            L.marker([{{ $lat }}, {{ $lng }}], { icon: pin }).addTo(map);
+            map.setView([{{ $lat }}, {{ $lng }}], 15);
         }
         init();
     })();

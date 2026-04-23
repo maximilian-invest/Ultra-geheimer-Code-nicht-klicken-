@@ -70,6 +70,8 @@ Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])->group(fu
         [\App\Http\Controllers\Admin\ExposeController::class, 'store']);
     Route::get('/admin/properties/{property}/expose/preview',
         [\App\Http\Controllers\Admin\ExposeController::class, 'preview']);
+    Route::post('/admin/properties/{property}/expose/captions',
+        [\App\Http\Controllers\Admin\ExposeController::class, 'updateCaptions']);
 });
 
 // DSGVO export + delete for link sessions (admin)

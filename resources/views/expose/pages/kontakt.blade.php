@@ -8,7 +8,9 @@
   .kontakt-page .grid {
     position: absolute; top: 112px; left: 48px; right: 48px; bottom: 28px;
     display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+    align-items: center; /* vertikal mittig, damit Inhalt nicht oben klebt */
   }
+  .kontakt-page .grid > div { align-self: center; }
   .kontakt-page .gh {
     font-size: 12px; color: var(--accent); letter-spacing: 2.5px; text-transform: uppercase;
     font-weight: 700; padding-bottom: 6px; margin-bottom: 10px;

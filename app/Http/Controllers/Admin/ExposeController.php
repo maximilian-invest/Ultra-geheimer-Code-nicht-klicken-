@@ -44,6 +44,26 @@ class ExposeController extends Controller
         ]);
     }
 
+    /**
+     * Updatet die Makler-kuratierten Expose-Textfelder auf der Property:
+     * - expose_claim: Kurz-Zitat für Cover/Editorial-Spreads
+     * - expose_captions_pool: Multi-Line-Pool für Editorial-Impressionen
+     */
+    public function updateCaptions(Request $request, Property $property): JsonResponse
+    {
+        $data = $request->validate([
+            'expose_claim'          => ['nullable', 'string', 'max:200'],
+            'expose_captions_pool'  => ['nullable', 'string', 'max:4000'],
+        ]);
+
+        $property->forceFill([
+            'expose_claim'         => $data['expose_claim'] ?? null,
+            'expose_captions_pool' => $data['expose_captions_pool'] ?? null,
+        ])->save();
+
+        return response()->json(['success' => true]);
+    }
+
     /** HTML-Preview der aktiven Version (oder einer bestimmten). */
     public function preview(Request $request, Property $property): Response
     {

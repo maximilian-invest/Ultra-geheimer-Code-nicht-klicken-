@@ -53,6 +53,7 @@
                 {!! $row('Objektart', $p->object_type) !!}
                 {!! $row('Zimmer', $rooms) !!}
                 {!! $row('Baujahr', $p->construction_year) !!}
+                {!! $row('Letzte Kernsanierung', $p->last_renovation_note) !!}
                 {!! $row('Wohnfläche', $fmtArea($p->living_area)) !!}
                 {!! $row('Grundstück', $fmtArea($p->realty_area)) !!}
                 {!! $row('Verfügbar ab', $p->available_from?->format('d.m.Y') ?: $p->available_text ?: null) !!}

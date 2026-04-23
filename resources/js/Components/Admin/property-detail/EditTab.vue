@@ -83,7 +83,7 @@ const form = reactive({
   energy_certificate: "", heating_demand_value: null, energy_type: "",
   heating_demand_class: "", energy_efficiency_value: null,
   energy_primary_source: "", energy_valid_until: null,
-  construction_year: null, year_renovated: null, heating: "",
+  construction_year: null, year_renovated: null, last_renovation_note: "", heating: "",
   condition_note: "", realty_condition: "", quality: "",
   flooring: "", bathroom_equipment: "", kitchen_type: "",
   furnishing: "", orientation: "", noise_level: "",
@@ -103,6 +103,7 @@ const form = reactive({
   is_featured: false, featured_order: null, badge: "",
   garage_spaces: null, parking_spaces: null, parking_type: "",
   highlights: "",
+  expose_claim: "", expose_captions_pool: "",
   realty_description: "", location_description: "", equipment_description: "", other_description: "",
   broker_id: null,
   commission_percent: null, commission_note: "", commission_total: null,
@@ -1054,6 +1055,10 @@ defineExpose({ save, discard });
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Sanierungsjahr <FieldExportBadges field="year_renovated" /></label>
             <Input v-model="form.year_renovated" type="number" class="h-8 text-[13px] bg-zinc-100/80 border-transparent hover:border-border focus:border-border" />
+          </div>
+          <div class="col-span-2">
+            <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Letzte Kernsanierung <FieldExportBadges field="last_renovation_note" /></label>
+            <textarea v-model="form.last_renovation_note" rows="2" placeholder="z.B. Umfassender Zubau 1997 inkl. Komplettsanierung." class="w-full px-3 py-1.5 text-[13px] bg-zinc-100/80 border border-transparent hover:border-border focus:border-border rounded-md resize-none focus:outline-none" />
           </div>
           <div>
             <label class="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1">Kueche <FieldExportBadges field="kitchen_type" /></label>

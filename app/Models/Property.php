@@ -42,7 +42,7 @@ class Property extends Model
         'energy_efficiency_value', 'energy_primary_source', 'energy_valid_until',
 
         // Condition & Equipment
-        'construction_year', 'year_renovated', 'heating', 'condition_note',
+        'construction_year', 'year_renovated', 'last_renovation_note', 'heating', 'condition_note',
         'realty_condition', 'quality', 'flooring', 'bathroom_equipment',
         'kitchen_type', 'furnishing', 'orientation', 'noise_level',
 
@@ -61,7 +61,7 @@ class Property extends Model
 
         // Descriptions
         'realty_description', 'location_description', 'equipment_description',
-        'other_description', 'highlights', 'expose_claim',
+        'other_description', 'highlights', 'expose_claim', 'expose_captions_pool',
 
         // Commission
         'commission_percent', 'commission_note', 'commission_total',

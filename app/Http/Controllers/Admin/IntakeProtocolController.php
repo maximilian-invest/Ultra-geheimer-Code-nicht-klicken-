@@ -215,20 +215,42 @@ class IntakeProtocolController extends Controller
                 // von zuhause aus bearbeiten kann, nicht mehr vor Ort.
                 $emailService = app(\App\Services\IntakeProtocolEmailService::class);
 
+                // WICHTIG: Mail-Fehler duerfen die Transaction nie ausrollen.
+                // PDF + Signatur + Property anzulegen hat Prioritaet. Wenn die
+                // Portal-Mail scheitert (SMTP-Auth fehlt etc.), loggen wir und
+                // machen trotzdem weiter. Der Makler kann die Portal-Zuweisung
+                // spaeter manuell aus der Property-Detail-Seite neu triggern.
+                $mailWarnings = [];
                 if ($portalAccessGranted && $initialPassword && !empty($ownerData['email'])) {
-                    $emailService->sendPortalAccess(
-                        owner: $ownerData,
-                        loginEmail: $ownerData['email'],
-                        initialPassword: $initialPassword,
-                        broker: ['name' => $broker->name, 'email' => $broker->email],
-                    );
-                    $protocol->update(['portal_email_sent_at' => now()]);
+                    try {
+                        $emailService->sendPortalAccess(
+                            owner: $ownerData,
+                            loginEmail: $ownerData['email'],
+                            initialPassword: $initialPassword,
+                            broker: ['name' => $broker->name, 'email' => $broker->email],
+                        );
+                        $protocol->update(['portal_email_sent_at' => now()]);
+                    } catch (\Throwable $e) {
+                        \Log::warning('intake_protocol_submit: portal mail failed — continuing submit', [
+                            'error' => $e->getMessage(),
+                            'protocol_id' => $protocol->id,
+                        ]);
+                        $mailWarnings[] = 'Portal-Zugangsdaten konnten nicht versendet werden: ' . $e->getMessage();
+                    }
                 }
 
-                // Vermittlungsauftrag-PDF vorhalten falls spaeter noetig (bei Missing-Docs)
+                // Vermittlungsauftrag-PDF vorhalten falls spaeter noetig (bei Missing-Docs).
+                // Auch hier try-catch: ein PDF-Fehler darf nicht den Submit killen.
                 $missingDocs = $this->computeMissingDocs($form['documents_available'] ?? []);
                 if (count($missingDocs) > 0) {
-                    $this->generateVermittlungsauftrag($property, $ownerData, $broker);
+                    try {
+                        $this->generateVermittlungsauftrag($property, $ownerData, $broker);
+                    } catch (\Throwable $e) {
+                        \Log::warning('intake_protocol_submit: vermittlungsauftrag PDF failed — continuing', [
+                            'error' => $e->getMessage(),
+                            'protocol_id' => $protocol->id,
+                        ]);
+                    }
                 }
                 // owner_email_sent_at bleibt bewusst null — Banner auf Property-Detail
                 // triggert dann den MailComposer-Dialog.
@@ -240,7 +262,11 @@ class IntakeProtocolController extends Controller
                         ->delete();
                 }
 
-                return ['property_id' => $property->id, 'protocol_id' => $protocol->id];
+                return [
+                    'property_id' => $property->id,
+                    'protocol_id' => $protocol->id,
+                    'mail_warnings' => $mailWarnings,
+                ];
             });
 
             return response()->json(['success' => true] + $result);

@@ -24,8 +24,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { WifiOff } from 'lucide-vue-next';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { WifiOff, AlertCircle } from 'lucide-vue-next';
 
 const props = defineProps({
   // Wenn gesetzt, wird dieser Draft vom Server geladen (z.B. aus Draft-Liste).
@@ -175,26 +175,53 @@ async function saveAndClose() {
   emit('close');
 }
 
+const submitting = ref(false);
+const submitError = ref('');
+
 async function submit() {
-  const r = await fetch(API.value + '&action=intake_protocol_submit', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify({
-      form_data: { ...form, draft_key: draftKey.value },
-      signature_data_url: form.signature_data_url,
-      signed_by_name: form.signed_by_name,
-      disclaimer_text: DISCLAIMER_TEXT,
-    }),
-  });
-  const d = await r.json();
-  if (d.success) {
-    toast('Aufnahmeprotokoll erfolgreich angelegt!');
-    clearLocal();
-    finishAndCleanup();
-    stopRetry();
-    emit('submitted', { property_id: d.property_id, protocol_id: d.protocol_id });
-  } else {
-    toast('Fehler: ' + (d.error || 'Unbekannt'));
+  if (submitting.value) return;
+  submitting.value = true;
+  submitError.value = '';
+
+  try {
+    const r = await fetch(API.value + '&action=intake_protocol_submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        form_data: { ...form, draft_key: draftKey.value },
+        signature_data_url: form.signature_data_url,
+        signed_by_name: form.signed_by_name,
+        disclaimer_text: DISCLAIMER_TEXT,
+      }),
+    });
+
+    const txt = await r.text();
+    let d;
+    try {
+      d = JSON.parse(txt);
+    } catch {
+      submitError.value = `Server antwortete nicht mit JSON (${r.status}). Antwort: ${txt.slice(0, 200)}`;
+      return;
+    }
+
+    if (d.success) {
+      const warnings = d.mail_warnings || [];
+      if (warnings.length > 0) {
+        toast('Protokoll angelegt — aber: ' + warnings.join('; '));
+      } else {
+        toast('Aufnahmeprotokoll erfolgreich angelegt!');
+      }
+      clearLocal();
+      finishAndCleanup();
+      stopRetry();
+      emit('submitted', { property_id: d.property_id, protocol_id: d.protocol_id });
+    } else {
+      submitError.value = d.error || `Unbekannter Fehler (Status ${r.status})`;
+    }
+  } catch (e) {
+    submitError.value = 'Netzwerk-Fehler: ' + (e?.message || String(e));
+  } finally {
+    submitting.value = false;
   }
 }
 
@@ -283,10 +310,22 @@ const resumeDialogOpen = computed({
 
     <!-- BOTTOM: Navigation (kein Scroll, auf iOS safe-area Respekt) -->
     <div class="shrink-0">
+      <!-- Submit-Error: Server-Antwort sichtbar bevor der StepNav-Button kommt -->
+      <Alert v-if="submitError" variant="destructive" class="rounded-none border-x-0">
+        <AlertCircle class="size-4" />
+        <AlertTitle>Absenden fehlgeschlagen</AlertTitle>
+        <AlertDescription class="text-xs">
+          {{ submitError }}
+          <div class="mt-2 text-[11px] opacity-80">
+            Deine Eingaben sind weiterhin gespeichert. Tippe erneut auf „Absenden" oder „Speichern & später" um den Entwurf zu sichern.
+          </div>
+        </AlertDescription>
+      </Alert>
       <StepNavigation
         :current-step="currentStep"
         :total-steps="TOTAL_STEPS"
-        :next-disabled="nextDisabled"
+        :next-disabled="nextDisabled || submitting"
+        :submitting="submitting"
         @prev="goPrev"
         @next="goNext"
       />

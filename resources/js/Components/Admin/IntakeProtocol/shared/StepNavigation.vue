@@ -1,12 +1,13 @@
 <script setup>
 import { computed } from 'vue';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, ChevronLeft, Check } from 'lucide-vue-next';
+import { ChevronRight, ChevronLeft, Check, Loader2 } from 'lucide-vue-next';
 
 const props = defineProps({
   currentStep: { type: Number, required: true },
   totalSteps: { type: Number, required: true },
   nextDisabled: { type: Boolean, default: false },
+  submitting: { type: Boolean, default: false },
   submitLabel: { type: String, default: 'Weiter' },
 });
 defineEmits(['prev', 'next']);
@@ -39,9 +40,11 @@ const isLast = computed(() => props.currentStep === props.totalSteps);
       :disabled="nextDisabled"
       @click="$emit('next')"
     >
-      <Check v-if="isLast" class="mr-1 size-4" />
-      {{ isLast ? 'Absenden' : submitLabel }}
-      <ChevronRight v-if="!isLast" class="ml-1 size-4" />
+      <Loader2 v-if="submitting" class="mr-1 size-4 animate-spin" />
+      <Check v-else-if="isLast" class="mr-1 size-4" />
+      <span v-if="submitting && isLast">Wird gesendet…</span>
+      <span v-else>{{ isLast ? 'Absenden' : submitLabel }}</span>
+      <ChevronRight v-if="!isLast && !submitting" class="ml-1 size-4" />
     </Button>
   </div>
 </template>

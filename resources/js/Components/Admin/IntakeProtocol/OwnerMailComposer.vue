@@ -107,7 +107,11 @@ onMounted(() => load());
 
 <template>
   <Dialog :open="open" @update:open="handleOpenChange">
-    <DialogContent class="sm:max-w-2xl">
+    <DialogContent
+      class="sm:max-w-2xl"
+      @pointer-down-outside.prevent
+      @interact-outside.prevent
+    >
       <DialogHeader>
         <DialogTitle>
           {{ isResend ? 'E-Mail erneut senden' : 'E-Mail an Eigentümer' }}

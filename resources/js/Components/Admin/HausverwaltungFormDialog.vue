@@ -64,7 +64,11 @@ function onSubmit() {
 
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="sm:max-w-lg">
+    <DialogContent
+      class="sm:max-w-lg"
+      @pointer-down-outside.prevent
+      @interact-outside.prevent
+    >
       <DialogHeader>
         <DialogTitle>{{ isEditing() ? 'Hausverwaltung bearbeiten' : 'Neue Hausverwaltung' }}</DialogTitle>
         <DialogDescription>

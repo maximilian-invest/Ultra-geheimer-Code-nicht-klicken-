@@ -366,7 +366,7 @@ onMounted(loadConfig);
               </button>
             </div>
             <div v-if="(page.image_ids?.length || 0) < (layoutByKey(page.layout)?.maxImages || 0)"
-                 class="w-16 h-16 rounded border-2 border-dashed border-border flex items-center justify-center text-muted-foreground">
+                 class="w-16 h-16 rounded border border-dashed border-zinc-200 flex items-center justify-center text-muted-foreground">
               <Plus class="w-5 h-5" />
             </div>
           </div>

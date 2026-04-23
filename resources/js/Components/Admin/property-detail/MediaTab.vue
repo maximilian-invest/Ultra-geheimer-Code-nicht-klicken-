@@ -202,10 +202,10 @@ onMounted(() => {
           @dragleave="dragOver = false"
           @click="imageInput.click()"
           :class="[
-            'border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer select-none',
+            'border border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer select-none',
             dragOver
-              ? 'border-zinc-800 bg-zinc-50'
-              : 'border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50/50'
+              ? 'border-orange-400 bg-orange-50/60'
+              : 'border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50/50'
           ]">
           <input
             ref="imageInput"

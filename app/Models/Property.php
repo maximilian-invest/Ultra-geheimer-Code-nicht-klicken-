@@ -84,6 +84,7 @@ class Property extends Model
         'realty_status', 'platforms', 'inserat_since',
         'on_hold', 'on_hold_note', 'on_hold_since',
         'is_published', 'published_at',
+        'is_featured', 'featured_order', 'badge',
 
         // Files
         'expose_path', 'nebenkosten_path', 'last_expose_parsed_at',
@@ -153,6 +154,7 @@ class Property extends Model
             // Existing booleans
             'on_hold' => 'boolean',
             'is_published' => 'boolean',
+            'is_featured' => 'boolean',
             'plot_buildable' => 'boolean',
             'plot_developed' => 'boolean',
             'has_basement' => 'boolean',

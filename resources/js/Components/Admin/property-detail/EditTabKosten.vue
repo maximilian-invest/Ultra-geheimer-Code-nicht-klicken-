@@ -148,11 +148,11 @@ const sectionCounts = computed(() => {
       <AccordionSection title="Provision Intern" color="#8b5cf6" :default-open="true" :filled="sectionCounts.provIntern.filled" :total="sectionCounts.provIntern.total">
         <div>
           <label :class="labelCls">Provision % <FieldExportBadges field="commission_percent" /></label>
-          <Input v-model="form.commission_percent" type="number" :class="inputCls" />
+          <Input v-model="form.commission_percent" type="number" step="0.01" inputmode="decimal" placeholder="z.B. 3,25" :class="inputCls" />
         </div>
         <div>
           <label :class="labelCls">Provision EUR <FieldExportBadges field="commission_total" /></label>
-          <Input v-model="form.commission_total" type="number" :class="inputCls" />
+          <Input v-model="form.commission_total" type="number" step="0.01" inputmode="decimal" :class="inputCls" />
         </div>
         <div class="col-span-2">
           <label :class="labelCls">Provisionsnotiz <FieldExportBadges field="commission_note" /></label>

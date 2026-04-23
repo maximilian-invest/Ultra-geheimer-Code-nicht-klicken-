@@ -62,6 +62,7 @@ const features = [
   { key: "has_fireplace", label: "Kamin" },
   { key: "has_storage_room", label: "Abstellraum" },
   { key: "has_washing_connection", label: "Waschmaschinenanschluss" },
+  { key: "has_wohnraumlueftung", label: "Wohnraumlüftung" },
 ];
 
 // ─── Form reactive with ALL property fields ───
@@ -98,6 +99,8 @@ const form = reactive({
   has_wohnraumlueftung: false,
   has_dachterrasse: false, area_dachterrasse: null, dachterrasse_count: null,
   common_areas: "",
+  // Marketing / Highlight
+  is_featured: false, featured_order: null, badge: "",
   garage_spaces: null, parking_spaces: null, parking_type: "",
   highlights: "",
   realty_description: "", location_description: "", equipment_description: "", other_description: "",

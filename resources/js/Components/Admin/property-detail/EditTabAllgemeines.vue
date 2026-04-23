@@ -417,6 +417,65 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         </div>
       </AccordionSection>
 
+      <!-- Marketing / Hervorhebung -->
+      <AccordionSection title="Marketing & Hervorhebung" color="#EE7600" :default-open="false">
+        <!-- Featured-Toggle -->
+        <div class="col-span-2 flex items-start gap-3 py-2">
+          <input
+            type="checkbox"
+            id="is_featured_checkbox"
+            :checked="!!form.is_featured"
+            @change="form.is_featured = $event.target.checked ? 1 : 0"
+            class="mt-0.5 w-4 h-4 accent-[#EE7600] cursor-pointer"
+          />
+          <label for="is_featured_checkbox" class="flex-1 cursor-pointer">
+            <div class="text-[13px] font-medium text-foreground">Als „Featured" markieren</div>
+            <div class="text-[11px] text-muted-foreground mt-0.5">
+              Featured-Objekte erscheinen auf der Startseite im Hero-/Featured-Bereich.
+            </div>
+          </label>
+        </div>
+
+        <!-- Sortierungs-Reihenfolge (nur sichtbar wenn Featured) -->
+        <div v-if="form.is_featured" class="col-span-2">
+          <label :class="labelCls">Sortierung auf Startseite (niedriger = weiter vorne)</label>
+          <Input v-model.number="form.featured_order" type="number" step="1" min="0" inputmode="numeric"
+                 placeholder="z.B. 1 = ganz oben, leer = unsortiert" :class="inputCls" />
+        </div>
+
+        <!-- Badge-Label -->
+        <div class="col-span-2">
+          <label :class="labelCls">Badge auf Card (Overlay-Label)</label>
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              v-for="b in [
+                { value: '', label: 'Kein Badge' },
+                { value: 'NEU', label: 'NEU' },
+                { value: 'EXKLUSIV', label: 'EXKLUSIV' },
+                { value: 'REDUZIERT', label: 'REDUZIERT' },
+                { value: 'TOP', label: 'TOP' },
+                { value: 'DEMNÄCHST', label: 'DEMNÄCHST' },
+              ]"
+              :key="b.value"
+              type="button"
+              @click="form.badge = b.value"
+              :class="[
+                'px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all',
+                (form.badge || '') === b.value
+                  ? 'bg-orange-500 text-white border-transparent shadow-md shadow-orange-500/40'
+                  : 'bg-card border-border text-foreground shadow-sm hover:shadow'
+              ]"
+            >
+              {{ b.label }}
+            </button>
+          </div>
+          <p class="text-[10px] text-muted-foreground mt-1">
+            Das Badge wird auf der Website-Card als Label überlagert. Freitext im Input möglich, oder einen der Presets wählen.
+          </p>
+          <Input v-model="form.badge" :class="inputCls" placeholder="z.B. VERKAUFT BALD" maxlength="30" />
+        </div>
+      </AccordionSection>
+
       <!-- Ausstattung & Merkmale — jetzt unter Flächen & Ausstattung -->
     </div>
   </div>

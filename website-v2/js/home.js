@@ -76,10 +76,13 @@
   const props = allProps.filter(p => p.realty_status !== 'verkauft');
   if (countLabel) countLabel.textContent = `Alle ${props.length} Objekte`;
 
-  /* ─── Featured Cards (first 3 large, rest as regular cards) ─── */
+  /* ─── Featured Cards: Admin hat is_featured=1 + featured_order gesetzt.
+         Wenn keine Featured markiert sind, fallback = neueste 5. ─── */
+  const explicitlyFeatured = props.filter(p => p.is_featured);
   const maxFeatured = 5;
-  const featured = props.slice(0, Math.min(3, maxFeatured));
-  const rest = props.slice(3, maxFeatured);
+  const source = explicitlyFeatured.length > 0 ? explicitlyFeatured : props;
+  const featured = source.slice(0, Math.min(3, maxFeatured));
+  const rest = source.slice(3, maxFeatured);
 
   let html = '';
 
@@ -191,7 +194,8 @@
       <a href="/objekt.html?id=${p.id}" class="cursor-pointer group relative overflow-hidden rounded-3xl block" style="height:${h}px;background:#fff">
         <img src="${esc(img)}" alt="${esc(p.title)}" loading="${idx === 0 ? 'eager' : 'lazy'}" decoding="async" fetchpriority="${idx === 0 ? 'high' : 'auto'}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-105" />
         <div class="absolute inset-0" style="background:linear-gradient(to top,rgba(0,0,0,0.8) 0%,rgba(0,0,0,0.1) 50%,transparent 100%)"></div>
-        <div class="absolute top-5 left-5 flex gap-2">
+        <div class="absolute top-5 left-5 flex gap-2 flex-wrap">
+          ${p.badge ? `<span class="px-4 py-2 rounded-full text-xs font-bold tracking-widest uppercase text-white" style="background:#D4743B;box-shadow:0 4px 14px rgba(212,116,59,0.45)">${esc(p.badge)}</span>` : ''}
           <span class="px-4 py-2 rounded-full text-xs font-bold tracking-widest uppercase text-white" style="background:rgba(0,0,0,0.4);backdrop-filter:blur(12px)">${esc(p.type)}</span>
           ${p.units_total ? `<span class="px-4 py-2 rounded-full text-xs font-bold text-white" style="background:#D4743B">${p.units_free || p.units_total} Einheiten frei</span>` : ''}
         </div>
@@ -221,7 +225,8 @@
         <div class="card-img relative">
           <img src="${esc(img)}" alt="${esc(p.title)}" loading="lazy" decoding="async" class="w-full h-full object-cover" />
           <div class="absolute inset-0" style="background:linear-gradient(to top,rgba(0,0,0,0.5) 0%,transparent 50%)"></div>
-          <div class="absolute top-4 left-4 flex gap-2">
+          <div class="absolute top-4 left-4 flex gap-2 flex-wrap">
+            ${p.badge ? `<span class="px-3 py-1.5 rounded-full text-xs font-bold tracking-wider uppercase text-white" style="background:#D4743B;box-shadow:0 4px 12px rgba(212,116,59,0.4)">${esc(p.badge)}</span>` : ''}
             <span class="px-3 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase text-white" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(12px)">${esc(p.type)}</span>
             ${p.units_total ? `<span class="px-3 py-1.5 rounded-full text-xs font-semibold text-white" style="background:#D4743B">${p.units_free || p.units_total} Einheiten frei</span>` : ''}
           </div>

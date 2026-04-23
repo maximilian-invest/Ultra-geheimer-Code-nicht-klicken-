@@ -97,9 +97,11 @@ class WebsiteApiController extends Controller
                     'buyer_commission_percent', 'commission_makler', 'buyer_commission_text', 'buyer_commission_free',
                     'land_transfer_tax_pct', 'land_register_fee_pct', 'mortgage_register_fee_pct', 'contract_fee_pct',
                     'nebenkosten_note', 'show_nebenkosten_on_website',
+                    // Marketing / Hervorhebung
+                    'is_featured', 'featured_order', 'badge',
                     'external_image_url'
                 ])
-                ->orderBy('id', 'desc')
+                ->orderByRaw('is_featured DESC, featured_order IS NULL, featured_order ASC, id DESC')
                 ->get();
 
             // Aufnahmeprotokoll: interne Felder duerfen NIE auf die Website

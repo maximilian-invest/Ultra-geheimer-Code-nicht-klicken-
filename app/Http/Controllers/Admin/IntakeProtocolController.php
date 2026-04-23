@@ -388,19 +388,87 @@ class IntakeProtocolController extends Controller
             $props['property_history'] = json_encode($props['property_history'], JSON_UNESCAPED_UNICODE);
         }
 
-        // Array-Felder, die ohne Cast als String in die DB muessen — sonst
-        // kracht der Insert mit "Array to string conversion".
-        // common_areas: ist im Model NICHT als 'array' gecastet (aus Kompat-Gruenden
-        // mit Legacy-Freitext-Werten), deshalb hier manuell JSON-encoden.
-        // documents_available: Property-Model cast'et als 'array' → Laravel erledigt's,
-        // aber wir senden vorsorglich einen sauberen Wert.
-        foreach (['common_areas', 'flooring', 'bathroom_equipment', 'heating'] as $jsonField) {
-            if (isset($props[$jsonField]) && is_array($props[$jsonField])) {
-                $props[$jsonField] = json_encode($props[$jsonField], JSON_UNESCAPED_UNICODE);
-            }
+        // Multi-Select-Felder (common_areas / flooring / bathroom_equipment /
+        // heating) muessen als KOMMASEPARIERTER Freitext gespeichert werden —
+        // das ist die historische DB-Konvention (siehe andere Properties).
+        // Der Wizard liefert je nach Komponente Array, JSON-String oder
+        // Komma-String — alle Formen werden hier auf "Wert, Wert, Wert"
+        // normalisiert, damit EditTab die Werte als lesbarer Text anzeigt
+        // statt als roher JSON-Dump wie ["Heizkörper"].
+        foreach (['common_areas', 'flooring', 'bathroom_equipment', 'heating'] as $field) {
+            if (!isset($props[$field])) continue;
+            $props[$field] = $this->normalizeMultiSelectToCsv($props[$field]);
+        }
+
+        // Himmelsrichtung: Wizard nutzt Codes (N/NO/O/SO/S/SW/W/NW), DB-
+        // Konvention ist Klartext. Ohne Mapping waere die Overview-Anzeige
+        // kryptisch ("SO" statt "Süd-Ost").
+        if (isset($props['orientation']) && $props['orientation'] !== '' && $props['orientation'] !== null) {
+            $props['orientation'] = $this->mapOrientationCode((string) $props['orientation']);
         }
 
         return new \App\Models\Property($props);
+    }
+
+    /**
+     * Normalisiert Multi-Select-Eingabe (Array | JSON-String | Komma-String
+     * | Freitext) auf die historische DB-Form: "Wert, Wert, Wert".
+     */
+    private function normalizeMultiSelectToCsv(mixed $value): ?string
+    {
+        if ($value === null || $value === '') return null;
+
+        // Array direkt verwenden.
+        if (is_array($value)) {
+            $items = $value;
+        } else {
+            $str = trim((string) $value);
+            if ($str === '') return null;
+
+            // JSON-Array probieren ("[\"a\",\"b\"]" etc.).
+            if ($str !== '' && ($str[0] === '[' || $str[0] === '{')) {
+                $decoded = json_decode($str, true);
+                if (is_array($decoded)) {
+                    $items = $decoded;
+                } else {
+                    // Kein gueltiges JSON → als Freitext behandeln.
+                    return $str;
+                }
+            } else {
+                // Schon Komma-Freitext: unveraendert lassen.
+                return $str;
+            }
+        }
+
+        // Array -> sauberer Komma-String.
+        $clean = [];
+        foreach ($items as $v) {
+            if (is_scalar($v)) {
+                $t = trim((string) $v);
+                if ($t !== '') $clean[] = $t;
+            }
+        }
+        return $clean === [] ? null : implode(', ', $clean);
+    }
+
+    /**
+     * Mappt Wizard-Himmelsrichtungscodes auf die menschenlesbare DB-Form.
+     * Unbekannte / bereits ausgeschriebene Werte gehen unveraendert durch.
+     */
+    private function mapOrientationCode(string $code): string
+    {
+        static $map = [
+            'N'  => 'Nord',
+            'NO' => 'Nord-Ost',
+            'O'  => 'Ost',
+            'SO' => 'Süd-Ost',
+            'S'  => 'Süd',
+            'SW' => 'Süd-West',
+            'W'  => 'West',
+            'NW' => 'Nord-West',
+        ];
+        $upper = strtoupper(trim($code));
+        return $map[$upper] ?? $code;
     }
 
     private function storeSignature(int $propertyId, string $dataUrl): string

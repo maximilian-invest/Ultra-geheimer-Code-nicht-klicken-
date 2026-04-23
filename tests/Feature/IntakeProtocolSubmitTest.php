@@ -121,6 +121,49 @@ class IntakeProtocolSubmitTest extends TestCase
         Mail::assertSent(PortalAccessMail::class, fn($m) => $m->hasTo('portal@test.at'));
     }
 
+    public function test_multi_select_fields_are_stored_as_readable_csv_not_json(): void
+    {
+        // Der Wizard liefert verschiedene Formen (Array, JSON-String, Freitext)
+        // fuer Multi-Select-Felder. Historisch speichert die DB kommaseparierten
+        // Freitext — roher JSON-Dump wie ["Heizkörper"] darf NICHT in der DB
+        // landen, weil EditTab ihn 1:1 als Text anzeigen wuerde.
+        Mail::fake();
+        Storage::fake('local');
+
+        $user = User::factory()->create(['user_type' => 'makler']);
+        $this->actingAs($user);
+
+        $this->postJson('/api/admin_api.php?action=intake_protocol_submit', [
+            'form_data' => [
+                'object_type' => 'Wohnung', 'marketing_type' => 'kauf',
+                'address' => 'CSV-Str', 'house_number' => '7',
+                'zip' => '5020', 'city' => 'Salzburg',
+                'owner' => ['name' => 'M', 'email' => 'm@test.at'],
+                'portal_access_granted' => false,
+                // Array, JSON-String und Komma-Freitext — alle drei Formen testen.
+                'heating'           => ['Heizkörper'],
+                'flooring'          => '["Teppich","Natursteinboden"]',
+                'bathroom_equipment' => 'Gäste-WC, Dusche',
+                'common_areas'      => ['fahrradraum', 'kinderwagenraum'],
+                'orientation'       => 'SO',
+                'documents_available' => [],
+                'approvals_status'  => 'complete',
+                'broker_notes'      => '',
+            ],
+            'signature_data_url' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+            'signed_by_name' => 'M',
+            'disclaimer_text' => 'D',
+        ])->assertStatus(200);
+
+        $property = Property::where('address', 'CSV-Str')->first();
+        $this->assertNotNull($property);
+        $this->assertEquals('Heizkörper', $property->heating);
+        $this->assertEquals('Teppich, Natursteinboden', $property->flooring);
+        $this->assertEquals('Gäste-WC, Dusche', $property->bathroom_equipment);
+        $this->assertEquals('fahrradraum, kinderwagenraum', $property->common_areas);
+        $this->assertEquals('Süd-Ost', $property->orientation);
+    }
+
     public function test_photos_in_submit_are_stored_as_property_files(): void
     {
         Storage::fake('public');

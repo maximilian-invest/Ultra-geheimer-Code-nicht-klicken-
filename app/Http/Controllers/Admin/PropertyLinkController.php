@@ -159,6 +159,11 @@ class PropertyLinkController extends Controller
             'expires_at' => ['nullable', 'date'],
             'file_ids' => ['required', 'array', 'min:1'],
             'file_ids.*' => ['required'],
+            'expose_version_id' => [
+                'nullable', 'integer',
+                \Illuminate\Validation\Rule::exists('property_expose_versions', 'id')
+                    ->where('property_id', $property->id),
+            ],
         ]);
 
         $validFileIds = $this->resolveFileIds($property, $data['file_ids']);
@@ -179,6 +184,16 @@ class PropertyLinkController extends Controller
                     'property_file_id' => $fileId,
                     'sort_order' => $sort,
                     'created_at' => now(),
+                ]);
+            }
+
+            if (!empty($data['expose_version_id'])) {
+                DB::table('property_link_documents')->insert([
+                    'property_link_id'  => $link->id,
+                    'property_file_id'  => null,
+                    'expose_version_id' => $data['expose_version_id'],
+                    'sort_order'        => count($validFileIds),
+                    'created_at'        => now(),
                 ]);
             }
 
@@ -228,6 +243,21 @@ class PropertyLinkController extends Controller
             ])
             ->values();
 
+        $activeExpose = \App\Models\PropertyExposeVersion::where('property_id', $property->id)
+            ->where('is_active', true)
+            ->first();
+
+        $activeExposeInfo = $activeExpose ? [
+            'version_id' => $activeExpose->id,
+            'name'       => $activeExpose->name,
+            'page_count' => count($activeExpose->config_json['pages'] ?? []),
+            'updated_at' => $activeExpose->updated_at?->toIso8601String(),
+            'attached_to_link' => DB::table('property_link_documents')
+                ->where('property_link_id', $link->id)
+                ->where('expose_version_id', $activeExpose->id)
+                ->exists(),
+        ] : null;
+
         $payload = [
             'property' => [
                 'id' => $property->id,
@@ -237,6 +267,7 @@ class PropertyLinkController extends Controller
             'link' => $this->serialize($link),
             'sessions' => $sessions,
             'allFiles' => $allFiles,
+            'activeExpose' => $activeExposeInfo,
         ];
 
         if ($request->wantsJson()) {
@@ -256,6 +287,11 @@ class PropertyLinkController extends Controller
             'expires_at' => ['nullable', 'date'],
             'file_ids' => ['required', 'array', 'min:1'],
             'file_ids.*' => ['required'],
+            'expose_version_id' => [
+                'nullable', 'integer',
+                \Illuminate\Validation\Rule::exists('property_expose_versions', 'id')
+                    ->where('property_id', $property->id),
+            ],
         ]);
 
         $validFileIds = $this->resolveFileIds($property, $data['file_ids']);
@@ -273,6 +309,16 @@ class PropertyLinkController extends Controller
                     'property_file_id' => $fileId,
                     'sort_order' => $sort,
                     'created_at' => now(),
+                ]);
+            }
+
+            if (!empty($data['expose_version_id'])) {
+                DB::table('property_link_documents')->insert([
+                    'property_link_id'  => $link->id,
+                    'property_file_id'  => null,
+                    'expose_version_id' => $data['expose_version_id'],
+                    'sort_order'        => count($validFileIds),
+                    'created_at'        => now(),
                 ]);
             }
 

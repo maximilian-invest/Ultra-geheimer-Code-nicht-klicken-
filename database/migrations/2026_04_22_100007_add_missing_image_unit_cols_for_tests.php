@@ -21,6 +21,9 @@ return new class extends Migration
                 if (!Schema::hasColumn('property_images', 'is_public')) {
                     $table->boolean('is_public')->default(true);
                 }
+                if (!Schema::hasColumn('property_images', 'is_floorplan')) {
+                    $table->boolean('is_floorplan')->default(false);
+                }
                 if (!Schema::hasColumn('property_images', 'category')) {
                     $table->string('category', 100)->nullable();
                 }

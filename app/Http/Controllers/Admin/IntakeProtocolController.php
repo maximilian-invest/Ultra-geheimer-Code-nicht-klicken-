@@ -37,6 +37,79 @@ class IntakeProtocolController extends Controller
         ]);
     }
 
+    /**
+     * Liste aller offenen Aufnahmeprotokoll-Entwuerfe des eingeloggten Maklers.
+     * Wird fuer den „Offene Entwuerfe"-Dialog in der Objekt-Uebersicht verwendet.
+     */
+    public function draftList(Request $request): JsonResponse
+    {
+        $userId = (int) \Auth::id();
+        $drafts = IntakeProtocolDraft::where('broker_id', $userId)
+            ->orderByDesc('last_saved_at')
+            ->get();
+
+        $out = [];
+        foreach ($drafts as $d) {
+            $form = is_string($d->form_data) ? json_decode($d->form_data, true) : $d->form_data;
+            if (!is_array($form)) $form = [];
+
+            // Readable summary aus dem Form-Snapshot
+            $ownerName = trim((string) ($form['owner']['name'] ?? ''));
+            $address   = trim((string) ($form['address'] ?? ''));
+            $houseNr   = trim((string) ($form['house_number'] ?? ''));
+            $city      = trim((string) ($form['city'] ?? ''));
+            $objType   = trim((string) ($form['object_type'] ?? ''));
+            $subType   = trim((string) ($form['object_subtype'] ?? ''));
+
+            // Titel-Zusammenbau: bevorzugt Adresse, fallback Objekttyp + Eigentuemer
+            $title = '';
+            if ($address !== '') {
+                $title = trim($address . ' ' . $houseNr . ($city ? ', ' . $city : ''));
+            } elseif ($ownerName !== '') {
+                $title = $ownerName . ($objType ? ' · ' . $objType : '');
+            } elseif ($objType !== '') {
+                $title = $objType . ($subType ? ' · ' . $subType : '');
+            } else {
+                $title = 'Unbenannter Entwurf';
+            }
+
+            $out[] = [
+                'id'             => $d->id,
+                'draft_key'      => $d->draft_key,
+                'title'          => $title,
+                'owner_name'     => $ownerName,
+                'object_type'    => $objType,
+                'object_subtype' => $subType,
+                'current_step'   => (int) $d->current_step,
+                'last_saved_at'  => $d->last_saved_at?->toIso8601String(),
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'drafts'  => $out,
+            'count'   => count($out),
+        ]);
+    }
+
+    /**
+     * Loescht einen einzelnen Draft. Nur der Besitzer kann seine eigenen
+     * Entwuerfe loeschen (via broker_id match).
+     */
+    public function draftDelete(Request $request): JsonResponse
+    {
+        $data = $request->json()->all();
+        $draftKey = trim((string) ($data['draft_key'] ?? ''));
+        if ($draftKey === '') return response()->json(['error' => 'draft_key required'], 400);
+
+        $userId = (int) \Auth::id();
+        $deleted = IntakeProtocolDraft::where('broker_id', $userId)
+            ->where('draft_key', $draftKey)
+            ->delete();
+
+        return response()->json(['success' => true, 'deleted' => $deleted]);
+    }
+
     public function draftLoad(Request $request): JsonResponse
     {
         $draftKey = $request->query('draft_key');

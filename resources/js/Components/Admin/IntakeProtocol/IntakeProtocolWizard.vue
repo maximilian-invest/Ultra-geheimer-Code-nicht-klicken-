@@ -27,12 +27,19 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { WifiOff } from 'lucide-vue-next';
 
+const props = defineProps({
+  // Wenn gesetzt, wird dieser Draft vom Server geladen (z.B. aus Draft-Liste).
+  // Sonst wird ein evtl. in localStorage liegender Key wiederverwendet.
+  initialDraftKey: { type: String, default: '' },
+});
 const emit = defineEmits(['close', 'submitted']);
 
 const API = inject('API');
 const toast = inject('toast', () => {});
 
-const { form, currentStep, draftKey, TOTAL_STEPS, markSkipped, unmarkSkipped, isSkipped, reset, finishAndCleanup } = useIntakeForm();
+const { form, currentStep, draftKey, TOTAL_STEPS, markSkipped, unmarkSkipped, isSkipped, reset, finishAndCleanup } = useIntakeForm({
+  draftKey: props.initialDraftKey || undefined,
+});
 const { saving, lastSaved, offline, stopRetry, clearLocal, loadLocal, saveRemote } = useAutoSave({
   form, currentStep, draftKey, apiUrl: API,
 });
@@ -41,7 +48,29 @@ const { saving, lastSaved, offline, stopRetry, clearLocal, loadLocal, saveRemote
 // draftKey existieren → zeige Banner mit „Weiter wo du aufgehört hast?"
 const resumePrompt = ref(null);  // { step, updatedAt } oder null
 
+async function loadDraftFromServer(draftKeyToLoad) {
+  try {
+    const r = await fetch(API.value + '&action=intake_protocol_draft_load&draft_key=' + encodeURIComponent(draftKeyToLoad));
+    const d = await r.json();
+    if (d.success && d.form_data) {
+      Object.assign(form, d.form_data);
+      currentStep.value = Math.max(1, Math.min(TOTAL_STEPS, d.current_step || 1));
+      toast('Entwurf geladen');
+    }
+  } catch (e) {
+    toast('Fehler beim Laden: ' + e.message);
+  }
+}
+
 onMounted(() => {
+  // Wenn ein konkreter Draft-Key von aussen vorgegeben wurde (z.B. aus der
+  // Drafts-Liste), laden wir diesen vom Server und ueberspringen den
+  // Resume-Prompt komplett.
+  if (props.initialDraftKey) {
+    loadDraftFromServer(props.initialDraftKey);
+    return;
+  }
+
   const saved = loadLocal();
   if (saved && saved.form && saved.currentStep) {
     // Nur anbieten wenn das Formular nicht komplett leer ist (also mehr als die Defaults)
@@ -138,6 +167,14 @@ function handleCancel() {
   emit('close');
 }
 
+// Explizites "Speichern & schliessen": erzwingt einen Server-Save (falls noch
+// nicht passiert ist) + schliesst den Wizard. Draft bleibt in der Liste.
+async function saveAndClose() {
+  await saveRemote();
+  toast('Entwurf gespeichert — du findest ihn unter „Offene Entwürfe"');
+  emit('close');
+}
+
 async function submit() {
   const r = await fetch(API.value + '&action=intake_protocol_submit', {
     method: 'POST',
@@ -220,6 +257,7 @@ const resumeDialogOpen = computed({
         :total-steps="TOTAL_STEPS"
         :title="STEP_TITLES[currentStep - 1]"
         @cancel="handleCancel"
+        @save-close="saveAndClose"
       />
       <Alert v-if="offline" variant="warning" class="rounded-none border-x-0 border-t-0">
         <WifiOff class="size-4" />

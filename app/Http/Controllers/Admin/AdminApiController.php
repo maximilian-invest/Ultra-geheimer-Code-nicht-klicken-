@@ -821,8 +821,10 @@ class AdminApiController extends Controller
             'geocode_autocomplete'      => $this->geocodeAutocomplete($request),
 
             // Aufnahmeprotokoll
-            'intake_protocol_draft_save' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->draftSave($request),
-            'intake_protocol_draft_load' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->draftLoad($request),
+            'intake_protocol_draft_save'   => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->draftSave($request),
+            'intake_protocol_draft_load'   => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->draftLoad($request),
+            'intake_protocol_draft_list'   => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->draftList($request),
+            'intake_protocol_draft_delete' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->draftDelete($request),
             'intake_protocol_submit' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->submit($request),
             'intake_protocol_preview_mail' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->previewMail($request),
             'intake_protocol_get_pdf' => app(\App\Http\Controllers\Admin\IntakeProtocolController::class)->getPdf($request),

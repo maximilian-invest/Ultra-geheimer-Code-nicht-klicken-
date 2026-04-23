@@ -1,9 +1,10 @@
 <script setup>
 import { catBadgeStyle, catLabel } from '@/utils/categoryBadge.js';
-import { ref, inject, computed, reactive, watch } from "vue";
+import { ref, inject, computed, reactive, watch, onMounted } from "vue";
 import { Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, LayoutList, LayoutGrid, ArrowUp, ArrowDown } from "lucide-vue-next";
 import PropertyDetailPage from '@/Components/Admin/PropertyDetailPage.vue';
 import IntakeProtocolWizard from '@/Components/Admin/IntakeProtocol/IntakeProtocolWizard.vue';
+import IntakeDraftsList from '@/Components/Admin/IntakeProtocol/IntakeDraftsList.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
@@ -243,6 +244,36 @@ const kbFileUploading = ref(false);
 
 const showGlobalFiles = ref(false);
 const showIntakeWizard = ref(false);
+const showIntakeDraftsList = ref(false);
+const intakeDraftCount = ref(0);
+const activeIntakeDraftKey = ref('');
+
+async function loadIntakeDraftCount() {
+  try {
+    const r = await fetch(API.value + '&action=intake_protocol_draft_list');
+    const d = await r.json();
+    if (d.success) intakeDraftCount.value = d.count || 0;
+  } catch {}
+}
+
+function openIntakeWizard() {
+  activeIntakeDraftKey.value = '';
+  showIntakeWizard.value = true;
+}
+
+function resumeIntakeDraft(draftKey) {
+  activeIntakeDraftKey.value = draftKey;
+  showIntakeWizard.value = true;
+}
+
+function onIntakeWizardClosed() {
+  showIntakeWizard.value = false;
+  activeIntakeDraftKey.value = '';
+  loadIntakeDraftCount();
+}
+
+// Beim Mount: Count initial laden, damit Badge passt
+onMounted(() => { loadIntakeDraftCount(); });
 const globalFiles = ref([]);
 const globalFilesLoaded = ref(false);
 const globalFileUploading = ref(false);
@@ -1790,9 +1821,18 @@ async function toggleWebsiteDownload(f) {
           <FileText class="w-3.5 h-3.5 mr-1.5" />
           Allg. Dokumente
         </Button>
+        <Button v-if="intakeDraftCount > 0" variant="outline" size="sm" class="h-8 text-xs relative"
+                @click="showIntakeDraftsList = true">
+          <span class="mr-1">📝</span>
+          <span class="hidden sm:inline">Offene Entwürfe</span>
+          <span class="sm:hidden">Entwürfe</span>
+          <span class="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-semibold">
+            {{ intakeDraftCount }}
+          </span>
+        </Button>
         <Button variant="outline" size="sm" class="h-8 text-xs"
                 style="border-color:#EE7600;color:#EE7600"
-                @click="showIntakeWizard = true">
+                @click="openIntakeWizard()">
           <span class="mr-1">📋</span>
           <span class="hidden sm:inline">Aufnahmeprotokoll</span>
           <span class="sm:hidden">Aufnahme</span>
@@ -2847,10 +2887,16 @@ async function toggleWebsiteDownload(f) {
         </div>
 
     <!-- Aufnahmeprotokoll Wizard Overlay -->
+    <IntakeDraftsList
+      v-model:open="showIntakeDraftsList"
+      @resume="resumeIntakeDraft"
+      @new="openIntakeWizard"
+    />
     <IntakeProtocolWizard
       v-if="showIntakeWizard"
-      @close="showIntakeWizard = false"
-      @submitted="(info) => { showIntakeWizard = false; }"
+      :initial-draft-key="activeIntakeDraftKey"
+      @close="onIntakeWizardClosed"
+      @submitted="(info) => { onIntakeWizardClosed(); }"
     />
 
     <!-- Delete Confirmation -->

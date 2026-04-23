@@ -91,16 +91,22 @@ function clearPersistedDraftKey() {
   try { localStorage.removeItem(CURRENT_DRAFT_KEY_STORAGE); } catch {}
 }
 
-export function useIntakeForm() {
+export function useIntakeForm(options = {}) {
   const form = reactive(initialForm());
   const currentStep = ref(1);
 
-  // Falls ein Draft-Key schon im localStorage liegt (Reload-Szenario) →
-  // wiederverwenden, damit useAutoSave.loadLocal() die Daten findet.
-  // Sonst: neue UUID und sofort persistieren.
-  const existingKey = loadPersistedDraftKey();
-  const draftKey = ref(existingKey || generateUuid());
-  if (!existingKey) persistDraftKey(draftKey.value);
+  // 3 Initialisierungs-Pfade:
+  // a) options.draftKey (z.B. aus Draft-Liste) → exakt diesen Key verwenden
+  // b) localStorage hat einen Key → Reload-Szenario, wiederverwenden
+  // c) Neuer Key → frischer Start, sofort persistieren
+  let initialKey;
+  if (options.draftKey) {
+    initialKey = options.draftKey;
+  } else {
+    initialKey = loadPersistedDraftKey() || generateUuid();
+  }
+  const draftKey = ref(initialKey);
+  persistDraftKey(initialKey);
 
   const TOTAL_STEPS = 11;
 

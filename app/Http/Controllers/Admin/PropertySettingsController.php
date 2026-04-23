@@ -1080,10 +1080,18 @@ PY;
                 }
             }
 
-            // Auto-import units if present
+            // Auto-import units if present.
+            // WICHTIG: Units werden NUR bei Neubau/Haus/Gewerbe angelegt.
+            // Einzel-Wohnungen (property_category='apartment') oder
+            // Grundstuecke haben keine internen Einheiten — auch wenn die
+            // KI im Expose mal was falsch interpretiert (z.B. „TOP 1" als
+            // Unit-Nummer einer einzelnen Wohnung). Ohne diesen Guard landet
+            // Muell in property_units, der danach auf Website auftaucht.
             $unitsCreated = 0;
             $unitsUpdated = 0;
-            if (is_array($result) && !empty($result['units'])) {
+            $propCategory = $property->property_category ?? null;
+            $canHaveUnits = !in_array($propCategory, ['apartment', 'land'], true);
+            if (is_array($result) && !empty($result['units']) && $canHaveUnits) {
                 foreach ($result['units'] as $unit) {
                     $unitNumber = $unit['unit_number'] ?? null;
                     if (!$unitNumber) continue;

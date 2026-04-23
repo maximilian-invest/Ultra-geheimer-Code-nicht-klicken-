@@ -203,6 +203,17 @@ class DocumentParserService
             return ['success' => false, 'error' => 'Property not found'];
         }
 
+        // Einzel-Wohnung und Grundstueck haben nie interne Einheiten.
+        // Die KI wuerde sonst aus „TOP 1" / Wohnflaechen etc. faelschlich
+        // Unit-Eintraege ableiten, die dann auf der Website als Einheit auftauchen.
+        $propCategory = $property->property_category ?? null;
+        if (in_array($propCategory, ['apartment', 'land'], true)) {
+            return [
+                'success' => false,
+                'error' => 'Einheiten-Extraktion nicht für Einzel-Wohnungen/Grundstücke verfügbar. Nur Neubauprojekte und Mehrparteienhäuser haben interne Einheiten.',
+            ];
+        }
+
         // Resolve file paths
         $filePaths = $this->resolveFilePaths($propertyId, $fileIds);
         if (empty($filePaths)) {

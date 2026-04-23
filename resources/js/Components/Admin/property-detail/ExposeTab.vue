@@ -30,8 +30,8 @@ const images = ref([]); // pool of {id, url, category, is_title_image}
 const previewKey = ref(0);
 const previewUrl = computed(() => `/admin/properties/${props.property.id}/expose/preview?ts=${Date.now()}&v=${previewKey.value}`);
 
-// Helpers
-function csrf() { return document.querySelector('meta[name="csrf-token"]')?.content || ''; }
+// Helpers — nutzt axios (setzt XSRF-Cookie + Header automatisch, vermeidet 419).
+const http = window.axios;
 
 // Layout-Katalog mit metadaten für den Picker
 const LAYOUTS = [
@@ -70,14 +70,11 @@ function imgById(id) { return images.value.find(i => i.id === id); }
 async function loadConfig() {
   loadingConfig.value = true;
   try {
-    const res = await fetch(`/admin/properties/${props.property.id}/expose/config`, {
-      headers: { 'Accept': 'application/json' },
-    });
-    const data = await res.json();
+    const { data } = await http.get(`/admin/properties/${props.property.id}/expose/config`);
     pages.value = data.config?.pages || [];
     images.value = data.images || [];
   } catch (e) {
-    error.value = 'Fehler beim Laden: ' + e.message;
+    error.value = 'Fehler beim Laden: ' + (e?.response?.data?.message || e.message);
   } finally {
     loadingConfig.value = false;
   }
@@ -88,18 +85,14 @@ async function regenerate() {
   regenerating.value = true;
   error.value = '';
   try {
-    const res = await fetch(`/admin/properties/${props.property.id}/expose`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+    const { data } = await http.post(`/admin/properties/${props.property.id}/expose`);
+    if (!data.success) throw new Error(data.error || 'Fehler beim Generieren');
     info.value = data;
     await loadConfig();
     previewKey.value++;
     toast('Exposé neu generiert · ' + data.page_count + ' Seiten');
   } catch (e) {
-    error.value = e.message;
+    error.value = e?.response?.data?.message || e.message;
   } finally {
     regenerating.value = false;
   }
@@ -109,20 +102,15 @@ async function saveCaptions() {
   savingCaptions.value = true;
   error.value = '';
   try {
-    const res = await fetch(`/admin/properties/${props.property.id}/expose/captions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
-      body: JSON.stringify({
-        expose_claim: claim.value.trim() || null,
-        expose_captions_pool: captionsPool.value.trim() || null,
-      }),
+    const { data } = await http.post(`/admin/properties/${props.property.id}/expose/captions`, {
+      expose_claim: claim.value.trim() || null,
+      expose_captions_pool: captionsPool.value.trim() || null,
     });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+    if (!data.success) throw new Error(data.error || 'Fehler beim Speichern');
     toast('Texte gespeichert');
     previewKey.value++;
   } catch (e) {
-    error.value = e.message;
+    error.value = e?.response?.data?.message || e.message;
   } finally {
     savingCaptions.value = false;
   }
@@ -132,18 +120,15 @@ async function saveConfig() {
   savingConfig.value = true;
   error.value = '';
   try {
-    const res = await fetch(`/admin/properties/${props.property.id}/expose/config`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
-      body: JSON.stringify({ config: { pages: pages.value } }),
+    const { data } = await http.put(`/admin/properties/${props.property.id}/expose/config`, {
+      config: { pages: pages.value },
     });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+    if (!data.success) throw new Error(data.error || 'Fehler beim Speichern');
     info.value = data;
     previewKey.value++;
     toast('Layout gespeichert · ' + data.page_count + ' Seiten');
   } catch (e) {
-    error.value = e.message;
+    error.value = e?.response?.data?.message || e.message;
   } finally {
     savingConfig.value = false;
   }

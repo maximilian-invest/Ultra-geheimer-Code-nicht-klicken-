@@ -108,7 +108,7 @@ const form = reactive({
   commission_percent: null, commission_note: "", commission_total: null,
   commission_makler: null, buyer_commission_percent: null,
   buyer_commission_text: "", commission_incl_vat: true,
-  builder_company: "", property_manager: "",
+  builder_company: "", property_manager: "", property_manager_id: null,
   construction_start: null, construction_end: null,
   move_in_date: null, available_from: null, available_text: "",
   total_units: null, plot_dedication: "", plot_buildable: false, plot_developed: false,

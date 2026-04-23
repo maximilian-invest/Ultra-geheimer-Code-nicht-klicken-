@@ -16,7 +16,7 @@ const isLast = computed(() => props.currentStep === props.totalSteps);
 
 <template>
   <div
-    class="bg-background border-t p-4 flex gap-2"
+    class="bg-white dark:bg-zinc-950 border-t p-4 flex gap-2"
     style="padding-bottom: calc(1rem + env(safe-area-inset-bottom));"
   >
     <Button

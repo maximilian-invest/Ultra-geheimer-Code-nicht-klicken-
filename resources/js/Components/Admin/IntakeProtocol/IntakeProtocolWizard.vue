@@ -179,8 +179,11 @@ const resumeDialogOpen = computed({
   <!-- Canonical Layout: Header (fix oben) / Body (scrollt) / Nav (fix unten).
        Outer container hat KEIN overflow — nur der mittlere Body scrollt.
        Damit bleiben Header und Nav zuverlaessig an Position, egal wie lang
-       der Step-Content wird. -->
-  <div class="fixed inset-0 z-[100] bg-background flex flex-col">
+       der Step-Content wird.
+       WICHTIG: `bg-white dark:bg-zinc-950` EXPLIZIT, nicht `bg-background`-CSS-Var.
+       In diesem Admin-Kontext wird die Variable manchmal nicht korrekt inheritet
+       und der Wizard wird transparent sichtbar. Explizite Farbe ist robust. -->
+  <div class="fixed inset-0 z-[100] bg-white dark:bg-zinc-950 flex flex-col">
 
     <!-- Resume-Prompt als shadcn-Dialog -->
     <Dialog v-model:open="resumeDialogOpen">
@@ -223,8 +226,8 @@ const resumeDialogOpen = computed({
       </Alert>
     </div>
 
-    <!-- MIDDLE: Body scrollt unabhaengig -->
-    <div class="flex-1 overflow-y-auto">
+    <!-- MIDDLE: Body scrollt unabhaengig (mit subtilem Muted-Hintergrund) -->
+    <div class="flex-1 overflow-y-auto bg-muted/30">
       <div class="mx-auto w-full max-w-2xl">
         <component
           :is="currentStepComponent"

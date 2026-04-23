@@ -11,7 +11,7 @@ defineEmits(['cancel']);
 </script>
 
 <template>
-  <div class="sticky top-0 z-10 bg-background border-b px-4 py-3">
+  <div class="bg-white dark:bg-zinc-950 border-b px-4 py-3">
     <div class="flex items-center justify-between mb-2">
       <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground tabular-nums">
         Schritt {{ currentStep }}/{{ totalSteps }}

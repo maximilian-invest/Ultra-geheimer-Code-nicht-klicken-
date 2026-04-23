@@ -13,24 +13,33 @@ class ExposePdfService
      */
     public function renderFromUrl(string $url): string
     {
-        $tmp = tempnam(sys_get_temp_dir(), 'expose_') . '.pdf';
+        $tmp = tempnam(sys_get_temp_dir(), 'expose_');
+        if ($tmp === false) {
+            throw new \RuntimeException('Unable to create temp file for PDF output');
+        }
+        $tmp .= '.pdf';
         $script = base_path('resources/scripts/expose-pdf.cjs');
 
-        $process = new Process(['node', $script, $url, $tmp]);
-        $process->setTimeout(60);
-        $process->run();
+        try {
+            $process = new Process(['node', $script, $url, $tmp]);
+            $process->setTimeout(60);
+            $process->run();
 
-        if (!$process->isSuccessful()) {
+            if (!$process->isSuccessful()) {
+                throw new ProcessFailedException($process);
+            }
+
+            if (!file_exists($tmp)) {
+                throw new \RuntimeException('PDF file not created at ' . $tmp);
+            }
+
+            $binary = file_get_contents($tmp);
+            if ($binary === false) {
+                throw new \RuntimeException('Failed to read PDF from ' . $tmp);
+            }
+            return $binary;
+        } finally {
             @unlink($tmp);
-            throw new ProcessFailedException($process);
         }
-
-        if (!file_exists($tmp)) {
-            throw new \RuntimeException('PDF file not created at ' . $tmp);
-        }
-
-        $binary = file_get_contents($tmp);
-        @unlink($tmp);
-        return $binary;
     }
 }

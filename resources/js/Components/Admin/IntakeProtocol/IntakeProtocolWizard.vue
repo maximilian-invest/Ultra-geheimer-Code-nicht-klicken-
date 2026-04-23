@@ -171,7 +171,12 @@ const resumeDialogOpen = computed({
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 bg-background flex flex-col" style="overflow-y:auto">
+  <!-- Teleport zu <body> damit der Wizard aus verschachtelten Scroll-Containern /
+       transformierten Parents ausbricht. Position:fixed ist sonst nicht zuverlaessig,
+       weil jeder Parent mit transform/filter/perspective eine neue containing-block
+       Kontext aufmacht und den Overlay in den Parent-Scope einsperrt. -->
+  <Teleport to="body">
+  <div class="fixed inset-0 z-[100] bg-white dark:bg-zinc-950 flex flex-col overflow-y-auto">
 
     <!-- Resume-Prompt als shadcn-Dialog -->
     <Dialog v-model:open="resumeDialogOpen">
@@ -232,4 +237,5 @@ const resumeDialogOpen = computed({
     />
 
   </div>
+  </Teleport>
 </template>

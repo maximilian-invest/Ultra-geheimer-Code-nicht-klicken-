@@ -24,7 +24,7 @@ class PublicDocumentControllerTest extends TestCase
         $response = $this->get("/docs/{$link->token}");
 
         $response->assertOk()
-            ->assertSee('Unterlagen ansehen')
+            ->assertSee('Unterlagen freischalten')
             ->assertSee('Ich stimme zu', false);
     }
 

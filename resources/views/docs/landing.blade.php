@@ -35,6 +35,7 @@
             'link' => $link,
             'files' => $files,
             'session' => $session,
+            'expose' => $expose ?? null,
         ])
         @include('docs.partials._showcase', [
             'link' => $link,

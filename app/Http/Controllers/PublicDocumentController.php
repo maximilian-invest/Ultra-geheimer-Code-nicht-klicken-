@@ -61,10 +61,21 @@ class PublicDocumentController extends Controller
                 ->whereIn('id', $link->documentIds())
                 ->get();
 
+            $exposeVersionId = DB::table('property_link_documents')
+                ->where('property_link_id', $link->id)
+                ->whereNotNull('expose_version_id')
+                ->value('expose_version_id');
+
+            $exposeInfo = $exposeVersionId ? [
+                'view_url'     => route('docs.expose', $link->token),
+                'download_url' => route('docs.expose.pdf', $link->token),
+            ] : null;
+
             return response()->view('docs.landing', array_merge($commonProps, [
                 'session' => $session,
                 'files' => $files,
                 'state' => 'unlocked',
+                'expose' => $exposeInfo,
             ]));
         }
 

@@ -25,6 +25,7 @@ function setupCanvas() {
   ctx = c.getContext('2d');
   ctx.scale(dpr, dpr);
   ctx.strokeStyle = '#000';
+  ctx.fillStyle = '#000';
   ctx.lineWidth = 2;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -41,6 +42,14 @@ function start(e) {
   drawing = true;
   const { x, y } = pos(e);
   lastX = x; lastY = y;
+  // Kleinen Punkt sofort zeichnen + sofort emitten — auch Tap ohne Bewegung
+  // zaehlt als "unterschrieben". Ohne das bleibt hasDrawn=false wenn der
+  // User nur einmal tippt und der emit im end() kommt nie.
+  ctx.beginPath();
+  ctx.arc(x, y, 1, 0, Math.PI * 2);
+  ctx.fill();
+  hasDrawn = true;
+  emit('update:modelValue', canvas.value.toDataURL('image/png'));
 }
 
 function move(e) {
@@ -86,7 +95,7 @@ onUnmounted(() => {
     <Card class="relative border-dashed">
       <canvas
         ref="canvas"
-        class="w-full h-48 rounded-xl touch-none bg-background"
+        class="w-full h-48 rounded-xl touch-none bg-white dark:bg-zinc-950"
         @mousedown="start" @mousemove="move" @mouseup="end" @mouseleave="end"
         @touchstart="start" @touchmove="move" @touchend="end"
       ></canvas>

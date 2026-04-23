@@ -101,6 +101,19 @@ const openFieldsCount = computed(() => (props.form.open_fields || []).length);
       </CardContent>
     </Card>
 
+    <!-- Validation-Hinweis direkt vor dem Absenden-Button,
+         damit der Makler sieht warum "Absenden" deaktiviert ist. -->
+    <Alert v-if="!form.signed_by_name?.trim() || !form.signature_data_url" variant="warning">
+      <AlertCircle class="size-4" />
+      <AlertTitle>Fehlt noch zum Absenden</AlertTitle>
+      <AlertDescription>
+        <ul class="list-disc ml-4 mt-1 space-y-0.5">
+          <li v-if="!form.signed_by_name?.trim()">Name des Unterschreibenden eingeben</li>
+          <li v-if="!form.signature_data_url">Unterschrift zeichnen (min. eine Linie)</li>
+        </ul>
+      </AlertDescription>
+    </Alert>
+
     <!-- Info: Mail kommt später -->
     <Alert v-if="form.owner?.email" variant="info">
       <Mail class="size-4" />

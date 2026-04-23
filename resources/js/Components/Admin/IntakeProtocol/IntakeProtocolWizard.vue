@@ -183,7 +183,10 @@ const resumeDialogOpen = computed({
        WICHTIG: `bg-white dark:bg-zinc-950` EXPLIZIT, nicht `bg-background`-CSS-Var.
        In diesem Admin-Kontext wird die Variable manchmal nicht korrekt inheritet
        und der Wizard wird transparent sichtbar. Explizite Farbe ist robust. -->
-  <div class="fixed inset-0 z-[100] bg-white dark:bg-zinc-950 flex flex-col">
+  <div
+    class="fixed inset-0 z-[100] bg-white dark:bg-zinc-950 flex flex-col intake-wizard"
+    style="touch-action: manipulation;"
+  >
 
     <!-- Resume-Prompt als shadcn-Dialog -->
     <Dialog v-model:open="resumeDialogOpen">
@@ -254,3 +257,21 @@ const resumeDialogOpen = computed({
   </div>
   </Teleport>
 </template>
+
+<style>
+/* Mobile-Zoom unterdruecken:
+   - iOS Safari zoomt bei Input-Focus wenn font-size < 16px. Wir forcen 16px.
+   - Double-tap-Zoom wird durch touch-action:manipulation auf dem Root
+     verhindert (siehe inline style oben). */
+.intake-wizard input,
+.intake-wizard textarea,
+.intake-wizard select {
+  font-size: 16px !important;
+}
+
+/* Buttons im Wizard haben auch touch-action:manipulation (verhindert
+   Double-Tap-Zoom bei schnellem Hintereinander-Tippen von Pills/Tiles). */
+.intake-wizard button {
+  touch-action: manipulation;
+}
+</style>

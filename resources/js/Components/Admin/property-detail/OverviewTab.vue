@@ -47,6 +47,40 @@ const isNewbuild = computed(() => props.property?.property_category === "newbuil
 const hasOwner = computed(() => !!ownerData.value.customer_id);
 const hasManager = computed(() => !!props.property?.property_manager_id);
 
+// ─── Stellplatz-Summierung ──────────────────────────────────
+// Eine Property kann Stellplaetze in 2 Formen haben:
+//   a) building_details.parking_spaces (JSON-Array von {type, count}) — neuer Editor
+//   b) parking_spaces + garage_spaces Flat-Felder — Legacy
+// Quell-Priorisierung: JSON, wenn vorhanden. Sonst Flats.
+function readBuildingDetails() {
+  const bd = props.property?.building_details;
+  if (!bd) return null;
+  if (typeof bd === "string") {
+    try { return JSON.parse(bd) || null; } catch { return null; }
+  }
+  return bd;
+}
+
+const parkingSummary = computed(() => {
+  const bd = readBuildingDetails();
+  const arr = Array.isArray(bd?.parking_spaces) ? bd.parking_spaces : null;
+  if (arr && arr.length) {
+    let outdoor = 0, garage = 0;
+    for (const e of arr) {
+      const c = Math.max(0, Number(e?.count) || 0);
+      const t = String(e?.type || "").toLowerCase();
+      if (["garage", "tiefgarage", "carport"].includes(t)) garage += c;
+      else outdoor += c;
+    }
+    return { outdoor: outdoor || null, garage: garage || null };
+  }
+  // Fallback: Flat-Felder (Legacy)
+  return {
+    outdoor: Number(props.property?.parking_spaces) || null,
+    garage: Number(props.property?.garage_spaces || props.property?.garage) || null,
+  };
+});
+
 // ─── HV-Kontaktieren ─────────────────────────────────────
 const contactSheetOpen = ref(false);
 
@@ -367,9 +401,9 @@ function ownerInitials(name) {
 
           <!-- Row: Stellplätze / Garage -->
           <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5);" :class="!isNewbuild ? 'border-bottom:1px solid hsl(240 5.9% 90%)' : ''">Stellplätze</div>
-          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%)" :style="!isNewbuild ? 'border-bottom:1px solid hsl(240 5.9% 90%)' : ''">{{ property.parking_spaces || '–' }}</div>
+          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%)" :style="!isNewbuild ? 'border-bottom:1px solid hsl(240 5.9% 90%)' : ''">{{ parkingSummary.outdoor || '–' }}</div>
           <div class="px-3 py-2 text-[11px] font-medium" style="color:hsl(240 3.8% 46.1%);background:hsl(240 4.8% 95.9% / 0.5)">Garage</div>
-          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%)">{{ property.garage_spaces || property.garage || '–' }}</div>
+          <div class="px-3 py-2 text-[12px]" style="color:hsl(240 10% 3.9%)">{{ parkingSummary.garage || '–' }}</div>
 
           <!-- Newbuild only: Bauträger / Fertigstellung -->
           <template v-if="isNewbuild">

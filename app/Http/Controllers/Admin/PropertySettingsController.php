@@ -194,6 +194,7 @@ class PropertySettingsController extends Controller
         'area_terrace' => 'Terrassenfläche (m²)',
         'area_garden' => 'Gartenfläche (m²)',
         'area_basement' => 'Kellerfläche (m²)',
+        'area_storage_room' => 'Abstellraumfläche (m²)',
         'area_loggia' => 'Loggiafläche (m²)',
         'area_garage' => 'Garagenfläche (m²)',
         'office_space' => 'Bürofläche (m²)',
@@ -203,6 +204,7 @@ class PropertySettingsController extends Controller
         'garden_count' => 'Gartenbereiche (Anzahl)',
         'loggia_count' => 'Loggias (Anzahl)',
         'basement_count' => 'Keller (Anzahl)',
+        'storage_room_count' => 'Abstellräume (Anzahl)',
         // Zimmer
         'rooms_amount' => 'Zimmer (Anzahl)',
         'bedrooms' => 'Schlafzimmer (Anzahl)',
@@ -213,7 +215,9 @@ class PropertySettingsController extends Controller
         'floor_number' => 'Stockwerk (Etage)',
         // Alter
         'construction_year' => 'Baujahr',
+        'conversions_additions' => 'Um- oder Zubauten',
         'year_renovated' => 'Renoviert (Jahr)',
+        'last_renovation_note' => 'Letzte Kernsanierung (Notiz)',
         // Energie
         'heating' => 'Heizung',
         'energy_certificate' => 'Energieausweis (Typ)',
@@ -335,7 +339,9 @@ class PropertySettingsController extends Controller
         'rent_deposit' => 'number', 'price_per_m2' => 'number',
         'living_area' => 'number', 'free_area' => 'number',
         'realty_area' => 'number', 'area_balcony' => 'number', 'area_terrace' => 'number',
-        'area_garden' => 'number', 'area_basement' => 'number', 'area_loggia' => 'number',
+        'area_garden' => 'number', 'area_basement' => 'number',
+        'area_storage_room' => 'number', 'storage_room_count' => 'number',
+        'area_loggia' => 'number',
         'area_garage' => 'number', 'office_space' => 'number',
         'rooms_amount' => 'number', 'bedrooms' => 'number', 'bathrooms' => 'number', 'toilets' => 'number',
         'floor_count' => 'number', 'floor_number' => 'number',

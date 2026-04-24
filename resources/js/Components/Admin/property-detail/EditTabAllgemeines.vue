@@ -129,7 +129,7 @@ function countFilled(keys) {
 const SECTION_FIELDS = {
   objekt:       ['object_type', 'property_category', 'marketing_type', 'title', 'subtitle', 'ref_id'],
   adresse:      ['address', 'house_number', 'zip', 'city', 'staircase', 'door', 'address_floor', 'latitude', 'longitude'],
-  allgemeines:  ['condition_note', 'realty_condition', 'construction_type', 'quality', 'furnishing', 'ownership_type', 'year_built', 'year_renovated', 'available_from', 'move_in_date'],
+  allgemeines:  ['condition_note', 'realty_condition', 'construction_type', 'quality', 'furnishing', 'ownership_type', 'year_built', 'conversions_additions', 'year_renovated', 'available_from', 'move_in_date'],
   zuordnung:    ['broker_id', 'customer_id', 'property_manager_id'],
   neubau:       ['builder_company', 'construction_start', 'construction_end', 'total_units'],
 };
@@ -348,6 +348,15 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
         <div>
           <label :class="labelCls">Baujahr <FieldExportBadges field="construction_year" /></label>
           <Input v-model="form.construction_year" type="number" :class="inputCls" />
+        </div>
+        <div class="col-span-2">
+          <label :class="labelCls">Um- oder Zubauten <FieldExportBadges field="conversions_additions" /></label>
+          <textarea
+            v-model="form.conversions_additions"
+            rows="2"
+            placeholder="z. B. Zubau 1997 mit zusätzlichem Schlafzimmer, Umbau 2015 im OG."
+            class="w-full px-3 py-2 text-[13px] bg-zinc-100/80 border-0 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+          />
         </div>
         <div>
           <label :class="labelCls">Möblierung <FieldExportBadges field="furnishing" /></label>

@@ -72,7 +72,7 @@ class WebsiteApiController extends Controller
                     'object_type as type', 'property_category', 'realty_status', 'marketing_type', 'purchase_price as price',
                     'living_area as area_living', 'free_area', 'total_area', 'rooms_amount as rooms', 'bathrooms',
                     'area_balcony', 'area_terrace', 'area_garden', 'area_loggia', 'area_basement',
-                    'construction_year as year_built', 'year_renovated', 'realty_description as description', 'highlights',
+                    'construction_year as year_built', 'conversions_additions', 'year_renovated', 'realty_description as description', 'highlights',
                     'main_image_id', 'website_gallery_ids',
                     'total_units', 'energy_certificate', 'heating_demand_value',
                     'energy_efficiency_value', 'heating_demand_class', 'energy_valid_until',

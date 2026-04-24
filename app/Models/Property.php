@@ -42,7 +42,7 @@ class Property extends Model
         'energy_efficiency_value', 'energy_primary_source', 'energy_valid_until',
 
         // Condition & Equipment
-        'construction_year', 'year_renovated', 'last_renovation_note', 'heating', 'condition_note',
+        'construction_year', 'conversions_additions', 'year_renovated', 'last_renovation_note', 'heating', 'condition_note',
         'realty_condition', 'quality', 'flooring', 'bathroom_equipment',
         'kitchen_type', 'furnishing', 'orientation', 'noise_level',
 

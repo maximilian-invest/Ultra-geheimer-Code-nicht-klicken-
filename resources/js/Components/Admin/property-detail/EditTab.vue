@@ -83,7 +83,7 @@ const form = reactive({
   energy_certificate: "", heating_demand_value: null, energy_type: "",
   heating_demand_class: "", energy_efficiency_value: null,
   energy_primary_source: "", energy_valid_until: null,
-  construction_year: null, year_renovated: null, last_renovation_note: "", heating: "",
+  construction_year: null, conversions_additions: "", year_renovated: null, last_renovation_note: "", heating: "",
   condition_note: "", realty_condition: "", quality: "",
   flooring: "", bathroom_equipment: "", kitchen_type: "",
   furnishing: "", orientation: "", noise_level: "",

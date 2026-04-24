@@ -58,6 +58,7 @@ export const FIELD_EXPORTS = {
   // === BAU & ZUSTAND ===
   construction_type:   { targets: ['i', 'w'], tips: { w: 'Website: Bauart in Details' } },
   construction_year:   { targets: ['i', 'w'] },
+  conversions_additions: { targets: ['w'], tips: { w: 'Website + Expose: Um- oder Zubauten unter Baujahr' } },
   year_renovated:      { targets: ['w'] },
   realty_condition:    { targets: ['i', 'w'], tips: { w: 'Website: Objekt-Zustand in Details' } },
   quality:             { targets: ['w'],      tips: { w: 'Website: Qualität in Details' } },

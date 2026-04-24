@@ -223,6 +223,7 @@
                 {!! $row('Zimmer', $rooms) !!}
                 {!! $row('Etage', $floorInfo) !!}
                 {!! $row('Baujahr', $p->construction_year) !!}
+                {!! $row('Um- oder Zubauten', $p->conversions_additions) !!}
                 {!! $row('Sanierungsjahr', $p->year_renovated) !!}
                 {!! $row('Letzte Kernsanierung', $p->last_renovation_note) !!}
                 {!! $row('Wohnfläche', $fmtArea($p->living_area)) !!}

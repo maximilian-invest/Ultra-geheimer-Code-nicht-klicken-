@@ -61,7 +61,8 @@ class Property extends Model
 
         // Descriptions
         'realty_description', 'location_description', 'equipment_description',
-        'other_description', 'highlights', 'expose_claim', 'expose_captions_pool',
+        'other_description', 'highlights', 'expose_highlights',
+        'expose_claim', 'expose_captions_pool',
         'expose_cover_kicker', 'expose_cover_title', 'expose_cover_subtitle',
 
         // Commission
@@ -196,6 +197,7 @@ class Property extends Model
             // New json field
             'building_details' => 'array',
             'documents_available' => 'array',
+            'expose_highlights' => 'array',
         ];
     }
 

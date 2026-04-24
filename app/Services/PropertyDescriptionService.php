@@ -27,6 +27,73 @@ class PropertyDescriptionService
      */
     private const MODEL = 'claude-sonnet-4-6';
 
+    /**
+     * Kuratierte Highlight-Bibliothek — Tag → Copy-Direktive fuer den
+     * Prompt. Die Direktive beschreibt WIE der Tag im Text aufgegriffen
+     * wird, nicht WAS genau zu schreiben ist (der Satzbau bleibt Aufgabe
+     * des Models). So nutzt der Text die Fakten aus dem Datensatz (z.B.
+     * Flaechenangabe der Dachterrasse) und verbindet sie mit einem
+     * hochwertigen Begriff.
+     */
+    private const HIGHLIGHT_LIBRARY = [
+        // Lage & Aussicht
+        'Seeblick'           => 'Seeblick als Kern-Verkaufsargument — prominent im Einstieg erwaehnen.',
+        'Bergblick'          => 'Bergblick / Panorama hervorheben, idealerweise im Einstieg.',
+        'Panoramablick'      => 'Panoramablick im Einstieg hervorheben.',
+        'Fernblick'          => 'Weiter Blick / Fernblick hervorheben.',
+        'Ruhelage'           => 'Ruhelage als Qualitaetsmerkmal herausstellen.',
+        'Grünruhelage'       => 'Gruenruhelage (ruhig mit Blick ins Gruene) als Qualitaetsmerkmal betonen.',
+        'Sonnenlage'         => 'Sonnige Ausrichtung aufgreifen.',
+        'Zentrumslage'       => 'Zentrale Lage als Pragmatik-Vorteil aufgreifen.',
+        'Nähe See'           => 'Seenaehe als Lifestyle-Argument aufgreifen.',
+        'Nähe Wald'          => 'Waldnaehe als Naturnaehe-Argument aufgreifen.',
+        'Nähe Skigebiet'     => 'Skigebiet-Naehe als Freizeit-Argument aufgreifen.',
+
+        // Aussenbereich
+        'Dachterrasse'       => 'Dachterrasse hervorheben — wenn Flaechenwert im Datensatz steht, diesen konkret nennen (z.B. "Dachterrasse mit 40 m²").',
+        'Privatgarten'       => 'Privaten Garten prominent erwaehnen; Flaeche nennen falls belegbar.',
+        'Terrasse'           => 'Terrasse benennen, Flaeche falls belegbar.',
+        'Loggia'             => 'Loggia (geschuetzter Freibereich) benennen, Flaeche falls belegbar.',
+        'Balkon'             => 'Balkon benennen — aber nur erwaehnen wenn die Flaeche nennenswert (≥ 4 m²) oder als Teil einer Freibereich-Kombi ist.',
+        'Privater Seezugang' => 'Privaten Seezugang als Top-Alleinstellung herausstellen.',
+        'Eigener Eingang'    => 'Eigenen Eingang als Privatsphaeren-Plus erwaehnen.',
+
+        // Architektur & Qualitaet
+        'Erstbezug'          => 'Erstbezug hervorheben — neuwertiger Zustand darf "neuwertig", "neu errichtet" oder "frisch fertiggestellt" genannt werden (nicht "wird als neuwertig beschrieben").',
+        'Neuwertig'          => 'Neuwertiger Zustand; als "neuwertig" oder "neuwertig erhalten" benennen — NIEMALS als "wird als neuwertig beschrieben".',
+        'Vollsanierung'      => 'Umfassende Sanierung als Qualitaetsargument aufgreifen — konkrete Massnahmen aus Datensatz verwenden falls vorhanden.',
+        'Historische Substanz' => 'Historische Bausubstanz und Charaktermerkmale aufgreifen.',
+        'Gewölbedecken'      => 'Gewoelbedecken als Architekturmerkmal erwaehnen.',
+        'Stuckdecken'        => 'Stuckdecken als Architekturmerkmal erwaehnen.',
+        'Dielenboden'        => 'Dielenboden als Materialmerkmal erwaehnen.',
+        'Parkettboden'       => 'Parkettboden erwaehnen — aber nicht als Verkaufsargument-Hauptsatz ("die Immobilie ueberzeugt mit Parkett" ist zu wenig).',
+        'Hohe Räume'         => 'Hohe Raumhoehen / grosszuegige Raumproportionen betonen.',
+        'Designer-Architektur' => 'Architektonische Qualitaet / Designer-Entwurf aufgreifen.',
+
+        // Ausstattung Premium
+        'Hochwertige Einbauküche' => 'Hochwertige Einbaukueche als Komfortmerkmal aufgreifen.',
+        'Fußbodenheizung'    => 'Fussbodenheizung als Komfortmerkmal aufgreifen.',
+        'Smart Home'         => 'Smart-Home-Ausstattung aufgreifen.',
+        'Kamin'              => 'Kamin / Kachelofen als Wohnlichkeits-Merkmal aufgreifen.',
+        'Sauna'              => 'Sauna als Wellness-Merkmal aufgreifen.',
+        'Pool'               => 'Pool als Lifestyle-Merkmal hervorheben.',
+        'Whirlpool'          => 'Whirlpool als Wellness-Merkmal aufgreifen.',
+        'Wellness-Bereich'   => 'Wellness-Bereich prominent hervorheben.',
+        'Photovoltaik'       => 'Photovoltaik als Nachhaltigkeits-/Kostenargument aufgreifen.',
+        'Wärmepumpe'         => 'Waermepumpe als Nachhaltigkeits-Merkmal aufgreifen.',
+        'Alarmanlage'        => 'Alarmanlage sachlich als Sicherheitsmerkmal erwaehnen.',
+        'Klimaanlage'        => 'Klimaanlage erwaehnen.',
+
+        // Praktisches
+        'Aufzug'             => 'Aufzug praktisch erwaehnen, nicht als Kernargument.',
+        'Carport'            => 'Carport / Stellplatz praktisch erwaehnen mit Anzahl falls vorhanden.',
+        'Garage'             => 'Garage erwaehnen mit Anzahl falls vorhanden.',
+        'Tiefgarage'         => 'Tiefgarage erwaehnen mit Anzahl falls vorhanden.',
+        'Stellplatz'         => 'Stellplatz / PKW-Abstellplatz praktisch erwaehnen.',
+        'Barrierefrei'       => 'Barrierefreiheit als Alltagstauglichkeit aufgreifen.',
+        'Homeoffice-geeignet'=> 'Homeoffice-Tauglichkeit als Nutzungsoption erwaehnen.',
+    ];
+
     public function __construct(
         private AnthropicService $anthropic,
         private DocumentParserService $docs,
@@ -50,9 +117,11 @@ class PropertyDescriptionService
 
         $propertyFacts = $this->formatPropertyFacts($property);
         $documentText = $this->extractDocumentText($propertyId, $fileIds);
+        $highlightLines = $this->formatHighlights($property);
 
         $systemPrompt = $this->objektSystemPrompt();
         $userMessage = "PROPERTY-DATENSATZ:\n" . $propertyFacts
+            . ($highlightLines !== '' ? "\n\n---\n\nVOM MAKLER GESETZTE HIGHLIGHTS (Priorität 1 — im Einstieg und Hauptteil prominent aufnehmen):\n" . $highlightLines : '')
             . ($documentText !== '' ? "\n\n---\n\nDOKUMENT-AUSZÜGE:\n" . $documentText : '')
             . "\n\n---\n\nSchreibe jetzt die Objektbeschreibung.";
 
@@ -536,70 +605,68 @@ PROMPT;
     private function objektSystemPrompt(): string
     {
         return <<<'PROMPT'
-Du schreibst Objektbeschreibungen für ein seriöses österreichisches Immobilienbüro (SR-Homes). Diese Texte landen im Exposé und werden von Kaufinteressenten gelesen.
+Du schreibst die Objektbeschreibung für ein hochwertiges Exposé eines österreichischen Immobilienbüros (SR-Homes). Dein Text ist DAS zentrale Verkaufsdokument — ein Kaufinteressent entscheidet anhand dieser Beschreibung, ob er zur Besichtigung kommt. Die Beschreibung muss *immer* Premium-Niveau haben: selbstbewusst, stilvoll, spürbar auf die konkreten Stärken dieses Objekts zugeschnitten.
 
 DEINE AUFGABE
-Schreibe eine Objektbeschreibung auf Deutsch, 4-6 sachlich-einladende Absätze, die den Interessenten Lust auf eine Besichtigung macht, OHNE etwas zu erfinden oder schönzureden.
+Schreibe 4–6 lesbare, stilistisch sichere deutsche Absätze — angenehm zu lesen, konkret genug um Vertrauen aufzubauen, elegant genug um die Klasse des Objekts zu transportieren.
 
-STRIKTE REGELN — NIEMALS BRECHEN:
+GROSSER GRUNDSATZ: DER TEXT *IST* DIE BESCHREIBUNG
+Du beschreibst das Objekt direkt. Du berichtest NICHT darüber, was in irgendeinem Formular steht.
+  - FALSCH: "Die Immobilie wird als neuwertig beschrieben."
+  - RICHTIG: "Die neuwertige Substanz zeigt sich in ..." oder einfach: "Neuwertiger Zustand."
+  - FALSCH: "Laut Datensatz verfügt das Objekt über einen Parkettboden."
+  - RICHTIG: "Parkett im Wohnbereich."
+  - NIEMALS: "wird als ... beschrieben", "laut Unterlagen", "im Datensatz", "der Eigentümer gibt an", "es wird angegeben".
 
-1. FAKTENBASIS
-   - Verwende NUR Fakten, die im bereitgestellten Property-Datensatz oder in den Dokument-Auszügen (z. B. Exposé-PDF) stehen.
-   - Wenn ein Fakt dort nicht vorkommt: weglassen. NICHT annehmen, NICHT aus Allgemeinwissen ableiten.
-   - Keine Erfindung von Zimmerzahlen, Flächen, Baujahr, Ausstattung, Heizart oder Zustand.
+HIGHLIGHTS HABEN ABSOLUTEN VORRANG
+Im User-Prompt siehst du einen Block "VOM MAKLER GESETZTE HIGHLIGHTS". Diese Stichworte stehen für die KERN-VERKAUFSARGUMENTE. Jeder dieser Highlights MUSS im Text prominent auftauchen:
+  - Der erste Absatz verdichtet die 1–2 stärksten Highlights in einer selbstsicheren Kernaussage.
+  - Weitere Highlights werden in den Folgeabsätzen thematisiert, wo sie inhaltlich hingehören.
+  - Jeder Highlight wird so formuliert, dass der Leser spürt, dass dieses Merkmal eine bewusste Qualität dieses Objekts ist — nicht als Checklisten-Abhaken.
+  - Wo ein Highlight zu einer Fakt-Zahl aus dem Datensatz passt (z. B. "Dachterrasse" + area_dachterrasse = 40 m²), die Zahl konkret nennen.
 
-2. HOCHGELADENE DOKUMENTE PRIORISIEREN
-   - Wenn ein Exposé oder ähnliches Dokument mitgeliefert wurde: bauformulierungen und Details daraus übernehmen, wo sie zu den strukturierten Fakten passen.
-   - Dokument-Fakten und Datensatz-Fakten ZUSAMMENFÜHREN, nicht isoliert nebeneinanderstellen.
+HIGHLIGHTS DÜRFEN WERTEND FORMULIERT WERDEN
+Wenn der Makler "Dachterrasse" als Highlight gesetzt hat, darfst du "großzügige Dachterrasse" schreiben (und Fläche nennen). Wenn er "Seeblick" gesetzt hat, ist "beeindruckender Seeblick" erlaubt. Die Highlight-Liste ist die Freigabe dafür, diese Aspekte gehoben zu formulieren. OHNE Highlight-Freigabe gilt die alte Regel: keine Wertung ohne Beleg.
 
-3. VERBOTENE THEMEN — NIEMALS ERWÄHNEN
-   - Kaufpreis, Mietpreis, Betriebskosten, Nebenkosten, Provisionen, finanzielle Zahlen jeder Art.
-   - Projektname oder Projekt-/Bauträger-Marken (auch wenn im Datensatz vermerkt).
-   - Energiewerte (HWB, fGEE, Effizienzklasse). Das steht an eigener Stelle im Exposé.
-   - Genaue Adresse (Straße + Hausnummer). Stadt OK.
-   - PLZ / Postleitzahl — niemals im Text erwähnen. "Salzburg" ja, "Salzburg (PLZ 5020)" nein.
+WAS DER TEXT NIE ENTHÄLT (verbotene Themen)
+  - Kaufpreis, Mietpreis, Betriebskosten, Nebenkosten, Provisionen, jede Geldsumme.
+  - Projektname oder Bauträger-Marken.
+  - Energiewerte (HWB, fGEE, Effizienzklasse). Die haben ihre eigene Stelle im Exposé.
+  - Straße + Hausnummer. Stadt OK, Stadtteil OK wenn in den Fakten drin.
+  - PLZ / Postleitzahl — nie.
 
-4. KEINE WERTUNGS-ADJEKTIVE OHNE BELEG IM DATENSATZ
-   - "gehoben", "hochwertig", "luxuriös", "modern", "exklusiv", "großzügig", "lichtdurchflutet", "einladend", "geräumig", "wohnlich", "komfortabel", "stilvoll", "elegant", "besondere Qualität", "besondere Ausstattung" — NIEMALS schreiben, außer das passende Feld ist im Datensatz EXAKT mit diesem Wort belegt (z. B. quality=gehoben) oder das Exposé-Dokument nennt es wortwörtlich.
-   - "Klare Raumaufteilung", "durchdachtes Konzept", "harmonisches Zusammenspiel" und ähnliche inhaltsleere Werturteile sind ebenfalls tabu.
-   - Fakt: "74 m² auf 2 Zimmer" — erlaubt. Werturteil dazu ("großzügig geschnittene 74 m²") — verboten.
-   - Im Zweifel: Fakt nennen, Wertung weglassen.
+WAS DER TEXT NIE ENTHÄLT (verbotene Tonlage)
+  - META-SPRACHE: "wird als ... beschrieben", "laut ...", "die Unterlagen nennen", "im Datensatz", "es wird angegeben", "angabegemäß", "offenbar". Der Text beschreibt, nicht berichtet.
+  - KLISCHEES: "traumhaft", "einmalig", "Juwel", "Perle", "Schmuckstück", "Wohnen mit Stil", "keine Wünsche offen lässt", "ein Muss", "nicht alltäglich", "echtes Wohnerlebnis", "Wohlfühloase".
+  - WERBEFLOSKELN: "Greifen Sie jetzt zu", "nicht verpassen", "Top-Investition", "Traum vom Eigenheim". Keine Ausrufezeichen. Keine rhetorischen Fragen.
+  - TRIVIALITÄTEN: Flächenangaben unter einer sinnvollen Schwelle gar nicht erwähnen. Ein "Abstellraum mit 1,5 m²" oder "Balkon mit 2 m²" macht das Objekt kleiner als es ist. Solche Kleindetails werden im Prompt gar nicht erst übergeben — aber selbst wenn du sie erahnst: nicht nennen.
+  - CHECKLISTEN-SÄTZE: "Die Immobilie überzeugt mit Parkettboden." ist eine schlechte Zeile. Wenn Parkettboden nicht als Highlight gesetzt ist, ist er als Beiwerk zu erwähnen, nicht als eigener Hauptsatz.
 
-5. KEINE FLOSKELN ODER ÜBERTREIBUNGEN
-   - Tabu: "traumhaft", "einmalig", "wunderschön", "charmant", "liebevoll", "gemütlich", "familienfreundlich", "perfekt", "einzigartig" — es sei denn, genau so im Quellmaterial.
-   - Tabu: "Greifen Sie jetzt zu", "lassen Sie sich verzaubern", "nicht verpassen", "top Investition".
-   - Keine rhetorischen Fragen, keine Anreden ("Wünschen Sie sich ...?").
+FAKTENBASIS
+  - Nur Fakten, die im Datensatz, in den Dokumenten oder in der Highlight-Liste stehen.
+  - Kein Erfinden von Zimmern, Flächen, Baujahr, Ausstattung.
+  - Dokument-Auszüge haben Vorrang vor reinen Datensatz-Werten wenn sie detaillierter sind (z. B. Raumbezeichnungen aus einem Original-Exposé).
 
-5. AUSFÜHRLICH AUSFORMULIEREN
-   - Jeden Fakt in vollständige, fließende Sätze einbetten — nicht als Liste aneinanderreihen. "Mit 110 m² Wohnfläche auf 4 Zimmer verteilt bietet das Objekt Raum für verschiedene Nutzungskonzepte." statt "110 m², 4 Zimmer."
-   - Verbinde Fakten mit sachlicher Überleitung. Schreibe ruhig 2-3 Sätze zu einem einzelnen Aspekt, wenn die Fakten das hergeben.
-   - ABER: keine neuen Fakten erfinden, keine Annahmen ergänzen. Nur die vorhandenen Fakten wortreicher und lesbarer darstellen.
+STIL
+  - Deutsche Prosa in österreichischer Lesart (Erdgeschoss, Parkett, Fernwärme, Nutzfläche). Niemals "Keller-Abteil" o.Ä. als seltsamer Bandwurm.
+  - Sie-Form SEHR sparsam; vorzugsweise objektseitig formuliert ("Das Haus öffnet sich nach ...") statt käuferseitig ("Sie erwartet ...").
+  - Kurze und mittellange Sätze. Keine Schachtelsätze über 3 Zeilen.
+  - Aktiv, Präsens, konkret.
+  - Beginne NIEMALS mit "Die Immobilie ..." oder "Das Objekt ..." — starte mit dem stärksten Konkret-Bild des Hauses (Lage, Dachterrasse, Architektur, Blick etc.).
 
-6. KONKRET STATT VAGE
-   - Wo Zahlen/Details vorhanden: NENNEN (ausgenommen die verbotenen Themen aus Regel 3).
-   - Wo nicht: Aussage weglassen, nicht durch Floskel ersetzen.
+STRUKTUR (Leitplanke)
+  1. Einstieg (1 Absatz, 2–4 Sätze): Bild + stärkstes Highlight + sofort Richtung (Stadt/Ortsteil, Objekttyp).
+  2. Wohnbereich & Räume (1–2 Absätze): Aufteilung, Flächen, besondere Räume. Highlights hier einweben.
+  3. Ausstattung & Technik (1 Absatz): Heizung (Art), Baujahr/Sanierung, Zustand. Keine Energiewerte, kein Preis.
+  4. Außen & Nebenbereiche (1 Absatz, falls belegbar): Dachterrasse/Garten/Stellplätze — nur die Kategorien die hier zählen, nicht jede winzige Nebenfläche.
+  5. Kurzer Schluss (optional, 1–2 Sätze): Nutzungskontext wenn aus Fakten ableitbar ("Als Ihr neues Zuhause ..." oder "Für anspruchsvolle ..." — aber NIE Werbegestus).
 
-7. TON
-   - Sachlich-einladend. Ruhig. Als ob ein erfahrener Makler sachlich erklärt, was das Objekt hat.
-   - Deutsch mit österreichischem Sprachgebrauch (Erdgeschoss, Parkett, Fernwärme etc.).
-   - Sie-Form, sparsam und unaufdringlich.
+WEGLASSEN IST STÄRKE
+Lieber 4 starke Absätze als 6 aufgeblasene. Wenn ein Bereich im Datensatz dünn ist, hol ihn nicht in Watte, lass ihn weg. Leerlauf-Sätze ("Eine angenehme Atmosphäre rundet das Bild ab.") sind verboten.
 
-8. STRUKTUR (als Leitplanke, nicht starr)
-   - Absatz 1: Einstieg — Objekttyp, grobe Lage (Stadt/Ortsteil), eine prägnante Kernbotschaft aus den Fakten.
-   - Absatz 2-3: Das Innere — Räume, Aufteilung, Flächen, Ausstattung (belegbar). Ein Absatz für den Wohnbereich, einer für weitere Räume/Ausstattung ist häufig sinnvoll.
-   - Absatz 4: Technik & Bauzustand — Heizungsart (ohne Zahlen), Baujahr, Sanierungen, Bauweise. KEINE Energiewerte.
-   - Optionaler Schluss: 1-2 Sätze zu möglicher Nutzung ("eignet sich für ..." / "bietet Raum für ...") — NUR wenn aus Fakten ableitbar.
-
-9. WEGLASSEN IST STÄRKE
-   - Wenn Daten spärlich: Schreibe weniger. Kurzer ehrlicher Text ist besser als aufgeblasener.
-   - Wenn ein Feld widersprüchlich ist: vorsichtig formulieren ("laut Unterlagen ...") oder weglassen.
-
-10. HIGHLIGHTS
-    - Wenn "highlights" im Datensatz stehen: deren Kerninhalte in die Beschreibung einweben, nicht wörtlich kopieren.
-
-11. OUTPUT
-    - Antworte NUR mit dem Beschreibungstext. Keine Überschrift "Objektbeschreibung:", keine Markdown-Formatierung, keine Metakommentare, keine Quellenangaben.
-    - Mehrere Absätze mit Leerzeilen trennen.
+OUTPUT
+  - NUR der Beschreibungstext. Keine Überschrift "Objektbeschreibung:". Kein Markdown. Kein Meta-Kommentar. Keine Quellenangabe.
+  - Absätze durch Leerzeile getrennt.
 PROMPT;
     }
 
@@ -692,6 +759,36 @@ PROMPT;
     // ─── Helpers ───────────────────────────────────────────────────────
 
     /**
+     * Baut aus den Highlight-Tags eine Direktiven-Liste, die dem Prompt
+     * mitgegeben wird. Tags die in der HIGHLIGHT_LIBRARY bekannt sind,
+     * bekommen eine Copy-Direktive; unbekannte Tags werden als reiner
+     * Tag-Name durchgereicht (damit individuelle Highlights nicht
+     * verloren gehen).
+     */
+    private function formatHighlights(array $p): string
+    {
+        $raw = $p['expose_highlights'] ?? null;
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : [];
+        }
+        if (!is_array($raw)) return '';
+
+        $lines = [];
+        foreach ($raw as $tag) {
+            $tag = trim((string) $tag);
+            if ($tag === '') continue;
+            $hint = self::HIGHLIGHT_LIBRARY[$tag] ?? null;
+            if ($hint) {
+                $lines[] = "- {$tag} → {$hint}";
+            } else {
+                $lines[] = "- {$tag} → aufgreifen und stimmig in die Beschreibung einweben.";
+            }
+        }
+        return $lines ? implode("\n", $lines) : '';
+    }
+
+    /**
      * Convert the property row into a compact, labeled fact list for the
      * prompt. Empty fields are omitted entirely so the model doesn't try to
      * fabricate around them.
@@ -758,10 +855,32 @@ PROMPT;
             'has_guest_wc' => 'Gäste-WC',
         ];
 
+        // Triviale Detail-Schwellen — kleine Flaechen sollen im Text nicht
+        // namentlich auftauchen ("Abstellraum mit 1,5 m²" klingt laecherlich).
+        // Die Modell-Instanz darf den Raum allgemein nennen, aber die konkrete
+        // Zahl geht nicht in den Prompt.
+        $areaMinimums = [
+            'area_balcony' => 4.0,
+            'area_terrace' => 6.0,
+            'area_loggia' => 3.0,
+            'area_garden' => 20.0,
+            'area_basement' => 5.0,
+            'area_storage_room' => 3.0,
+            'area_garage' => 10.0,
+            'free_area' => 5.0,
+        ];
+
         $lines = [];
         foreach ($labels as $key => $label) {
             $v = $p[$key] ?? null;
             if ($v === null || $v === '' || $v === 0 || $v === '0') continue;
+
+            // Triviale Flaechen-Werte ausblenden, damit der Prompt sie gar
+            // nicht erst "sieht".
+            if (isset($areaMinimums[$key]) && (float) $v < $areaMinimums[$key]) {
+                continue;
+            }
+
             $lines[] = "- {$label}: {$v}";
         }
 

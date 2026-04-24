@@ -103,6 +103,7 @@ const form = reactive({
   is_featured: false, featured_order: null, badge: "",
   garage_spaces: null, parking_spaces: null, parking_type: "",
   highlights: "",
+  expose_highlights: [],
   expose_claim: "", expose_captions_pool: "",
   realty_description: "", location_description: "", equipment_description: "", other_description: "",
   broker_id: null,
@@ -555,6 +556,26 @@ async function runGenerateDescription(type) {
   } finally {
     aiGenerating.value = null;
   }
+}
+
+// ─── Highlights-Bibliothek fuer den Beschreibungs-Prompt ───
+// Mehrfachauswahl; ausgewaehlte Tags werden an PropertyDescriptionService
+// uebergeben und dort als Priorisierung in den Prompt eingehaengt.
+// Gruppierung ist rein visuell — am Backend ist es ein flaches Array.
+const exposeHighlightLibrary = [
+  { title: 'Lage & Aussicht', items: ['Seeblick', 'Bergblick', 'Panoramablick', 'Fernblick', 'Ruhelage', 'Grünruhelage', 'Sonnenlage', 'Zentrumslage', 'Nähe See', 'Nähe Wald', 'Nähe Skigebiet'] },
+  { title: 'Außenbereich', items: ['Dachterrasse', 'Privatgarten', 'Terrasse', 'Loggia', 'Balkon', 'Privater Seezugang', 'Eigener Eingang'] },
+  { title: 'Architektur & Qualität', items: ['Erstbezug', 'Neuwertig', 'Vollsanierung', 'Historische Substanz', 'Gewölbedecken', 'Stuckdecken', 'Dielenboden', 'Parkettboden', 'Hohe Räume', 'Designer-Architektur'] },
+  { title: 'Ausstattung Premium', items: ['Hochwertige Einbauküche', 'Fußbodenheizung', 'Smart Home', 'Kamin', 'Sauna', 'Pool', 'Whirlpool', 'Wellness-Bereich', 'Photovoltaik', 'Wärmepumpe', 'Alarmanlage', 'Klimaanlage'] },
+  { title: 'Praktisches', items: ['Aufzug', 'Carport', 'Garage', 'Tiefgarage', 'Stellplatz', 'Barrierefrei', 'Homeoffice-geeignet'] },
+];
+
+function toggleHighlight(tag) {
+  const cur = Array.isArray(form.expose_highlights) ? [...form.expose_highlights] : [];
+  const idx = cur.indexOf(tag);
+  if (idx >= 0) cur.splice(idx, 1);
+  else cur.push(tag);
+  form.expose_highlights = cur;
 }
 
 // ─── Wording polish ───
@@ -1335,6 +1356,45 @@ defineExpose({ save, discard });
 
       <TabsContent value="beschreibung" class="mt-0">
         <div class="space-y-6">
+          <!-- Highlights: Multi-Select Chips, priorisiert fuer den Beschreibungs-Prompt -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <label class="block text-[12px] font-medium text-muted-foreground">
+                Highlights
+                <span class="text-[10px] text-muted-foreground/80 font-normal ml-2">Steuert was in der KI-Beschreibung prominent wird. Mehrfachauswahl.</span>
+              </label>
+              <span v-if="(form.expose_highlights || []).length" class="text-[10px] text-[#EE7600] font-medium tabular-nums">
+                {{ (form.expose_highlights || []).length }} ausgewählt
+              </span>
+            </div>
+            <div class="rounded-lg p-3 space-y-3 bg-zinc-50/60" style="border: 1px solid hsl(240 5.9% 90%)">
+              <div v-for="group in exposeHighlightLibrary" :key="group.title">
+                <div class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">{{ group.title }}</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    v-for="tag in group.items"
+                    :key="tag"
+                    type="button"
+                    @click="toggleHighlight(tag)"
+                    :class="[
+                      'text-[11px] px-2.5 py-1 rounded-full border transition-colors cursor-pointer select-none',
+                      (form.expose_highlights || []).includes(tag)
+                        ? 'bg-[#EE7600] text-white border-[#EE7600] hover:bg-[#d66800]'
+                        : 'bg-white text-zinc-700 border-zinc-200 hover:border-[#EE7600] hover:text-[#EE7600]'
+                    ]"
+                  >
+                    {{ tag }}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p class="text-[10px] text-muted-foreground/80 leading-snug">
+              Diese Tags fließen beim nächsten „KI generieren" prominent in die Objektbeschreibung ein —
+              z. B. wird bei ausgewähltem „Dachterrasse" die Fläche konkret genannt und als Verkaufsargument
+              aufgegriffen. Wähle nur echte Stärken — weniger ist besser als alles anhaken.
+            </p>
+          </div>
+
           <div v-for="f in [
             { key: 'realty_description', label: 'Objektbeschreibung', placeholder: 'Allgemeine Beschreibung des Objekts...', aiType: 'objekt', aiHint: 'Aus Property-Daten + hochgeladenen Dokumenten' },
             { key: 'location_description', label: 'Lagebeschreibung', placeholder: 'Beschreibung der Lage und Umgebung...', aiType: 'lage', aiHint: 'Web-Recherche zu Adresse, Infrastruktur & Umgebung' },

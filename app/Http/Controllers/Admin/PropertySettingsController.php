@@ -218,6 +218,7 @@ class PropertySettingsController extends Controller
         'conversions_additions' => 'Um- oder Zubauten',
         'year_renovated' => 'Renoviert (Jahr)',
         'last_renovation_note' => 'Letzte Kernsanierung (Notiz)',
+        'expose_highlights' => 'Exposé-Highlights (Tag-Array)',
         // Energie
         'heating' => 'Heizung',
         'energy_certificate' => 'Energieausweis (Typ)',

@@ -329,21 +329,23 @@ onMounted(loadConfig);
           <div class="flex items-center gap-2">
             <GripVertical class="w-4 h-4 text-muted-foreground flex-shrink-0" />
             <span class="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded">Seite {{ index + 1 }}</span>
-            <select :value="page.layout" @change="changeLayout(index, $event.target.value)"
-                    class="h-8 text-[12px] px-2 bg-white rounded-md border border-zinc-200 shadow flex-1 focus:outline-none focus:ring-1 focus:ring-orange-400">
-              <optgroup label="Klassisch">
-                <option v-for="l in LAYOUTS.filter(x => !x.editorial)" :key="l.key" :value="l.key">{{ l.label }}</option>
-              </optgroup>
-              <optgroup label="Editorial (mit Zitat)">
-                <option v-for="l in LAYOUTS.filter(x => x.editorial)" :key="l.key" :value="l.key">{{ l.label }}</option>
-              </optgroup>
-            </select>
+            <div class="flex-1"></div>
             <button @click="movePage(index, -1)" class="p-1 hover:bg-zinc-100 rounded text-xs" title="Nach oben">↑</button>
             <button @click="movePage(index, 1)" class="p-1 hover:bg-zinc-100 rounded text-xs" title="Nach unten">↓</button>
             <button @click="removePage(index)" class="p-1 hover:bg-red-50 text-red-500 rounded" title="Entfernen">
               <Trash2 class="w-4 h-4" />
             </button>
           </div>
+
+          <select :value="page.layout" @change="changeLayout(index, $event.target.value)"
+                  class="w-full h-9 text-[13px] px-3 bg-white rounded-md border border-zinc-200 shadow focus:outline-none focus:ring-1 focus:ring-orange-400">
+            <optgroup label="Klassisch">
+              <option v-for="l in LAYOUTS.filter(x => !x.editorial)" :key="l.key" :value="l.key">{{ l.label }}</option>
+            </optgroup>
+            <optgroup label="Editorial (mit Zitat)">
+              <option v-for="l in LAYOUTS.filter(x => x.editorial)" :key="l.key" :value="l.key">{{ l.label }}</option>
+            </optgroup>
+          </select>
 
           <!-- Caption-Field für Editorial -->
           <div v-if="layoutByKey(page.layout)?.editorial">

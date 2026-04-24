@@ -15,7 +15,7 @@
 
 <style>
   .kontakt-page .grid {
-    position: absolute; top: 112px; left: 48px; right: 48px; bottom: 28px;
+    position: absolute; top: 124px; left: 48px; right: 48px; bottom: 28px;
     display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
   }
   .kontakt-page .gh {

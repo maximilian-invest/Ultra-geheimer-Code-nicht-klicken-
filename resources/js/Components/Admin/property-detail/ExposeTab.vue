@@ -269,7 +269,7 @@ onMounted(loadConfig);
     </Alert>
 
     <!-- Makler-Texte -->
-    <div class="rounded-lg p-4 bg-zinc-100/70 shadow-md space-y-3">
+    <div class="rounded-lg border border-zinc-200 p-4 bg-zinc-100/70 shadow-md space-y-3">
       <div class="flex items-center justify-between gap-4">
         <div>
           <h3 class="text-sm font-semibold">Makler-Texte</h3>
@@ -286,14 +286,14 @@ onMounted(loadConfig);
         <label class="text-[11px] text-muted-foreground mb-1 block uppercase tracking-wider font-medium">Claim (Cover, optional)</label>
         <input v-model="claim" type="text" maxlength="200"
           placeholder="z.B. Wohnen, wo andere Urlaub machen."
-          class="w-full h-9 px-3 text-[13px] bg-white rounded-md shadow focus:outline-none focus:ring-1 focus:ring-orange-400" />
+          class="w-full h-9 px-3 text-[13px] bg-white rounded-md border border-zinc-200 shadow focus:outline-none focus:ring-1 focus:ring-orange-400" />
       </div>
 
       <div>
         <label class="text-[11px] text-muted-foreground mb-1 block uppercase tracking-wider font-medium">Impressionen-Zitate (Fallback-Pool, eine Zeile = ein Satz)</label>
         <textarea v-model="captionsPool" rows="3"
           placeholder="Wo Tageslicht den Raum formt.&#10;Ein Ort, an dem Tage länger bleiben."
-          class="w-full px-3 py-2 text-[13px] bg-white rounded-md resize-none shadow focus:outline-none focus:ring-1 focus:ring-orange-400" />
+          class="w-full px-3 py-2 text-[13px] bg-white rounded-md border border-zinc-200 resize-none shadow focus:outline-none focus:ring-1 focus:ring-orange-400" />
         <p class="text-[10.5px] text-muted-foreground mt-1">
           Wird verwendet wenn bei einer Editorial-Seite kein eigenes Zitat gesetzt ist. Zeile 1 → erste Editorial, Zeile 2 → zweite, usw.
         </p>
@@ -317,19 +317,19 @@ onMounted(loadConfig);
           </Button>
         </div>
 
-        <div v-if="impressionenPages.length === 0" class="text-center text-sm text-muted-foreground py-6 rounded-lg bg-zinc-100/70 shadow-md">
+        <div v-if="impressionenPages.length === 0" class="text-center text-sm text-muted-foreground py-6 rounded-lg border border-zinc-200 bg-zinc-100/70 shadow-md">
           Keine Impressionen-Seiten. Klick „Seite hinzufügen" oder „Neu generieren".
         </div>
 
         <div v-for="{ page, index } in impressionenPages" :key="index"
-             class="rounded-lg p-3 bg-white shadow-md space-y-3"
+             class="rounded-lg border border-zinc-200 p-3 bg-white shadow-md space-y-3"
              @dragover="onDragOver"
              @drop="onDropOnPage(index, $event)">
           <div class="flex items-center gap-2">
             <GripVertical class="w-4 h-4 text-muted-foreground flex-shrink-0" />
             <span class="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded">Seite {{ index + 1 }}</span>
             <select :value="page.layout" @change="changeLayout(index, $event.target.value)"
-                    class="h-8 text-[12px] px-2 bg-white rounded-md shadow flex-1 focus:outline-none focus:ring-1 focus:ring-orange-400">
+                    class="h-8 text-[12px] px-2 bg-white rounded-md border border-zinc-200 shadow flex-1 focus:outline-none focus:ring-1 focus:ring-orange-400">
               <optgroup label="Klassisch">
                 <option v-for="l in LAYOUTS.filter(x => !x.editorial)" :key="l.key" :value="l.key">{{ l.label }}</option>
               </optgroup>
@@ -349,7 +349,7 @@ onMounted(loadConfig);
             <label class="text-[10px] text-muted-foreground mb-1 block uppercase tracking-wider font-medium">Zitat für diese Seite</label>
             <input v-model="page.caption" type="text" maxlength="300"
                    placeholder="Leer lassen → aus Pool verwenden"
-                   class="w-full h-8 px-2.5 text-[12px] bg-zinc-50 rounded-md shadow focus:outline-none focus:ring-1 focus:ring-orange-400" />
+                   class="w-full h-8 px-2.5 text-[12px] bg-zinc-50 rounded-md border border-zinc-200 shadow focus:outline-none focus:ring-1 focus:ring-orange-400" />
           </div>
 
           <!-- Bild-Thumbnails auf dieser Seite -->
@@ -357,7 +357,7 @@ onMounted(loadConfig);
             <div v-for="(imgId, imgIdx) in (page.image_ids || [])" :key="imgId"
                  draggable="true"
                  @dragstart="onDragStartFromPage(index, imgIdx, imgId)"
-                 class="relative w-16 h-16 rounded-md overflow-hidden bg-zinc-100 shadow group cursor-move">
+                 class="relative w-16 h-16 rounded-md overflow-hidden bg-zinc-100 border border-zinc-200 shadow group cursor-move">
               <img v-if="imgById(imgId)" :src="imgById(imgId).url" class="w-full h-full object-cover" alt="" />
               <div v-else class="w-full h-full flex items-center justify-center text-xs text-muted-foreground">?</div>
               <button @click="removeImageFromPage(index, imgId)"
@@ -383,7 +383,7 @@ onMounted(loadConfig);
           Medien-Pool
           <span class="text-xs font-normal text-muted-foreground ml-1">({{ unusedImages.length }})</span>
         </div>
-        <div class="rounded-lg p-2 bg-zinc-100/70 shadow-md max-h-[500px] overflow-y-auto"
+        <div class="rounded-lg border border-zinc-200 p-2 bg-zinc-100/70 shadow-md max-h-[500px] overflow-y-auto"
              @dragover="onDragOver"
              @drop="onDropOnPool">
           <div v-if="unusedImages.length === 0" class="text-center text-xs text-muted-foreground py-4">
@@ -393,7 +393,7 @@ onMounted(loadConfig);
             <div v-for="img in unusedImages" :key="img.id"
                  draggable="true"
                  @dragstart="onDragStartFromPool(img.id)"
-                 class="relative aspect-square rounded-md overflow-hidden cursor-move bg-white shadow hover:shadow-lg hover:ring-2 hover:ring-orange-400 transition">
+                 class="relative aspect-square rounded-md overflow-hidden cursor-move bg-white border border-zinc-200 shadow hover:shadow-lg hover:ring-2 hover:ring-orange-400 transition">
               <img :src="img.url" class="w-full h-full object-cover" alt="" />
               <span v-if="img.is_title_image" class="absolute top-1 left-1 text-[9px] bg-orange-500 text-white px-1.5 py-0.5 rounded">Cover</span>
             </div>
@@ -408,7 +408,7 @@ onMounted(loadConfig);
         <h3 class="text-sm font-semibold">Live-Vorschau</h3>
         <span v-if="info" class="text-xs text-muted-foreground">{{ info.page_count }} Seiten · aktive Version</span>
       </div>
-      <div class="rounded-lg overflow-hidden bg-zinc-100 shadow-md" style="aspect-ratio: 297/210;">
+      <div class="rounded-lg overflow-hidden border border-zinc-200 bg-zinc-100 shadow-md" style="aspect-ratio: 297/210;">
         <iframe :src="previewUrl" class="w-full h-full" style="border:0" />
       </div>
     </div>

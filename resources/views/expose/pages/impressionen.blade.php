@@ -9,8 +9,13 @@
 @endphp
 
 <style>
+  .impr-page .pn-solo {
+    position: absolute; top: 30px; right: 42px;
+    font-size: 12px; color: #bbb; letter-spacing: 2.5px; font-weight: 500;
+    z-index: 2;
+  }
   .impr-page .box {
-    position: absolute; top: 124px; left: 48px; right: 48px; bottom: 28px;
+    position: absolute; top: 48px; left: 48px; right: 48px; bottom: 28px;
     display: grid; gap: 8px;
   }
   .impr-page .box.L1 { grid-template-columns: 1fr; }
@@ -115,9 +120,7 @@
 </style>
 
 <div class="page impr-page">
-    <div class="pn">{{ $pageNum }}</div>
-    <div class="title-s">Impressionen</div>
-    <div class="aline"></div>
+    <div class="pn-solo">{{ $pageNum }}</div>
 
     <div class="box {{ $layout }}">
         @if ($layout === 'M1')

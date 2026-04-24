@@ -50,6 +50,18 @@ class ExposeConfigBuilder
 
         // Haus-Bild aus Impressionen-Pool entfernen.
         $forImpressionen = $rest->slice(1)->values();
+
+        // Wenn Impressionen-Pool Bilder hat: Intro-Seite mit erstem Bild voranstellen.
+        // Das Intro-Bild wird aus dem Pool entfernt, damit es nicht doppelt erscheint.
+        $introImage = $forImpressionen->first();
+        if ($introImage) {
+            $pages[] = [
+                'type'     => 'impressionen_intro',
+                'image_id' => $introImage->id,
+            ];
+            $forImpressionen = $forImpressionen->slice(1)->values();
+        }
+
         $captions = $this->captionPool($property);
         $editorialIdx = 0;
 

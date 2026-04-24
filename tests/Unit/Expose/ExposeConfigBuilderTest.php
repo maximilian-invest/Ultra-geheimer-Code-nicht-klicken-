@@ -56,28 +56,34 @@ class ExposeConfigBuilderTest extends TestCase
         $this->assertEquals($titleImage->id, $coverPage['image_id']);
     }
 
-    public function test_five_images_produce_one_L3_impressionen_page(): void
+    public function test_five_images_produce_intro_plus_one_L2_impressionen_page(): void
     {
         $p = $this->mkProperty([[], [], [], [], ['is_title_image' => true]]);
 
         $config = (new ExposeConfigBuilder())->build($p);
+        $intro = array_values(array_filter(
+            $config['pages'],
+            fn($page) => $page['type'] === 'impressionen_intro'
+        ));
         $impressionen = array_values(array_filter(
             $config['pages'],
             fn($page) => $page['type'] === 'impressionen'
         ));
 
-        // 5 Bilder total: 1 Cover, 1 fürs Haus, 3 in Impressionen → L3.
+        // 5 Bilder total: 1 Cover, 1 für Haus, 1 für Intro, 2 in Impressionen → L2.
+        $this->assertCount(1, $intro);
+        $this->assertNotNull($intro[0]['image_id'] ?? null);
         $this->assertCount(1, $impressionen);
-        $this->assertEquals('L3', $impressionen[0]['layout']);
-        $this->assertCount(3, $impressionen[0]['image_ids']);
+        $this->assertEquals('L2', $impressionen[0]['layout']);
+        $this->assertCount(2, $impressionen[0]['image_ids']);
     }
 
     public function test_many_images_produce_mixed_impressionen_with_editorial_variation(): void
     {
-        // 8 Bilder total: 1 Cover, 1 fürs Haus, 6 in Impressionen.
+        // 12 Bilder total: 1 Cover, 1 für Haus, 1 für Intro, 9 in Impressionen.
         // Der Generator variert: klassische Bildseiten (LM/L4) UND Editorial-
         // Mixed-Seiten (M1/M3/M4) werden ineinander eingestreut.
-        $specs = array_fill(0, 8, []);
+        $specs = array_fill(0, 12, []);
         $specs[0]['is_title_image'] = true;
         $p = $this->mkProperty($specs);
 

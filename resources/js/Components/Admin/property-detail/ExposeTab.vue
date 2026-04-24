@@ -3,7 +3,7 @@ import { ref, computed, inject, onMounted } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, RefreshCw, ExternalLink, Save, Plus, Trash2, GripVertical, Image as ImageIcon, Wand2, FileDown } from 'lucide-vue-next';
+import { Loader2, RefreshCw, ExternalLink, Save, Plus, Trash2, GripVertical, Image as ImageIcon, Wand2, FileDown, Eye, EyeOff } from 'lucide-vue-next';
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -55,6 +55,26 @@ const layoutByKey = (k) => LAYOUTS.find(l => l.key === k);
 const impressionenPages = computed(() => pages.value
   .map((p, i) => ({ page: p, index: i }))
   .filter(x => x.page.type === 'impressionen'));
+
+// Seiten, deren Sichtbarkeit via Toggle gesteuert werden kann.
+// Cover + Kontakt sind fix (Cover = Einstieg, Kontakt = Haftungsausschluss).
+const TOGGLEABLE_TYPES = ['details', 'haus', 'sanierungen', 'lage', 'impressionen_intro'];
+const TYPE_LABELS = {
+  details: 'Details',
+  haus: 'Das Haus',
+  sanierungen: 'Sanierungen',
+  lage: 'Lage',
+  impressionen_intro: 'Impressionen-Intro',
+};
+
+const fixedPages = computed(() => pages.value
+  .map((p, i) => ({ page: p, index: i, label: TYPE_LABELS[p.type] }))
+  .filter(x => TOGGLEABLE_TYPES.includes(x.page.type)));
+
+function toggleHidden(pageIndex) {
+  const page = pages.value[pageIndex];
+  page.hidden = !page.hidden;
+}
 
 // Bilder die aktuell in KEINER Page verwendet werden (für Pool-Filter)
 const usedImageIds = computed(() => {
@@ -347,6 +367,25 @@ onMounted(loadConfig);
     <div v-else class="grid lg:grid-cols-[1fr_280px] gap-5">
       <!-- Linke Spalte: Seiten-Liste -->
       <div class="space-y-4">
+        <!-- Sichtbarkeit fixer Seiten -->
+        <div v-if="fixedPages.length" class="rounded-lg p-3 bg-zinc-100/70 border border-zinc-200 shadow-md">
+          <div class="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Seiten ein/ausblenden</div>
+          <div class="flex flex-wrap gap-2">
+            <button v-for="fp in fixedPages" :key="fp.index" @click="toggleHidden(fp.index)"
+                    :class="[
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all',
+                      fp.page.hidden
+                        ? 'bg-zinc-200 text-muted-foreground line-through opacity-60'
+                        : 'bg-white text-zinc-900 shadow-sm border border-zinc-200'
+                    ]">
+              <EyeOff v-if="fp.page.hidden" class="w-3.5 h-3.5" />
+              <Eye v-else class="w-3.5 h-3.5 text-orange-500" />
+              {{ fp.label }}
+            </button>
+          </div>
+          <p class="text-[10px] text-muted-foreground mt-2">Cover &amp; Kontakt sind immer sichtbar. Änderungen mit „Layout speichern" übernehmen.</p>
+        </div>
+
         <div class="flex items-center justify-between">
           <h3 class="text-sm font-semibold">Impressionen-Seiten</h3>
           <Button @click="addImpressionenPage" variant="outline" size="sm">
@@ -360,13 +399,21 @@ onMounted(loadConfig);
         </div>
 
         <div v-for="{ page, index } in impressionenPages" :key="index"
-             class="rounded-lg border border-zinc-200 p-3 bg-white shadow-md space-y-3"
+             :class="[
+               'rounded-lg border border-zinc-200 p-3 shadow-md space-y-3',
+               page.hidden ? 'bg-zinc-50 opacity-60' : 'bg-white'
+             ]"
              @dragover="onDragOver"
              @drop="onDropOnPage(index, $event)">
           <div class="flex items-center gap-2">
             <GripVertical class="w-4 h-4 text-muted-foreground flex-shrink-0" />
             <span class="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded">Seite {{ index + 1 }}</span>
+            <span v-if="page.hidden" class="text-[10px] text-muted-foreground italic">ausgeblendet</span>
             <div class="flex-1"></div>
+            <button @click="toggleHidden(index)" class="p-1 hover:bg-zinc-100 rounded" :title="page.hidden ? 'Wieder anzeigen' : 'Ausblenden'">
+              <EyeOff v-if="page.hidden" class="w-4 h-4 text-muted-foreground" />
+              <Eye v-else class="w-4 h-4 text-orange-500" />
+            </button>
             <button @click="movePage(index, -1)" class="p-1 hover:bg-zinc-100 rounded text-xs" title="Nach oben">↑</button>
             <button @click="movePage(index, 1)" class="p-1 hover:bg-zinc-100 rounded text-xs" title="Nach unten">↓</button>
             <button @click="removePage(index)" class="p-1 hover:bg-red-50 text-red-500 rounded" title="Entfernen">

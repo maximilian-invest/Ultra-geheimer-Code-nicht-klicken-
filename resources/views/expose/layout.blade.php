@@ -9,9 +9,11 @@
 </head>
 <body>
     @php($allowedTypes = ['cover', 'details', 'haus', 'sanierungen', 'lage', 'impressionen_intro', 'impressionen', 'kontakt'])
-    @foreach ($ctx->pages as $i => $page)
-        @continue(!in_array($page['type'] ?? '', $allowedTypes, true))
-        @php($pageNum = sprintf('%02d / %02d', $i + 1, count($ctx->pages)))
+    @php($visiblePages = array_values(array_filter($ctx->pages, function($p) use ($allowedTypes) {
+        return in_array($p['type'] ?? '', $allowedTypes, true) && empty($p['hidden']);
+    })))
+    @foreach ($visiblePages as $i => $page)
+        @php($pageNum = sprintf('%02d / %02d', $i + 1, count($visiblePages)))
         @include("expose.pages.{$page['type']}", ['page' => $page, 'pageNum' => $pageNum, 'ctx' => $ctx])
     @endforeach
 

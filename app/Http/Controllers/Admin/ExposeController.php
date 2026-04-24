@@ -121,6 +121,7 @@ class ExposeController extends Controller
             'config.pages.*.image_id' => ['nullable', 'integer'],
             'config.pages.*.image_ids'=> ['nullable', 'array'],
             'config.pages.*.caption'  => ['nullable', 'string', 'max:300'],
+            'config.pages.*.hidden'   => ['nullable', 'boolean'],
         ]);
 
         PropertyExposeVersion::where('property_id', $property->id)

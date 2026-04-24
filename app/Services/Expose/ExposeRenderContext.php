@@ -5,6 +5,7 @@ namespace App\Services\Expose;
 use App\Models\Property;
 use App\Models\PropertyExposeVersion;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class ExposeRenderContext
 {
@@ -16,6 +17,7 @@ class ExposeRenderContext
         public readonly string $hausTextMode,
         public readonly string $lageTextMode,
         public readonly ?string $claimText,
+        public readonly ?string $brokerPhotoPath = null,
     ) {}
 
     public static function build(
@@ -37,6 +39,16 @@ class ExposeRenderContext
             $broker = User::find($version->created_by);
         }
 
+        // Portrait liegt in admin_settings.signature_photo_path, nicht auf
+        // der User-Row direkt. Wird im Settings-Tab ("Portrait hochladen")
+        // gepflegt. Fuer die Kontakt-Seite hier einmal auflösen.
+        $brokerPhotoPath = null;
+        if ($broker) {
+            $brokerPhotoPath = DB::table('admin_settings')
+                ->where('user_id', $broker->id)
+                ->value('signature_photo_path') ?: null;
+        }
+
         return new self(
             property: $property,
             version: $version,
@@ -45,6 +57,7 @@ class ExposeRenderContext
             hausTextMode: $pagination->textFlowMode($property->realty_description ?? ''),
             lageTextMode: $pagination->textFlowMode($property->location_description ?? ''),
             claimText: $property->expose_claim ?: ($config['claim_text'] ?? null),
+            brokerPhotoPath: $brokerPhotoPath,
         );
     }
 

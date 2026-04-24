@@ -9,9 +9,10 @@
     $web     = $b?->signature_website ?: 'www.sr-homes.at';
     $company = $b?->signature_company ?: 'SR Homes';
     $initials = collect(preg_split('/\s+/', $name))->map(fn($x) => mb_substr($x, 0, 1))->take(2)->implode('');
-    // Profilbild (vom User im Admin-Profil hochgeladen). Wenn vorhanden,
-    // zeigen wir ein echtes Foto statt Initialen-Badge.
-    $photoPath = trim((string) ($b?->profile_image ?? ''));
+    // Portrait kommt aus admin_settings.signature_photo_path (im
+    // Einstellungen-Tab unter „Portrait hochladen"). Fallback auf
+    // users.profile_image, falls Legacy-Daten vorhanden sind.
+    $photoPath = trim((string) ($ctx->brokerPhotoPath ?? $b?->profile_image ?? ''));
     $photoUrl  = $photoPath !== '' ? asset('storage/' . $photoPath) : null;
 
     $disclaimer = 'Dieses Exposé wurde mit größter Sorgfalt erstellt und dient ausschließlich der unverbindlichen Information. Alle Angaben zu Flächen, Maßen, Preisen, Erträgen sowie sonstigen Daten beruhen auf den Informationen und Unterlagen des Eigentümers bzw. Dritter. Für deren Richtigkeit, Vollständigkeit und Aktualität wird keine Haftung übernommen. Das Exposé stellt kein verbindliches Angebot dar. Änderungen, Irrtümer und Zwischenverkauf bleiben ausdrücklich vorbehalten. Maßgeblich sind ausschließlich die im Kaufvertrag vereinbarten Inhalte. Dieses Dokument ist vertraulich zu behandeln und darf ohne unsere ausdrückliche Zustimmung weder vervielfältigt noch an Dritte weitergegeben werden.';
@@ -32,9 +33,9 @@
     background: #fafafa; border-radius: 4px; margin-bottom: 18px;
   }
   .kontakt-page .avatar {
-    width: 58px; height: 58px; border-radius: 50%;
+    width: 72px; height: 72px; border-radius: 50%;
     background: linear-gradient(135deg, #ee7600, #c95b00);
-    color: #fff; font-family: Georgia, serif; font-size: 22px;
+    color: #fff; font-family: Georgia, serif; font-size: 26px;
     display: flex; align-items: center; justify-content: center; font-weight: 600;
     flex-shrink: 0;
     overflow: hidden;

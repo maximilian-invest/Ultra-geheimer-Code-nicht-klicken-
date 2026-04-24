@@ -32,8 +32,11 @@ const puppeteer = require('puppeteer');
         args.push(`--host-resolver-rules=MAP ${mapHost} 127.0.0.1`);
     }
 
+    // `headless: 'shell'` nutzt den alten "chrome headless shell" Modus ohne
+    // crashpad-Subprocess — löst den `chrome_crashpad_handler: --database is
+    // required` Fehler auf headless-Servern zuverlässig.
     const browser = await puppeteer.launch({
-        headless: 'new',
+        headless: 'shell',
         args,
     });
 

@@ -201,12 +201,25 @@
 @endphp
 
 <style>
-  .details-page .grid {
+  .details-page .content {
     position: absolute; top: 124px; left: 48px; right: 48px; bottom: 28px;
+    display: flex; flex-direction: column;
+  }
+  .details-page .grid {
+    flex: 1; min-height: 0;
     column-count: 2; column-gap: 56px; column-fill: balance;
-    /* Gruppen fließen automatisch in 2 gleich hohe Spalten — unabhaengig
-       davon welche Daten gepflegt sind. Einzelne Gruppen werden durch
-       .grp { break-inside: avoid } nie ueber eine Spalten-Grenze zerissen. */
+    /* Struktur-Datenfelder fließen automatisch in 2 gleich hohe Spalten —
+       unabhaengig davon welche Daten gepflegt sind. Einzelne Gruppen
+       werden durch .grp { break-inside: avoid } nie ueber eine Spalten-
+       Grenze zerissen. */
+  }
+  /* Merkmale + Allgemeinraeume kommen als Full-Width-Band ans Ende der
+     Seite — Badges wirken in voller Breite ruhiger und visuell klarer
+     als wenn sie mitten in einer schmalen Spalte stehen. */
+  .details-page .tags {
+    flex-shrink: 0;
+    margin-top: 14px;
+    display: flex; flex-direction: column; gap: 10px;
   }
   .details-page .list-value {
     font-family: Georgia, serif; color: var(--text-primary);
@@ -239,10 +252,12 @@
     <div class="pn">{{ $pageNum }}</div>
     <div class="title-s">Details</div>
     <div class="aline"></div>
+    <div class="content">
     <div class="grid">
-        {{-- Alle Gruppen fliessen automatisch in 2 Spalten (column-fill:
-             balance). Die Reihenfolge hier gibt die Sortierung vor;
-             .grp { break-inside: avoid } haelt jede Gruppe intakt. --}}
+        {{-- Alle Daten-Gruppen fliessen automatisch in 2 Spalten
+             (column-fill: balance). Badges-Gruppen (Merkmale,
+             Allgemeinraeume) stehen weiter unten im .tags-Band,
+             damit sie immer am Seitenende sitzen. --}}
             <div class="grp">
                 <div class="gh">Objekt</div>
                 {!! $row('Objektart', $p->object_type) !!}
@@ -301,6 +316,19 @@
                 {!! $row('Ausrichtung', $p->orientation) !!}
             </div>
 
+            <div class="grp">
+                <div class="gh">Energie</div>
+                {!! $row('Heizung', $heatingDisplay) !!}
+                {!! $row('Energieträger', $p->energy_primary_source) !!}
+                {!! $row('HWB', $p->heating_demand_value ? $p->heating_demand_value . ' kWh/m²a' : null) !!}
+                {!! $row('fGEE', $p->energy_efficiency_value) !!}
+                {!! $row('Energieklasse', $p->heating_demand_class) !!}
+                {!! $row('Ausweis bis', $p->energy_valid_until?->format('m/Y') ?: null) !!}
+            </div>
+    </div>
+
+    @if (!empty($activeFeatures) || !empty($commonAreas))
+        <div class="tags">
             @if (!empty($activeFeatures))
                 <div class="grp">
                     <div class="gh">Merkmale</div>
@@ -322,15 +350,7 @@
                     </div>
                 </div>
             @endif
-
-            <div class="grp">
-                <div class="gh">Energie</div>
-                {!! $row('Heizung', $heatingDisplay) !!}
-                {!! $row('Energieträger', $p->energy_primary_source) !!}
-                {!! $row('HWB', $p->heating_demand_value ? $p->heating_demand_value . ' kWh/m²a' : null) !!}
-                {!! $row('fGEE', $p->energy_efficiency_value) !!}
-                {!! $row('Energieklasse', $p->heating_demand_class) !!}
-                {!! $row('Ausweis bis', $p->energy_valid_until?->format('m/Y') ?: null) !!}
-            </div>
+        </div>
+    @endif
     </div>
 </div>

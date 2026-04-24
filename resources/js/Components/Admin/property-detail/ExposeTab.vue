@@ -250,7 +250,8 @@ onMounted(loadConfig);
           <Wand2 v-else class="w-4 h-4 mr-2" />
           Neu generieren
         </Button>
-        <Button @click="saveConfig" :disabled="savingConfig" variant="default" size="sm">
+        <Button @click="saveConfig" :disabled="savingConfig" size="sm"
+                class="bg-orange-500 hover:bg-orange-600 text-white shadow-sm">
           <Loader2 v-if="savingConfig" class="w-4 h-4 mr-2 animate-spin" />
           <Save v-else class="w-4 h-4 mr-2" />
           Layout speichern

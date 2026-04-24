@@ -1,6 +1,15 @@
 @php
     $b = $ctx->broker;
-    $initials = $b ? collect(preg_split('/\s+/', $b->name))->map(fn($x) => mb_substr($x, 0, 1))->take(2)->implode('') : 'SR';
+    // Makler-Signatur hat Vorrang vor User-Basis-Feldern — der Makler pflegt
+    // dort bewusst gewählte Exposé-Daten (oft andere Mail als der Login-Account).
+    $name    = $b?->signature_name  ?: $b?->name  ?: 'SR Homes';
+    $role    = $b?->signature_title ?: 'Immobilienmakler';
+    $phone   = $b?->signature_phone ?: $b?->phone ?: null;
+    $mail    = $b?->signature_email ?: $b?->email ?: null;
+    $web     = $b?->signature_website ?: 'www.sr-homes.at';
+    $company = $b?->signature_company ?: 'SR Homes';
+    $initials = collect(preg_split('/\s+/', $name))->map(fn($x) => mb_substr($x, 0, 1))->take(2)->implode('');
+
     $disclaimer = 'Dieses Exposé wurde mit größter Sorgfalt erstellt und dient ausschließlich der unverbindlichen Information. Alle Angaben zu Flächen, Maßen, Preisen, Erträgen sowie sonstigen Daten beruhen auf den Informationen und Unterlagen des Eigentümers bzw. Dritter. Für deren Richtigkeit, Vollständigkeit und Aktualität wird keine Haftung übernommen. Das Exposé stellt kein verbindliches Angebot dar. Änderungen, Irrtümer und Zwischenverkauf bleiben ausdrücklich vorbehalten. Maßgeblich sind ausschließlich die im Kaufvertrag vereinbarten Inhalte. Dieses Dokument ist vertraulich zu behandeln und darf ohne unsere ausdrückliche Zustimmung weder vervielfältigt noch an Dritte weitergegeben werden.';
 @endphp
 
@@ -59,19 +68,21 @@
             <div class="contact-box">
                 <div class="avatar">{{ $initials }}</div>
                 <div class="info">
-                    <div class="name">{{ $b?->name ?: 'SR Homes' }}</div>
-                    <div class="role">Immobilienmakler</div>
-                    @if ($b?->phone ?? null)
-                        <div class="line"><span class="k">Telefon</span>{{ $b->phone }}</div>
+                    <div class="name">{{ $name }}</div>
+                    <div class="role">{{ $role }}</div>
+                    @if ($phone)
+                        <div class="line"><span class="k">Telefon</span>{{ $phone }}</div>
                     @endif
-                    @if ($b?->email)
-                        <div class="line"><span class="k">E-Mail</span>{{ $b->email }}</div>
+                    @if ($mail)
+                        <div class="line"><span class="k">E-Mail</span>{{ $mail }}</div>
                     @endif
-                    <div class="line"><span class="k">Web</span>www.sr-homes.at</div>
+                    @if ($web)
+                        <div class="line"><span class="k">Web</span>{{ $web }}</div>
+                    @endif
                 </div>
             </div>
-            <div class="gh" style="margin-top: 4px;">Über SR Homes</div>
-            <p class="over">SR Homes begleitet Sie mit Erfahrung und regionaler Expertise durch den gesamten Verkaufs- und Kaufprozess — von der Erstbesichtigung bis zur Schlüsselübergabe.</p>
+            <div class="gh" style="margin-top: 4px;">Über {{ $company }}</div>
+            <p class="over">{{ $company }} begleitet Sie mit Erfahrung und regionaler Expertise durch den gesamten Verkaufs- und Kaufprozess — von der Erstbesichtigung bis zur Schlüsselübergabe.</p>
         </div>
         <div>
             <div class="gh">Kaufnebenkosten</div>

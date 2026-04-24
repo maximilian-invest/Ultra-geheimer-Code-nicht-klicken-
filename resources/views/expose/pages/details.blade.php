@@ -189,6 +189,23 @@
   .details-page .list-value .bullet {
     color: var(--accent); margin: 0 6px; opacity: 0.6;
   }
+  /* Badges fuer Merkmale & Allgemeinraeume — vermeidet Haengeinruecker
+     beim Umbruch und wirkt visuell klarer als bullet-separierte Liste. */
+  .details-page .badge-list {
+    display: flex; flex-wrap: wrap; gap: 5px 5px;
+    padding: 6px 0 2px;
+  }
+  .details-page .badge-list .bdg {
+    display: inline-block;
+    font-family: var(--font-sans, 'Inter', sans-serif);
+    font-size: 11.5px; line-height: 1;
+    color: #3f3f46;
+    background: #f4f4f5;
+    border: 1px solid #e4e4e7;
+    border-radius: 9999px;
+    padding: 5px 10px 5px 10px;
+    white-space: nowrap;
+  }
 </style>
 
 <div class="page details-page">
@@ -254,9 +271,9 @@
             @if (!empty($activeFeatures))
                 <div class="grp">
                     <div class="gh">Merkmale</div>
-                    <div class="list-value">
-                        @foreach ($activeFeatures as $i => $feat)
-                            @if ($i > 0)<span class="bullet">·</span>@endif{{ $feat }}
+                    <div class="badge-list">
+                        @foreach ($activeFeatures as $feat)
+                            <span class="bdg">{{ $feat }}</span>
                         @endforeach
                     </div>
                 </div>
@@ -265,9 +282,9 @@
             @if (!empty($commonAreas))
                 <div class="grp">
                     <div class="gh">Allgemeinräume</div>
-                    <div class="list-value">
-                        @foreach ($commonAreas as $i => $area)
-                            @if ($i > 0)<span class="bullet">·</span>@endif{{ $area }}
+                    <div class="badge-list">
+                        @foreach ($commonAreas as $area)
+                            <span class="bdg">{{ $area }}</span>
                         @endforeach
                     </div>
                 </div>

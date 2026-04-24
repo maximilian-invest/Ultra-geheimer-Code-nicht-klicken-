@@ -78,6 +78,28 @@
 
     if ($parts) $parking = implode(' · ', $parts);
 
+    // Heizung: bevorzugt building_details.heating (strukturiert: types + fuel).
+    // Flat-Feld $p->heating dient nur als Fallback — und nur, wenn es
+    // plausibel aussieht (nicht "Nach Vereinbarung" o. Ä., das Leute bei
+    // der Erstanlage oft versehentlich ins Heizungs-Feld eintragen).
+    $heatingDisplay = null;
+    $heatingBlock = is_array($bd['heating'] ?? null) ? $bd['heating'] : [];
+    $hTypes = array_values(array_filter(is_array($heatingBlock['types'] ?? null) ? $heatingBlock['types'] : [], fn($t) => is_string($t) && trim($t) !== ''));
+    $hFuel  = trim((string) ($heatingBlock['fuel'] ?? ''));
+    $hParts = [];
+    if ($hTypes) $hParts[] = implode(' / ', $hTypes);
+    if ($hFuel !== '') $hParts[] = $hFuel;
+    if ($hParts) {
+        $heatingDisplay = implode(' · ', $hParts);
+    } else {
+        $flat = trim((string) ($p->heating ?? ''));
+        $flatLower = mb_strtolower($flat);
+        $blocked = ['nach vereinbarung', 'auf anfrage', 'k.a.', 'ka', 'n/a', 'keine angabe', '-', '–'];
+        if ($flat !== '' && !in_array($flatLower, $blocked, true)) {
+            $heatingDisplay = $flat;
+        }
+    }
+
     // Helper zum Erstellen einer Row nur wenn Wert vorhanden
     $row = function ($k, $v, $total = false) {
         if ($v === null || $v === '') return '';
@@ -293,7 +315,7 @@
 
             <div class="grp">
                 <div class="gh">Energie</div>
-                {!! $row('Heizung', $p->heating) !!}
+                {!! $row('Heizung', $heatingDisplay) !!}
                 {!! $row('Energieträger', $p->energy_primary_source) !!}
                 {!! $row('HWB', $p->heating_demand_value ? $p->heating_demand_value . ' kWh/m²a' : null) !!}
                 {!! $row('fGEE', $p->energy_efficiency_value) !!}

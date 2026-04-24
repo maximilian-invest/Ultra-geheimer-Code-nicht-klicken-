@@ -9,6 +9,10 @@
     $web     = $b?->signature_website ?: 'www.sr-homes.at';
     $company = $b?->signature_company ?: 'SR Homes';
     $initials = collect(preg_split('/\s+/', $name))->map(fn($x) => mb_substr($x, 0, 1))->take(2)->implode('');
+    // Profilbild (vom User im Admin-Profil hochgeladen). Wenn vorhanden,
+    // zeigen wir ein echtes Foto statt Initialen-Badge.
+    $photoPath = trim((string) ($b?->profile_image ?? ''));
+    $photoUrl  = $photoPath !== '' ? asset('storage/' . $photoPath) : null;
 
     $disclaimer = 'Dieses Exposé wurde mit größter Sorgfalt erstellt und dient ausschließlich der unverbindlichen Information. Alle Angaben zu Flächen, Maßen, Preisen, Erträgen sowie sonstigen Daten beruhen auf den Informationen und Unterlagen des Eigentümers bzw. Dritter. Für deren Richtigkeit, Vollständigkeit und Aktualität wird keine Haftung übernommen. Das Exposé stellt kein verbindliches Angebot dar. Änderungen, Irrtümer und Zwischenverkauf bleiben ausdrücklich vorbehalten. Maßgeblich sind ausschließlich die im Kaufvertrag vereinbarten Inhalte. Dieses Dokument ist vertraulich zu behandeln und darf ohne unsere ausdrückliche Zustimmung weder vervielfältigt noch an Dritte weitergegeben werden.';
 @endphp
@@ -33,6 +37,10 @@
     color: #fff; font-family: Georgia, serif; font-size: 22px;
     display: flex; align-items: center; justify-content: center; font-weight: 600;
     flex-shrink: 0;
+    overflow: hidden;
+  }
+  .kontakt-page .avatar img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
   }
   .kontakt-page .info .name { font-family: Georgia, serif; font-size: 18px; color: var(--text-primary); margin-bottom: 2px; }
   .kontakt-page .info .role { font-size: 11px; color: #999; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
@@ -66,7 +74,13 @@
         <div>
             <div class="gh">Ihr Ansprechpartner</div>
             <div class="contact-box">
-                <div class="avatar">{{ $initials }}</div>
+                <div class="avatar">
+                    @if ($photoUrl)
+                        <img src="{{ $photoUrl }}" alt="{{ $name }}">
+                    @else
+                        {{ $initials }}
+                    @endif
+                </div>
                 <div class="info">
                     <div class="name">{{ $name }}</div>
                     <div class="role">{{ $role }}</div>

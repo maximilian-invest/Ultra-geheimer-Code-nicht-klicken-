@@ -304,7 +304,7 @@ watch(() => props.form?.id, loadParking);
         <div v-for="field in areaFields" :key="field.key">
           <label :class="labelCls + ' flex items-center gap-1.5 flex-wrap'">
             <span>{{ field.label }}</span>
-            <span v-if="field.countKey && !isNewbuild" class="text-[10px] text-muted-foreground font-normal">(m² | Anzahl)</span>
+            <span v-if="field.countKey && !isNewbuild" class="text-[10px] text-muted-foreground font-normal">(m² gesamt | Anzahl)</span>
             <FieldExportBadges :field="field.key" />
             <span v-if="isNewbuild && neubauRanges[field.key]"
                   class="text-[9px] text-orange-600 font-normal tabular-nums ml-auto"
@@ -324,7 +324,7 @@ watch(() => props.form?.id, loadParking);
           <!-- Bestand: normale Eingaben -->
           <div v-else-if="field.countKey" class="flex gap-2">
             <div class="flex-1">
-              <Input v-model="form[field.key]" type="number" placeholder="m²" :class="inputCls" />
+              <Input v-model="form[field.key]" type="number" placeholder="m² gesamt" :class="inputCls" />
             </div>
             <div class="w-20">
               <Input v-model="form[field.countKey]" type="number" placeholder="Anz." :class="inputCls" />

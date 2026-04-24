@@ -4,13 +4,15 @@
     $fmtArea = fn($v) => $v ? number_format($v, 0, ',', '.') . ' m²' : null;
     $fmtMoney = fn($v) => $v !== null && $v !== '' ? '€ ' . number_format($v, 0, ',', '.') : null;
 
-    // Count + Fläche kombinieren, z. B. "2 × 12 m²"; fällt auf Einzelwert zurück.
+    // Count + Fläche kombinieren, z. B. "3 Stk. · 6 m²" — die m²-Angabe ist
+    // dabei die GESAMTflaeche aller Einheiten (nicht pro Stueck), "Stk." macht
+    // das explizit damit "3 × 6 m²" nicht als Multiplikation gelesen wird.
     $fmtCountArea = function ($count, $area) use ($fmtArea) {
         $c = (int) ($count ?? 0);
         $a = $fmtArea($area);
-        if ($c > 1 && $a) return $c . ' × ' . $a;
+        if ($c > 1 && $a) return $c . ' Stk. · ' . $a;
         if ($a) return $a;
-        if ($c > 0) return (string) $c;
+        if ($c > 0) return $c . ' Stk.';
         return null;
     };
     $rooms = $p->rooms_amount ? rtrim(rtrim(number_format($p->rooms_amount, 1, ',', ''), '0'), ',') : null;

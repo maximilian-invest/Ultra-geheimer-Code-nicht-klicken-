@@ -30,6 +30,19 @@
             </select>
           </label>
 
+          <div v-if="activeExpose" class="field">
+            <span>Exposé</span>
+            <label class="expose-row">
+              <input type="checkbox" v-model="includeExpose" />
+              <span class="expose-icon">SR</span>
+              <div class="expose-body">
+                <div class="expose-title">{{ activeExpose.name || 'Aktives Exposé' }}</div>
+                <div class="expose-meta">{{ activeExpose.page_count }} Seiten · adaptiv</div>
+              </div>
+              <span class="badge-expose">EXPOSÉ</span>
+            </label>
+          </div>
+
           <div class="field">
             <span>Dokumente ({{ selectedIds.length }} / {{ availableFiles.length }})</span>
             <ul class="file-list">
@@ -68,6 +81,7 @@ const props = defineProps({
   propertyId: { type: Number, required: true },
   link: { type: Object, default: null },
   availableFiles: { type: Array, required: true },
+  activeExpose: { type: Object, default: null },
 });
 const emit = defineEmits(['close', 'saved']);
 
@@ -77,9 +91,14 @@ const form = ref({
   expiry_days: 30,
 });
 const selectedIds = ref(props.link?.document_ids ?? []);
+// Exposé-Auswahl: checked wenn der Link bereits das aktive Exposé enthält
+// oder wenn der Makler beim neuen Link auf "Exposé mit anhängen" klickt.
+const includeExpose = ref(
+  Boolean(props.link && props.activeExpose && props.link.expose_version_id === props.activeExpose.version_id)
+);
 const saving = ref(false);
 
-const canSave = computed(() => form.value.name.trim() && selectedIds.value.length > 0);
+const canSave = computed(() => form.value.name.trim() && (selectedIds.value.length > 0 || includeExpose.value));
 
 function toggleFile(id) {
   const i = selectedIds.value.indexOf(id);
@@ -101,6 +120,7 @@ async function save() {
     is_default: form.value.is_default,
     expires_at: form.value.expiry_days ? new Date(Date.now() + form.value.expiry_days * 86400000).toISOString() : null,
     file_ids: selectedIds.value,
+    expose_version_id: includeExpose.value && props.activeExpose ? props.activeExpose.version_id : null,
   };
 
   try {
@@ -159,4 +179,14 @@ footer { display: flex; justify-content: flex-end; gap: 10px; padding: 20px 24px
 .btn-primary:hover:not(:disabled) { background: #C0551F; }
 .btn-secondary { background: transparent; border: 1px solid #E5E0D8; color: #0A0A08; }
 .btn-secondary:hover { border-color: #D4743B; }
+
+/* Exposé-Zeile */
+.expose-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: linear-gradient(90deg, #fff7ed 0%, #ffffff 55%); border: 1px solid #fed7aa; border-radius: 8px; cursor: pointer; }
+.expose-row:hover { border-color: #fb923c; }
+.expose-row input[type="checkbox"] { flex-shrink: 0; }
+.expose-icon { width: 36px; height: 36px; border-radius: 6px; background: linear-gradient(135deg, #ee7600, #c95b00); color: #fff; display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-weight: 600; font-size: 14px; flex-shrink: 0; }
+.expose-body { flex: 1; min-width: 0; }
+.expose-title { font-size: 13px; font-weight: 600; color: #0A0A08; }
+.expose-meta { font-size: 11px; color: #5A564E; margin-top: 2px; }
+.badge-expose { font-size: 9px; font-weight: 700; letter-spacing: 1px; padding: 3px 7px; background: #ee7600; color: #fff; border-radius: 4px; }
 </style>

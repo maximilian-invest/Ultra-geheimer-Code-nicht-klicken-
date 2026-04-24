@@ -61,7 +61,23 @@ class PropertyLinkController extends Controller
 
         $files = $propertyFiles->concat($globalFiles)->values();
 
-        return response()->json(['links' => $links, 'files' => $files]);
+        // Aktives Exposé dieser Property (nur eines pro Property aktiv).
+        $activeExpose = \App\Models\PropertyExposeVersion::where('property_id', $property->id)
+            ->where('is_active', true)
+            ->first();
+
+        $activeExposeInfo = $activeExpose ? [
+            'version_id' => $activeExpose->id,
+            'name'       => $activeExpose->name,
+            'page_count' => count($activeExpose->config_json['pages'] ?? []),
+            'updated_at' => $activeExpose->updated_at?->toIso8601String(),
+        ] : null;
+
+        return response()->json([
+            'links'         => $links,
+            'files'         => $files,
+            'activeExpose'  => $activeExposeInfo,
+        ]);
     }
 
     /**
@@ -157,7 +173,7 @@ class PropertyLinkController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'is_default' => ['sometimes', 'boolean'],
             'expires_at' => ['nullable', 'date'],
-            'file_ids' => ['required', 'array', 'min:1'],
+            'file_ids' => ['required_without:expose_version_id', 'array'],
             'file_ids.*' => ['required'],
             'expose_version_id' => [
                 'nullable', 'integer',
@@ -166,7 +182,7 @@ class PropertyLinkController extends Controller
             ],
         ]);
 
-        $validFileIds = $this->resolveFileIds($property, $data['file_ids']);
+        $validFileIds = $this->resolveFileIds($property, $data['file_ids'] ?? []);
 
         $link = DB::transaction(function () use ($data, $property, $validFileIds) {
             $link = PropertyLink::create([
@@ -285,7 +301,7 @@ class PropertyLinkController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'is_default' => ['sometimes', 'boolean'],
             'expires_at' => ['nullable', 'date'],
-            'file_ids' => ['required', 'array', 'min:1'],
+            'file_ids' => ['required_without:expose_version_id', 'array'],
             'file_ids.*' => ['required'],
             'expose_version_id' => [
                 'nullable', 'integer',
@@ -294,7 +310,7 @@ class PropertyLinkController extends Controller
             ],
         ]);
 
-        $validFileIds = $this->resolveFileIds($property, $data['file_ids']);
+        $validFileIds = $this->resolveFileIds($property, $data['file_ids'] ?? []);
 
         DB::transaction(function () use ($link, $data, $validFileIds) {
             $link->update([
@@ -390,6 +406,11 @@ class PropertyLinkController extends Controller
             $docIds = $docIds->all();
         }
 
+        $exposeVersionId = DB::table('property_link_documents')
+            ->where('property_link_id', $link->id)
+            ->whereNotNull('expose_version_id')
+            ->value('expose_version_id');
+
         return [
             'id' => $link->id,
             'name' => $link->name,
@@ -400,6 +421,7 @@ class PropertyLinkController extends Controller
             'created_at' => $link->created_at->toIso8601String(),
             'sessions_count' => $link->sessions_count ?? 0,
             'document_ids' => $docIds,
+            'expose_version_id' => $exposeVersionId ? (int) $exposeVersionId : null,
             'url' => url("/docs/{$link->token}"),
             'status' => $this->statusOf($link),
         ];

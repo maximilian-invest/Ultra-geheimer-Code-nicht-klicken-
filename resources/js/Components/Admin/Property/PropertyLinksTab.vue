@@ -45,6 +45,7 @@
       :property-id="propertyId"
       :link="editingLink"
       :available-files="files"
+      :active-expose="activeExpose"
       @close="closeForm"
       @saved="onSaved"
     />
@@ -62,6 +63,7 @@ const props = defineProps({
 
 const links = ref([]);
 const files = ref([]);
+const activeExpose = ref(null);
 const loading = ref(true);
 const formOpen = ref(false);
 const editingLink = ref(null);
@@ -79,6 +81,7 @@ async function fetchLinks() {
   const { data } = await axios.get(`/admin/properties/${props.propertyId}/links`);
   links.value = data.links;
   files.value = data.files || [];
+  activeExpose.value = data.activeExpose || null;
   loading.value = false;
 }
 

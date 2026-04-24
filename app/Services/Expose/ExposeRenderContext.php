@@ -26,10 +26,21 @@ class ExposeRenderContext
         $property->loadMissing('images');
         $config = $version->config_json;
 
+        // Broker-Priorität: (1) Property.broker_id, (2) Version.created_by.
+        // So zeigt das Kontakt-Template immer die E-Mail des Maklers der
+        // das Exposé angelegt hat — auch wenn die Property keinen Broker hat.
+        $broker = null;
+        if ($property->broker_id) {
+            $broker = User::find($property->broker_id);
+        }
+        if (!$broker && $version->created_by) {
+            $broker = User::find($version->created_by);
+        }
+
         return new self(
             property: $property,
             version: $version,
-            broker: $property->broker_id ? User::find($property->broker_id) : null,
+            broker: $broker,
             pages: $config['pages'] ?? [],
             hausTextMode: $pagination->textFlowMode($property->realty_description ?? ''),
             lageTextMode: $pagination->textFlowMode($property->location_description ?? ''),

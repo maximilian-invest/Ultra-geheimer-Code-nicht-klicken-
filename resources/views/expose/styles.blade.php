@@ -56,17 +56,17 @@
   .grp { break-inside: avoid; margin-bottom: 14px; }
   .grp:last-child { margin-bottom: 0; }
   .grp .gh {
-    font-size: 11px; color: var(--accent); letter-spacing: 2.5px;
+    font-size: 12px; color: var(--accent); letter-spacing: 2.5px;
     text-transform: uppercase; font-weight: 700;
-    padding-bottom: 5px; margin-bottom: 6px;
+    padding-bottom: 5px; margin-bottom: 7px;
     border-bottom: 1px solid var(--border);
   }
   .grp .r {
     display: flex; justify-content: space-between;
-    padding: 3.5px 0; border-bottom: 1px dotted #f0f0f0; gap: 14px;
+    padding: 4.5px 0; border-bottom: 1px dotted #f0f0f0; gap: 14px;
   }
   .grp .r:last-child { border-bottom: none; }
-  .grp .r .k { color: var(--text-secondary); font-size: 12px; flex-shrink: 0; }
-  .grp .r .v { font-family: var(--font-serif); color: var(--text-primary); font-size: 13px; text-align: right; }
+  .grp .r .k { color: var(--text-secondary); font-size: 13px; flex-shrink: 0; }
+  .grp .r .v { font-family: var(--font-serif); color: var(--text-primary); font-size: 14px; text-align: right; }
   .grp .r .v.total { color: var(--accent); font-weight: 700; }
 </style>

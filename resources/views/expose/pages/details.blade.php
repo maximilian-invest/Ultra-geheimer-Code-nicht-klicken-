@@ -15,16 +15,58 @@
     ], fn($v) => $v !== null);
     foreach ($costs as $v) $sum += (float) $v;
 
-    // Parking-Text
+    // Parking-Text:
+    //  (1) bevorzugt building_details.parking_spaces (strukturiert, pro Typ)
+    //  (2) sonst Flat-Felder (garage_spaces / parking_spaces) mit parking_type
+    //      als Label, damit „Carport" / „Tiefgarage" / „Doppelgarage" korrekt
+    //      erscheint statt hartkodiert „Garage" / „Stellpl."
     $parking = null;
-    $garageSpaces = (int) ($p->garage_spaces ?? 0);
-    $parkingSpaces = (int) ($p->parking_spaces ?? 0);
-    if ($garageSpaces + $parkingSpaces > 0) {
-        $parts = [];
-        if ($garageSpaces > 0) $parts[] = $garageSpaces . ' Garage' . ($garageSpaces > 1 ? 'n' : '');
-        if ($parkingSpaces > 0) $parts[] = $parkingSpaces . ' Stellpl.';
-        $parking = implode(' · ', $parts);
+    $parts = [];
+
+    $typeLabels = [
+        'garage'      => ['Garage', 'Garagen'],
+        'tiefgarage'  => ['Tiefgarage', 'Tiefgaragen'],
+        'carport'     => ['Carport', 'Carports'],
+        'duplex'      => ['Duplex-Stellplatz', 'Duplex-Stellplätze'],
+        'outdoor'     => ['Stellplatz', 'Stellplätze'],
+        'stellplatz'  => ['Stellplatz', 'Stellplätze'],
+    ];
+    $plural = fn(int $n, array $forms) => $n === 1 ? $forms[0] : $forms[1];
+
+    $bd = is_string($p->building_details) ? json_decode($p->building_details, true) : $p->building_details;
+    $structured = is_array($bd['parking_spaces'] ?? null) ? $bd['parking_spaces'] : null;
+
+    if ($structured) {
+        foreach ($structured as $entry) {
+            $type = strtolower((string) ($entry['type'] ?? ''));
+            $count = (int) ($entry['count'] ?? 0);
+            if ($count <= 0 || $type === '') continue;
+            $forms = $typeLabels[$type] ?? ['Stellplatz', 'Stellplätze'];
+            $parts[] = $count . ' ' . $plural($count, $forms);
+        }
+    } else {
+        $garageSpaces = (int) ($p->garage_spaces ?? 0);
+        $parkingSpaces = (int) ($p->parking_spaces ?? 0);
+        $ptype = trim((string) ($p->parking_type ?? ''));
+
+        if ($garageSpaces > 0) {
+            // parking_type kann eine spezifische Garagen-Art sein (Doppelgarage,
+            // Carport, Tiefgarage). Wenn gesetzt → als Label verwenden.
+            $label = $ptype ?: $plural($garageSpaces, ['Garage', 'Garagen']);
+            $parts[] = $garageSpaces . ' ' . $label;
+        }
+        if ($parkingSpaces > 0) {
+            // Edge-Case: kein garage_spaces aber parking_type='Carport' — der
+            // Carport wurde in parking_spaces statt garage_spaces hinterlegt.
+            if ($garageSpaces === 0 && $ptype !== '') {
+                $parts[] = $parkingSpaces . ' ' . $ptype;
+            } else {
+                $parts[] = $parkingSpaces . ' ' . $plural($parkingSpaces, ['Stellplatz', 'Stellplätze']);
+            }
+        }
     }
+
+    if ($parts) $parking = implode(' · ', $parts);
 
     // Helper zum Erstellen einer Row nur wenn Wert vorhanden
     $row = function ($k, $v, $total = false) {

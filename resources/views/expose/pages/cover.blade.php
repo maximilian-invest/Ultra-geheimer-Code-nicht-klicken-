@@ -32,21 +32,34 @@
     filter: brightness(0) invert(1);
     z-index: 2;
   }
+  /* Text-Block ist ein Flex-Container — lange Titel brechen um, Adresse
+     rutscht automatisch nach unten, keine Überlappung mehr. */
+  .cover-page .text-block {
+    position: absolute; top: 50%; left: 48px; right: 48px;
+    transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center;
+    z-index: 2;
+    gap: 18px;
+  }
   .cover-page .kicker {
-    position: absolute; top: 210px; left: 0; right: 0; text-align: center;
     font-size: 12px; color: rgba(255,255,255,0.85); letter-spacing: 6px;
-    text-transform: uppercase; font-weight: 600; z-index: 2;
+    text-transform: uppercase; font-weight: 600;
   }
   .cover-page .title {
-    position: absolute; top: 238px; left: 0; right: 0; text-align: center;
     font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 400;
     color: #fff; letter-spacing: 8px; text-transform: uppercase;
-    text-shadow: 0 3px 12px rgba(0,0,0,0.4); z-index: 2; line-height: 1;
+    text-shadow: 0 3px 12px rgba(0,0,0,0.4); line-height: 1.08;
+    max-width: 100%;
+    /* Bei sehr langem Titel (> ca. 22 Zeichen) leicht kleinere Schrift damit
+       nichts seitlich rausläuft und der Umbruch nicht zu breit wird. */
+    word-break: break-word;
   }
+  .cover-page .title.title-long   { font-size: 42px; letter-spacing: 6px; }
+  .cover-page .title.title-xlong  { font-size: 34px; letter-spacing: 4px; }
   .cover-page .address {
-    position: absolute; top: 320px; left: 0; right: 0; text-align: center;
     font-family: Georgia, serif; font-size: 18px; color: rgba(255,255,255,0.95);
-    letter-spacing: 2.5px; font-style: italic; z-index: 2;
+    letter-spacing: 2.5px; font-style: italic;
   }
   .cover-page .address::before, .cover-page .address::after {
     content: ''; display: inline-block; width: 34px; height: 1px;
@@ -73,11 +86,19 @@
     @endif
 
     <img class="logo" src="{{ asset('assets/logo-full-white.svg') }}" alt="SR Homes">
-    <div class="kicker">{{ strtoupper($propertyType) }}</div>
-    <div class="title">{{ $coverTitle }}</div>
-    @if ($coverSubline)
-        <div class="address">{{ $coverSubline }}</div>
-    @endif
+    @php
+        // Auto-Shrink: je länger der Titel, desto kleiner die Schrift,
+        // damit er auf dem Cover nicht in den Untertitel läuft.
+        $titleLen = mb_strlen($coverTitle);
+        $titleClass = $titleLen > 32 ? 'title-xlong' : ($titleLen > 20 ? 'title-long' : '');
+    @endphp
+    <div class="text-block">
+        <div class="kicker">{{ strtoupper($propertyType) }}</div>
+        <div class="title {{ $titleClass }}">{{ $coverTitle }}</div>
+        @if ($coverSubline)
+            <div class="address">{{ $coverSubline }}</div>
+        @endif
+    </div>
 
     <div class="badges">
         @foreach ($badges as $b)

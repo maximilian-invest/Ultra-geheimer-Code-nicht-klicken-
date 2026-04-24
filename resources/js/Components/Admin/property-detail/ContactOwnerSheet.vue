@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { FileText, TrendingUp, Info, Pencil, ArrowRight } from 'lucide-vue-next'
+import { FileText, FileCheck2, KeyRound, TrendingUp, Info, Pencil, ArrowRight } from 'lucide-vue-next'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
 const props = defineProps({
@@ -44,6 +44,46 @@ function templateExpose() {
 anbei darf ich Ihnen das aktuelle Exposé zu Ihrem Objekt ${addressLine.value} zur Durchsicht zusenden. Das Dokument spiegelt den aktuellen Stand der Vermarktung wider — Fotos, Texte und Daten sind freigegeben zur Veröffentlichung.
 
 Falls Ihnen am Inhalt etwas fehlt oder Sie etwas anders gestaltet wünschen, geben Sie mir bitte kurz Bescheid. Ich passe gerne an.${buildSignoff()}`,
+  }
+}
+
+function templateExposePruefung() {
+  return {
+    subject: `Exposé zur Freigabe — bitte Daten prüfen — ${addressLine.value}`,
+    body:
+`${buildAnrede()},
+
+bevor wir mit der aktiven Vermarktung Ihres Objekts ${addressLine.value} starten, möchte ich Sie bitten, das angehängte Exposé einmal in Ruhe durchzugehen und die dort aufgeführten Daten freizugeben.
+
+Bitte achten Sie insbesondere auf:
+• Objektdaten (Flächen, Zimmer, Baujahr, Ausstattung)
+• Fotos (Reihenfolge, fehlende Räume, evtl. unerwünschte Aufnahmen)
+• Beschreibungstexte (Ton, Highlights, Lage)
+• Preis, Nebenkosten und Provisionsregelung
+
+Sobald ich Ihr OK habe bzw. gewünschte Anpassungen von Ihnen bekommen habe, schalten wir das Objekt auf den Portalen frei.${buildSignoff()}`,
+  }
+}
+
+function templatePortalZugang() {
+  const portalUrl = 'https://kundenportal.sr-homes.at'
+  const loginMail = ownerEmail.value || 'ihre-email@example.com'
+  return {
+    subject: `Ihr Zugang zum SR-Homes Kundenportal — ${addressLine.value}`,
+    body:
+`${buildAnrede()},
+
+ich habe für Sie einen persönlichen Zugang zu unserem Kundenportal eingerichtet. Dort sehen Sie jederzeit den aktuellen Stand der Vermarktung Ihres Objekts ${addressLine.value}: Anfragen, Besichtigungen, Feedback und alle relevanten Dokumente.
+
+Ihre Zugangsdaten:
+
+  Login-URL:  ${portalUrl}
+  E-Mail:     ${loginMail}
+  Passwort:   [HIER_PASSWORT_EINFUEGEN]
+
+Bitte ändern Sie das Passwort nach dem ersten Login in Ihrem Profil.
+
+Bei Fragen oder wenn etwas nicht funktioniert, melden Sie sich bitte einfach bei mir.${buildSignoff()}`,
   }
 }
 
@@ -98,6 +138,8 @@ function pickTemplate(kind) {
   try {
     const tpl =
       kind === 'expose' ? templateExpose()
+      : kind === 'expose_pruefung' ? templateExposePruefung()
+      : kind === 'portal_zugang' ? templatePortalZugang()
       : kind === 'vermarktung' ? templateVermarktung()
       : kind === 'besichtigung' ? templateBesichtigungFeedback()
       : templateFreitext()
@@ -143,6 +185,40 @@ function pickTemplate(kind) {
             <div class="font-semibold text-sm">Exposé zusenden</div>
             <div class="text-xs text-muted-foreground mt-0.5">
               Kurzer Begleittext zur Exposé-Freigabe. PDF kannst du im nächsten Schritt anhängen.
+            </div>
+          </div>
+          <ArrowRight class="w-4 h-4 text-muted-foreground shrink-0 mt-2" />
+        </button>
+
+        <button
+          class="w-full flex items-start gap-3 p-4 rounded-xl border border-border/60 hover:border-border hover:bg-accent/30 transition-colors text-left disabled:opacity-50"
+          :disabled="loading"
+          @click="pickTemplate('expose_pruefung')"
+        >
+          <div class="w-10 h-10 rounded-lg bg-[#fff7ed] flex items-center justify-center shrink-0">
+            <FileCheck2 class="w-5 h-5 text-[#EE7600]" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm">Exposé senden — Daten prüfen</div>
+            <div class="text-xs text-muted-foreground mt-0.5">
+              Vor Freischaltung: Eigentümer:in bittet um Korrekturlesung (Fotos, Texte, Preis, Flächen).
+            </div>
+          </div>
+          <ArrowRight class="w-4 h-4 text-muted-foreground shrink-0 mt-2" />
+        </button>
+
+        <button
+          class="w-full flex items-start gap-3 p-4 rounded-xl border border-border/60 hover:border-border hover:bg-accent/30 transition-colors text-left disabled:opacity-50"
+          :disabled="loading"
+          @click="pickTemplate('portal_zugang')"
+        >
+          <div class="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+            <KeyRound class="w-5 h-5 text-violet-600" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm">Zugangsdaten — Kundenportal</div>
+            <div class="text-xs text-muted-foreground mt-0.5">
+              URL + Login-Mail vorausgefüllt. Passwort an der vorgesehenen Stelle einfügen (Platzhalter ist markiert).
             </div>
           </div>
           <ArrowRight class="w-4 h-4 text-muted-foreground shrink-0 mt-2" />

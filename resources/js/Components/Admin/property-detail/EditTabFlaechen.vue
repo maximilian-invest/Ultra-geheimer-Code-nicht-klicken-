@@ -114,7 +114,7 @@ const featuresFilled = computed(() => {
 const commonAreasFilled = computed(() => commonAreaSet.value.size);
 
 const SECTION_FIELDS = {
-  flaechen:   ['living_area', 'realty_area', 'free_area', 'total_area', 'area_balcony', 'area_terrace', 'area_garden', 'area_loggia', 'area_basement', 'rooms_amount', 'floor_count'],
+  flaechen:   ['living_area', 'realty_area', 'free_area', 'total_area', 'area_balcony', 'area_terrace', 'area_garden', 'area_loggia', 'area_basement', 'area_storage_room', 'storage_room_count', 'rooms_amount', 'floor_count'],
   detailzimmer: ['bedrooms', 'bathrooms', 'toilets', 'floor_number'],
   stellplatz: ['garage_spaces', 'parking_spaces'],
   ausstattung:['quality', 'year_renovated', 'flooring', 'bathroom_equipment', 'orientation'],
@@ -156,6 +156,7 @@ const areaFields = [
   { key: "area_garden", label: "Garten", countKey: "garden_count" },
   { key: "area_loggia", label: "Loggia", countKey: "loggia_count" },
   { key: "area_basement", label: "Keller", countKey: "basement_count" },
+  { key: "area_storage_room", label: "Abstellraum", countKey: "storage_room_count" },
   { key: "office_space", label: "Büro" },
 ];
 

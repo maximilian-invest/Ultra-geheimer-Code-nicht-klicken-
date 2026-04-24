@@ -30,7 +30,7 @@ class Property extends Model
 
         // Areas
         'total_area', 'living_area', 'free_area', 'realty_area', 'area_balcony',
-        'area_terrace', 'area_garden', 'area_basement', 'area_loggia',
+        'area_terrace', 'area_garden', 'area_basement', 'area_loggia', 'area_storage_room', 'storage_room_count',
         'area_garage', 'office_space',
 
         // Rooms
@@ -123,6 +123,7 @@ class Property extends Model
             'area_terrace' => 'decimal:2',
             'area_garden' => 'decimal:2',
             'area_basement' => 'decimal:2',
+            'area_storage_room' => 'decimal:2',
             'area_loggia' => 'decimal:2',
             'area_garage' => 'decimal:2',
             'office_space' => 'decimal:2',

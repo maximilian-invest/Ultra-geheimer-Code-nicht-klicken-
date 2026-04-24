@@ -3,6 +3,16 @@
 
     $fmtArea = fn($v) => $v ? number_format($v, 0, ',', '.') . ' m²' : null;
     $fmtMoney = fn($v) => $v !== null && $v !== '' ? '€ ' . number_format($v, 0, ',', '.') : null;
+
+    // Count + Fläche kombinieren, z. B. "2 × 12 m²"; fällt auf Einzelwert zurück.
+    $fmtCountArea = function ($count, $area) use ($fmtArea) {
+        $c = (int) ($count ?? 0);
+        $a = $fmtArea($area);
+        if ($c > 1 && $a) return $c . ' × ' . $a;
+        if ($a) return $a;
+        if ($c > 0) return (string) $c;
+        return null;
+    };
     $rooms = $p->rooms_amount ? rtrim(rtrim(number_format($p->rooms_amount, 1, ',', ''), '0'), ',') : null;
 
     // Nebenkosten-Summe
@@ -92,8 +102,12 @@
         'has_charging_station'  => 'E-Ladestation',
         'has_wohnraumlueftung'  => 'Wohnraumlüftung',
     ];
+    // Abstellraum nur in Merkmalen zeigen, wenn keine Anzahl/Fläche gesetzt ist
+    // (sonst erscheint die Info detailliert in "Flächen & Räume").
+    $storageRoomDetailed = ((int) ($p->storage_room_count ?? 0)) > 0 || ((float) ($p->area_storage_room ?? 0)) > 0;
     $activeFeatures = [];
     foreach ($featureLabels as $key => $label) {
+        if ($key === 'has_storage_room' && $storageRoomDetailed) continue;
         if (!empty($p->{$key})) $activeFeatures[] = $label;
     }
 
@@ -225,6 +239,7 @@
                 {!! $row('Loggia', $fmtArea($p->area_loggia)) !!}
                 {!! $row('Garten', $fmtArea($p->area_garden)) !!}
                 {!! $row('Keller', $fmtArea($p->area_basement)) !!}
+                {!! $row('Abstellraum', $fmtCountArea($p->storage_room_count, $p->area_storage_room)) !!}
                 {!! $row('Stellplatz', $parking) !!}
             </div>
 

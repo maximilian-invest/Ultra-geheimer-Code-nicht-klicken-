@@ -16,6 +16,7 @@ import BlogTab from "@/Components/Admin/BlogTab.vue";
 import CalendarTab from "@/Components/Admin/CalendarTab.vue";
 import AssistenzTasksTab from "@/Components/Admin/AssistenzTasksTab.vue";
 import HvComposeDialog from "@/Components/Admin/inbox/HvComposeDialog.vue";
+import OwnerComposeDialog from "@/Components/Admin/inbox/OwnerComposeDialog.vue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -707,6 +708,10 @@ function navBadge(key) {
         <!-- HV-Compose-Dialog global (hoert auf 'open-hv-compose' Event von
              ForwardToManagerButton im Inbox UND ContactManagerSheet im Property-Detail) -->
         <HvComposeDialog />
+
+        <!-- Eigentuemer-Compose-Dialog global (hoert auf 'open-owner-compose'
+             Event von ContactOwnerSheet im Property-Detail Uebersicht-Tab) -->
+        <OwnerComposeDialog />
     </div>
 </template>
 

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ContactManagerSheet from "./ContactManagerSheet.vue";
+import ContactOwnerSheet from "./ContactOwnerSheet.vue";
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -93,6 +94,23 @@ function onHvDraftReady(draft) {
       body: draft.body,
       attachments: draft.attachments || [],
       source_email_id: null,
+    },
+  }));
+}
+
+// ─── Eigentuemer-Kontaktieren ───────────────────────────
+const ownerContactSheetOpen = ref(false);
+
+function onOwnerDraftReady(draft) {
+  // Reicht den vom Sheet generierten Entwurf an den globalen
+  // OwnerComposeDialog (in Dashboard.vue registriert) weiter.
+  window.dispatchEvent(new CustomEvent('open-owner-compose', {
+    detail: {
+      property_id: props.property.id,
+      owner: draft.owner,
+      to: draft.to,
+      subject: draft.subject,
+      body: draft.body,
     },
   }));
 }
@@ -449,6 +467,14 @@ function ownerInitials(name) {
       />
     </div>
 
+    <!-- Eigentuemer-Kontakt-Sheet (immer gerendert, Trigger ist Button im
+         Eigentuemer-Block weiter oben). -->
+    <ContactOwnerSheet
+      v-model:open="ownerContactSheetOpen"
+      :property="property"
+      @draft-ready="onOwnerDraftReady"
+    />
+
     <!-- ── Eigentümer & Kontakt ── -->
     <div>
       <div class="text-[13px] font-semibold mb-2.5" style="color:hsl(240 10% 3.9%)">Eigentümer & Kontakt</div>
@@ -467,10 +493,13 @@ function ownerInitials(name) {
             </div>
           </div>
           <div class="flex items-center gap-1.5 flex-shrink-0">
-            <a v-if="ownerData.owner_email" :href="'mailto:' + ownerData.owner_email"
-              class="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md transition-colors hover:bg-zinc-100" style="color:hsl(240 3.8% 46.1%);border:1px solid hsl(240 5.9% 90%)">
-              Mail
-            </a>
+            <button
+              v-if="ownerData.owner_email"
+              @click="ownerContactSheetOpen = true"
+              class="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md text-white bg-[#EE7600] hover:bg-[#d66800] transition-colors"
+            >
+              <Mail class="w-3 h-3" /> Kontaktieren
+            </button>
             <a v-if="ownerData.owner_phone" :href="'tel:' + ownerData.owner_phone"
               class="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md transition-colors hover:bg-zinc-100" style="color:hsl(240 3.8% 46.1%);border:1px solid hsl(240 5.9% 90%)">
               Anrufen

@@ -816,6 +816,9 @@ class AdminApiController extends Controller
             'contact_property_manager'  => $this->contactPropertyManager($request),
             'send_to_manager'           => $this->sendToManager($request),
 
+            // Eigentuemer-Kontakt (Property-Detail Uebersicht → Schnell-Templates)
+            'send_to_owner'             => $this->sendToOwner($request),
+
             // Geocoding (OpenStreetMap Nominatim)
             'geocode_address'           => $this->geocodeAddress($request),
             'geocode_autocomplete'      => $this->geocodeAutocomplete($request),
@@ -4670,6 +4673,122 @@ PY;
             ]);
         } catch (\Throwable $e) {
             \Log::warning('sendToManager activity log failed', ['error' => $e->getMessage()]);
+        }
+
+        return response()->json(['success' => true, 'email_id' => $sentEmailId]);
+    }
+
+    /**
+     * Sendet einen Entwurf vom Makler an die Eigentuemer:in des Objekts.
+     * Wird vom OwnerComposeDialog aufgerufen; Templates kommen aus dem
+     * ContactOwnerSheet im Uebersicht-Tab. Multipart-Request, weil Anhaenge
+     * direkt aus dem Browser hochgeladen werden koennen (Exposé-PDF o. a.).
+     */
+    private function sendToOwner(Request $request): JsonResponse
+    {
+        $propertyId = (int) $request->input('property_id', 0);
+        $to         = trim((string) $request->input('to', ''));
+        $subject    = trim((string) $request->input('subject', ''));
+        $body       = trim((string) $request->input('body', ''));
+
+        if (!$propertyId || $to === '' || $subject === '' || $body === '') {
+            return response()->json(['success' => false, 'error' => 'property_id, to, subject, body required'], 400);
+        }
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            return response()->json(['success' => false, 'error' => 'Ungueltige Empfaenger-Adresse'], 422);
+        }
+
+        $userId = (int) \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        if (!in_array($userType, ['assistenz', 'backoffice'], true)) {
+            $propBroker = \DB::table('properties')->where('id', $propertyId)->value('broker_id');
+            if ($propBroker && $propBroker != $userId) {
+                return response()->json(['success' => false, 'error' => 'Keine Berechtigung'], 403);
+            }
+        }
+
+        $property = \App\Models\Property::find($propertyId);
+        if (!$property) {
+            return response()->json(['success' => false, 'error' => 'Property nicht gefunden'], 404);
+        }
+
+        $toName = trim((string) ($property->owner_name ?? '')) ?: null;
+
+        // Uploads in tmp speichern und als Pfade an EmailService uebergeben.
+        // Nach dem Versand raeumen wir die tmp-Dateien auf.
+        $attachmentPaths = [];
+        $tmpFiles = [];
+        $uploads = $request->file('attachments') ?? [];
+        if (!is_array($uploads)) $uploads = [$uploads];
+        foreach ($uploads as $file) {
+            if (!$file || !$file->isValid()) continue;
+            // Safety: begrenzen auf 20 MB / Datei
+            if ($file->getSize() > 20 * 1024 * 1024) {
+                return response()->json(['success' => false, 'error' => 'Anhang zu gross (max 20 MB)'], 422);
+            }
+            $tmp = tempnam(sys_get_temp_dir(), 'owner_att_');
+            $file->move(dirname($tmp), basename($tmp));
+            // Wir brauchen den Original-Dateinamen fuer den Mail-Anhang; EmailService
+            // uebernimmt Array-Form mit path+name, falls unterstuetzt. Fallback: nur Pfad.
+            $finalPath = $tmp;
+            $attachmentPaths[] = $finalPath;
+            $tmpFiles[] = $finalPath;
+        }
+
+        // Konto fuer Versand: erstes aktives Konto des Users
+        $accountId = \DB::table('email_accounts')
+            ->where('user_id', $userId)
+            ->where('is_active', 1)
+            ->value('id');
+        if (!$accountId) {
+            return response()->json(['success' => false, 'error' => 'Kein aktives E-Mail-Konto'], 500);
+        }
+
+        $result = null;
+        try {
+            $emailService = app(\App\Services\EmailService::class);
+            $result = $emailService->send(
+                (int) $accountId,
+                $to,
+                $subject,
+                $body,
+                $propertyId,
+                $toName,
+                null, // cc
+                null, // bcc
+                $attachmentPaths,
+                null, // inReplyToMessageId
+                null, // references
+                'email-out',
+                null
+            );
+        } catch (\Throwable $e) {
+            \Log::error('sendToOwner failed', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'error' => 'Versand fehlgeschlagen: ' . $e->getMessage()], 500);
+        } finally {
+            // Tmp-Uploads wieder entfernen; wir haben sie oben schon via move()
+            // verschoben, aber der neue Pfad ist ebenfalls tmp und muss nach dem
+            // Versand weg.
+            foreach ($tmpFiles as $p) {
+                if (is_file($p)) @unlink($p);
+            }
+        }
+
+        $sentEmailId = $result['email_id'] ?? null;
+
+        try {
+            \DB::table('activities')->insert([
+                'property_id' => $propertyId,
+                'activity_date' => now()->toDateString(),
+                'stakeholder' => $toName ?: $to,
+                'activity' => 'An Eigentuemer:in gesendet: ' . mb_substr($subject, 0, 200),
+                'category' => 'email-out',
+                'source_email_id' => $sentEmailId ?: null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('sendToOwner activity log failed', ['error' => $e->getMessage()]);
         }
 
         return response()->json(['success' => true, 'email_id' => $sentEmailId]);

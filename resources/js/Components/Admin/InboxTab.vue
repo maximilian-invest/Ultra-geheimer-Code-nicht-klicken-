@@ -1028,6 +1028,9 @@ function openDetail(item, mode) {
     expandedAiLoading.value = false;
   } else if (mode === "gesendet") {
     expandedAiLoading.value = false;
+  } else if (mode === "papierkorb") {
+    // Trashed messages are read-only — no reply draft.
+    expandedAiLoading.value = false;
   } else {
     // offen / nachfassen without a pre-cached draft. Still prepare an EMPTY
     // draft immediately so the compose pane is visible and editable from
@@ -1063,6 +1066,7 @@ function openDetail(item, mode) {
 
   // Load conversation detail — for offen/nachfassen use conv_detail, for posteingang/gesendet use email_context
   const isEmailHistory = mode === "posteingang" || mode === "gesendet";
+  const isTrash = mode === "papierkorb";
   let contextPromise;
   // Helper: merge HV-Info aus conv_detail in selectedItem damit der
   // ForwardToManagerButton weiss ob eine HV zugewiesen ist.
@@ -1077,7 +1081,21 @@ function openDetail(item, mode) {
     }
   };
 
-  if (isEmailHistory) {
+  if (isTrash) {
+    // Papierkorb: conv_detail filtert is_deleted=0, deshalb direkt die
+    // einzelne Mail via email_context laden und als 1-Eintrag-Thread anzeigen.
+    contextPromise = fetch(API.value + "&action=email_context&email_id=" + item.id)
+      .then(r => r.json())
+      .then(d => {
+        const mail = d.email || null;
+        expandedDetail.value = {
+          email: mail,
+          thread: mail ? [mail] : [],
+        };
+      })
+      .catch(e => { toast("Fehler: " + e.message); })
+      .finally(() => { expandedLoading.value = false; });
+  } else if (isEmailHistory) {
     // Load full conversation thread by finding matching conversation
     contextPromise = fetch(API.value + "&action=email_context&email_id=" + item.id)
       .then(r => r.json())

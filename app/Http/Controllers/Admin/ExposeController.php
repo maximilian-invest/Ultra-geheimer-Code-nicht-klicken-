@@ -142,9 +142,22 @@ class ExposeController extends Controller
         ]);
     }
 
-    /** HTML-Preview der aktiven Version (oder einer bestimmten). */
+    /**
+     * HTML-Preview der aktiven Version (oder einer bestimmten).
+     * Akzeptiert `pdf_bypass` mit HMAC für Puppeteer-Aufrufe ohne Session.
+     */
     public function preview(Request $request, Property $property): Response
     {
+        $bypass = $request->query('pdf_bypass');
+        if ($bypass) {
+            $expected = hash_hmac('sha256', 'expose-preview-' . $property->id, config('app.key'));
+            if (!hash_equals($expected, (string) $bypass)) {
+                return response('Forbidden', 403);
+            }
+        } elseif (!$request->user()) {
+            return response('Unauthenticated', 401);
+        }
+
         $versionId = $request->query('version_id');
         $version = $versionId
             ? PropertyExposeVersion::where('property_id', $property->id)->find($versionId)
@@ -160,5 +173,41 @@ class ExposeController extends Controller
 
         $ctx = ExposeRenderContext::build($version, $this->pagination);
         return response()->view('expose.layout', ['ctx' => $ctx]);
+    }
+
+    /**
+     * PDF-Download der aktiven Version für Admin. Generiert einen HMAC-Bypass,
+     * damit Puppeteer die Preview-Route ohne Session aufrufen kann.
+     */
+    public function previewPdf(Property $property): Response
+    {
+        $version = PropertyExposeVersion::where('property_id', $property->id)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$version) {
+            // Default on-the-fly erzeugen, damit auch ohne vorheriges Speichern
+            // ein PDF rauskommt.
+            $tmp = new PropertyExposeVersion([
+                'property_id' => $property->id,
+                'config_json' => $this->builder->build($property),
+            ]);
+            $tmp->setRelation('property', $property);
+            $version = $tmp;
+        }
+
+        $bypass = hash_hmac('sha256', 'expose-preview-' . $property->id, config('app.key'));
+        $url = url("/admin/properties/{$property->id}/expose/preview") . '?pdf_bypass=' . $bypass;
+
+        $pdfService = app(\App\Services\Expose\ExposePdfService::class);
+        $binary = $pdfService->renderFromUrl($url);
+
+        $filename = 'Expose-' . \Illuminate\Support\Str::slug($property->title ?: ($property->city ?: 'immobilie')) . '.pdf';
+
+        return response($binary, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Length'      => strlen($binary),
+        ]);
     }
 }

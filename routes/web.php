@@ -69,7 +69,9 @@ Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])->group(fu
     Route::post('/admin/properties/{property}/expose',
         [\App\Http\Controllers\Admin\ExposeController::class, 'store']);
     Route::get('/admin/properties/{property}/expose/preview',
-        [\App\Http\Controllers\Admin\ExposeController::class, 'preview']);
+        [\App\Http\Controllers\Admin\ExposeController::class, 'preview'])->withoutMiddleware(['auth', 'verified', 'role:admin,makler,assistenz']);
+    Route::get('/admin/properties/{property}/expose/pdf',
+        [\App\Http\Controllers\Admin\ExposeController::class, 'previewPdf']);
     Route::post('/admin/properties/{property}/expose/captions',
         [\App\Http\Controllers\Admin\ExposeController::class, 'updateCaptions']);
     Route::get('/admin/properties/{property}/expose/config',

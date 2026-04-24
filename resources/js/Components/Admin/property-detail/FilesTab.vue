@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch, inject } from "vue";
-import { FileText, Upload, Trash2, Download, FileCheck2, FileX2, Pencil, Check, X } from "lucide-vue-next";
+import { FileText, Upload, Trash2, Download, FileCheck2, FileX2, Pencil, Check, X, ExternalLink, FileDown } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -272,6 +272,30 @@ watch(() => props.property?.id, () => { clearSelection(); loadFiles(); });
         <Upload class="w-3.5 h-3.5 mr-1.5" />
         Datei hochladen
       </Button>
+    </div>
+
+    <!-- Exposé als virtuelles "Dokument" — ansehen im neuen Tab + PDF-Download -->
+    <div class="rounded-lg p-4 bg-gradient-to-r from-orange-50 via-white to-white border border-orange-200 shadow-sm flex items-center gap-4">
+      <div class="w-11 h-11 rounded-md bg-gradient-to-br from-orange-500 to-orange-600 text-white flex items-center justify-center font-serif font-semibold text-[15px] flex-shrink-0 shadow-sm">SR</div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-semibold text-zinc-900">Exposé</span>
+          <span class="text-[9px] font-bold tracking-wider bg-orange-500 text-white px-1.5 py-0.5 rounded">EXPOSÉ</span>
+        </div>
+        <div class="text-xs text-muted-foreground mt-0.5">Automatisch generiertes Objekt-Exposé · immer aktuell aus den Property-Daten</div>
+      </div>
+      <a :href="`/admin/properties/${property.id}/expose/preview`" target="_blank" rel="noopener">
+        <Button variant="outline" size="sm">
+          <ExternalLink class="w-3.5 h-3.5 mr-1.5" />
+          Öffnen
+        </Button>
+      </a>
+      <a :href="`/admin/properties/${property.id}/expose/pdf`">
+        <Button size="sm" class="bg-orange-500 hover:bg-orange-600 text-white">
+          <FileDown class="w-3.5 h-3.5 mr-1.5" />
+          PDF
+        </Button>
+      </a>
     </div>
 
     <!-- Dropzone -->

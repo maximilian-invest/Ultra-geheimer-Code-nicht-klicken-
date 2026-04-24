@@ -3,7 +3,7 @@ import { ref, computed, inject, onMounted } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, RefreshCw, ExternalLink, Save, Plus, Trash2, GripVertical, Image as ImageIcon, Wand2 } from 'lucide-vue-next';
+import { Loader2, RefreshCw, ExternalLink, Save, Plus, Trash2, GripVertical, Image as ImageIcon, Wand2, FileDown } from 'lucide-vue-next';
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -267,6 +267,12 @@ onMounted(loadConfig);
           <Button variant="outline" size="sm">
             <ExternalLink class="w-4 h-4 mr-2" />
             Vollbild
+          </Button>
+        </a>
+        <a :href="`/admin/properties/${property.id}/expose/pdf`">
+          <Button variant="outline" size="sm">
+            <FileDown class="w-4 h-4 mr-2" />
+            PDF
           </Button>
         </a>
       </div>

@@ -3,12 +3,17 @@
     $imgUrl = $img ? asset('storage/' . $img->path) : null;
     $address = trim(($ctx->property->address ?? '') . ' ' . ($ctx->property->house_number ?? ''));
     $zipCity = trim(($ctx->property->zip ?? '') . ' ' . ($ctx->property->city ?? ''));
+    $defaultSubtitle = trim($address . ($address && $zipCity ? ' · ' : '') . $zipCity);
     $living = $ctx->property->living_area ? number_format($ctx->property->living_area, 0, ',', '.') . ' m²' : null;
     $rooms = $ctx->property->rooms_amount ? rtrim(rtrim(number_format($ctx->property->rooms_amount, 1, ',', ''), '0'), ',') . ' Zimmer' : null;
     $year = $ctx->property->construction_year ? 'Baujahr ' . $ctx->property->construction_year : null;
     $price = $ctx->property->purchase_price ? '€ ' . number_format($ctx->property->purchase_price, 0, ',', '.') : null;
     $badges = array_filter([$living, $rooms, $year]);
-    $propertyType = $ctx->property->object_type ?: 'Immobilie';
+
+    // Makler-Overrides vorziehen, sonst Default aus Property-Daten.
+    $propertyType = $ctx->property->expose_cover_kicker   ?: ($ctx->property->object_type ?: 'Immobilie');
+    $coverTitle   = $ctx->property->expose_cover_title    ?: ($ctx->property->city ?: 'Immobilie');
+    $coverSubline = $ctx->property->expose_cover_subtitle ?: $defaultSubtitle;
 @endphp
 
 <style>
@@ -69,9 +74,9 @@
 
     <img class="logo" src="{{ asset('assets/logo-full-white.svg') }}" alt="SR Homes">
     <div class="kicker">{{ strtoupper($propertyType) }}</div>
-    <div class="title">{{ $ctx->property->city ?: 'Immobilie' }}</div>
-    @if ($address)
-        <div class="address">{{ $address }}@if ($zipCity) · {{ $zipCity }}@endif</div>
+    <div class="title">{{ $coverTitle }}</div>
+    @if ($coverSubline)
+        <div class="address">{{ $coverSubline }}</div>
     @endif
 
     <div class="badges">

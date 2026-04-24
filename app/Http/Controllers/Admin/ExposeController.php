@@ -54,11 +54,17 @@ class ExposeController extends Controller
         $data = $request->validate([
             'expose_claim'          => ['nullable', 'string', 'max:200'],
             'expose_captions_pool'  => ['nullable', 'string', 'max:4000'],
+            'expose_cover_kicker'   => ['nullable', 'string', 'max:120'],
+            'expose_cover_title'    => ['nullable', 'string', 'max:120'],
+            'expose_cover_subtitle' => ['nullable', 'string', 'max:200'],
         ]);
 
         $property->forceFill([
-            'expose_claim'         => $data['expose_claim'] ?? null,
-            'expose_captions_pool' => $data['expose_captions_pool'] ?? null,
+            'expose_claim'          => $data['expose_claim'] ?? null,
+            'expose_captions_pool'  => $data['expose_captions_pool'] ?? null,
+            'expose_cover_kicker'   => $data['expose_cover_kicker'] ?? null,
+            'expose_cover_title'    => $data['expose_cover_title'] ?? null,
+            'expose_cover_subtitle' => $data['expose_cover_subtitle'] ?? null,
         ])->save();
 
         return response()->json(['success' => true]);

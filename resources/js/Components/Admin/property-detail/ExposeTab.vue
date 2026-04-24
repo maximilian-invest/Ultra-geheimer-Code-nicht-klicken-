@@ -21,6 +21,9 @@ const info = ref(null);
 // Editable texts
 const claim = ref(props.property.expose_claim || '');
 const captionsPool = ref(props.property.expose_captions_pool || '');
+const coverKicker = ref(props.property.expose_cover_kicker || '');
+const coverTitle = ref(props.property.expose_cover_title || '');
+const coverSubtitle = ref(props.property.expose_cover_subtitle || '');
 
 // Editor state: pages + image pool loaded from API
 const loadingConfig = ref(true);
@@ -106,6 +109,9 @@ async function saveCaptions() {
     const { data } = await http.post(`/admin/properties/${props.property.id}/expose/captions`, {
       expose_claim: claim.value.trim() || null,
       expose_captions_pool: captionsPool.value.trim() || null,
+      expose_cover_kicker: coverKicker.value.trim() || null,
+      expose_cover_title: coverTitle.value.trim() || null,
+      expose_cover_subtitle: coverSubtitle.value.trim() || null,
     });
     if (!data.success) throw new Error(data.error || 'Fehler beim Speichern');
     toast('Texte gespeichert');
@@ -284,8 +290,32 @@ onMounted(loadConfig);
         </Button>
       </div>
 
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+          <label class="text-[11px] text-muted-foreground mb-1 block uppercase tracking-wider font-medium">Cover-Kicker</label>
+          <input v-model="coverKicker" type="text" maxlength="120"
+            :placeholder="(property.object_type || 'TOP ZWEIFAMILIENHAUS')"
+            class="w-full h-9 px-3 text-[13px] bg-white rounded-md border border-zinc-200 shadow focus:outline-none focus:ring-1 focus:ring-orange-400" />
+          <p class="text-[10px] text-muted-foreground mt-0.5">Kleine Überzeile (wird uppercase)</p>
+        </div>
+        <div>
+          <label class="text-[11px] text-muted-foreground mb-1 block uppercase tracking-wider font-medium">Cover-Haupttitel</label>
+          <input v-model="coverTitle" type="text" maxlength="120"
+            :placeholder="(property.city || 'Grödig')"
+            class="w-full h-9 px-3 text-[13px] bg-white rounded-md border border-zinc-200 shadow focus:outline-none focus:ring-1 focus:ring-orange-400" />
+          <p class="text-[10px] text-muted-foreground mt-0.5">Große Serif-Zeile</p>
+        </div>
+        <div>
+          <label class="text-[11px] text-muted-foreground mb-1 block uppercase tracking-wider font-medium">Cover-Untertitel</label>
+          <input v-model="coverSubtitle" type="text" maxlength="200"
+            placeholder="Weiherweg 12 · 5083 Grödig"
+            class="w-full h-9 px-3 text-[13px] bg-white rounded-md border border-zinc-200 shadow focus:outline-none focus:ring-1 focus:ring-orange-400" />
+          <p class="text-[10px] text-muted-foreground mt-0.5">Zeile unter dem Titel</p>
+        </div>
+      </div>
+
       <div>
-        <label class="text-[11px] text-muted-foreground mb-1 block uppercase tracking-wider font-medium">Claim (Cover, optional)</label>
+        <label class="text-[11px] text-muted-foreground mb-1 block uppercase tracking-wider font-medium">Claim (optional)</label>
         <input v-model="claim" type="text" maxlength="200"
           placeholder="z.B. Wohnen, wo andere Urlaub machen."
           class="w-full h-9 px-3 text-[13px] bg-white rounded-md border border-zinc-200 shadow focus:outline-none focus:ring-1 focus:ring-orange-400" />

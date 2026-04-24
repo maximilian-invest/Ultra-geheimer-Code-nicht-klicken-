@@ -62,6 +62,7 @@ class Property extends Model
         // Descriptions
         'realty_description', 'location_description', 'equipment_description',
         'other_description', 'highlights', 'expose_claim', 'expose_captions_pool',
+        'expose_cover_kicker', 'expose_cover_title', 'expose_cover_subtitle',
 
         // Commission
         'commission_percent', 'commission_note', 'commission_total',

@@ -21,6 +21,11 @@ const puppeteer = require('puppeteer');
     const args = [
         '--no-sandbox',
         '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-breakpad',
+        '--disable-crash-reporter',
+        '--disable-features=Crashpad',
         '--ignore-certificate-errors',
     ];
     if (mapHost) {

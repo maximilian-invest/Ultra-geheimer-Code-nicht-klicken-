@@ -21,11 +21,13 @@ use Illuminate\Support\Facades\Log;
 class PropertyDescriptionService
 {
     /**
-     * Use a stronger model for prose generation than the project default
-     * (haiku) — quality matters here and latency isn't a concern since the
-     * user triggered the action explicitly.
+     * Opus 4.7 fuer Prosa-Generierung — deutlich stabilere Grammatik und
+     * Stilsicherheit im Deutschen als Sonnet. Latenz ist akzeptabel weil
+     * der Makler die Generierung bewusst anstoesst, und die Kosten sind
+     * gegenueber dem Wert einer sauberen Exposé-Beschreibung
+     * vernachlaessigbar.
      */
-    private const MODEL = 'claude-sonnet-4-6';
+    private const MODEL = 'claude-opus-4-7';
 
     /**
      * Kuratierte Highlight-Bibliothek — Tag → Copy-Direktive fuer den
@@ -125,7 +127,14 @@ class PropertyDescriptionService
             . ($documentText !== '' ? "\n\n---\n\nDOKUMENT-AUSZÜGE:\n" . $documentText : '')
             . "\n\n---\n\nSchreibe jetzt die Objektbeschreibung.";
 
-        $text = $this->anthropic->chat($systemPrompt, $userMessage, maxTokens: 2000, model: self::MODEL);
+        Log::info('generateObjekt calling Anthropic', [
+            'property_id' => $propertyId,
+            'model' => self::MODEL,
+            'highlights_count' => substr_count($highlightLines, "\n") + ($highlightLines !== '' ? 1 : 0),
+            'has_documents' => $documentText !== '',
+        ]);
+
+        $text = $this->anthropic->chat($systemPrompt, $userMessage, maxTokens: 2500, model: self::MODEL);
 
         if (!$text) {
             Log::warning("generateObjekt: no text for property {$propertyId}");
@@ -657,9 +666,17 @@ STIL
 STRUKTUR (Leitplanke)
   1. Einstieg (1 Absatz, 2–4 Sätze): Bild + stärkstes Highlight + sofort Richtung (Stadt/Ortsteil, Objekttyp).
   2. Wohnbereich & Räume (1–2 Absätze): Aufteilung, Flächen, besondere Räume. Highlights hier einweben.
-  3. Ausstattung & Technik (1 Absatz): Heizung (Art), Baujahr/Sanierung, Zustand. Keine Energiewerte, kein Preis.
+  3. Ausstattung & Bauhistorie (1 Absatz): Heizung (Art), Bauhistorie (siehe unten), Zustand. Keine Energiewerte, kein Preis.
   4. Außen & Nebenbereiche (1 Absatz, falls belegbar): Dachterrasse/Garten/Stellplätze — nur die Kategorien die hier zählen, nicht jede winzige Nebenfläche.
   5. Kurzer Schluss (optional, 1–2 Sätze): Nutzungskontext wenn aus Fakten ableitbar ("Als Ihr neues Zuhause ..." oder "Für anspruchsvolle ..." — aber NIE Werbegestus).
+
+BAUHISTORIE ERZÄHLEN, NICHT AUFLISTEN
+Wenn im Datensatz „Um- oder Zubauten" und/oder „Letzte Kernsanierung" vermerkt sind, gehört das ZWINGEND in die Beschreibung — als EIN zusammenhängender Satz der Baujahr, Sanierung und Zubauten verbindet. Die Historie eines Hauses ist Teil seines Werts.
+  - FALSCH (nur Baujahr): „Das Haus wurde 1994 errichtet."
+  - RICHTIG (wenn Zubau vermerkt): „1994 erbaut, 2015 umfassend kernsaniert und um einen Südzubau mit Wohnküche erweitert."
+  - RICHTIG (wenn nur Sanierung vermerkt): „Baujahr 1994, 2020 grundlegend kernsaniert."
+  - Übernimm die Jahreszahlen/Inhalte aus den Freitextfeldern direkt. Keine eigenen Baudetails erfinden.
+  - Wenn Zubauten/Sanierungen inhaltlich sehr detailliert sind: verdichte auf das Wesentliche (1-2 konkrete Maßnahmen nennen, nicht alle).
 
 WEGLASSEN IST STÄRKE
 Lieber 4 starke Absätze als 6 aufgeblasene. Wenn ein Bereich im Datensatz dünn ist, hol ihn nicht in Watte, lass ihn weg. Leerlauf-Sätze ("Eine angenehme Atmosphäre rundet das Bild ab.") sind verboten.
@@ -894,11 +911,22 @@ PROMPT;
             $lines[] = "- Ausstattungsmerkmale: " . implode(', ', $flags);
         }
 
-        // Free-text notes that may already exist
-        foreach (['highlights', 'other_description'] as $freeKey) {
+        // Freitext-Felder fuer Historie und Sonstiges. Diese geben dem Modell
+        // Kontext jenseits der Struktur-Werte — insbesondere `conversions_additions`
+        // und `last_renovation_note` ermoeglichen eine erzaehlerisch reiche
+        // Geschichte ("Baujahr 1994, 2015 umfassend kernsaniert und zugebaut"),
+        // statt dass der Text nur mit "errichtet 1994" endet.
+        $freeTextLabels = [
+            'highlights'             => 'Highlights (Freitext, bestehend)',
+            'other_description'      => 'Sonstiges (bestehend)',
+            'conversions_additions'  => 'Um- oder Zubauten (Historie — in der Beschreibung als Teil der Bau-/Sanierungsgeschichte aufgreifen)',
+            'last_renovation_note'   => 'Letzte Kernsanierung (Historie — in Verbindung mit Baujahr/Saniert-Jahr erzaehlen)',
+            'equipment_description'  => 'Ausstattungs-Freitext',
+        ];
+        foreach ($freeTextLabels as $freeKey => $freeLabel) {
             $v = trim((string) ($p[$freeKey] ?? ''));
             if ($v !== '') {
-                $lines[] = "- " . ($freeKey === 'highlights' ? 'Highlights (bestehend)' : 'Sonstiges (bestehend)') . ": {$v}";
+                $lines[] = "- {$freeLabel}: {$v}";
             }
         }
 

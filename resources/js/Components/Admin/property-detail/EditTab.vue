@@ -74,7 +74,7 @@ const form = reactive({
   status: "aktiv", // mapped to realty_status server-side
   purchase_price: null, price_per_m2: null, parking_price: null,
   rental_price: null, rent_warm: null, rent_deposit: null,
-  operating_costs: null, maintenance_reserves: null,
+  operating_costs: null, maintenance_reserves: null, reserves_balance: null,
   living_area: null, realty_area: null, free_area: null, total_area: null,
   area_balcony: null, area_terrace: null, area_garden: null, area_basement: null,
   area_storage_room: null, area_loggia: null, area_garage: null, office_space: null,

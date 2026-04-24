@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { Home, Globe, Users, Lock } from 'lucide-vue-next'
+import { Home, Globe, Users, Lock, FileText } from 'lucide-vue-next'
 import { visForField } from '@/utils/propertyFieldExports.js'
 
 const props = defineProps({
@@ -8,10 +8,11 @@ const props = defineProps({
 })
 
 const ICON_MAP = {
-  i: Home,    // Immoji
-  w: Globe,   // Website
-  p: Users,   // Kundenportal
-  l: Lock,    // Intern
+  i: Home,       // Immoji
+  w: Globe,      // Website
+  p: Users,      // Kundenportal
+  e: FileText,   // Exposé (nur dort, nicht auf Website/Immoji)
+  l: Lock,       // Intern
 }
 
 const data = computed(() => visForField(props.field))

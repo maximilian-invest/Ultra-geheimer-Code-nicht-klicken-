@@ -260,6 +260,7 @@ class PropertySettingsController extends Controller
         // Kosten
         'operating_costs' => 'Betriebskosten (€/Monat, nur Zahl)',
         'maintenance_reserves' => 'Rücklage (€/Monat, nur Zahl)',
+        'reserves_balance' => 'Rücklagenstand (€, einmalig)',
         // Grundstück
         'plot_dedication' => 'Widmung',
         'plot_buildable' => 'Bebaubar (true/false)',
@@ -349,6 +350,7 @@ class PropertySettingsController extends Controller
         'heating_demand_value' => 'number', 'energy_efficiency_value' => 'number',
         'garage_spaces' => 'number', 'parking_spaces' => 'number', 'parking_price' => 'number',
         'operating_costs' => 'number', 'maintenance_reserves' => 'number',
+        'reserves_balance' => 'number',
         'commission_percent' => 'number', 'buyer_commission_percent' => 'number',
         'total_units' => 'number',
         'has_basement' => 'boolean', 'has_garden' => 'boolean',

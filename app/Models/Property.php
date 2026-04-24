@@ -21,7 +21,7 @@ class Property extends Model
 
         // Pricing
         'price', 'rental_price', 'rent_warm', 'rent_deposit', 'price_per_m2',
-        'operating_costs', 'maintenance_reserves',
+        'operating_costs', 'maintenance_reserves', 'reserves_balance',
         'heating_costs', 'warm_water_costs', 'cooling_costs', 'admin_costs',
         'elevator_costs', 'parking_costs_monthly', 'other_costs', 'monthly_costs',
         'land_register_fee_pct', 'land_transfer_tax_pct', 'contract_fee_pct',
@@ -114,6 +114,7 @@ class Property extends Model
             'price_per_m2' => 'decimal:2',
             'operating_costs' => 'decimal:2',
             'maintenance_reserves' => 'decimal:2',
+            'reserves_balance' => 'decimal:2',
             'parking_price' => 'decimal:2',
             'total_area' => 'decimal:2',
             'living_area' => 'decimal:2',

@@ -67,7 +67,7 @@ function countFilled(keys) {
 }
 const SECTION_FIELDS = {
   preise:    ['purchase_price', 'price_per_m2'],
-  bk:        ['operating_costs', 'maintenance_reserves', 'heating_costs', 'warm_water_costs', 'cooling_costs', 'admin_costs', 'elevator_costs', 'parking_costs_monthly', 'other_costs', 'monthly_costs'],
+  bk:        ['operating_costs', 'maintenance_reserves', 'reserves_balance', 'heating_costs', 'warm_water_costs', 'cooling_costs', 'admin_costs', 'elevator_costs', 'parking_costs_monthly', 'other_costs', 'monthly_costs'],
   provIntern:['commission_percent', 'commission_total', 'commission_note'],
   nebenkosten:['land_transfer_tax_pct', 'land_register_fee_pct', 'mortgage_register_fee_pct', 'contract_fee_pct', 'buyer_commission_percent', 'buyer_commission_free', 'nebenkosten_note'],
 };
@@ -105,6 +105,10 @@ const sectionCounts = computed(() => {
         <div>
           <label :class="labelCls">Rücklage <FieldExportBadges field="maintenance_reserves" /></label>
           <Input v-model="form.maintenance_reserves" type="number" :class="inputCls" />
+        </div>
+        <div>
+          <label :class="labelCls">Rücklagenstand <FieldExportBadges field="reserves_balance" /></label>
+          <Input v-model="form.reserves_balance" type="number" :class="inputCls" placeholder="einmaliger Stand in €" />
         </div>
         <div>
           <label :class="labelCls">Heizkosten <FieldExportBadges field="heating_costs" /></label>

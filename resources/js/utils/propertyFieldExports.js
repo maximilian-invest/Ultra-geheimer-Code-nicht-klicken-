@@ -5,6 +5,7 @@
  *   i = Immoji (indirekt Willhaben, ImmoScout24, ImmoWelt)
  *   w = SR-Homes Website (sr-homes.at)
  *   p = Kundenportal (kundenportal.sr-homes.at)
+ *   e = Exposé (PDF / Freigabe-Link)
  *   l = Nur intern (nirgendwo exportiert)
  *
  * Quellen für die Mapping-Entscheidungen:
@@ -88,6 +89,7 @@ export const FIELD_EXPORTS = {
   warm_water_costs:     { targets: ['i', 'w'], tips: { w: 'Website: Warmwasser-Zeile' } },
   cooling_costs:        { targets: ['i', 'w'], tips: { w: 'Website: Kühlung-Zeile' } },
   maintenance_reserves: { targets: ['i', 'w'], tips: { w: 'Website: Rücklage-Zeile' } },
+  reserves_balance:     { targets: ['e'],      tips: { e: 'Nur im Exposé — nicht auf Website/Immoji' } },
   admin_costs:          { targets: ['i', 'w'], tips: { w: 'Website: Verwaltungskosten-Zeile' } },
   elevator_costs:       { targets: ['i', 'w'], tips: { w: 'Website: Aufzugskosten-Zeile' } },
   parking_costs_monthly:{ targets: ['i', 'w'], tips: { w: 'Website: Stellplatzkosten-Zeile' } },
@@ -194,6 +196,7 @@ const TARGET_NAMES = {
   i: 'Immoji (Inserats-Portale)',
   w: 'SR-Homes Website',
   p: 'Kundenportal',
+  e: 'Exposé',
   l: 'Nur intern',
 };
 

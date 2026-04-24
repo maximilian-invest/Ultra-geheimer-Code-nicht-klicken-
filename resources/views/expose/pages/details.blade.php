@@ -267,6 +267,13 @@
                     @endif
                 </div>
             @endif
+
+            @if ($p->reserves_balance !== null && (float) $p->reserves_balance > 0)
+                <div class="grp">
+                    <div class="gh">Rücklagen</div>
+                    {!! $row('Rücklagenstand', $fmtMoney($p->reserves_balance)) !!}
+                </div>
+            @endif
         </div>
 
         {{-- Rechte Spalte: Flächen + Ausstattung + Merkmale + Allgemein + Energie --}}

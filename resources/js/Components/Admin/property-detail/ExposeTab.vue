@@ -2,6 +2,7 @@
 import { ref, computed, inject, onMounted } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, RefreshCw, ExternalLink, Save, Plus, Trash2, GripVertical, Image as ImageIcon, Wand2 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -337,15 +338,25 @@ onMounted(loadConfig);
             </button>
           </div>
 
-          <select :value="page.layout" @change="changeLayout(index, $event.target.value)"
-                  class="w-full h-9 text-[13px] px-3 bg-white rounded-md border border-zinc-200 shadow focus:outline-none focus:ring-1 focus:ring-orange-400">
-            <optgroup label="Klassisch">
-              <option v-for="l in LAYOUTS.filter(x => !x.editorial)" :key="l.key" :value="l.key">{{ l.label }}</option>
-            </optgroup>
-            <optgroup label="Editorial (mit Zitat)">
-              <option v-for="l in LAYOUTS.filter(x => x.editorial)" :key="l.key" :value="l.key">{{ l.label }}</option>
-            </optgroup>
-          </select>
+          <Select :model-value="page.layout" @update:model-value="(v) => v && changeLayout(index, v)">
+            <SelectTrigger class="w-full h-9 text-[13px] bg-white border-zinc-200 shadow">
+              <SelectValue placeholder="Layout wählen…" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel class="text-[10px] uppercase tracking-wider text-muted-foreground">Klassisch</SelectLabel>
+                <SelectItem v-for="l in LAYOUTS.filter(x => !x.editorial)" :key="l.key" :value="l.key">
+                  {{ l.label }}
+                </SelectItem>
+              </SelectGroup>
+              <SelectGroup>
+                <SelectLabel class="text-[10px] uppercase tracking-wider text-muted-foreground">Editorial (mit Zitat)</SelectLabel>
+                <SelectItem v-for="l in LAYOUTS.filter(x => x.editorial)" :key="l.key" :value="l.key">
+                  {{ l.label }}
+                </SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
 
           <!-- Caption-Field für Editorial -->
           <div v-if="layoutByKey(page.layout)?.editorial">

@@ -116,7 +116,7 @@ class ExposeController extends Controller
         $data = $request->validate([
             'config'                  => ['required', 'array'],
             'config.pages'            => ['required', 'array'],
-            'config.pages.*.type'     => ['required', 'string', 'in:cover,details,haus,lage,impressionen_intro,impressionen,kontakt'],
+            'config.pages.*.type'     => ['required', 'string', 'in:cover,details,haus,sanierungen,lage,impressionen_intro,impressionen,kontakt'],
             'config.pages.*.layout'   => ['nullable', 'string', 'in:L1,L2,L3,L4,L5,LM,M1,M3,M4'],
             'config.pages.*.image_id' => ['nullable', 'integer'],
             'config.pages.*.image_ids'=> ['nullable', 'array'],

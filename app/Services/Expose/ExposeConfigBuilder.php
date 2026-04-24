@@ -46,6 +46,12 @@ class ExposeConfigBuilder
             'type'     => 'haus',
             'image_id' => $rest->first()?->id,
         ];
+
+        // Sanierungen-Seite nur wenn property_history Einträge enthält.
+        if ($this->hasSanierungen($property)) {
+            $pages[] = ['type' => 'sanierungen'];
+        }
+
         $pages[] = ['type' => 'lage'];
 
         // Haus-Bild aus Impressionen-Pool entfernen.
@@ -161,6 +167,27 @@ class ExposeConfigBuilder
             'M4' => 1,
             default => 1,
         };
+    }
+
+    /**
+     * Prüft ob die Property mindestens einen Sanierungs-/Historie-Eintrag
+     * mit Titel oder Beschreibung hat. Leere History → keine Seite.
+     */
+    private function hasSanierungen(Property $property): bool
+    {
+        $raw = $property->property_history;
+        if (is_string($raw) && $raw !== '') {
+            $raw = json_decode($raw, true);
+        }
+        if (!is_array($raw)) return false;
+
+        foreach ($raw as $entry) {
+            if (!is_array($entry)) continue;
+            if (!empty($entry['title']) || !empty($entry['description'])) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Liest Makler-Pool zeilenweise; fällt auf Default zurück. */

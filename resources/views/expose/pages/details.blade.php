@@ -74,12 +74,106 @@
         $cls = $total ? ' total' : '';
         return '<div class="r"><span class="k">' . e($k) . '</span><span class="v' . $cls . '">' . e($v) . '</span></div>';
     };
+
+    // Merkmale/Features: Liste der aktivierten Boolean-Felder.
+    $featureLabels = [
+        'has_elevator'          => 'Aufzug',
+        'has_barrier_free'      => 'Barrierefrei',
+        'has_fitted_kitchen'    => 'Einbauküche',
+        'has_air_conditioning'  => 'Klimaanlage',
+        'has_pool'              => 'Pool',
+        'has_sauna'             => 'Sauna',
+        'has_fireplace'         => 'Kamin',
+        'has_alarm'             => 'Alarmanlage',
+        'has_guest_wc'          => 'Gäste-WC',
+        'has_storage_room'      => 'Abstellraum',
+        'has_washing_connection'=> 'Waschmaschinenanschluss',
+        'has_photovoltaik'      => 'Photovoltaik',
+        'has_charging_station'  => 'E-Ladestation',
+        'has_wohnraumlueftung'  => 'Wohnraumlüftung',
+    ];
+    $activeFeatures = [];
+    foreach ($featureLabels as $key => $label) {
+        if (!empty($p->{$key})) $activeFeatures[] = $label;
+    }
+
+    // Allgemeinräume: kommaseparierter Freitext (aus IntakeProtocol-Konvention),
+    // in lesbare Liste wandeln.
+    $commonAreasRaw = trim((string) ($p->common_areas ?? ''));
+    $commonAreas = [];
+    if ($commonAreasRaw !== '') {
+        // Leading/trailing JSON-Klammern abschneiden falls Legacy-Format.
+        $decoded = null;
+        if (($commonAreasRaw[0] ?? '') === '[') {
+            $decoded = json_decode($commonAreasRaw, true);
+        }
+        $items = is_array($decoded) ? $decoded : preg_split('/[,;]\s*/', $commonAreasRaw);
+        foreach ($items as $item) {
+            $t = ucfirst(trim((string) $item));
+            if ($t !== '') $commonAreas[] = $t;
+        }
+    }
+
+    // Objektart-Details: Eigentumsart, Bauart lesbar.
+    $ownershipLabels = [
+        'alleineigentum' => 'Alleineigentum',
+        'miteigentum'    => 'Miteigentum',
+        'wohnungseigentum' => 'Wohnungseigentum',
+        'baurecht'       => 'Baurecht',
+    ];
+    $ownership = $ownershipLabels[strtolower((string) ($p->ownership_type ?? ''))] ?? $p->ownership_type;
+    $constructionLabels = [
+        'massiv'      => 'Massivbauweise',
+        'holz'        => 'Holzbauweise',
+        'fertigteil'  => 'Fertigteilbau',
+        'ziegel'      => 'Ziegelbau',
+        'mischbau'    => 'Mischbauweise',
+    ];
+    $construction = $constructionLabels[strtolower((string) ($p->construction_type ?? ''))] ?? $p->construction_type;
+
+    $conditionLabels = [
+        'neuwertig'   => 'Neuwertig',
+        'gepflegt'    => 'Gepflegt',
+        'renovierungsbeduerftig' => 'Renovierungsbedürftig',
+        'sanierungsbeduerftig'   => 'Sanierungsbedürftig',
+        'erstbezug'   => 'Erstbezug',
+        'neu'         => 'Neu',
+        'gebraucht'   => 'Gebraucht',
+        'gut'         => 'Gut',
+    ];
+    $condition = $conditionLabels[strtolower((string) ($p->realty_condition ?? ''))] ?? $p->realty_condition;
+
+    $qualityLabels = [
+        'einfach'   => 'Einfach',
+        'normal'    => 'Normal',
+        'gehoben'   => 'Gehoben',
+        'luxus'     => 'Luxus',
+    ];
+    $quality = $qualityLabels[strtolower((string) ($p->quality ?? ''))] ?? $p->quality;
+
+    // Etage-Info: "2. Stock von 5"
+    $floorInfo = null;
+    if ($p->floor_number !== null && $p->floor_count) {
+        $floorInfo = $p->floor_number . '. Stock von ' . $p->floor_count;
+    } elseif ($p->floor_count) {
+        $floorInfo = $p->floor_count . ' Etagen';
+    } elseif ($p->floor_number !== null) {
+        $floorInfo = $p->floor_number . '. Stock';
+    }
 @endphp
 
 <style>
   .details-page .grid {
     position: absolute; top: 124px; left: 48px; right: 48px; bottom: 28px;
     display: grid; grid-template-columns: 1fr 1fr; column-gap: 56px;
+  }
+  .details-page .list-value {
+    font-family: Georgia, serif; color: var(--text-primary);
+    font-size: 13px; line-height: 1.5;
+    padding: 5px 0 3px;
+  }
+  .details-page .list-value .bullet {
+    color: var(--accent); margin: 0 6px; opacity: 0.6;
   }
 </style>
 
@@ -93,11 +187,18 @@
             <div class="grp">
                 <div class="gh">Objekt</div>
                 {!! $row('Objektart', $p->object_type) !!}
+                {!! $row('Bauart', $construction) !!}
+                {!! $row('Eigentumsart', $ownership) !!}
                 {!! $row('Zimmer', $rooms) !!}
+                {!! $row('Etage', $floorInfo) !!}
                 {!! $row('Baujahr', $p->construction_year) !!}
+                {!! $row('Sanierungsjahr', $p->year_renovated) !!}
                 {!! $row('Letzte Kernsanierung', $p->last_renovation_note) !!}
                 {!! $row('Wohnfläche', $fmtArea($p->living_area)) !!}
+                {!! $row('Nutzfläche', $fmtArea($p->free_area)) !!}
                 {!! $row('Grundstück', $fmtArea($p->realty_area)) !!}
+                {!! $row('Zustand', $condition) !!}
+                {!! $row('Qualität', $quality) !!}
                 {!! $row('Verfügbar ab', $p->available_from?->format('d.m.Y') ?: $p->available_text ?: null) !!}
             </div>
 
@@ -114,12 +215,14 @@
             @endif
         </div>
 
-        {{-- Rechte Spalte: Flächen + Ausstattung + Energie --}}
+        {{-- Rechte Spalte: Flächen + Ausstattung + Merkmale + Allgemein + Energie --}}
         <div>
             <div class="grp">
                 <div class="gh">Flächen &amp; Räume</div>
                 {!! $row('Balkon', $fmtArea($p->area_balcony)) !!}
                 {!! $row('Terrasse', $fmtArea($p->area_terrace)) !!}
+                {!! $row('Dachterrasse', $fmtArea($p->area_dachterrasse)) !!}
+                {!! $row('Loggia', $fmtArea($p->area_loggia)) !!}
                 {!! $row('Garten', $fmtArea($p->area_garden)) !!}
                 {!! $row('Keller', $fmtArea($p->area_basement)) !!}
                 {!! $row('Stellplatz', $parking) !!}
@@ -133,13 +236,36 @@
                 {!! $row('Ausrichtung', $p->orientation) !!}
             </div>
 
+            @if (!empty($activeFeatures))
+                <div class="grp">
+                    <div class="gh">Merkmale</div>
+                    <div class="list-value">
+                        @foreach ($activeFeatures as $i => $feat)
+                            @if ($i > 0)<span class="bullet">·</span>@endif{{ $feat }}
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            @if (!empty($commonAreas))
+                <div class="grp">
+                    <div class="gh">Allgemeinräume</div>
+                    <div class="list-value">
+                        @foreach ($commonAreas as $i => $area)
+                            @if ($i > 0)<span class="bullet">·</span>@endif{{ $area }}
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             <div class="grp">
                 <div class="gh">Energie</div>
                 {!! $row('Heizung', $p->heating) !!}
+                {!! $row('Energieträger', $p->energy_primary_source) !!}
                 {!! $row('HWB', $p->heating_demand_value ? $p->heating_demand_value . ' kWh/m²a' : null) !!}
+                {!! $row('fGEE', $p->energy_efficiency_value) !!}
                 {!! $row('Energieklasse', $p->heating_demand_class) !!}
-                {!! $row('Photovoltaik', $p->has_photovoltaik ? 'ja' : null) !!}
-                {!! $row('Wohnraumlüftung', $p->has_wohnraumlueftung ? 'ja' : null) !!}
+                {!! $row('Ausweis bis', $p->energy_valid_until?->format('m/Y') ?: null) !!}
             </div>
         </div>
     </div>

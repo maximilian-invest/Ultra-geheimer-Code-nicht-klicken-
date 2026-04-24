@@ -115,8 +115,9 @@ function formatPct(val) {
 }
 
 // Calculated commission for the Übersicht tile: prefers an explicit EUR
-// total if entered; otherwise computes purchase_price × percent using
-// whichever percentage field is set (seller preferred, else buyer).
+// total if entered; otherwise computes purchase_price × (Verkäufer + Käufer)%.
+// Beide Provisions-Seiten gehoeren in die Summe — der Makler will wissen
+// was insgesamt reinkommt, nicht nur eine Seite.
 const commissionSum = computed(() => {
   const p = props.property || {};
   const totalFixed = Number(p.commission_total) || 0;
@@ -125,8 +126,8 @@ const commissionSum = computed(() => {
   const price = Number(p.purchase_price) || 0;
   const sellerPct = Number(p.commission_percent) || 0;
   const buyerPct = Number(p.buyer_commission_percent) || 0;
-  const pct = sellerPct || buyerPct;
-  if (price > 0 && pct > 0) return price * pct / 100;
+  const totalPct = sellerPct + buyerPct;
+  if (price > 0 && totalPct > 0) return price * totalPct / 100;
   return 0;
 });
 

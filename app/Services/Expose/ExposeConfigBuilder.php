@@ -57,10 +57,17 @@ class ExposeConfigBuilder
         // Haus-Bild aus Impressionen-Pool entfernen.
         $forImpressionen = $rest->slice(1)->values();
 
-        // Wenn Impressionen-Pool Bilder hat: Intro-Seite mit erstem Bild voranstellen.
-        // Das Intro-Bild wird aus dem Pool entfernt, damit es nicht doppelt erscheint.
-        $introImage = $forImpressionen->first();
-        if ($introImage) {
+        // Intro-Seite (Full-Bleed BG mit dunklem Overlay + "Impressionen"-
+        // Heading) nur bei einem ausreichend großen Pool voranstellen.
+        // Grund: das Intro-Bild wird durch Gradient + Heading stark
+        // ueberlagert und wirkt fuer den Kunden oft wie "verloren". Bei
+        // kleinen Pools ziehen wir daher lieber alle Bilder in die
+        // klassische Impressionen-Verteilung, damit jedes Bild klar
+        // sichtbar ist. Schwelle: mindestens 5 Bilder fuer Impressionen
+        // (1 Intro + danach noch ≥ 4 fuer eine satte LM/L4-Seite).
+        $introImage = null;
+        if ($forImpressionen->count() >= 5) {
+            $introImage = $forImpressionen->first();
             $pages[] = [
                 'type'     => 'impressionen_intro',
                 'image_id' => $introImage->id,

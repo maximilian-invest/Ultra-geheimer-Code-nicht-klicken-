@@ -1,6 +1,7 @@
 @php
     $img = $ctx->image($page['image_id'] ?? null);
-    $imgUrl = $img ? asset('storage/' . $img->path) : null;
+    // Cover ist Vollbild — größere Stufe damit das Hintergrundbild knackig bleibt.
+    $imgUrl = \App\Support\ExposeImage::url($img, \App\Support\ExposeImage::SIZE_COVER);
     $address = trim(($ctx->property->address ?? '') . ' ' . ($ctx->property->house_number ?? ''));
     $zipCity = trim(($ctx->property->zip ?? '') . ' ' . ($ctx->property->city ?? ''));
     $defaultSubtitle = trim($address . ($address && $zipCity ? ' · ' : '') . $zipCity);

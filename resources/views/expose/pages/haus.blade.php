@@ -1,6 +1,6 @@
 @php
     $img = $ctx->image($page['image_id'] ?? null);
-    $imgUrl = $img ? asset('storage/' . $img->path) : null;
+    $imgUrl = \App\Support\ExposeImage::url($img, \App\Support\ExposeImage::SIZE_LARGE);
     $text = $ctx->property->realty_description ?? '';
     $mode = $ctx->hausTextMode;
     $paragraphs = array_values(array_filter(array_map('trim', preg_split('/\n\s*\n+/', $text))));

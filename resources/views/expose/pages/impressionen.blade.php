@@ -2,7 +2,16 @@
     $layout = $page['layout'] ?? 'L4';
     $ids = $page['image_ids'] ?? [];
     $imgs = collect($ids)->map(fn($id) => $ctx->image($id))->filter()->values();
-    $url = fn($img) => asset('storage/' . $img->path);
+
+    // Bildgröße abhängig vom Layout: Vollbild-Layouts (L1, M4) brauchen
+    // mehr Auflösung, Multi-Bild-Grids kommen mit weniger aus.
+    $sizeForLayout = match ($layout) {
+        'L1', 'M4' => \App\Support\ExposeImage::SIZE_COVER,   // Full-bleed
+        'L2', 'M3' => \App\Support\ExposeImage::SIZE_LARGE,   // 1-2 große Felder
+        default     => \App\Support\ExposeImage::SIZE_MEDIUM,  // 3+ Felder (L3, L4, L5, LM, M1)
+    };
+    $url = fn($img) => \App\Support\ExposeImage::url($img, $sizeForLayout);
+
     $caption = $page['caption'] ?? null;
     $editorialLayouts = ['M1', 'M3', 'M4'];
     $isEditorial = in_array($layout, $editorialLayouts, true);

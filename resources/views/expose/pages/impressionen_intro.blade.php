@@ -1,6 +1,7 @@
 @php
     $img = $ctx->image($page['image_id'] ?? null);
-    $imgUrl = $img ? asset('storage/' . $img->path) : null;
+    // Intro ist Vollbild-Background — größere Stufe.
+    $imgUrl = \App\Support\ExposeImage::url($img, \App\Support\ExposeImage::SIZE_COVER);
 @endphp
 
 <style>

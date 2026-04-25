@@ -1124,13 +1124,21 @@ class ConversationController extends Controller
         $propertyId = $conv->property_id;
         $today = date('Y-m-d');
 
-        // Build thread context from portal_emails (more reliable than activities)
+        // Build thread context from portal_emails (more reliable than activities).
+        // Wenn die Conversation noch keiner Property zugeordnet ist (z.B. neue
+        // Erstanfrage ohne ref_id), ist auch property_id der Mails NULL —
+        // wir lassen dann den property_id-Filter weg und matchen ueber
+        // Stakeholder/Email/last_email_id, sonst kommt 404 obwohl der Thread
+        // existiert.
+        $pidClause = $propertyId
+            ? 'pe.property_id = ' . (int) $propertyId
+            : '(pe.property_id IS NULL OR pe.id = ' . (int) $conv->last_email_id . ')';
         $thread = DB::select("
             SELECT pe.email_date as activity_date, pe.direction, pe.category, pe.subject,
                    SUBSTRING(pe.body_text, 1, 2000) as body_snippet,
                    pe.from_name
             FROM portal_emails pe
-            WHERE pe.property_id = ?
+            WHERE {$pidClause}
               AND (
                     LOWER(pe.from_email) = LOWER(?)
                     OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')
@@ -1144,7 +1152,6 @@ class ConversationController extends Controller
               )
             ORDER BY pe.email_date ASC
         ", [
-            $propertyId,
             $conv->contact_email,
             $conv->contact_email,
             $stakeholder,

@@ -1,5 +1,6 @@
 @php
     $b = $ctx->broker;
+    $p = $ctx->property;
     // Makler-Signatur hat Vorrang vor User-Basis-Feldern — der Makler pflegt
     // dort bewusst gewählte Exposé-Daten (oft andere Mail als der Login-Account).
     $name    = $b?->signature_name  ?: $b?->name  ?: 'SR Homes';
@@ -14,6 +15,40 @@
     // users.profile_image, falls Legacy-Daten vorhanden sind.
     $photoPath = trim((string) ($ctx->brokerPhotoPath ?? $b?->profile_image ?? ''));
     $photoUrl  = $photoPath !== '' ? asset('storage/' . $photoPath) : null;
+
+    // Prozent-Helper: einzelner Wert oder von-bis-Range. Akzeptiert nur
+    // sinnvolle positive Werte; sonst null (Zeile wird ausgeblendet).
+    $fmtPct = function ($val) {
+        if ($val === null || $val === '') return null;
+        $n = (float) $val;
+        if ($n <= 0) return null;
+        // Trailing-Nullen weg: 3.0 → "3", 1.50 → "1,5", 1.55 → "1,55"
+        return rtrim(rtrim(number_format($n, 2, ',', ''), '0'), ',') . ' %';
+    };
+    $fmtPctRange = function ($min, $max) use ($fmtPct) {
+        $a = $fmtPct($min);
+        $b = $fmtPct($max);
+        if ($a && $b && (float) $max > (float) $min) {
+            // Bindestrich (en-dash) macht die Range ruhiger als Minus.
+            return rtrim($a, ' %') . '–' . $b;
+        }
+        return $a;
+    };
+
+    // Werte aus der Property — Defaults werden in Property::booted gesetzt,
+    // aber falls explizit null/0: Zeile faellt einfach weg.
+    $rowsKnk = [
+        ['Grunderwerbsteuer',   $fmtPct($p->land_transfer_tax_pct), false],
+        ['Grundbucheintragung', $fmtPct($p->land_register_fee_pct), false],
+        ['Vertragserrichtung',  $fmtPctRange($p->contract_fee_pct, $p->contract_fee_pct_max), false],
+        ['Pfandrechtseintrag',  $fmtPct($p->mortgage_register_fee_pct), false],
+    ];
+    // Käuferprovision: spezial — Provisionsfrei oder Standard mit "+ USt".
+    $kProv = null;
+    if (!$p->buyer_commission_free) {
+        $kProvPct = $fmtPct($p->buyer_commission_percent);
+        if ($kProvPct) $kProv = $kProvPct . ' + USt';
+    }
 
     $disclaimer = 'Dieses Exposé wurde mit größter Sorgfalt erstellt und dient ausschließlich der unverbindlichen Information. Alle Angaben zu Flächen, Maßen, Preisen, Erträgen sowie sonstigen Daten beruhen auf den Informationen und Unterlagen des Eigentümers bzw. Dritter. Für deren Richtigkeit, Vollständigkeit und Aktualität wird keine Haftung übernommen. Das Exposé stellt kein verbindliches Angebot dar. Änderungen, Irrtümer und Zwischenverkauf bleiben ausdrücklich vorbehalten. Maßgeblich sind ausschließlich die im Kaufvertrag vereinbarten Inhalte. Dieses Dokument ist vertraulich zu behandeln und darf ohne unsere ausdrückliche Zustimmung weder vervielfältigt noch an Dritte weitergegeben werden.';
 @endphp
@@ -101,11 +136,16 @@
         </div>
         <div>
             <div class="gh">Kaufnebenkosten</div>
-            <div class="r"><span class="k">Grunderwerbsteuer</span><span class="v">3,5 %</span></div>
-            <div class="r"><span class="k">Grundbucheintragung</span><span class="v">1,1 %</span></div>
-            <div class="r"><span class="k">Vertragserrichtung</span><span class="v">1,5 %</span></div>
-            <div class="r"><span class="k">Pfandrechtseintrag</span><span class="v">1,2 %</span></div>
-            <div class="r"><span class="k">Käuferprovision</span><span class="v accent">3,0 % + USt</span></div>
+            @foreach ($rowsKnk as [$label, $value, $accent])
+                @if ($value)
+                    <div class="r"><span class="k">{{ $label }}</span><span class="v">{{ $value }}</span></div>
+                @endif
+            @endforeach
+            @if ($kProv)
+                <div class="r"><span class="k">Käuferprovision</span><span class="v accent">{{ $kProv }}</span></div>
+            @elseif ($p->buyer_commission_free)
+                <div class="r"><span class="k">Käuferprovision</span><span class="v accent">provisionsfrei</span></div>
+            @endif
 
             <div class="disclaimer">
                 <div class="dh">Haftungsausschluss</div>

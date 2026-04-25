@@ -125,7 +125,7 @@ const form = reactive({
   heating_costs: null, warm_water_costs: null, cooling_costs: null,
   admin_costs: null, elevator_costs: null, parking_costs_monthly: null,
   other_costs: null, monthly_costs: null,
-  land_register_fee_pct: null, land_transfer_tax_pct: null, contract_fee_pct: null,
+  land_register_fee_pct: null, land_transfer_tax_pct: null, contract_fee_pct: null, contract_fee_pct_max: null,
   mortgage_register_fee_pct: null, nebenkosten_note: "", show_nebenkosten_on_website: true,
   buyer_commission_free: false,
   building_details: {},

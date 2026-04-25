@@ -43,7 +43,16 @@ const pctRaw = (key) => {
 const nkGrunderwerb = computed(() => priceNum.value * pctRaw('land_transfer_tax_pct') / 100);
 const nkGrundbuch    = computed(() => priceNum.value * pctRaw('land_register_fee_pct') / 100);
 const nkPfandrecht   = computed(() => priceNum.value * pctRaw('mortgage_register_fee_pct') / 100);
-const nkVertrag      = computed(() => priceNum.value * pctRaw('contract_fee_pct') / 100);
+const nkVertrag      = computed(() => {
+  const min = pctRaw('contract_fee_pct');
+  const max = pctRaw('contract_fee_pct_max');
+  // Wenn eine sinnvolle Range gepflegt ist (max > min), zeige Spanne im
+  // Tooltip-aehnlichen Helper unten an. Fuer die Gesamtsumme (nkGesamt)
+  // verwenden wir den Mittelwert — entspricht der Erwartung des Maklers,
+  // dass eine Spanne im Default-Fall bei "Mitte" landet.
+  if (min > 0 && max > min) return priceNum.value * ((min + max) / 2) / 100;
+  return priceNum.value * min / 100;
+});
 const nkProvision    = computed(() => {
   if (props.form?.buyer_commission_free) return 0;
   return priceNum.value * pctRaw('buyer_commission_percent') / 100;
@@ -69,7 +78,7 @@ const SECTION_FIELDS = {
   preise:    ['purchase_price', 'price_per_m2'],
   bk:        ['operating_costs', 'maintenance_reserves', 'reserves_balance', 'heating_costs', 'warm_water_costs', 'cooling_costs', 'admin_costs', 'elevator_costs', 'parking_costs_monthly', 'other_costs', 'monthly_costs'],
   provIntern:['commission_percent', 'commission_total', 'commission_note'],
-  nebenkosten:['land_transfer_tax_pct', 'land_register_fee_pct', 'mortgage_register_fee_pct', 'contract_fee_pct', 'buyer_commission_percent', 'buyer_commission_free', 'nebenkosten_note'],
+  nebenkosten:['land_transfer_tax_pct', 'land_register_fee_pct', 'mortgage_register_fee_pct', 'contract_fee_pct', 'contract_fee_pct_max', 'buyer_commission_percent', 'buyer_commission_free', 'nebenkosten_note'],
 };
 const sectionCounts = computed(() => {
   const out = {};
@@ -187,8 +196,16 @@ const sectionCounts = computed(() => {
           <p class="text-[10px] text-muted-foreground mt-0.5 text-right tabular-nums">≈ {{ fmtEuro(nkPfandrecht) }}</p>
         </div>
         <div>
-          <label :class="labelCls">Vertragserrichtung % <FieldExportBadges field="contract_fee_pct" /></label>
-          <Input v-model="form.contract_fee_pct" type="number" step="0.01" placeholder="1,5" :class="inputCls" />
+          <label :class="labelCls + ' flex items-center gap-1.5 flex-wrap'">
+            <span>Vertragserrichtung %</span>
+            <span class="text-[10px] text-muted-foreground font-normal">(von | bis)</span>
+            <FieldExportBadges field="contract_fee_pct" />
+          </label>
+          <div class="flex items-center gap-1.5">
+            <Input v-model="form.contract_fee_pct" type="number" step="0.01" placeholder="1,5" :class="inputCls + ' flex-1'" />
+            <span class="text-[12px] text-muted-foreground select-none">–</span>
+            <Input v-model="form.contract_fee_pct_max" type="number" step="0.01" placeholder="2,0" :class="inputCls + ' flex-1'" />
+          </div>
           <p class="text-[10px] text-muted-foreground mt-0.5 text-right tabular-nums">≈ {{ fmtEuro(nkVertrag) }}</p>
         </div>
         <div>

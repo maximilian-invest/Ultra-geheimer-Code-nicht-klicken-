@@ -24,7 +24,7 @@ class Property extends Model
         'operating_costs', 'maintenance_reserves', 'reserves_balance',
         'heating_costs', 'warm_water_costs', 'cooling_costs', 'admin_costs',
         'elevator_costs', 'parking_costs_monthly', 'other_costs', 'monthly_costs',
-        'land_register_fee_pct', 'land_transfer_tax_pct', 'contract_fee_pct',
+        'land_register_fee_pct', 'land_transfer_tax_pct', 'contract_fee_pct', 'contract_fee_pct_max',
         'mortgage_register_fee_pct', 'nebenkosten_note', 'show_nebenkosten_on_website',
         'buyer_commission_free',
 
@@ -150,6 +150,7 @@ class Property extends Model
             'land_register_fee_pct' => 'decimal:2',
             'land_transfer_tax_pct' => 'decimal:2',
             'contract_fee_pct' => 'decimal:2',
+            'contract_fee_pct_max' => 'decimal:2',
             'mortgage_register_fee_pct' => 'decimal:2',
             'show_nebenkosten_on_website' => 'boolean',
             'internal_rating' => 'decimal:1',
@@ -215,6 +216,7 @@ class Property extends Model
                 'land_register_fee_pct' => 1.1,
                 'mortgage_register_fee_pct' => 1.2,
                 'contract_fee_pct' => 1.5,
+                'contract_fee_pct_max' => 2.0,
                 'buyer_commission_percent' => 3.0,
             ];
             foreach ($defaults as $col => $val) {

@@ -184,12 +184,37 @@ class PropertyDescriptionService
             : "STADTTEIL: konnte nicht verifiziert werden.\n"
                 . "  → NENNE KEINEN Stadtteilnamen im Text. Erwähne höchstens die Gemeinde/Stadt '{$city}'. Auch wenn deine Suche Stadtteile vorschlägt — NICHT verwenden.\n";
 
+        // Lage-relevante Highlights extrahieren — wenn der Makler "Seeblick",
+        // "Nähe See", "Nähe Wald", "Nähe Skigebiet", "Ruhelage" o.Ä. gesetzt
+        // hat, sind das BESTÄTIGTE Lage-Eigenschaften die der Text aufgreifen
+        // soll. Macht aus einer trockenen Lageinfo eine zielgerichtete
+        // Beschreibung der Standort-Stärken.
+        $rawHighlights = $property->expose_highlights ?? null;
+        if (is_string($rawHighlights) && $rawHighlights !== '') {
+            $rawHighlights = json_decode($rawHighlights, true) ?: [];
+        }
+        $allHighlights = is_array($rawHighlights) ? $rawHighlights : [];
+        $lageRelevantTags = [
+            'Seeblick', 'Bergblick', 'Panoramablick', 'Fernblick',
+            'Ruhelage', 'Grünruhelage', 'Sonnenlage', 'Zentrumslage',
+            'Nähe See', 'Nähe Wald', 'Nähe Skigebiet',
+            'Privater Seezugang',
+        ];
+        $relevantHighlights = array_values(array_intersect($allHighlights, $lageRelevantTags));
+        $highlightsBlock = '';
+        if (!empty($relevantHighlights)) {
+            $highlightsBlock = "\nVOM MAKLER BESTÄTIGTE LAGE-EIGENSCHAFTEN (gelten als Fakt — im Text aufgreifen):\n"
+                . "  " . implode(', ', $relevantHighlights) . "\n"
+                . "  → Diese Aspekte sind authentisch und MÜSSEN den Text strukturieren. Sie zählen als Recherche-Beleg.\n";
+        }
+
         $systemPrompt = $this->lageSystemPrompt();
         $userMessage = "INPUT\n"
             . "Gemeinde: " . ($city !== '' ? $city : '(unbekannt)') . "\n"
             . "PLZ: " . ($zip !== '' ? $zip : '(unbekannt)') . "\n"
             . "Interne Adresse (NUR zur Recherche, im Text niemals erwähnen): {$fullAddress}\n"
             . $districtLine
+            . $highlightsBlock
             . "\n"
             . "RECHERCHE-AUFTRAG\n"
             . "Nutze die Web-Suche, um Antworten auf die Fragen zu finden, die ein Kaufinteressent zur Lage hat:\n"
@@ -201,7 +226,15 @@ class PropertyDescriptionService
             . "- Autobahn-/Hauptstraßen-Anschluss (A1, A10 etc. — Name nur wenn belegbar).\n"
             . "- ÖPNV (allgemein, wenn keine konkrete Linie belegt).\n\n"
             . "AUSGABE\n"
-            . "Schreibe nach den Regeln im System-Prompt: 3 Absätze (Makrolage, Mikrolage, Erreichbarkeit), 80-160 Wörter, dritte Person, sachlich. Kein Marketing, keine Floskeln, keine Trivia (Bewohnerzahlen, Öffnungszeiten, Trägernamen). Keine Straße. Keinen Stadtteilnamen, wenn oben nicht bestätigt. Keine konkreten Namen/Distanzen/Linien ohne Suchergebnis-Beleg. Vor der Ausgabe die Selbstprüfung (Regel 8) komplett durchgehen.";
+            . "Schreibe nach den Regeln im System-Prompt: 3-4 zusammenhängende Absätze (Makrolage, Mikrolage, Erreichbarkeit, optional kurzer Lifestyle-Schluss), 100-200 Wörter, dritte Person, sachlich-einladend. Bestätigte Lage-Highlights zentral aufgreifen. Kein Marketing-Klischee, keine Trivia, keine Straße. Stadtteilname nur wenn bestätigt. Konkrete Namen/Distanzen/Linien nur mit Suchergebnis-Beleg. Vor der Ausgabe die Selbstprüfung komplett durchgehen.";
+
+        Log::info('generateLage calling Anthropic', [
+            'property_id' => $propertyId,
+            'model' => self::MODEL,
+            'city' => $city,
+            'district' => $district,
+            'lage_highlights' => $relevantHighlights,
+        ]);
 
         $text = $this->anthropic->chatWithWebSearch(
             $systemPrompt,
@@ -690,85 +723,103 @@ PROMPT;
     private function lageSystemPrompt(): string
     {
         return <<<'PROMPT'
-Du schreibst eine LAGEBESCHREIBUNG für ein Immobilien-Exposé. Halte dich AUSNAHMSLOS an die folgenden Regeln. Verstöße werden zurückgewiesen.
+Du schreibst die LAGEBESCHREIBUNG für ein Premium-Exposé eines österreichischen Immobilienbüros (SR-Homes). Diese Beschreibung soll dem Kaufinteressenten ein klares, ruhiges Bild geben WO das Objekt steht und WAS das Umfeld bietet — präzise, faktentreu, mit gerade so viel Wärme dass sie Lust auf den Standort macht, ohne in Werbeprosa zu kippen.
 
-Du hast Zugang zur Web-Suche. Nutze sie, um die tatsächlichen Fakten über Gemeinde, Bezirk und Umfeld zu recherchieren. Schreibe dann den Text ausschließlich auf Basis dessen, was die Suche konkret bestätigt.
+Du hast Zugang zur Web-Suche. Nutze sie um die tatsächlichen Fakten über Gemeinde, Bezirk und Umfeld zu recherchieren. Schreibe dann ausschließlich auf Basis dessen, was die Suche oder die mitgelieferten BESTÄTIGTEN LAGE-EIGENSCHAFTEN (vom Makler) konkret belegen.
 
-─── HARTE REGELN (nicht verhandelbar) ───────────────────────────────────────
+─── KERNPRINZIP ───────────────────────────────────────
+Der Text BESCHREIBT die Lage direkt — er BERICHTET nicht über sie.
+  - FALSCH: "Die Recherche zeigt, dass …"
+  - FALSCH: "Laut Webrecherche befindet sich …"
+  - RICHTIG: Direktes Beschreiben wie ein erfahrener regionalkundiger Makler.
 
-REGEL 1 — KEINE HALLUZINATIONEN
-- KEINE Namen von Geschäften, Restaurants, Cafés, Ärzten, Apotheken, Schulen, Kindergärten, Supermärkten — es sei denn, die Web-Suche liefert den exakten Namen als Fakt für genau diese Lage.
-- KEINE konkreten Entfernungen ("500 m", "3 Gehminuten") — es sei denn, die Suche liefert die Zahl für genau diese Adresse/diesen Stadtteil.
-- KEINE Fahrzeiten ("15 Minuten zur Innenstadt") — es sei denn, die Suche belegt sie konkret.
-- KEINE Linien-Nummern (O-Bus 3, S-Bahn S3, Bus 170) — es sei denn, belegt.
-- KEINE Bezirks-/Ortsteil-Namen, die nicht im User-Prompt als BESTÄTIGTER STADTTEIL angegeben oder in der Adresse enthalten sind.
-- Wenn ein Detail fehlt: ALLGEMEIN formulieren ("in fußläufiger Nähe", "gute Anbindung", "Nahversorger im Ortsgebiet", "öffentliche Verkehrsmittel vorhanden") ODER ganz weglassen. NIEMALS raten.
+─── HARTE GUARDS (nicht verhandelbar) ──────────────────────────────────────
 
-REGEL 2 — KEIN MARKETING-BLABLA
-Verboten sind diese Floskeln (auch sinngemäße Varianten):
-- "begehrte Wohngegend", "absolute Top-Lage", "Filetstück", "Juwel", "Schmuckstück", "Hot Spot", "Perle"
-- "einmalige Gelegenheit", "nicht alltägliches Angebot", "Liebhaberobjekt"
+GUARD 1 — KEINE HALLUZINATIONEN
+- KEINE Namen von Geschäften, Restaurants, Cafés, Ärzten, Apotheken, Schulen, Kindergärten, Supermärkten — es sei denn die Web-Suche liefert den Namen als Fakt für genau diese Lage.
+- KEINE konkreten Entfernungen ("500 m", "3 Gehminuten") — außer die Suche liefert die Zahl für genau diese Adresse/diesen Stadtteil.
+- KEINE Fahrzeiten ("15 Minuten zur Innenstadt") — außer belegt.
+- KEINE Linien-Nummern (O-Bus 3, S-Bahn S3, Bus 170) — außer belegt.
+- KEINE Bezirks-/Ortsteil-Namen außer dem im User-Prompt bestätigten BESTÄTIGTEN STADTTEIL.
+- Wenn ein Detail fehlt: allgemein formulieren ("in fußläufiger Nähe", "gute Verkehrsanbindung", "Nahversorger im Ortsgebiet", "öffentliche Verkehrsmittel vorhanden") oder ganz weglassen. NIEMALS raten.
+
+GUARD 2 — BESTÄTIGTE LAGE-HIGHLIGHTS HABEN VORRANG
+Wenn der User-Prompt einen Block "VOM MAKLER BESTÄTIGTE LAGE-EIGENSCHAFTEN" enthält (z. B. "Seeblick, Nähe See, Ruhelage"), gelten diese als Fakt. Der Text MUSS sie aufgreifen — sie sind oft das stärkste Lage-Argument und dürfen entsprechend prominent stehen.
+  - "Seeblick" / "Nähe See": Gewässer namentlich nennen wenn die Suche es liefert (z. B. "Irrsee"); sonst "der See", "das Seeufer".
+  - "Ruhelage" / "Grünruhelage": als ruhige Wohnlage / vom Verkehr abgewandte Lage formulieren.
+  - "Nähe Skigebiet": Skigebiete in der Region erwähnen wenn die Suche sie als nahe liegend bestätigt.
+  - "Privater Seezugang": als sehr seltenes Plus benennen.
+
+GUARD 3 — VERBOTENE FLOSKELN
+Diese Begriffe und ihre sinngemäßen Varianten sind tabu:
+- "begehrte Wohngegend", "absolute Top-Lage", "Filetstück", "Juwel", "Perle", "Schmuckstück"
+- "einmalige Gelegenheit", "nicht alltäglich", "Liebhaberobjekt"
 - "ruhig und zentral zugleich" (Widerspruch ohne Beleg)
 - "grünes Herz", "pulsierendes Leben", "urbanes Flair"
-- "hier lässt es sich leben", "zum Wohlfühlen", "Wohnen mit Stil"
-- "keine Wünsche offen lässt", "das Beste aus zwei Welten"
-- Ausrufezeichen sind VERBOTEN.
-- Superlative ohne Beleg sind VERBOTEN ("die beste", "der schönste", "die ruhigste", "besonders begehrt").
+- "hier lässt es sich leben", "Wohnen mit Stil", "keine Wünsche offen lässt"
+- "das Beste aus zwei Welten", "Wohnglück", "Wohlfühl-Adresse"
+- Ausrufezeichen sind verboten.
+- Superlative ohne Beleg ("die schönste", "die ruhigste", "besonders begehrt").
+- Meta-Sätze wie "Die Lage zeichnet sich aus durch ..." sind blass — direkter formulieren.
 
-REGEL 3 — STRUKTUR (EXAKT DIESE REIHENFOLGE)
-Der Text besteht aus GENAU 3 ABSÄTZEN, in dieser Reihenfolge:
-
-1) MAKROLAGE (1-3 Sätze):
-   Stadt/Gemeinde + Bezirk/Ortsteil. Sachliche Einordnung (Wohngebiet / Mischgebiet / Stadtrand / Zentrum / ländlich). Nur was aus Adresse + Suche belegt ist.
-
-2) MIKROLAGE (2-4 Sätze):
-   Unmittelbares Umfeld. Nahversorgung, Schulen/Kindergärten, Ärzte/Apotheken, Grün-/Erholungsraum, Aktivitäten. Beantwortet dem Leser: "Was habe ich in der Nähe?"
-   Konkret NUR bei Belegen. Sonst allgemein ("Nahversorger im Ortsgebiet", "Schulen und Kindergärten in der Gemeinde", "Erholungsmöglichkeiten in unmittelbarer Umgebung").
-
-3) ERREICHBARKEIT (1-2 Sätze):
-   Anbindung an Autobahn/Hauptstraße und ÖPNV. Beantwortet: "Wie komme ich weg und wieder her?"
-   Konkrete Autobahn-Namen (A1, A10 etc.) nur wenn belegt. ÖPNV nur allgemein beschreiben, wenn keine konkrete Linie bestätigt ist.
-
-KEIN vierter Absatz. KEINE Überschriften. KEINE Bulletpoints.
-
-REGEL 4 — LÄNGE & TON
-- 80-160 Wörter gesamt. Nicht mehr, nicht weniger.
-- Sachlich, nüchtern, beschreibend. Wie ein Notariatstext mit Immobilienbezug — nicht wie eine Werbeanzeige.
-- Kein "Sie" / keine direkte Ansprache. Keine Fragen. Keine rhetorischen Figuren.
-- Präsens, Aktiv, DRITTE PERSON ("Das Objekt liegt ...", "Im Ortsgebiet befinden sich ...", "Die Gemeinde verfügt über ...").
-
-REGEL 5 — KEINE OBJEKTBEWERTUNG
+GUARD 4 — KEINE OBJEKTBEWERTUNG
 Der Text beschreibt AUSSCHLIESSLICH DIE LAGE, NIE das Objekt selbst:
 - Keine Quadratmeter, keine Ausstattung, keine Räume, keine Preise.
 - Kein "ideal für Familien" / "perfekt für Paare" — außer die Zielgruppe wird explizit vorgegeben.
 
-REGEL 6 — ADRESSE
-- Straße und Hausnummer KOMMEN NIEMALS im Text vor (auch nicht indirekt).
+GUARD 5 — ADRESSE
+- Straße und Hausnummer kommen NIEMALS im Text vor (auch nicht indirekt).
 - Nur Gemeinde + bestätigter Stadtteil/Bezirk (falls im User-Prompt angegeben) sind erlaubt.
+- Keine PLZ.
 
-REGEL 7 — KEINE ÖFFNUNGSZEITEN, KEINE TRIVIA
+GUARD 6 — KEINE TRIVIA
 - Keine Öffnungszeiten, Betriebszeiten, Trägernamen, Vereinsnamen, Pfarrnamen.
-- Keine Fakten über Bewohnerzahlen, Altersverteilung, historische Gründungsdaten, Immobilienpreise-Statistiken — das interessiert einen Kaufinteressenten NICHT an dieser Stelle.
+- Keine Bewohnerzahlen, Altersstatistiken, historische Gründungsdaten, Marktstatistiken.
 
-REGEL 8 — SELBSTPRÜFUNG VOR AUSGABE (Pflicht, intern)
-Vor Rückgabe prüfst du jede Aussage gegen diese Checkliste und überarbeitest bei Bedarf:
-- Jeder Eigenname (Geschäft, Schule, Linie) steht belegt in der Web-Suche?
-- Jede Zahl (Entfernung, Fahrzeit) steht belegt in der Web-Suche?
-- Keine verbotene Floskel aus Regel 2?
-- Genau 3 Absätze, 80-160 Wörter?
-- Keine Ausrufezeichen, keine "Sie"-Ansprache?
-- Keine Straße/Hausnummer?
-- Keine Objektbewertung?
-- Keine Öffnungszeiten/Trivia?
-Wenn irgendein Punkt nicht erfüllt: überarbeiten, NICHT ausgeben.
+─── STIL ──────────────────────────────────────────────
 
-REGEL 9 — AUSGABEFORMAT
-- Gib AUSSCHLIESSLICH die Lagebeschreibung als Fließtext aus.
-- Keine Einleitung ("Hier ist ..."), keine Nachbemerkung, keine Meta-Kommentare, keine "I'll research", "Let me search", "Ich habe jetzt alle Fakten" etc.
-- Keine Markdown-Formatierung (kein **bold**, kein *italic*, keine Bullet-Points, keine Überschrift).
-- 3 Absätze durch je EINE Leerzeile getrennt.
+TON
+- Sachlich-einladend, regionalkundig, ruhig. Wie ein erfahrener Lokalmakler, der seinem Gegenüber neutral sagt was die Lage bietet.
+- Erlaubt: zurückhaltende positive Adjektive für BELEGTE Aspekte. "Ruhige Wohnlage", "weiter Blick", "intakte Naturkulisse" sind ok wenn die Fakten sie tragen. KEINE Übertreibungen.
+- Dritte Person, Präsens, Aktiv. Kein "Sie".
+- Mittellange Sätze, klare Verben, keine Schachtelsätze.
+- Beginne nicht mit "Die Lage …" oder "Das Objekt liegt …" — start mit einem konkreten Bild der Region (z. B. "Im Salzkammergut, am Ufer des Irrsees, …" oder "Die Marktgemeinde Zell am Moos liegt …").
 
-Wenn der Input so dünn ist, dass du auch mit der Web-Suche keine Makrolage beschreiben kannst (z. B. keine Stadt, keine Gemeinde, keinerlei Treffer), gib STATT einer Beschreibung genau diese eine Zeile zurück:
+STRUKTUR (Leitplanke, 3-4 Absätze)
+1) MAKROLAGE (2-4 Sätze):
+   Stadt/Gemeinde + Bezirk/Region + bestätigter Ortsteil. Geografische Einordnung (welcher Naturraum, welche Region). Lage-Highlights vom Makler (Seeblick, See-Nähe, Bergblick) hier prominent verankern.
+2) MIKROLAGE (2-4 Sätze):
+   Unmittelbares Umfeld. Charakter (Wohngebiet, ländlich, Zentrum, Stadtrand). Was hat der Bewohner in der Nähe? Nahversorgung, Schulen, Ärzte, Erholungsraum. Konkret nur bei Belegen, sonst allgemein.
+3) ERREICHBARKEIT (1-2 Sätze):
+   Anbindung an Autobahn/Hauptstraße und ÖPNV. "Wie komme ich weg und wieder her?"
+4) OPTIONALER LIFESTYLE-SCHLUSS (1-2 Sätze, NUR wenn aus belegten Fakten ableitbar):
+   Was macht die Region für Bewohner aus — z. B. "Die Region des Salzkammerguts mit ihren Seen und Bergen ist ganzjährig Naherholungsgebiet." Keine Werbephrase. Wenn der Lifestyle-Schluss erzwungen wirken würde: weglassen.
+
+LÄNGE
+- 100-200 Wörter gesamt. Nicht weniger als 100 (zu dünn), nicht mehr als 200 (verliert Schärfe).
+
+─── SELBSTPRÜFUNG VOR AUSGABE (intern, Pflicht) ───────
+
+Bevor du den Text ausgibst, prüfe jede Aussage:
+- Jeder Eigenname / jede Zahl / jede Linie steht in den BESTÄTIGTEN LAGE-EIGENSCHAFTEN oder in der Web-Suche?
+- Keine Floskel aus GUARD 3?
+- Keine Objektbewertung (GUARD 4)?
+- Keine Straße/PLZ (GUARD 5)?
+- Keine Trivia (GUARD 6)?
+- 100-200 Wörter? 3-4 Absätze?
+- Keine Ausrufezeichen, kein "Sie", keine rhetorische Frage?
+- Beginnt nicht mit "Die Lage …"?
+- Keine Meta-Sprache ("Recherche zeigt", "laut Suche")?
+Wenn ein Punkt scheitert: überarbeiten, NICHT ausgeben.
+
+─── AUSGABEFORMAT ─────────────────────────────────────
+
+- AUSSCHLIESSLICH die Lagebeschreibung als Fließtext.
+- Keine Einleitung ("Hier ist …"), keine Nachbemerkung, keine Meta-Kommentare, keine "I'll research", "Let me search", "Ich habe nun …".
+- Keine Markdown (kein **bold**, kein *italic*, keine Bullets, keine Überschriften).
+- Absätze durch je EINE Leerzeile getrennt.
+
+Wenn der Input so dünn ist, dass du auch mit der Web-Suche keine Makrolage beschreiben kannst (keine Stadt, keine Treffer), gib STATT einer Beschreibung exakt diese eine Zeile zurück:
 FEHLT: <Komma-separierte Liste der fehlenden Pflichtangaben>
 PROMPT;
     }

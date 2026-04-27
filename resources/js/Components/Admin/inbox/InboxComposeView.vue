@@ -1,11 +1,12 @@
 <script setup>
 import { ref, computed } from "vue";
-import { X, Paperclip, Send, Save, Sparkles, Loader2, ChevronDown, RefreshCw, Link2 } from "lucide-vue-next";
+import { X, Paperclip, Send, Save, Sparkles, Loader2, ChevronDown, RefreshCw, Link2, Home } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LinkPickerPopover from "./LinkPickerPopover.vue";
+import PropertyAssignDialog from "./PropertyAssignDialog.vue";
 import RichTextEditor from "@/Components/RichTextEditor.vue";
 
 const props = defineProps({
@@ -111,6 +112,26 @@ const propertyLabel = computed(() => {
   const p = props.properties.find(pr => String(pr.id) === String(props.composePropertyId));
   return p ? propertyDisplayName(p) : null;
 });
+
+// Compose-Property-Picker: oeffnet den gleichen PropertyAssignDialog wie im
+// Chat-View "Objekt zuordnen" — ein-und-dasselbe UI, ein-und-dieselbe Liste.
+const propertyDialogOpen = ref(false);
+
+const selectedPropertyObj = computed(() => {
+  if (!props.composePropertyId) return null;
+  return (props.properties || []).find(p => String(p.id) === String(props.composePropertyId)) || null;
+});
+
+function openPropertyDialog() {
+  propertyDialogOpen.value = true;
+}
+
+function onPropertyAssign(payload) {
+  // payload: { property_id: number|null, migrate_activities: boolean }
+  // Im Compose-Flow ignorieren wir migrate_activities (gibt es noch nicht).
+  emit('update:composePropertyId', payload.property_id || null);
+  propertyDialogOpen.value = false;
+}
 </script>
 
 <template>
@@ -179,17 +200,41 @@ const propertyLabel = computed(() => {
         <Input :model-value="composeBcc" @update:model-value="emit('update:composeBcc', $event)" class="h-7 border-0 shadow-none text-[12px] px-0 bg-transparent focus-visible:ring-0 flex-1" />
       </div>
 
-      <!-- Objekt -->
+      <!-- Objekt — gleicher Picker wie Chat-View "Objekt zuordnen" (Bilder, Ref-ID, Suche, broker-gefiltert) -->
       <div class="flex items-center h-9 px-5 border-b border-zinc-100/80 text-[12px]">
         <span class="text-muted-foreground w-14 flex-shrink-0">Objekt</span>
-        <Select :model-value="composePropertyId ? String(composePropertyId) : 'none'" @update:model-value="emit('update:composePropertyId', $event === 'none' ? null : $event)">
-          <SelectTrigger class="h-7 border-0 shadow-none text-[12px] px-0 bg-transparent focus:ring-0"><SelectValue placeholder="Kein Objekt" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none" class="text-[12px]">Kein Objekt</SelectItem>
-            <SelectItem v-for="p in properties" :key="p.id" :value="String(p.id)" class="text-[12px]">{{ propertyDisplayName(p) }}</SelectItem>
-          </SelectContent>
-        </Select>
+        <button
+          type="button"
+          class="flex items-center gap-2 flex-1 min-w-0 h-7 px-0 bg-transparent text-left hover:opacity-80 transition-opacity"
+          @click="openPropertyDialog"
+        >
+          <template v-if="selectedPropertyObj">
+            <div class="w-5 h-5 rounded overflow-hidden shrink-0 bg-zinc-100 flex items-center justify-center">
+              <img v-if="selectedPropertyObj.thumbnail_url" :src="selectedPropertyObj.thumbnail_url" alt="" class="w-full h-full object-cover" loading="lazy" />
+              <Home v-else class="w-3 h-3 text-[#EE7600]" />
+            </div>
+            <span class="font-mono text-[11px] font-semibold tracking-tight text-zinc-900 shrink-0">{{ selectedPropertyObj.ref_id || ('Obj ' + selectedPropertyObj.id) }}</span>
+            <span class="text-zinc-600 truncate">
+              {{ selectedPropertyObj.address || selectedPropertyObj.title || selectedPropertyObj.project_name || '' }}<span v-if="selectedPropertyObj.city" class="text-muted-foreground"> · {{ selectedPropertyObj.city }}</span>
+            </span>
+          </template>
+          <span v-else class="text-muted-foreground">Kein Objekt</span>
+          <ChevronDown class="w-3.5 h-3.5 text-muted-foreground ml-auto flex-shrink-0" />
+        </button>
       </div>
+
+      <!-- Property-Picker-Dialog (gleiche Komponente wie im Chat "Objekt zuordnen") -->
+      <PropertyAssignDialog
+        :open="propertyDialogOpen"
+        @update:open="propertyDialogOpen = $event"
+        :current-property-id="composePropertyId"
+        :properties="properties"
+        :hide-migrate="true"
+        title="Objekt auswählen"
+        unassign-label="Kein Objekt"
+        unassign-hint="Mail ohne Objekt-Zuordnung versenden"
+        @confirm="onPropertyAssign"
+      />
 
       <!-- Betreff -->
       <div class="flex items-center h-9 px-5 text-[12px]">

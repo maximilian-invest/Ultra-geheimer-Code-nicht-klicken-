@@ -17,6 +17,13 @@ const props = defineProps({
   // shadcn Dialog via reka-ui Portal an document.body teleportiert und
   // dabei die provide/inject-Chain vom InboxTab-Tree verliert.
   properties: { type: Array, default: () => [] },
+  // Wenn true: kein Migrate-Block, kein "Aktuell:"-Hinweis. Fuer Compose-
+  // Flow wo es noch keine Mail-Historie gibt die umgehaengt werden koennte.
+  hideMigrate: { type: Boolean, default: false },
+  // Optionale Anpassungen fuer Compose-Use-Case.
+  title: { type: String, default: 'Objekt zuordnen' },
+  unassignLabel: { type: String, default: 'Nicht zugeordnet' },
+  unassignHint: { type: String, default: 'Mail aus allen Objektlisten entfernen' },
 })
 const emit = defineEmits(['update:open', 'confirm'])
 
@@ -76,7 +83,9 @@ function onConfirm() {
   saving.value = true
   emit('confirm', {
     property_id: selectedId.value || null,
-    migrate_activities: migrate.value === 'migrate',
+    // Compose-Flow ueberspringt Migration komplett (keine Aktivitaeten zum
+    // Umhaengen). Default fuer normalen Assign-Flow bleibt das Radio.
+    migrate_activities: props.hideMigrate ? false : (migrate.value === 'migrate'),
   })
 }
 
@@ -89,13 +98,16 @@ function onCancel() {
   <Dialog :open="open" @update:open="emit('update:open', $event)">
     <DialogContent class="sm:max-w-lg max-h-[85vh] flex flex-col p-0 gap-0">
       <DialogHeader class="px-6 pt-5 pb-4">
-        <DialogTitle class="text-base">Objekt zuordnen</DialogTitle>
-        <DialogDescription class="text-xs text-muted-foreground">
+        <DialogTitle class="text-base">{{ title }}</DialogTitle>
+        <DialogDescription v-if="!hideMigrate" class="text-xs text-muted-foreground">
           <span v-if="currentPropertyRef">
             Aktuell: <span class="font-medium text-foreground">{{ currentPropertyRef }}</span>
             <span v-if="currentPropertyAddress"> · {{ currentPropertyAddress }}</span>
           </span>
           <span v-else class="italic">Momentan nicht zugeordnet</span>
+        </DialogDescription>
+        <DialogDescription v-else class="text-xs text-muted-foreground">
+          Eines deiner aktiven Objekte auswählen
         </DialogDescription>
       </DialogHeader>
 
@@ -120,8 +132,8 @@ function onCancel() {
             <XIcon class="w-3.5 h-3.5 text-muted-foreground" />
           </div>
           <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium">Nicht zugeordnet</div>
-            <div class="text-[11px] text-muted-foreground">Mail aus allen Objektlisten entfernen</div>
+            <div class="text-sm font-medium">{{ unassignLabel }}</div>
+            <div class="text-[11px] text-muted-foreground">{{ unassignHint }}</div>
           </div>
           <Check v-if="selectedId === null" class="w-4 h-4 text-foreground shrink-0" />
         </button>
@@ -167,8 +179,8 @@ function onCancel() {
         </div>
       </div>
 
-      <!-- Migration option -->
-      <div v-if="hasChange" class="px-6 py-4 border-t bg-muted/20">
+      <!-- Migration option (nicht im Compose-Flow noetig) -->
+      <div v-if="hasChange && !hideMigrate" class="px-6 py-4 border-t bg-muted/20">
         <div class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2.5">Bisherige Aktivitäten</div>
         <div class="space-y-0">
           <label class="flex items-start gap-2.5 cursor-pointer py-1.5 hover:opacity-80 transition-opacity">

@@ -6,6 +6,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import RichTextEditor from '@/Components/RichTextEditor.vue'
 
 const API = inject('API')
 const toast = inject('toast', () => {})
@@ -183,12 +184,11 @@ function onCancel() { open.value = false }
         </div>
         <div>
           <label class="text-xs font-medium text-muted-foreground mb-1 block">Nachricht</label>
-          <textarea
+          <RichTextEditor
             v-model="draft.body"
-            rows="12"
-            class="w-full text-sm rounded-md border border-input px-3 py-2 bg-background font-sans leading-relaxed whitespace-pre-wrap"
             placeholder="Nachricht"
-          ></textarea>
+            min-height="280px"
+          />
         </div>
 
         <!-- Anhaenge: Property-Files (auswählbar) + neue Uploads -->

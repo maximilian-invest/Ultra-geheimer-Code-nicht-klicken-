@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed, inject, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, inject, onMounted } from 'vue'
 import { Send, RefreshCw, Paperclip, Wand2, X, Loader2, Link2 } from 'lucide-vue-next'
 import LinkPickerPopover from './LinkPickerPopover.vue'
+import RichTextEditor from '@/Components/RichTextEditor.vue'
 
 const props = defineProps({
   // "reply" | "reply-all" | "forward"
@@ -38,7 +39,6 @@ const draft = inboxCompose.draft
 const sendAccountId = inboxCompose.sendAccountId
 const sendAccounts = inboxCompose.sendAccounts
 const loading = inboxCompose.loading
-const bodyTextareaRef = ref(null)
 
 // ── Local UI state
 const linkPickerOpen = ref(false)
@@ -95,7 +95,7 @@ onMounted(() => {
   if (props.withDraft && !(draft.value.body || '').trim()) {
     inboxCompose.regenerate()
   }
-  nextTick(autoResizeBody)
+  // Hoehe wird vom RichTextEditor selbst verwaltet — kein autoResize mehr.
 })
 
 // ── Computed labels
@@ -170,23 +170,6 @@ function resolveSignatureUrl(url) {
 function updateDraftField(field, value) {
   draft.value = { ...(draft.value || {}), [field]: value }
 }
-
-function autoResizeBody() {
-  const el = bodyTextareaRef.value
-  if (!el) return
-  el.style.height = 'auto'
-  el.style.height = `${el.scrollHeight}px`
-}
-
-function onBodyInput(event) {
-  updateDraftField('body', event.target.value)
-  autoResizeBody()
-}
-
-watch(
-  () => draft.value?.body,
-  () => nextTick(autoResizeBody)
-)
 
 // ── Handlers
 function onCancel() {
@@ -280,14 +263,14 @@ function onLinkPicked(link) {
         <Loader2 class="w-4 h-4 animate-spin" />
         <span>KI-Entwurf wird generiert…</span>
       </div>
-      <textarea
-        ref="bodyTextareaRef"
+      <RichTextEditor
         v-else
-        :value="draft?.body || ''"
-        @input="onBodyInput"
+        :model-value="draft?.body || ''"
+        @update:model-value="updateDraftField('body', $event)"
         placeholder="Deine Antwort hier eintippen…"
-        class="sr-body-textarea"
-      ></textarea>
+        min-height="200px"
+        class="sr-body-richtext"
+      />
 
       <!-- Klickbare Links aus dem Entwurf (Textarea selbst kann nicht klicken) -->
       <div v-if="draftLinks.length" class="sr-draft-links">

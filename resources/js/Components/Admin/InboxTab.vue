@@ -1815,13 +1815,40 @@ function addAttachments(event) {
 }
 
 async function sendEmail() {
-  if (!composeTo.value || !composeSubject.value || !composeBody.value) { toast("Bitte alle Felder ausfuellen."); return; }
+  // Body kann jetzt HTML sein (RichTextEditor) oder plain-text (Legacy/AI).
+  // Wir normalisieren beide Faelle.
+  const rawBody = composeBody.value || "";
+  const isHtml = /<(p|br|div|ul|ol|li|strong|em|u|h[1-6]|blockquote|a)[\s>]/i.test(rawBody);
+  const plainCheck = isHtml ? rawBody.replace(/<[^>]+>/g, '').trim() : rawBody.trim();
+
+  if (!composeTo.value || !composeSubject.value || !plainCheck) { toast("Bitte alle Felder ausfuellen."); return; }
   if (!selectedAccountId.value) { toast("Bitte Absender-Konto waehlen."); return; }
   emailSending.value = true;
   try {
-    const normalizedBody = withUserSignature(composeBody.value || "");
     const sigHtml = buildSignatureHtml();
-    let htmlBody = normalizedBody.replace(/\n/g, "<br>") + sigHtml;
+    let htmlBody;
+    let plainText;
+    if (isHtml) {
+      // RichTextEditor-Output: bereits HTML, keine \n→<br>-Konvertierung noetig.
+      htmlBody = rawBody + sigHtml;
+      // Plain-Variante: Tags strippen, </p> und <br> als Newlines mappen.
+      plainText = rawBody
+        .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/li>\s*<li[^>]*>/gi, '\n• ')
+        .replace(/<li[^>]*>/gi, '• ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .trim();
+    } else {
+      // Legacy plain-text-Pfad (z.B. Templates ohne Editor-Roundtrip).
+      const normalizedBody = withUserSignature(rawBody);
+      htmlBody = normalizedBody.replace(/\n/g, "<br>") + sigHtml;
+      plainText = normalizedBody;
+    }
 
     if (emailSourceId.value && replyContext.value && replyContext.value.originalBody) {
       const origDate = replyContext.value.originalDate || "";
@@ -1840,7 +1867,7 @@ async function sendEmail() {
     if (composeBcc.value) fd.append("bcc", composeBcc.value);
     fd.append("subject", composeSubject.value);
     fd.append("body_html", htmlBody);
-    fd.append("body_text", normalizedBody);
+    fd.append("body_text", plainText);
     fd.append("property_id", composePropertyId.value || "");
     fd.append("in_reply_to", emailSourceId.value || "");
     for (const file of composeAttachments.value) fd.append("attachments[]", file);

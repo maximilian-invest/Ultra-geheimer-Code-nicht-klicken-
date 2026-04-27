@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LinkPickerPopover from "./LinkPickerPopover.vue";
+import RichTextEditor from "@/Components/RichTextEditor.vue";
 
 const props = defineProps({
   composeTo: { type: String, default: "" },
@@ -199,11 +200,12 @@ const propertyLabel = computed(() => {
 
     <!-- Body (main area, matches chat area styling) -->
     <div class="flex-1 min-h-0 overflow-y-auto px-5 py-4 bg-white flex flex-col">
-      <textarea
-        :value="composeBody"
-        @input="emit('update:composeBody', $event.target.value)"
+      <RichTextEditor
+        :model-value="composeBody"
+        @update:model-value="emit('update:composeBody', $event)"
         placeholder="Nachricht schreiben..."
-        class="w-full flex-1 min-h-[180px] text-[13px] leading-relaxed bg-transparent border-0 outline-none resize-none placeholder:text-muted-foreground/50"
+        min-height="220px"
+        class="flex-1"
       />
       <!-- Signature Preview (read-only, appended automatically on send) -->
       <div v-if="signatureData" class="mt-3 pt-2 border-t border-dashed border-zinc-200 text-[12px] leading-relaxed select-none pointer-events-none">

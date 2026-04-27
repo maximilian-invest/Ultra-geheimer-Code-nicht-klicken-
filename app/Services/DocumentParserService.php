@@ -248,14 +248,26 @@ class DocumentParserService
         $prompt .= "WICHTIG: Extrahiere NUR Einheiten und Parkplätze, KEINE allgemeinen Objektdaten!\n\n";
         $prompt .= "PRO WOHNEINHEIT extrahiere:\n";
         $prompt .= "- unit_number: Einheitennummer (z.B. 'Top 1', 'W01', 'Whg 3')\n";
-        $prompt .= "- unit_type: Typ (z.B. '2-Zimmer-Wohnung', '3-Zimmer-Wohnung', 'Penthouse', 'Maisonette', 'Dachgeschoss')\n";
+        $prompt .= "- unit_type: Typ — möglichst spezifisch aus diesen Werten:\n";
+        $prompt .= "    'Eigentumswohnung', 'Penthouse', 'Maisonette', 'Dachgeschosswohnung',\n";
+        $prompt .= "    'Gartenwohnung', 'Terrassenwohnung', 'Erdgeschosswohnung', 'Reihenhaus',\n";
+        $prompt .= "    'Doppelhaushälfte', 'Einfamilienhaus', 'Bungalow', 'Loft', 'Souterrain'.\n";
+        $prompt .= "    Wenn Garten oder Erdgeschoss → bevorzugt 'Gartenwohnung'.\n";
+        $prompt .= "    Wenn Dachterrasse oder oberstes Stockwerk → 'Penthouse' oder 'Dachgeschosswohnung'.\n";
+        $prompt .= "    Wenn nicht eindeutig: 'Eigentumswohnung'.\n";
         $prompt .= "- floor: Stockwerk als Zahl (0=EG/Erdgeschoss, -1=UG/Untergeschoss/Keller, 1=OG/1.OG, 2=2.OG, usw.)\n";
         $prompt .= "- area_m2: Wohnfläche in m² als Zahl (z.B. 85.5)\n";
         $prompt .= "- rooms: Anzahl Zimmer als Zahl (z.B. 3)\n";
         $prompt .= "- price: Kaufpreis als Zahl OHNE Tausendertrennzeichen (z.B. 350000 statt 350.000). Bei 'auf Anfrage' oder leer: null\n";
         $prompt .= "- status: 'frei' | 'reserviert' | 'verkauft'\n";
-        $prompt .= "- balcony_terrace_m2: Balkon/Terrasse in m² als Zahl (0 wenn keiner)\n";
-        $prompt .= "- garden_m2: Garten in m² als Zahl (0 wenn keiner)\n\n";
+        $prompt .= "- area_balcony: Balkon-Fläche in m² als Zahl (null wenn kein Balkon)\n";
+        $prompt .= "- area_terrace: Terrassen-Fläche in m² als Zahl (null wenn keine Terrasse)\n";
+        $prompt .= "- area_garden: Garten-Fläche in m² als Zahl (null wenn kein Garten)\n";
+        $prompt .= "\nWICHTIG zur Außenflächen-Erkennung:\n";
+        $prompt .= "- Spaltenüberschriften wie 'Balkon', 'Bal.', 'Terrasse', 'Terr.', 'Garten', 'Grdn.' sauber den drei Feldern zuordnen.\n";
+        $prompt .= "- Eine kombinierte Spalte 'Balkon/Terrasse' oder 'Außenfläche' → wenn Stockwerk ≥ 1 (OG): area_balcony; wenn EG: area_terrace.\n";
+        $prompt .= "- Eine Einheit kann gleichzeitig Balkon UND Terrasse UND Garten haben — separate Werte!\n";
+        $prompt .= "- Leere/Strich-Zellen = null (kein 0).\n\n";
         $prompt .= "PRO PARKPLATZ extrahiere:\n";
         $prompt .= "- unit_number: Stellplatznummer (z.B. 'TG 1', 'CP 5', 'S01')\n";
         $prompt .= "- unit_type: Typ ('Tiefgarage' | 'Carport' | 'Freistellplatz')\n";
@@ -273,7 +285,7 @@ class DocumentParserService
         $prompt .= "- Wenn Preis 'auf Anfrage' oder leer ist: price = null\n";
         $prompt .= "- KEINE allgemeinen Objektdaten — NUR Einheiten und Parkplätze\n\n";
         $prompt .= "Antworte NUR mit gültigem JSON:\n";
-        $prompt .= '{ "units": [{ "unit_number": "...", "unit_type": "...", "floor": 0, "area_m2": 0, "rooms": 0, "price": 0, "status": "frei", "balcony_terrace_m2": 0, "garden_m2": 0 }], "parking": [{ "unit_number": "...", "unit_type": "...", "price": 0, "status": "frei" }], "confidence": "high|medium|low" }';
+        $prompt .= '{ "units": [{ "unit_number": "...", "unit_type": "...", "floor": 0, "area_m2": 0, "rooms": 0, "price": 0, "status": "frei", "area_balcony": null, "area_terrace": null, "area_garden": null }], "parking": [{ "unit_number": "...", "unit_type": "...", "price": 0, "status": "frei" }], "confidence": "high|medium|low" }';
 
         $systemPrompt = "Du bist ein präziser Immobilien-Datenextraktions-Agent für den österreichischen Markt. Du extrahierst Wohneinheiten und Parkplätze aus Exposés und Preislisten.";
 
@@ -339,14 +351,34 @@ class DocumentParserService
                 ->where('unit_number', $unitNumber)
                 ->first();
 
+            // Aussenflaechen — die KI liefert jetzt drei separate Felder
+            // (area_balcony / area_terrace / area_garden). Backwards-Compat:
+            // falls noch der alte Schluessel "balcony_terrace_m2" / "garden_m2"
+            // ankommt, mappen wir defensiv.
+            $aBal = isset($unit['area_balcony']) && $unit['area_balcony'] !== ''
+                ? (float) $unit['area_balcony']
+                : (isset($unit['balcony_terrace_m2']) && $unit['balcony_terrace_m2'] !== ''
+                    ? (float) $unit['balcony_terrace_m2'] : null);
+            $aTer = isset($unit['area_terrace']) && $unit['area_terrace'] !== ''
+                ? (float) $unit['area_terrace'] : null;
+            $aGdn = isset($unit['area_garden']) && $unit['area_garden'] !== ''
+                ? (float) $unit['area_garden']
+                : (isset($unit['garden_m2']) && $unit['garden_m2'] !== ''
+                    ? (float) $unit['garden_m2'] : null);
+
             $data = [
                 'unit_type'          => $unit['unit_type'] ?? null,
                 'floor'              => isset($unit['floor']) ? (int) $unit['floor'] : null,
                 'area_m2'            => isset($unit['area_m2']) ? (float) $unit['area_m2'] : null,
                 'rooms'              => isset($unit['rooms']) ? (float) $unit['rooms'] : null,
                 'price'              => isset($unit['price']) ? (float) $unit['price'] : null,
-                'balcony_terrace_m2' => isset($unit['balcony_terrace_m2']) ? (float) $unit['balcony_terrace_m2'] : null,
-                'garden_m2'          => isset($unit['garden_m2']) ? (float) $unit['garden_m2'] : null,
+                // Neue separate Spalten (in property_units seit 27.04.2026)
+                'area_balcony'       => $aBal,
+                'area_terrace'       => $aTer,
+                'area_garden'        => $aGdn,
+                // Legacy-Spalten weiter befuellen (noch von alten Sichten gelesen)
+                'balcony_terrace_m2' => $aBal !== null ? $aBal : ($aTer !== null ? $aTer : null),
+                'garden_m2'          => $aGdn,
                 'updated_at'         => now(),
             ];
 

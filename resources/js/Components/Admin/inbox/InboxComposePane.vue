@@ -32,6 +32,10 @@ const inboxCompose = inject('inboxCompose', {
   improve: () => {},
   send: () => {},
   toggleFile: () => {},
+  uploadFiles: ref([]),
+  addUploads: () => {},
+  removeUpload: () => {},
+  fetchPropertyFiles: async () => [],
 })
 const signatureData = inject('inboxSignatureData', ref(null))
 
@@ -39,11 +43,61 @@ const draft = inboxCompose.draft
 const sendAccountId = inboxCompose.sendAccountId
 const sendAccounts = inboxCompose.sendAccounts
 const loading = inboxCompose.loading
+const uploadFiles = inboxCompose.uploadFiles
+const selectedFiles = inboxCompose.selectedFiles
 
 // ── Local UI state
 const linkPickerOpen = ref(false)
 const referenceExpanded = ref(false)
 const ccVisible = ref(false)
+const fileInputRef = ref(null)
+const filePickerOpen = ref(false)
+const propertyFilesList = ref([])
+const propertyFilesLoading = ref(false)
+
+const totalAttachmentCount = computed(() =>
+  (uploadFiles.value?.length || 0) + (selectedFiles.value?.length || 0)
+)
+
+function fmtBytes(n) {
+  if (!n) return ''
+  if (n < 1024) return n + ' B'
+  if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB'
+  return (n / 1024 / 1024).toFixed(1) + ' MB'
+}
+
+async function openFilePicker() {
+  filePickerOpen.value = true
+  if (!props.propertyId) {
+    propertyFilesList.value = []
+    return
+  }
+  propertyFilesLoading.value = true
+  try {
+    const files = await inboxCompose.fetchPropertyFiles(props.propertyId)
+    propertyFilesList.value = files
+  } finally {
+    propertyFilesLoading.value = false
+  }
+}
+
+function isFileSelected(item) {
+  const id = String(item.id)
+  // selectedFiles enthaelt rohe IDs (int oder doc_/global_-Strings) je nach Source.
+  return (selectedFiles.value || []).some((s) => String(s) === id)
+}
+
+function onAttachUploadInput(e) {
+  inboxCompose.addUploads(e.target.files)
+  if (fileInputRef.value) fileInputRef.value.value = ''
+}
+
+function onPickPropertyFile(item) {
+  // toggleFile erwartet die ID-Form wie sie in expandedSelectedFiles gespeichert
+  // wird — int fuer property_files, doc_<n> fuer portal_documents, global_<n>
+  // fuer global_files. get_property_files liefert das Format schon korrekt.
+  inboxCompose.toggleFile(item.id)
+}
 
 // Build a quoted block for forward: standard email client style header +
 // original body. So the forwarded mail looks like a proper weitergeleitete
@@ -297,6 +351,64 @@ function onLinkPicked(link) {
           <span v-if="signature.signature_address">{{ signature.signature_address }}</span>
           <span v-if="signature.signature_phone">Tel: {{ signature.signature_phone }}</span>
           <span v-if="signature.signature_website">{{ signature.signature_website }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Anhaenge: zwei Buttons (Hochladen / Aus Dateien) + Liste -->
+    <div class="sr-attachments">
+      <div class="sr-att-bar">
+        <button type="button" class="sr-att-btn" @click="fileInputRef?.click()">
+          <Paperclip class="w-3.5 h-3.5" />
+          Hochladen
+        </button>
+        <button
+          type="button"
+          class="sr-att-btn"
+          :class="filePickerOpen ? 'sr-att-btn-active' : ''"
+          @click="filePickerOpen ? (filePickerOpen = false) : openFilePicker()"
+        >
+          <Link2 class="w-3.5 h-3.5" />
+          Dateien durchsuchen
+        </button>
+        <span v-if="totalAttachmentCount" class="sr-att-count">
+          {{ totalAttachmentCount }} {{ totalAttachmentCount === 1 ? 'Anhang' : 'Anhänge' }}
+        </span>
+        <input ref="fileInputRef" type="file" class="hidden" multiple @change="onAttachUploadInput" />
+      </div>
+
+      <!-- Property-Files-Picker (nur sichtbar wenn geöffnet) -->
+      <div v-if="filePickerOpen" class="sr-att-picker">
+        <div v-if="propertyFilesLoading" class="sr-att-picker-loading">Lade Dateien…</div>
+        <div v-else-if="!propertyFilesList.length" class="sr-att-picker-empty">
+          {{ propertyId ? "Keine Dateien zu diesem Objekt." : "Keine Property zugeordnet — keine Dateien." }}
+        </div>
+        <div v-else class="sr-att-picker-list">
+          <button
+            v-for="f in propertyFilesList"
+            :key="String(f.id)"
+            type="button"
+            class="sr-att-picker-item"
+            :class="isFileSelected(f) ? 'is-active' : ''"
+            @click="onPickPropertyFile(f)"
+          >
+            <span class="sr-att-picker-check">
+              <svg v-if="isFileSelected(f)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <span class="sr-att-picker-name">{{ f.label || f.filename }}</span>
+            <span class="sr-att-picker-size">{{ fmtBytes(f.file_size) }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Aktive Anhang-Chips (Uploads + ausgewählte property_files) -->
+      <div v-if="uploadFiles.length" class="sr-att-chips">
+        <div v-for="(u, idx) in uploadFiles" :key="'up-' + idx" class="sr-att-chip sr-att-chip-upload">
+          <span class="sr-att-chip-name">{{ u.name }}</span>
+          <span class="sr-att-chip-size">{{ fmtBytes(u.size) }}</span>
+          <button type="button" class="sr-att-chip-x" @click="inboxCompose.removeUpload(idx)" title="Entfernen">
+            <X class="w-3 h-3" />
+          </button>
         </div>
       </div>
     </div>
@@ -657,5 +769,171 @@ function onLinkPicked(link) {
   white-space: pre-wrap;
   max-height: 280px;
   overflow-y: auto;
+}
+
+/* ─── Anhaenge ──────────────────────────────────────────────────── */
+.sr-attachments {
+  border-top: 1px solid hsl(240 5.9% 92%);
+  padding: 8px 16px;
+  background: hsl(240 5% 98%);
+}
+.sr-att-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sr-att-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(240 5% 35%);
+  background: white;
+  border: 1px solid hsl(240 5.9% 88%);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease;
+}
+.sr-att-btn:hover {
+  background: hsl(240 5% 96%);
+  border-color: hsl(240 5.9% 80%);
+}
+.sr-att-btn-active {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #c2410c;
+}
+.sr-att-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: #c2410c;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-att-picker {
+  margin-top: 8px;
+  background: white;
+  border: 1px solid hsl(240 5.9% 90%);
+  border-radius: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.sr-att-picker-loading,
+.sr-att-picker-empty {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: hsl(240 5% 50%);
+}
+.sr-att-picker-list {
+  padding: 4px;
+}
+.sr-att-picker-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: hsl(240 5% 25%);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+.sr-att-picker-item:hover {
+  background: hsl(240 5% 96%);
+}
+.sr-att-picker-item.is-active {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: hsl(240 10% 10%);
+  font-weight: 500;
+}
+.sr-att-picker-check {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1px solid hsl(240 5.9% 80%);
+  color: white;
+  flex-shrink: 0;
+  background: white;
+}
+.is-active .sr-att-picker-check {
+  background: #ee7600;
+  border-color: #ee7600;
+}
+.sr-att-picker-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sr-att-picker-size {
+  font-size: 10px;
+  color: hsl(240 5% 55%);
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-att-chips {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.sr-att-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 10px;
+  font-size: 11px;
+  background: white;
+  border: 1px solid hsl(240 5.9% 88%);
+  border-radius: 14px;
+}
+.sr-att-chip-upload {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+.sr-att-chip-name {
+  font-weight: 500;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sr-att-chip-size {
+  font-size: 10px;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+.sr-att-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 50%;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.sr-att-chip-x:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.hidden {
+  display: none;
 }
 </style>

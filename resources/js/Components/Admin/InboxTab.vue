@@ -150,6 +150,10 @@ const expandedAiLoading = ref(false);
 const expandedFiles = ref([]);
 const expandedFilesLoading = ref(false);
 const expandedSelectedFiles = ref([]);
+// Frische Local-Datei-Uploads im Compose-Pane (zusaetzlich zu den
+// "Aus Dateien"-IDs aus expandedSelectedFiles). File-Objekte direkt aus
+// dem Browser-File-Input — werden beim Senden via FormData mitgeschickt.
+const expandedUploadFiles = ref([]);
 const expandedBodyFull = ref(true);
 const showThreadAccordion = ref(false);
 const showEmailFields = ref(false);
@@ -1703,24 +1707,48 @@ async function sendDraft() {
     // Keep reply body signature-free here so EmailService can append the
     // configured HTML signature (photo/logo/banner) consistently.
     const normalizedBody = stripAiSignoffAndKnownSignatures(draft.body || '');
-    const r = await fetch(API.value + "&action=" + action + "&id=" + convId, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        body: normalizedBody,
-        subject: draft.subject || '',
-        to: draft.to || item.from_email || item.contact_email || '',
-        cc: draft.cc || '',
-        account_id: sendAccountId.value || 1,
-        file_ids: expandedSelectedFiles.value || [],
-      }),
-    });
+    const fileIds = expandedSelectedFiles.value || [];
+    const uploads = expandedUploadFiles.value || [];
+
+    // Wenn Uploads vorhanden: multipart/form-data, sonst JSON.
+    let r;
+    if (uploads.length > 0) {
+      const fd = new FormData();
+      fd.append("body", normalizedBody);
+      fd.append("subject", draft.subject || '');
+      fd.append("to", draft.to || item.from_email || item.contact_email || '');
+      fd.append("cc", draft.cc || '');
+      fd.append("account_id", String(sendAccountId.value || 1));
+      for (const fid of fileIds) fd.append("file_ids[]", String(fid));
+      for (const f of uploads) fd.append("attachments[]", f.file || f, f.name);
+      r = await fetch(API.value + "&action=" + action + "&id=" + convId, {
+        method: "POST",
+        body: fd,
+      });
+    } else {
+      r = await fetch(API.value + "&action=" + action + "&id=" + convId, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          body: normalizedBody,
+          subject: draft.subject || '',
+          to: draft.to || item.from_email || item.contact_email || '',
+          cc: draft.cc || '',
+          account_id: sendAccountId.value || 1,
+          file_ids: fileIds,
+        }),
+      });
+    }
     const result = await r.json();
 
     if (sendingEl) sendingEl.remove();
 
     if (result.success) {
-      toast("Email an " + itemName + " gesendet!");
+      toast("Email an " + itemName + " gesendet!" + (uploads.length ? " (" + uploads.length + " Anhang/Anhänge)" : ""));
+      // Uploads zurücksetzen damit der naechste Compose nicht wieder dieselben
+      // Dateien anhaengt — Auswahl von property_files (file_ids) lassen wir wie
+      // gehabt durch closeCompose / startCompose-Reset bestehen.
+      expandedUploadFiles.value = [];
       loadUnanswered(unansweredFilter.value);
       loadFollowups(followupFilter.value);
       refreshCounts();
@@ -1749,6 +1777,34 @@ provide('inboxCompose', {
     improve: improveWithAi,
     send: sendDraft,
     toggleFile: toggleFileSelection,
+    // Frische Uploads aus dem Compose-Pane
+    uploadFiles: expandedUploadFiles,
+    addUploads: (fileList) => {
+        const arr = Array.from(fileList || []);
+        for (const f of arr) {
+            if (!f) continue;
+            // 20 MB pro Datei (matcht Backend-Limit)
+            if (f.size > 20 * 1024 * 1024) {
+                toast(`"${f.name}" ist zu gross (max 20 MB)`);
+                continue;
+            }
+            expandedUploadFiles.value.push({ file: f, name: f.name, size: f.size });
+        }
+    },
+    removeUpload: (idx) => {
+        expandedUploadFiles.value.splice(idx, 1);
+    },
+    // property_files-Liste (gleiche Quelle wie Owner-Compose) — Cache pro Property
+    fetchPropertyFiles: async (propertyId) => {
+        if (!propertyId) return [];
+        try {
+            const r = await fetch(API.value + "&action=get_property_files&property_id=" + propertyId);
+            const d = await r.json();
+            return d.files || [];
+        } catch (e) {
+            return [];
+        }
+    },
 });
 
 

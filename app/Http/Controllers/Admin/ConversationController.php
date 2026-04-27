@@ -605,7 +605,11 @@ class ConversationController extends Controller
      */
     public function reply(Request $request): JsonResponse
     {
-        $input = $request->json()->all();
+        // Akzeptiert sowohl JSON als auch multipart/form-data — letzteres
+        // wird vom Compose-Pane geschickt sobald der Makler lokale Dateien
+        // hochlaedt (zusaetzlich zu/anstelle von property_files).
+        $isMultipart = str_starts_with($request->header('Content-Type', ''), 'multipart/form-data');
+        $input = $isMultipart ? $request->all() : $request->json()->all();
         $id = intval($input['id'] ?? $request->query('id', 0));
         if (!$id) {
             return response()->json(['error' => 'id required'], 400);
@@ -622,6 +626,11 @@ class ConversationController extends Controller
         $cc        = $input['cc'] ?? null;
         $accountId = $input['account_id'] ?? null;
         $fileIds   = $input['file_ids'] ?? [];
+
+        // Multipart liefert file_ids als CSV oder Array — beide Faelle abfangen.
+        if (is_string($fileIds)) {
+            $fileIds = array_filter(array_map('trim', explode(',', $fileIds)));
+        }
 
         // Normalise cc: empty string → null so EmailService::send doesn't
         // pass an empty header.
@@ -661,6 +670,20 @@ class ConversationController extends Controller
                     }
                 }
             }
+        }
+
+        // Frische Uploads (UploadedFile-Objekte) anhaengen — EmailService kann
+        // sie direkt verarbeiten und nutzt getClientOriginalName() so dass der
+        // Empfaenger den richtigen Dateinamen + Endung sieht.
+        $uploads = $request->file('attachments') ?? [];
+        if (!is_array($uploads)) $uploads = [$uploads];
+        foreach ($uploads as $file) {
+            if (!$file || !$file->isValid()) continue;
+            // Safety: 20 MB / Datei
+            if ($file->getSize() > 20 * 1024 * 1024) {
+                return response()->json(['error' => 'Anhang zu gross (max 20 MB)'], 422);
+            }
+            $attachments[] = $file;
         }
 
         // Send via EmailService

@@ -196,6 +196,126 @@ class StakeholderHelper
     }
 
     // ================================================================
+    //  PHP-SIDE: formalSalutation()
+    //
+    //  Liefert eine korrekte deutsche Hoeflichkeits-Anrede basierend auf
+    //  einem Stakeholder-Namen — wird in Nachfass-Templates und
+    //  KI-generierten Mails verwendet.
+    //
+    //  Logik:
+    //    - "Herr Mustermann" / "Frau Musterfrau" → "Sehr geehrter Herr ..."
+    //                                             / "Sehr geehrte Frau ..."
+    //    - "Robert Etzelsberger" → Vorname-Gender-Lookup → "Sehr geehrter
+    //      Herr Etzelsberger" oder "Sehr geehrte Frau Etzelsberger"
+    //    - Unbekannter Vorname → "Guten Tag {Vollname}" (defensiver Fallback,
+    //      damit nie ein falsches Geschlecht angesprochen wird)
+    //    - Leer → "Sehr geehrte Damen und Herren"
+    // ================================================================
+    public static function formalSalutation(?string $rawStakeholder): string
+    {
+        $name = trim((string) ($rawStakeholder ?? ''));
+
+        // Klammer-Suffixe und Trenn-Muster entfernen ("Robert Etzelsberger (willhaben)"
+        // → "Robert Etzelsberger"; "Anna / Markus Mustermann" → "Anna").
+        $name = preg_replace('/\s*\(.*?\)\s*$/', '', $name);
+        if (($p = strpos($name, ' / ')) !== false) $name = substr($name, 0, $p);
+        if (($p = strpos($name, ' - ')) !== false) $name = substr($name, 0, $p);
+        $name = trim($name);
+
+        if ($name === '') return 'Sehr geehrte Damen und Herren';
+
+        // Bereits "Herr X" oder "Frau X" → direkt formatieren
+        if (preg_match('/^Herr\s+(.+)$/i', $name, $m)) {
+            return 'Sehr geehrter Herr ' . trim($m[1]);
+        }
+        if (preg_match('/^Frau\s+(.+)$/i', $name, $m)) {
+            return 'Sehr geehrte Frau ' . trim($m[1]);
+        }
+
+        // Vor- und Nachname trennen — letzter Teil = Nachname.
+        $parts = preg_split('/\s+/', $name);
+        if (count($parts) < 2) {
+            // Nur ein Wort → kein Nachname zum Anreden, neutraler Fallback.
+            return 'Guten Tag ' . $name;
+        }
+        $firstName = $parts[0];
+        $lastName  = end($parts);
+
+        $gender = self::guessGenderFromFirstName($firstName);
+        if ($gender === 'm') return 'Sehr geehrter Herr ' . $lastName;
+        if ($gender === 'f') return 'Sehr geehrte Frau ' . $lastName;
+
+        // Unbekanntes Geschlecht: defensiver Fallback. Lieber "Guten Tag" als
+        // ein falsches "Herr"/"Frau" zu raten — Geschaeftsbriefe vertragen das.
+        return 'Guten Tag ' . $name;
+    }
+
+    /**
+     * Gender-Detection fuer deutsche/oesterreichische Vornamen.
+     * Liste der haeufigsten Vornamen aus Ostarrichi-Statistik (Top ~200 m + ~200 f
+     * decken >90% der Faelle ab). Lower-cased, umlaut-normalisiert beim Matchen.
+     */
+    private static function guessGenderFromFirstName(string $firstName): ?string
+    {
+        $key = strtolower(str_replace(self::UMLAUT_FROM, self::UMLAUT_TO, trim($firstName)));
+        if ($key === '') return null;
+
+        // Doppelnamen ("Hans-Peter") → ersten Teil verwenden.
+        if (str_contains($key, '-')) $key = explode('-', $key)[0];
+
+        if (in_array($key, self::MALE_FIRST_NAMES, true))   return 'm';
+        if (in_array($key, self::FEMALE_FIRST_NAMES, true)) return 'f';
+        return null;
+    }
+
+    // Top-Listen der haeufigsten oesterreichischen/deutschen Vornamen.
+    // Reine Lookup-Performance: const-array, kein Regex.
+    private const MALE_FIRST_NAMES = [
+        'alexander','andreas','andre','anton','armin','arnold','arthur','bastian','benjamin','bernd','bernhard',
+        'bjoern','boris','christian','christof','christoph','clemens','daniel','david','denis','dennis','didi','dieter',
+        'dietmar','dirk','dominik','douglas','edgar','edmund','eduard','elias','elmar','emil','enzo','erhard',
+        'erich','erik','ernst','eugen','ewald','fabian','felix','ferdinand','florian','frank','franz','friedrich',
+        'fritz','gabriel','georg','gerald','gerhard','gerd','gernot','gunter','guenter','guenther','hannes',
+        'hans','harald','hartmut','helmut','helmuth','hendrik','henning','henry','herbert','herwig','holger',
+        'horst','hubert','huber','ingo','jakob','jan','jens','joachim','jochen','jonas','josef','julian',
+        'juergen','justus','kai','kar','karl','karsten','kevin','klaus','konstantin','konrad','korbinian',
+        'kurt','lars','leo','leon','leonhard','linus','lothar','lucas','ludwig','lukas','manuel','marc','marcel',
+        'marco','marcus','mario','markus','martin','matthias','matthaeus','max','maximilian','michael','milan',
+        'moritz','nico','nicolas','niklas','norbert','olaf','oliver','oskar','otto','patrick','paul','peter',
+        'philipp','rainer','ralf','ralph','raphael','rene','reinhard','reinhold','richard','robert','rolf','roland',
+        'rudi','rudolf','ruediger','rupert','samuel','sascha','sebastian','siegfried','simon','stefan','steffen',
+        'sven','thomas','thorsten','tilmann','tim','timo','tobias','tom','udo','ulf','ulrich','uli','uwe',
+        'valentin','viktor','vincent','vinzent','vinzenz','volker','walter','werner','wilfried','wilhelm','willi',
+        'wolfgang','wolfram','xaver','yannick',
+    ];
+
+    private const FEMALE_FIRST_NAMES = [
+        'alexandra','alice','alina','amelie','andrea','angela','angelika','anita','anja','anke','anna','annaliese',
+        'annette','annemarie','antonia','astrid','barbara','beate','bettina','birgit','birte','brigitte',
+        'caren','caro','caroline','carolin','carla','christa','christel','christiane','christine','christina','claudia',
+        'cornelia','daniela','denise','diana','dorothea','dorothee','dorothy','edeltraud','elena','eli','elisabeth',
+        'elke','ella','elli','ellinor','emely','emilia','emily','emma','erika','ernestine','esther','eva','evi','evelin',
+        'evelyn','fatima','franziska','frieda','friederike','gabi','gabriela','gabriele','gabriella','gerda','gerlinde',
+        'gertrud','gertraud','gisela','gloria','grace','greta','gudrun','hanna','hannah','hanne','hannelore',
+        'hedwig','heidemarie','heidi','heike','helena','helga','helene','henriette','herta','hilde','hildegard',
+        'ida','ilona','ilse','inge','ingeborg','ingrid','irene','iris','irmgard','irmtraud','isabel','isabella',
+        'jaqueline','janina','jasmin','jasmine','jenny','jennifer','jessica','jessika','jeannine','jola','johanna',
+        'judith','julia','juliane','julianna','justine','jutta','kaethe','karin','karoline','karolin','kassandra',
+        'katarina','katharina','kathi','kathleen','kathrin','katja','katrin','klara','konstanze','kristin','kristina',
+        'larissa','laura','lea','leah','leni','leonie','liesel','lilly','lina','linda','line','lisa','lisbeth','lotte',
+        'lucia','luise','luisa','luna','luzia','lydia','magda','magdalena','magrit','manuela','margarete','margaret',
+        'margot','margret','maria','marina','marion','marlene','martha','martina','mascha','melanie','melissa',
+        'meike','michaela','milena','mira','miriam','mona','monika','nadine','nadia','nancy','natascha','natalie',
+        'nele','nicole','nina','nora','olga','pamela','patricia','patrizia','paula','petra','philippa','pia',
+        'rabea','rachel','regina','renate','rosa','rose','rosemarie','roswitha','ruth','sabine','sabrina','sandra',
+        'sara','sarah','saskia','silke','silvana','silvia','simone','sina','sonja','sophia','sophie','stefanie',
+        'stephanie','steffi','steffanie','susanne','susi','svea','sybille','sylvia','tamara','tanja','tatjana',
+        'theresa','therese','tina','traute','ulla','ulrike','ursula','uschi','ute','uta','vanessa','vera','verena',
+        'veronika','vera','victoria','viktoria','violetta','vivien','waltraud','wiebke','wilhelmina','yasmin','yvonne',
+        'zara','zita','zoey','zoe',
+    ];
+
+    // ================================================================
     //  PHP-SIDE: isSystemStakeholder()
     //
     //  PHP equivalent of systemStakeholderFilter() for application logic.

@@ -1363,17 +1363,10 @@ class ConversationController extends Controller
         $isFollowupCase = ($outboundCount > 0 && $lastOutbound > $lastInbound);
         if ($isFollowupCase) {
             $lastOutboundDate = $lastOutbound ? date('d.m.Y', $lastOutbound) : 'vor einigen Tagen';
-            // Heuristik fuer die Anrede: wenn der stakeholder mit 'Herr '
-            // oder 'Frau ' beginnt, nutzen wir 'Sehr geehrter/Sehr geehrte'.
-            // Sonst neutral 'Guten Tag {name}'.
-            $sh = trim((string) $stakeholder);
-            if (preg_match('/^Herr\s+/i', $sh)) {
-                $anrede = 'Sehr geehrter ' . $sh;
-            } elseif (preg_match('/^Frau\s+/i', $sh)) {
-                $anrede = 'Sehr geehrte ' . $sh;
-            } else {
-                $anrede = $sh !== '' ? "Guten Tag {$sh}" : 'Guten Tag';
-            }
+            // Anrede: "Sehr geehrter Herr Etzelsberger" / "Sehr geehrte Frau X"
+            // basierend auf Vornamen-Gender-Lookup, statt "Guten Tag Robert
+            // Etzelsberger" wie frueher (zu informell).
+            $anrede = StakeholderHelper::formalSalutation($stakeholder);
 
             if ($followupCount === 0) {
                 // NF1: Bezug auf erste Zusendung
@@ -1570,10 +1563,7 @@ class ConversationController extends Controller
             // Template (gleiche Logik wie in regenerateDraft)
             $lastOutbound = $conv->last_outbound_at ? strtotime($conv->last_outbound_at) : 0;
             $dateStr = $lastOutbound ? date('d.m.Y', $lastOutbound) : 'vor einigen Tagen';
-            $sh = trim((string) ($conv->stakeholder ?: ''));
-            if (preg_match('/^Herr\s+/i', $sh))      $anrede = 'Sehr geehrter ' . $sh;
-            elseif (preg_match('/^Frau\s+/i', $sh))  $anrede = 'Sehr geehrte ' . $sh;
-            else                                      $anrede = $sh !== '' ? "Guten Tag {$sh}" : 'Guten Tag';
+            $anrede = StakeholderHelper::formalSalutation($conv->stakeholder);
 
             if ($fc === 0) {
                 // NF1

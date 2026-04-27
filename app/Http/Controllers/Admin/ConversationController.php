@@ -932,12 +932,55 @@ class ConversationController extends Controller
             return response()->json(['success' => true, 'unchanged' => true]);
         }
 
-        DB::transaction(function () use ($conv, $newPropertyId, $oldPropertyId, $migrate) {
+        $mergedInto = null;
+        DB::transaction(function () use ($conv, $newPropertyId, $oldPropertyId, $migrate, &$mergedInto) {
             // WICHTIG: mailIdsForConversation nutzt die aktuelle conv.property_id
             // als Filter. Darum VOR der Conversation-Update abfragen, sonst liefert
             // es null zurueck weil die Mails noch auf der ALTEN property sind und
             // die conv bereits auf der neuen stuenden.
             $mailIds = app(ConversationService::class)->mailIdsForConversation($conv);
+
+            // UNIQUE-Conflict-Vorbeugung: existiert bereits eine Conversation mit
+            // (contact_email, property_id)? Das passiert wenn der Makler intern
+            // mit Kollegen schreibt (contact_email = "@sr-homes.at"-Adresse) und
+            // mehrere Threads zum selben Property entstehen. Statt zu crashen,
+            // mergen wir die current conv in die existierende — mails uebernehmen,
+            // current conv loeschen.
+            if ($newPropertyId !== null) {
+                $conflicting = \App\Models\Conversation::where('contact_email', $conv->contact_email)
+                    ->where('property_id', $newPropertyId)
+                    ->where('id', '!=', $conv->id)
+                    ->first();
+                if ($conflicting) {
+                    // Mails der current conv -> property_id des Ziels (= newPropertyId).
+                    if (!empty($mailIds)) {
+                        DB::table('portal_emails')->whereIn('id', $mailIds)->update(['property_id' => $newPropertyId]);
+                    }
+                    // Activities optional mit-umhaengen.
+                    if ($migrate && !empty($mailIds)) {
+                        DB::table('activities')
+                            ->whereIn('source_email_id', $mailIds)
+                            ->update(['property_id' => $newPropertyId]);
+                    }
+                    // Conv-Counters der Ziel-Conv neu aus den Mails ableiten.
+                    app(ConversationService::class)->rebuildFromEmails($conflicting->id);
+
+                    // Current conv aufloesen: Activity-Audit + Delete.
+                    $refTo = (DB::table('properties')->where('id', $newPropertyId)->value('ref_id')) ?: "#{$newPropertyId}";
+                    DB::table('activities')->insert([
+                        'property_id'   => $newPropertyId,
+                        'stakeholder'   => $conv->stakeholder ?: 'System',
+                        'activity_date' => now(),
+                        'category'      => 'intern',
+                        'activity'      => "Conversation mit bestehender zusammengefuehrt (Objekt {$refTo}, contact: {$conv->contact_email})",
+                        'created_at'    => now(),
+                        'updated_at'    => now(),
+                    ]);
+                    $conv->delete();
+                    $mergedInto = $conflicting->id;
+                    return; // Transaction-Branch fertig
+                }
+            }
 
             // 1) Conversation umhaengen
             $conv->property_id = $newPropertyId;
@@ -993,7 +1036,20 @@ class ConversationController extends Controller
             }
         });
 
-        \Log::info("[ConvSetProperty] conv={$conv->id} old={$oldPropertyId} new={$newPropertyId} migrate=" . ($migrate ? '1' : '0'));
+        \Log::info("[ConvSetProperty] conv={$conv->id} old={$oldPropertyId} new={$newPropertyId} migrate=" . ($migrate ? '1' : '0') . ($mergedInto ? " merged_into={$mergedInto}" : ''));
+
+        // Wenn die Conversation in eine bestehende gemerged wurde, schicken wir
+        // die Ziel-ID zurueck, damit das Frontend nahtlos darauf wechseln kann.
+        if ($mergedInto) {
+            return response()->json([
+                'success' => true,
+                'merged' => true,
+                'merged_into_conversation_id' => $mergedInto,
+                'old_property_id' => $oldPropertyId,
+                'new_property_id' => $newPropertyId,
+                'message' => 'Mit bestehender Conversation für dasselbe Objekt zusammengeführt.',
+            ]);
+        }
 
         return response()->json([
             'success' => true,

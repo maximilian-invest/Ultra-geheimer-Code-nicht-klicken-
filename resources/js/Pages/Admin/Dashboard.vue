@@ -115,11 +115,39 @@ watch(tab, (v) => localStorage.setItem("sr-admin-tab", v));
 watch(mobileOpen, (open) => { if (!open) { document.body.style.pointerEvents = ""; document.body.style.overflow = ""; } });
 
 function switchTab(t) {
+    // Re-Klick auf den aktuellen Tab: praktischer Use-Case ist, dass User
+    // die Sidebar als "Heimkehr-Button" benutzen — gerade auf "Objekte"
+    // wollen viele aus dem Property-Detail zurueck zur Liste, ohne den
+    // ArrowLeft rechts oben zu suchen. Wir lassen das Detail-Page selbst
+    // ueber das CustomEvent entscheiden (mit Dirty-Check + Speichern-Dialog).
+    if (tab.value === t && t === "properties") {
+        window.dispatchEvent(new CustomEvent("request-close-property"));
+        return;
+    }
     tab.value = t;
     mobileOpen.value = false;
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 provide("switchTab", switchTab);
+
+// Logout-Wrapper: zuerst Account-spezifische localStorage-Keys raeumen,
+// dann inertia-Logout. Sonst sieht der naechste Login die Property-ID des
+// Vorgaengers in localStorage und oeffnet ein Property das diesem User
+// gar nicht gehoert.
+function doLogout() {
+    try {
+        // Property-Selection (zeigt sonst beim naechsten Login das
+        // letzte Detail eines anderen Maklers)
+        localStorage.removeItem("sr-selected-property-id");
+        localStorage.removeItem("sr-property-tab");
+        // Tab-/View-Status (nicht sicherheitskritisch, aber sauberer)
+        localStorage.removeItem("sr-admin-tab");
+        localStorage.removeItem("sr-admin-subtab");
+        localStorage.removeItem("sr-admin-commsview");
+        localStorage.removeItem("sr-admin-inboxview");
+    } catch (e) { /* ignore — quota / private mode etc. */ }
+    useForm({}).post(route("logout"));
+}
 
 const openContactSearch = ref("");
 provide("openContactSearch", openContactSearch);
@@ -473,7 +501,7 @@ function navBadge(key) {
                                 <div class="text-xs font-medium truncate">{{ userName }}</div>
                             </div>
                             <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click="switchTab('settings')"><Settings class="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click.prevent="useForm({}).post(route('logout'))"><LogOut class="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click.prevent="doLogout()"><LogOut class="w-3.5 h-3.5" /></Button>
                         </div>
                         <button @click="toggleDarkMode()" class="flex items-center gap-2 px-2 py-1 w-full text-left rounded-md hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors">
                             <Moon v-if="!darkMode" class="w-3.5 h-3.5 text-muted-foreground" />
@@ -543,7 +571,7 @@ function navBadge(key) {
                         <div class="text-xs font-medium truncate">{{ userName }}</div>
                     </div>
                     <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click="switchTab('settings')" title="Einstellungen"><Settings class="w-3.5 h-3.5" /></Button>
-                    <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click.prevent="useForm({}).post(route('logout'))" title="Abmelden"><LogOut class="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="sm" class="h-7 w-7 p-0" @click.prevent="doLogout()" title="Abmelden"><LogOut class="w-3.5 h-3.5" /></Button>
                 </div>
                 <div v-if="sidebarEffective" class="flex flex-col items-center gap-1">
                     <Tooltip>

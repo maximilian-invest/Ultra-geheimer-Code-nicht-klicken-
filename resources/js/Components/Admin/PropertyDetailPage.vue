@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, inject, watch, onMounted } from "vue";
+import { ref, computed, inject, watch, onMounted, onBeforeUnmount } from "vue";
 import { Pause, Play, ArrowLeft, CircleOff, Power, Trash2, Mail, Check, RotateCcw } from "lucide-vue-next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -222,6 +222,10 @@ async function confirmSaveAndSwitch() {
   showUnsavedChangesDialog.value = false;
   pendingTabChange.value = null;
   await handleSave();
+  if (targetTab === '__close__') {
+    emit('back');
+    return;
+  }
   if (targetTab) {
     tabChangeGuardActive.value = true;
     activeTab.value = targetTab;
@@ -235,6 +239,10 @@ function confirmDiscardAndSwitch() {
   showUnsavedChangesDialog.value = false;
   pendingTabChange.value = null;
   handleDiscard();
+  if (targetTab === '__close__') {
+    emit('back');
+    return;
+  }
   if (targetTab) {
     tabChangeGuardActive.value = true;
     activeTab.value = targetTab;
@@ -242,6 +250,23 @@ function confirmDiscardAndSwitch() {
     localStorage.setItem("sr-property-tab", targetTab);
   }
 }
+
+// Externer Schließen-Wunsch (z.B. Sidebar-Klick auf "Objekte" während
+// Detail offen). Mit Dirty-Check: zeigt den gleichen Speichern-/Verwerfen-
+// Dialog wie beim Tab-Wechsel; sentinel '__close__' signalisiert in den
+// confirm-Handlern dass nicht ein Tab gewechselt sondern die Page
+// verlassen werden soll.
+function requestExternalClose() {
+  if (isDirty.value) {
+    pendingTabChange.value = '__close__';
+    showUnsavedChangesDialog.value = true;
+  } else {
+    emit('back');
+  }
+}
+
+onMounted(() => window.addEventListener('request-close-property', requestExternalClose));
+onBeforeUnmount(() => window.removeEventListener('request-close-property', requestExternalClose));
 
 function cancelTabChange() {
   showUnsavedChangesDialog.value = false;

@@ -399,6 +399,7 @@ class ConversationController extends Controller
                             THEN CONCAT('/storage/', sender_settings.signature_photo_path)
                         ELSE NULL
                     END as sender_avatar_url,
+                    pe.is_deleted as is_archived,
                     a.followup_stage
                 FROM portal_emails pe
                 LEFT JOIN activities a ON a.source_email_id = pe.id
@@ -420,8 +421,7 @@ class ConversationController extends Controller
                     NULLIF(sender_acct_from.user_id, 0)
                 )
                 LEFT JOIN admin_settings sender_settings ON sender_settings.user_id = sender_user.id
-                WHERE pe.is_deleted = 0
-                  AND (pe.property_id = ? OR pe.property_id IS NULL)
+                WHERE (pe.property_id = ? OR pe.property_id IS NULL)
                   AND (
                       LOWER(pe.stakeholder) = LOWER(?)
                       OR (
@@ -478,6 +478,7 @@ class ConversationController extends Controller
                             THEN CONCAT('/storage/', sender_settings.signature_photo_path)
                         ELSE NULL
                     END as sender_avatar_url,
+                    pe.is_deleted as is_archived,
                     a.followup_stage
                 FROM portal_emails pe
                 LEFT JOIN activities a ON a.source_email_id = pe.id
@@ -499,8 +500,7 @@ class ConversationController extends Controller
                     NULLIF(sender_acct_from.user_id, 0)
                 )
                 LEFT JOIN admin_settings sender_settings ON sender_settings.user_id = sender_user.id
-                WHERE pe.is_deleted = 0
-                  AND (pe.property_id = ? OR pe.property_id IS NULL)
+                WHERE (pe.property_id = ? OR pe.property_id IS NULL)
                   AND (
                       LOWER(pe.from_email) = LOWER(?)
                       OR LOWER(pe.to_email) LIKE CONCAT('%', LOWER(?), '%')

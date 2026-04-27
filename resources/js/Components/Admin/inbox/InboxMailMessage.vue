@@ -35,6 +35,10 @@ const isOutbound = computed(() => {
   return d === 'outbound' || d === 'out' || ['email-out', 'expose', 'nachfassen'].includes(c)
 })
 const isAutoReply = computed(() => props.message.category === 'auto-reply' || props.message.is_auto_reply)
+// Auto-archived: vom System nach einer Reply-Sende-Aktion in den Papierkorb
+// verschoben. Bleibt im Conv-Verlauf sichtbar, aber leicht abgesetzt damit
+// der User nicht denkt der Verlauf ist unvollstaendig.
+const isArchived = computed(() => !!(props.message.is_archived || props.message.is_deleted))
 const isIntern = computed(() => {
   const cat = (props.message.category || '').toLowerCase()
   const from = (props.message.from_email || '').toLowerCase()
@@ -144,7 +148,7 @@ function onNameClick() {
 </script>
 
 <template>
-  <div class="sr-msg" :class="{ 'sr-msg--expanded': expanded, 'sr-msg--collapsed': !expanded }">
+  <div class="sr-msg" :class="{ 'sr-msg--expanded': expanded, 'sr-msg--collapsed': !expanded, 'sr-msg--archived': isArchived }">
     <div class="sr-msg-row" @click="toggle">
       <div class="sr-avatar" :class="isOutbound ? 'sr-avatar--me' : 'sr-avatar--them'">
         <img v-if="avatarImageUrl" :src="avatarImageUrl" :alt="avatarInitials" />
@@ -160,6 +164,7 @@ function onNameClick() {
             @click.stop="onNameClick"
           >{{ displayName }}</button>
           <span v-if="senderAddress" class="sr-sender-addr">&lt;{{ senderAddress }}&gt;</span>
+          <span v-if="isArchived" class="sr-archived-badge" title="Diese Nachricht wurde nach deiner Antwort automatisch ins Archiv (Papierkorb) verschoben — sie bleibt im Verlauf sichtbar.">archiviert</span>
         </div>
         <div v-if="expanded && recipientLabel" class="sr-to-line">An: {{ recipientLabel }}</div>
       </div>
@@ -294,4 +299,26 @@ function onNameClick() {
   cursor: pointer;
 }
 .sr-attachment-save-icon { width: 12px; height: 12px; }
+
+/* Archivierte Nachrichten — automatisch nach Reply in den Papierkorb
+   verschoben, bleiben aber im Conv-Verlauf sichtbar. Leicht ausgegraut
+   damit der User auf einen Blick sieht: das ist erledigte Historie, nicht
+   eine offene Nachricht. */
+.sr-msg--archived { opacity: 0.7; }
+.sr-msg--archived:hover { opacity: 0.92; }
+.sr-archived-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: hsl(240 5% 50%);
+  background: hsl(240 5% 95%);
+  border: 1px solid hsl(240 5% 88%);
+  border-radius: 3px;
+  cursor: help;
+  flex-shrink: 0;
+}
 </style>

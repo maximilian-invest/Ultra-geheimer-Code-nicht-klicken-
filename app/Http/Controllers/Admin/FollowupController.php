@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\StakeholderHelper;
+use App\Services\PhoneExtractor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -312,10 +313,10 @@ private static function findEmailInText(string $text, array $excludePatterns = [
             if (empty($f['contact_phone'])) {
                 $emailRow = DB::selectOne("SELECT body_text FROM portal_emails WHERE property_id = ? AND stakeholder LIKE ? AND direction = 'inbound' ORDER BY email_date DESC LIMIT 1", [$pid, '%' . mb_substr($f['from_name'], 0, 10) . '%']);
                 if ($emailRow && $emailRow->body_text) {
-                    $flat = preg_replace('/\s+/', ' ', $emailRow->body_text);
-                    // Typeform: "Phone number+436605646605Email" or "Telefon: +43 664 ..."
-                    if (preg_match('/(?:Phone\s*number|Telefon|Tel\.?|Mobil|Handy)[:\s]*([+\d][\d\s\/\-()]{6,20})/i', $flat, $pm)) {
-                        $f['contact_phone'] = trim(preg_replace('/\s+/', ' ', $pm[1]));
+                    // Zentral via PhoneExtractor — filtert eigene SR-Homes-Nummer raus.
+                    $extracted = PhoneExtractor::extractFromText($emailRow->body_text);
+                    if ($extracted) {
+                        $f['contact_phone'] = $extracted;
                     }
                 }
             }
@@ -724,10 +725,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         if (!$phone) {
             $phoneRow = DB::selectOne("SELECT body_text FROM portal_emails WHERE property_id = ? AND stakeholder LIKE ? AND direction = 'inbound' ORDER BY email_date DESC LIMIT 1", [$propertyId, '%' . mb_substr($stakeholder, 0, 10) . '%']);
             if ($phoneRow && $phoneRow->body_text) {
-                $flat = preg_replace('/\s+/', ' ', $phoneRow->body_text);
-                if (preg_match('/(?:Phone\s*number|Telefon|Tel\.?|Mobil|Handy)[:\s]*([+\d][\d\s\/\-()]{6,20})/i', $flat, $pm)) {
-                    $phone = trim(preg_replace('/\s+/', ' ', $pm[1]));
-                }
+                $phone = PhoneExtractor::extractFromText($phoneRow->body_text) ?: $phone;
             }
         }
 
@@ -1094,9 +1092,9 @@ private static function findEmailInText(string $text, array $excludePatterns = [
             if (empty($f['contact_phone'])) {
                 $emailRow = DB::selectOne("SELECT body_text FROM portal_emails WHERE property_id = ? AND stakeholder LIKE ? AND direction = 'inbound' ORDER BY email_date DESC LIMIT 1", [$pid, '%' . mb_substr($f['from_name'], 0, 10) . '%']);
                 if ($emailRow && $emailRow->body_text) {
-                    $flat = preg_replace('/\s+/', ' ', $emailRow->body_text);
-                    if (preg_match('/(?:Phone\s*number|Telefon|Tel\.?|Mobil|Handy)[:\s]*([+\d][\d\s\/\-()]{6,20})/i', $flat, $pm)) {
-                        $f['contact_phone'] = trim(preg_replace('/\s+/', ' ', $pm[1]));
+                    $extracted = PhoneExtractor::extractFromText($emailRow->body_text);
+                    if ($extracted) {
+                        $f['contact_phone'] = $extracted;
                     }
                 }
             }

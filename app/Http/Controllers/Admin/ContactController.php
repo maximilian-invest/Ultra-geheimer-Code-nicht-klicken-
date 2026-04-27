@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\PhoneExtractor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -68,7 +69,9 @@ class ContactController extends Controller
         $id = DB::table('contacts')->insertGetId([
             'full_name'    => $name ?: null,
             'email'        => $email ?: null,
-            'phone'        => trim($input['phone'] ?? '') ?: null,
+            // Sanitizer verhindert dass die SR-Homes-Nummer fuer einen Kontakt
+            // gespeichert wird (Defense-in-Depth, falls Frontend-Validation fehlt).
+            'phone'        => PhoneExtractor::sanitizeForContact($input['phone'] ?? null),
             'role'         => $role,
             'property_ids' => json_encode($propertyIds),
             'aliases'      => json_encode($aliases),
@@ -92,7 +95,11 @@ class ContactController extends Controller
         foreach (['full_name', 'email', 'phone', 'notes'] as $f) {
             if (isset($input[$f])) {
                 $fields[] = "{$f} = ?";
-                $params[] = $input[$f];
+                // phone: durch Sanitizer schicken, damit die SR-Homes-Nummer nie
+                // gespeichert wird (Defense-in-Depth).
+                $params[] = $f === 'phone'
+                    ? PhoneExtractor::sanitizeForContact($input[$f])
+                    : $input[$f];
             }
         }
         if (isset($input['aliases'])) {

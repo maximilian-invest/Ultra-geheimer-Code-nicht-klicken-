@@ -2342,8 +2342,10 @@ Leeres Array [] wenn keine NEUEN Fakten enthalten sind.';
         if (preg_match('/(noreply|no-reply|mailer|notification)/', $realEmail)) return;
 
         
-        // Extract phone number from body — via zentralem PhoneExtractor Service
-        $realPhone = PhoneExtractor::extractFromText($body);
+        // Extract phone number from body — via zentralem PhoneExtractor Service.
+        // extractFromText filtert die eigene Nummer schon raus; sanitizeForContact
+        // ist eine zweite Sicherheitsschicht, falls jemand die Funktion umgeht.
+        $realPhone = PhoneExtractor::sanitizeForContact(PhoneExtractor::extractFromText($body));
 
 // Upsert contact — search by EMAIL first (unique identifier), then by name
         $existing = \DB::table('contacts')

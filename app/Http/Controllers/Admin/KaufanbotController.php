@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\StakeholderHelper;
+use App\Services\PhoneExtractor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -139,14 +140,8 @@ class KaufanbotController extends Controller
                         $p['email'] = $candidateEmail;
                     }
                     if (!$p['phone'] && !empty($emailRow->body_text)) {
-                        if (preg_match_all('/(?:Tel\.?|Telefon|Mobil|Handy|Phone)[:\s.]*([+\d\s\/\-()]{7,20})/i', $emailRow->body_text, $pms)) {
-                            foreach ($pms[1] as $candidate) {
-                                $clean = preg_replace('/[\s\-\/()]/', '', trim($candidate));
-                                if (str_contains($clean, '436642600930') || str_contains($clean, '6642600930')) continue;
-                                $p['phone'] = trim($candidate);
-                                break;
-                            }
-                        }
+                        // Zentral via PhoneExtractor — filtert SR-Homes-Nummer raus.
+                        $p['phone'] = PhoneExtractor::extractFromText($emailRow->body_text);
                     }
                 }
             }

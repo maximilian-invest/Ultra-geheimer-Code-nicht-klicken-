@@ -1109,22 +1109,11 @@ class DashboardController extends Controller
                 $resultText = is_object($act) ? ($act->result ?? '') : ($act['result'] ?? '');
                 $actText = is_object($act) ? ($act->activity ?? '') : ($act['activity'] ?? '');
                 $searchText = $resultText . ' ' . $actText;
-                // Match phone patterns: +43..., 0043..., 06..., +49...
-                // More specific phone patterns for Austrian numbers
-                if (preg_match('/(?:\+43|0043|\+49|0049)\s*[\d\s.\/\-]{7,14}/', $searchText, $phoneMatch) ||
-                    preg_match('/0\d{1,4}[\s.\/\-]?\d{3,}[\s.\/\-]?\d{2,}/', $searchText, $phoneMatch)) {
-                    $candidate = trim($phoneMatch[0]);
-                    // Only accept if it looks like a real phone number (7+ digits)
-                    $digitsOnly = preg_replace('/\D/', '', $candidate);
-                    if (strlen($digitsOnly) >= 7 && strlen($digitsOnly) <= 15) {
-                        // Skip our own phone numbers
-                        if (strpos($candidate, '6642600930') !== false || strpos($candidate, '664 2600 93') !== false || strpos($candidate, '62459305') !== false) {
-                            $phone = null;
-                        } else {
-                            $phone = $candidate;
-                            $personalPhones[$canonLowerForPhone] = $phone;
-                        }
-                    }
+                // Zentral via PhoneExtractor — filtert eigene SR-Homes-Nummern raus.
+                $extracted = PhoneExtractor::extractFromText($searchText);
+                if ($extracted) {
+                    $phone = $extracted;
+                    $personalPhones[$canonLowerForPhone] = $phone;
                 }
             }
             

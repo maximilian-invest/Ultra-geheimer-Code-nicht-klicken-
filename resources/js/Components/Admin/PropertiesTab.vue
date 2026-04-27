@@ -1,7 +1,7 @@
 <script setup>
 import { catBadgeStyle, catLabel } from '@/utils/categoryBadge.js';
-import { ref, inject, computed, reactive, watch, onMounted } from "vue";
-import { Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, Mail } from "lucide-vue-next";
+import { ref, inject, computed, reactive, watch, onMounted, nextTick } from "vue";
+import { Pause, Play, BookOpen, Search, X, Plus, Sparkles, Upload, Settings, Trash2, Check, Pencil, ClipboardList, Save, FileText, MessageCircle, Users, ChevronDown, ChevronRight, ArrowLeft, Lock, Link2, LayoutList, LayoutGrid, ArrowUp, ArrowDown, Mail, Phone } from "lucide-vue-next";
 import PropertyDetailPage from '@/Components/Admin/PropertyDetailPage.vue';
 import IntakeProtocolWizard from '@/Components/Admin/IntakeProtocol/IntakeProtocolWizard.vue';
 import IntakeDraftsList from '@/Components/Admin/IntakeProtocol/IntakeDraftsList.vue';
@@ -1288,7 +1288,14 @@ const propKaufanbote = ref([]);
 const propKaufanboteLoading = ref(false);
 const propKaufanbotUploading = ref(false);
 const propKaufanbotForm = ref({ buyer_name: "", buyer_email: "", buyer_phone: "", amount: "", kaufanbot_date: "", notes: "" });
+const propKaufanbotEditId = ref(null);  // null = Neu-Anlage, sonst = Edit eines existierenden Eintrags
+const propKaufanbotSaving = ref(false);
 watch(propSettingsTab, (tab) => { if (tab === "prop_kaufanbote") loadPropertyKaufanbote(); });
+
+// Computed: alle Kaeufer mit hinterlegter E-Mail (fuer Bulk-Mail-Button).
+const propBuyersWithEmail = computed(() =>
+    propKaufanbote.value.filter(ka => ka.buyer_email && String(ka.buyer_email).trim())
+);
 
 const portalUser = ref(null);
 const showPortalForm = ref(false);
@@ -1716,6 +1723,65 @@ async function loadPropertyKaufanbote() {
     propKaufanboteLoading.value = false;
 }
 
+// Setzt das Form fuer eine Neu-Anlage zurueck (verlaesst Edit-Modus).
+function resetPropKaufanbotForm() {
+    propKaufanbotForm.value = { buyer_name: "", buyer_email: "", buyer_phone: "", amount: "", kaufanbot_date: "", notes: "" };
+    propKaufanbotEditId.value = null;
+}
+
+// Laedt einen bestehenden Kaufanbot-Eintrag in das Form, um ihn zu bearbeiten.
+function editPropKaufanbot(ka) {
+    propKaufanbotEditId.value = ka.id;
+    propKaufanbotForm.value = {
+        buyer_name: ka.buyer_name || "",
+        buyer_email: ka.buyer_email || "",
+        buyer_phone: ka.buyer_phone || "",
+        amount: ka.amount || "",
+        kaufanbot_date: ka.kaufanbot_date || "",
+        notes: ka.notes || "",
+    };
+    // Nach oben zum Form scrollen — der Sheet-Container ist scrollbar.
+    nextTick(() => {
+        const el = document.querySelector('[data-prop-kaufanbot-form]');
+        if (el && typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+}
+
+// Speichert nur die Kontaktdaten (kein PDF-Re-Upload). Wird per "Aenderungen
+// speichern"-Button im Edit-Modus aufgerufen.
+async function savePropKaufanbotEdits() {
+    if (!propKaufanbotEditId.value) return;
+    if (!propKaufanbotForm.value.buyer_name.trim()) { toast("Käufername ist erforderlich"); return; }
+    propKaufanbotSaving.value = true;
+    try {
+        const fd = new FormData();
+        fd.append("kaufanbot_id", String(propKaufanbotEditId.value));
+        fd.append("buyer_name", propKaufanbotForm.value.buyer_name);
+        fd.append("buyer_email", propKaufanbotForm.value.buyer_email || "");
+        fd.append("buyer_phone", propKaufanbotForm.value.buyer_phone || "");
+        if (propKaufanbotForm.value.amount) fd.append("amount", propKaufanbotForm.value.amount);
+        if (propKaufanbotForm.value.kaufanbot_date) fd.append("kaufanbot_date", propKaufanbotForm.value.kaufanbot_date);
+        if (propKaufanbotForm.value.notes !== undefined) fd.append("notes", propKaufanbotForm.value.notes);
+        // unit_ids/parking_ids werden vom Backend bei fehlendem Input aus dem
+        // existing record uebernommen — wir senden hier keine Aenderung.
+        const existing = propKaufanbote.value.find(k => k.id === propKaufanbotEditId.value);
+        if (existing) {
+            fd.append("unit_ids", JSON.stringify(existing.unit_ids || []));
+            fd.append("parking_ids", JSON.stringify(existing.parking_ids || []));
+        }
+        const r = await fetch(API.value + "&action=update_property_kaufanbot", { method: "POST", body: fd });
+        const d = await r.json();
+        if (d.success) {
+            toast("Kontaktdaten aktualisiert");
+            resetPropKaufanbotForm();
+            loadPropertyKaufanbote();
+        } else toast("Fehler: " + (d.error || ""));
+    } catch (e) { toast("Fehler: " + e.message); }
+    propKaufanbotSaving.value = false;
+}
+
 async function uploadPropertyKaufanbot(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1729,13 +1795,21 @@ async function uploadPropertyKaufanbot(event) {
     if (propKaufanbotForm.value.amount) fd.append("amount", propKaufanbotForm.value.amount);
     if (propKaufanbotForm.value.kaufanbot_date) fd.append("kaufanbot_date", propKaufanbotForm.value.kaufanbot_date);
     if (propKaufanbotForm.value.notes) fd.append("notes", propKaufanbotForm.value.notes);
+    // PDF-Upload braucht mindestens eine Einheit. Da dieser Tab keine Einheiten-
+    // Auswahl hat, schicken wir alle Einheiten mit (oder leeres Array fuer Nicht-
+    // Newbuild). Backend erfordert >= 1 Einheit nur fuer newbuild Properties —
+    // fuer Bestand reicht eine "Pseudo-Einheit" oder wir lassen es leer. Hier
+    // senden wir die erste verfuegbare Einheit, falls vorhanden.
+    const firstUnit = (propSettingsUnits.value || []).find(u => !u.is_parking);
+    fd.append("unit_ids", JSON.stringify(firstUnit ? [firstUnit.id] : []));
+    fd.append("parking_ids", JSON.stringify([]));
     fd.append("pdf", file);
     try {
         const r = await fetch(API.value + "&action=upload_property_kaufanbot", { method: "POST", body: fd });
         const d = await r.json();
         if (d.success) {
             toast("Kaufanbot hochgeladen");
-            propKaufanbotForm.value = { buyer_name: "", buyer_email: "", buyer_phone: "", amount: "", kaufanbot_date: "", notes: "" };
+            resetPropKaufanbotForm();
             loadPropertyKaufanbote();
         } else toast("Fehler: " + (d.error || ""));
     } catch (e) { toast("Fehler: " + e.message); }
@@ -1746,10 +1820,11 @@ async function uploadPropertyKaufanbot(event) {
 async function deletePropertyKaufanbot(id) {
     if (!confirm("Kaufanbot wirklich löschen?")) return;
     try {
-        const r = await fetch(API.value + "&action=delete_property_kaufanbot", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id })
-        });
+        // Backend erwartet kaufanbot_id als input — frueher wurde 'id' gesendet,
+        // was zu silent failure fuehrte. Mit FormData explizit als kaufanbot_id.
+        const fd = new FormData();
+        fd.append("kaufanbot_id", String(id));
+        const r = await fetch(API.value + "&action=delete_property_kaufanbot", { method: "POST", body: fd });
         const d = await r.json();
         if (d.success) { toast("Kaufanbot gelöscht"); loadPropertyKaufanbote(); }
         else toast("Fehler: " + (d.error || ""));
@@ -1766,6 +1841,41 @@ async function updatePropertyKaufanbotStatus(id, status) {
         if (d.success) { toast("Status aktualisiert"); loadPropertyKaufanbote(); }
         else toast("Fehler: " + (d.error || ""));
     } catch (e) { toast("Fehler: " + e.message); }
+}
+
+// ── Kaeufer kontaktieren (Single + Bulk) ──────────────────
+function contactPropBuyer(ka) {
+    if (!ka || !ka.buyer_email) {
+        toast("Diese:r Käufer:in hat keine E-Mail-Adresse hinterlegt.");
+        return;
+    }
+    window.dispatchEvent(new CustomEvent("open-buyer-compose", {
+        detail: {
+            property_id: propSettingsId.value,
+            recipients: [{ email: ka.buyer_email, name: ka.buyer_name || "" }],
+            subject: "",
+            body: "",
+        },
+    }));
+}
+
+function contactAllPropBuyers() {
+    const recipients = propBuyersWithEmail.value.map(ka => ({
+        email: String(ka.buyer_email).trim(),
+        name: ka.buyer_name || "",
+    }));
+    if (recipients.length === 0) {
+        toast("Keine Käufer:innen mit E-Mail-Adresse hinterlegt.");
+        return;
+    }
+    window.dispatchEvent(new CustomEvent("open-buyer-compose", {
+        detail: {
+            property_id: propSettingsId.value,
+            recipients,
+            subject: "",
+            body: "",
+        },
+    }));
 }
 async function openPropFiles(propId, propLabel) {
     propFilesId.value = propId;
@@ -2771,9 +2881,42 @@ async function toggleWebsiteDownload(f) {
 
                     <!-- PROPERTY KAUFANBOTE TAB -->
                     <div v-if="propSettingsTab === 'prop_kaufanbote'" class="px-5 py-4 space-y-4">
-                        <!-- Upload Form -->
-                        <div class="p-4 rounded-xl space-y-3" style="border:1px solid #e4e4e7;background:white">
-                            <div class="text-sm font-semibold mb-2">Neues Kaufanbot hochladen</div>
+                        <!-- Toolbar mit Bulk-Mail-Button (nur sichtbar wenn Kaufanbote existieren) -->
+                        <div v-if="propKaufanbote.length > 0" class="flex items-center justify-between">
+                            <div class="text-[11px] text-[#71717a]">
+                                {{ propKaufanbote.length }} Kaufanbot{{ propKaufanbote.length === 1 ? '' : 'e' }}
+                                <span v-if="propBuyersWithEmail.length > 0">&middot; {{ propBuyersWithEmail.length }} mit E-Mail</span>
+                            </div>
+                            <button
+                                type="button"
+                                :disabled="propBuyersWithEmail.length === 0"
+                                :title="propBuyersWithEmail.length === 0
+                                    ? 'Noch keine E-Mail-Adressen hinterlegt — Käufer anklicken zum Bearbeiten'
+                                    : 'An alle Käufer:innen mit E-Mail (' + propBuyersWithEmail.length + ') senden'"
+                                class="text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5"
+                                :class="propBuyersWithEmail.length === 0
+                                    ? 'opacity-50 cursor-not-allowed text-[#71717a] bg-zinc-50 border border-zinc-200'
+                                    : 'text-white bg-[#ee7606] hover:bg-[#d96a05]'"
+                                @click="contactAllPropBuyers"
+                            >
+                                <Users class="w-3.5 h-3.5" />
+                                Käufer:innen kontaktieren
+                                <span class="text-[10px] opacity-80">({{ propBuyersWithEmail.length }}/{{ propKaufanbote.length }})</span>
+                            </button>
+                        </div>
+
+                        <!-- Upload / Edit Form -->
+                        <div data-prop-kaufanbot-form class="p-4 rounded-xl space-y-3" :style="propKaufanbotEditId
+                            ? 'border:2px solid #ee7606;background:#fff7ed'
+                            : 'border:1px solid #e4e4e7;background:white'">
+                            <div class="flex items-center justify-between">
+                                <div class="text-sm font-semibold">
+                                    {{ propKaufanbotEditId ? 'Kaufanbot bearbeiten' : 'Neues Kaufanbot hochladen' }}
+                                </div>
+                                <button v-if="propKaufanbotEditId" type="button" class="text-[11px] text-[#71717a] hover:text-[#18181b] inline-flex items-center gap-1" @click="resetPropKaufanbotForm">
+                                    <X class="w-3 h-3" /> Abbrechen
+                                </button>
+                            </div>
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <label class="text-[11px] font-medium text-[#71717a] mb-1 block">Käufer Name *</label>
@@ -2781,7 +2924,7 @@ async function toggleWebsiteDownload(f) {
                                 </div>
                                 <div>
                                     <label class="text-[11px] font-medium text-[#71717a] mb-1 block">E-Mail</label>
-                                    <input v-model="propKaufanbotForm.buyer_email" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all w-full" placeholder="email@beispiel.at" />
+                                    <input v-model="propKaufanbotForm.buyer_email" type="email" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all w-full" placeholder="email@beispiel.at" />
                                 </div>
                                 <div>
                                     <label class="text-[11px] font-medium text-[#71717a] mb-1 block">Telefon</label>
@@ -2801,12 +2944,25 @@ async function toggleWebsiteDownload(f) {
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 mt-2">
-                                <label class="btn btn-brand cursor-pointer text-xs px-4 py-2 inline-flex items-center gap-2" :class="{ 'opacity-50 pointer-events-none': propKaufanbotUploading || !propKaufanbotForm.buyer_name.trim() }">
+                                <!-- Edit-Modus: Save-Button (kein PDF-Upload). Anlegen: PDF-Upload-Button. -->
+                                <button
+                                    v-if="propKaufanbotEditId"
+                                    type="button"
+                                    class="btn btn-brand text-xs px-4 py-2 inline-flex items-center gap-2"
+                                    :class="{ 'opacity-50 pointer-events-none': propKaufanbotSaving || !propKaufanbotForm.buyer_name.trim() }"
+                                    @click="savePropKaufanbotEdits"
+                                >
+                                    <Save class="w-3.5 h-3.5" />
+                                    {{ propKaufanbotSaving ? 'Speichert…' : 'Änderungen speichern' }}
+                                </button>
+                                <label v-else class="btn btn-brand cursor-pointer text-xs px-4 py-2 inline-flex items-center gap-2" :class="{ 'opacity-50 pointer-events-none': propKaufanbotUploading || !propKaufanbotForm.buyer_name.trim() }">
                                     <Upload class="w-3.5 h-3.5" />
                                     {{ propKaufanbotUploading ? 'Wird hochgeladen...' : 'PDF hochladen' }}
                                     <input type="file" accept=".pdf" class="hidden" @change="uploadPropertyKaufanbot" :disabled="propKaufanbotUploading || !propKaufanbotForm.buyer_name.trim()" />
                                 </label>
-                                <span class="text-[10px] text-[#71717a]">PDF-Datei erforderlich</span>
+                                <span class="text-[10px] text-[#71717a]">
+                                    {{ propKaufanbotEditId ? 'PDF kann nur beim Anlegen gewählt werden' : 'PDF-Datei erforderlich' }}
+                                </span>
                             </div>
                         </div>
 
@@ -2820,30 +2976,63 @@ async function toggleWebsiteDownload(f) {
 
                         <!-- List -->
                         <div v-else class="space-y-2">
-                            <div v-for="ka in propKaufanbote" :key="ka.id" class="p-3 rounded-xl" style="border:1px solid #e4e4e7">
+                            <div v-for="ka in propKaufanbote" :key="ka.id" class="p-3 rounded-xl transition-colors"
+                                :style="propKaufanbotEditId === ka.id
+                                    ? 'border:2px solid #ee7606;background:#fff7ed'
+                                    : 'border:1px solid #e4e4e7'">
                                 <div class="flex items-center justify-between mb-1">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-sm font-semibold">{{ ka.buyer_name }}</span>
-                                        <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                                    <!-- Klickbarer Bereich: Avatar + Name + Status (oeffnet Edit-Modus) -->
+                                    <div
+                                        role="button"
+                                        tabindex="0"
+                                        class="flex items-center gap-2 cursor-pointer rounded-md px-2 -mx-2 py-1 hover:bg-black/5 transition-colors group flex-1 min-w-0"
+                                        title="Klicken zum Bearbeiten der Kontaktdaten"
+                                        @click="editPropKaufanbot(ka)"
+                                        @keydown.enter="editPropKaufanbot(ka)"
+                                        @keydown.space.prevent="editPropKaufanbot(ka)"
+                                    >
+                                        <span class="text-sm font-semibold group-hover:underline truncate">{{ ka.buyer_name }}</span>
+                                        <Pencil class="w-3 h-3 text-[#71717a] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                                        <span v-if="!ka.buyer_email && !ka.buyer_phone" class="text-[10px] text-[#a1a1aa] italic flex-shrink-0">keine Kontaktdaten — klicken</span>
+                                        <span class="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
                                             :style="ka.status === 'akzeptiert' ? 'background:rgba(16,185,129,0.08);color:#10b981' : ka.status === 'abgelehnt' ? 'background:rgba(239,68,68,0.08);color:#ef4444' : ka.status === 'zurueckgezogen' ? 'background:rgba(156,163,175,0.08);color:#9ca3af' : 'background:rgba(245,158,11,0.08);color:#f59e0b'">
                                             {{ ka.status === 'eingegangen' ? 'Eingegangen' : ka.status === 'akzeptiert' ? 'Akzeptiert' : ka.status === 'abgelehnt' ? 'Abgelehnt' : 'Zurückgezogen' }}
                                         </span>
                                     </div>
-                                    <span v-if="ka.amount" class="text-sm font-bold" style="color:#ee7606">&euro; {{ Number(ka.amount).toLocaleString('de-DE') }}</span>
+                                    <span v-if="ka.amount" class="text-sm font-bold flex-shrink-0 ml-2" style="color:#ee7606">&euro; {{ Number(ka.amount).toLocaleString('de-DE') }}</span>
                                 </div>
-                                <div class="flex items-center gap-3 text-[10px] text-[#71717a] mb-2">
-                                    <span v-if="ka.buyer_email">{{ ka.buyer_email }}</span>
-                                    <span v-if="ka.buyer_phone">{{ ka.buyer_phone }}</span>
+                                <div class="flex items-center gap-3 text-[10px] text-[#71717a] mb-2 flex-wrap">
+                                    <a v-if="ka.buyer_email" :href="'mailto:' + ka.buyer_email" class="inline-flex items-center gap-1 hover:underline" @click.stop>
+                                        <Mail class="w-3 h-3" />
+                                        {{ ka.buyer_email }}
+                                    </a>
+                                    <a v-if="ka.buyer_phone" :href="'tel:' + ka.buyer_phone" class="inline-flex items-center gap-1 hover:underline" @click.stop>
+                                        <Phone class="w-3 h-3" />
+                                        {{ ka.buyer_phone }}
+                                    </a>
                                     <span v-if="ka.kaufanbot_date">{{ ka.kaufanbot_date }}</span>
                                     <span v-if="ka.notes" class="italic">{{ ka.notes }}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <a :href="'/storage/kaufanbote/' + propSettingsId + '/' + ka.pdf_filename" target="_blank"
+                                    <a v-if="ka.pdf_path" :href="'/storage/' + ka.pdf_path" target="_blank"
                                         class="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors"
                                         style="color:#ee7606;background:rgba(238,118,6,0.06)">
                                         <FileText class="w-3.5 h-3.5" />
                                         PDF anzeigen
                                     </a>
+                                    <button
+                                        type="button"
+                                        class="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors"
+                                        :class="ka.buyer_email
+                                            ? 'text-white bg-[#ee7606] hover:bg-[#d96a05]'
+                                            : 'text-[#a1a1aa] bg-zinc-50 border border-zinc-200 cursor-not-allowed opacity-60'"
+                                        :disabled="!ka.buyer_email"
+                                        :title="ka.buyer_email ? 'Mail an Käufer:in' : 'Keine E-Mail-Adresse hinterlegt'"
+                                        @click="contactPropBuyer(ka)"
+                                    >
+                                        <Mail class="w-3.5 h-3.5" />
+                                        Mail
+                                    </button>
                                     <select :value="ka.status" @change="updatePropertyKaufanbotStatus(ka.id, $event.target.value)"
                                         class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all text-[11px] py-1 px-2" style="width:auto">
                                         <option value="eingegangen">Eingegangen</option>

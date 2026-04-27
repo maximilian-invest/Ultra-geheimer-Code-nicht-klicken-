@@ -64,7 +64,7 @@ class AdminApiController extends Controller
             'update_property', 'delete_property', 'set_on_hold', 'set_inactive', 'reactivate_property',
             'upload_property_file', 'delete_property_file',
             'upload_property_image', 'update_property_image', 'delete_property_image',
-            'upload_property_kaufanbot', 'delete_property_kaufanbot', 'update_property_kaufanbot_status', 'update_kaufanbot_activity_status',
+            'upload_property_kaufanbot', 'update_property_kaufanbot', 'delete_property_kaufanbot', 'update_property_kaufanbot_status', 'update_kaufanbot_activity_status',
         ];
         if ($userType === 'makler' && in_array($action, $propertyWriteActions)) {
             $propId = intval($request->input('property_id', $request->query('property_id', 0)));
@@ -887,6 +887,9 @@ class AdminApiController extends Controller
             // Eigentuemer-Kontakt (Property-Detail Uebersicht → Schnell-Templates)
             'send_to_owner'             => $this->sendToOwner($request),
 
+            // Kaeufer-Kontakt (Property-Detail Kaufangebote-Tab → einzeln + bulk)
+            'send_to_buyer'             => $this->sendToBuyer($request),
+
             // Geocoding (OpenStreetMap Nominatim)
             'geocode_address'           => $this->geocodeAddress($request),
             'geocode_autocomplete'      => $this->geocodeAutocomplete($request),
@@ -920,6 +923,7 @@ class AdminApiController extends Controller
             // Property-level Kaufanbote (property_kaufanbote table)
             'list_property_kaufanbote'       => $this->listPropertyKaufanbote($request),
             'upload_property_kaufanbot'      => $this->uploadPropertyKaufanbot($request),
+            'update_property_kaufanbot'      => $this->updatePropertyKaufanbot($request),
             'delete_property_kaufanbot'      => $this->deletePropertyKaufanbot($request),
             'update_property_kaufanbot_status' => $this->updatePropertyKaufanbotStatus($request),
             'update_kaufanbot_activity_status' => $this->updateKaufanbotActivityStatus($request),
@@ -1153,7 +1157,7 @@ class AdminApiController extends Controller
                     'update_portal_user','create_portal_user','delete_portal_user',
                     'create_contact','snooze_followup',
                     'kaufanbote_stats','add_kaufanbot','delete_kaufanbot',
-                    'list_property_kaufanbote','upload_property_kaufanbot','delete_property_kaufanbot','update_property_kaufanbot_status',
+                    'list_property_kaufanbote','upload_property_kaufanbot','update_property_kaufanbot','delete_property_kaufanbot','update_property_kaufanbot_status','send_to_buyer',
                     'immoji_connect','immoji_disconnect','immoji_status','immoji_push','immoji_push_units','immoji_push_single_unit','immoji_set_unit_portals','immoji_portal_status','immoji_set_portals','immoji_capacity','bulk_sync_immoji','immoji_bulk_portal_status',
                     'email_accounts','get_email_accounts_select','save_email_account',
                     'delete_email_account','test_email_account',
@@ -3427,6 +3431,8 @@ PY;
             return [
                 'id' => $r->id,
                 'buyer_name' => $r->buyer_name,
+                'buyer_email' => $r->buyer_email ?? null,
+                'buyer_phone' => $r->buyer_phone ?? null,
                 'amount' => $r->amount,
                 'kaufanbot_date' => $r->kaufanbot_date,
                 'status' => $r->status,
@@ -3448,12 +3454,17 @@ PY;
     {
         $propertyId = intval($request->input('property_id', 0));
         $buyerName  = trim($request->input('buyer_name', ''));
+        $buyerEmail = trim((string) $request->input('buyer_email', ''));
+        $buyerPhone = trim((string) $request->input('buyer_phone', ''));
 
         if (!$propertyId || !$buyerName) {
             return response()->json(['error' => 'property_id and buyer_name required'], 400);
         }
         if (!$request->hasFile('pdf')) {
             return response()->json(['error' => 'PDF file required'], 400);
+        }
+        if ($buyerEmail !== '' && !filter_var($buyerEmail, FILTER_VALIDATE_EMAIL)) {
+            return response()->json(['error' => 'Ungueltige E-Mail-Adresse'], 422);
         }
 
         $unitIds = json_decode($request->input('unit_ids', '[]'), true) ?: [];
@@ -3471,6 +3482,8 @@ PY;
         $id = DB::table('property_kaufanbote')->insertGetId([
             'property_id'    => $propertyId,
             'buyer_name'     => $buyerName,
+            'buyer_email'    => $buyerEmail !== '' ? $buyerEmail : null,
+            'buyer_phone'    => $buyerPhone !== '' ? $buyerPhone : null,
             'amount'         => $request->input('amount') ? floatval($request->input('amount')) : null,
             'kaufanbot_date' => $request->input('kaufanbot_date') ?: now()->toDateString(),
             'status'         => 'akzeptiert',
@@ -3506,6 +3519,111 @@ PY;
 
         return response()->json(['success' => true, 'id' => $id, 'path' => $path]);
     }
+
+    /**
+     * Updatet ein bestehendes Kaufanbot. PDF ist optional (nur ersetzen wenn ein
+     * neues hochgeladen wurde). Erlaubt Bearbeitung von buyer_name/email/phone,
+     * Datum, zugewiesene Einheiten + Stellplaetze. Wenn sich die Einheiten-IDs
+     * aendern, werden alte Einheiten freigegeben und neue als verkauft markiert.
+     */
+    private function updatePropertyKaufanbot(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $id = intval($request->input('kaufanbot_id', 0));
+        if (!$id) return response()->json(['error' => 'kaufanbot_id required'], 400);
+
+        $existing = DB::table('property_kaufanbote')->where('id', $id)->first();
+        if (!$existing) return response()->json(['error' => 'Kaufanbot not found'], 404);
+
+        $buyerName  = trim($request->input('buyer_name', $existing->buyer_name));
+        $buyerEmail = trim((string) $request->input('buyer_email', ''));
+        $buyerPhone = trim((string) $request->input('buyer_phone', ''));
+
+        if ($buyerName === '') {
+            return response()->json(['error' => 'buyer_name required'], 400);
+        }
+        if ($buyerEmail !== '' && !filter_var($buyerEmail, FILTER_VALIDATE_EMAIL)) {
+            return response()->json(['error' => 'Ungueltige E-Mail-Adresse'], 422);
+        }
+
+        $unitIds    = json_decode($request->input('unit_ids', json_encode(json_decode($existing->unit_ids ?? '[]', true) ?: [])), true) ?: [];
+        $parkingIds = json_decode($request->input('parking_ids', json_encode(json_decode($existing->parking_ids ?? '[]', true) ?: [])), true) ?: [];
+
+        if (empty($unitIds)) {
+            return response()->json(['error' => 'Mindestens eine Einheit muss zugeordnet werden.'], 400);
+        }
+
+        $update = [
+            'buyer_name'     => $buyerName,
+            'buyer_email'    => $buyerEmail !== '' ? $buyerEmail : null,
+            'buyer_phone'    => $buyerPhone !== '' ? $buyerPhone : null,
+            'kaufanbot_date' => $request->input('kaufanbot_date') ?: $existing->kaufanbot_date,
+            'amount'         => $request->input('amount') !== null && $request->input('amount') !== '' ? floatval($request->input('amount')) : $existing->amount,
+            'unit_ids'       => json_encode($unitIds),
+            'parking_ids'    => json_encode($parkingIds),
+            'notes'          => trim((string) $request->input('notes', $existing->notes ?? '')) ?: null,
+            'updated_at'     => now(),
+        ];
+
+        // PDF nur ersetzen, wenn ein neues hochgeladen wurde.
+        if ($request->hasFile('pdf')) {
+            $file     = $request->file('pdf');
+            $dir      = 'kaufanbote/' . $existing->property_id;
+            $filename = 'KA_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $buyerName) . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $path     = $file->storeAs($dir, $filename, 'public');
+
+            // Altes PDF entfernen
+            if ($existing->pdf_path) {
+                $oldPath = storage_path('app/public/' . $existing->pdf_path);
+                if (is_file($oldPath)) @unlink($oldPath);
+            }
+
+            $update['pdf_path']     = $path;
+            $update['pdf_filename'] = $filename;
+        }
+
+        DB::table('property_kaufanbote')->where('id', $id)->update($update);
+
+        // Einheiten-Zuordnung syncen: Alte freigeben, neue als verkauft markieren.
+        $oldUnitIds    = json_decode($existing->unit_ids ?? '[]', true) ?: [];
+        $oldParkingIds = json_decode($existing->parking_ids ?? '[]', true) ?: [];
+
+        $removedUnits   = array_diff($oldUnitIds, $unitIds);
+        $removedParking = array_diff($oldParkingIds, $parkingIds);
+
+        if (!empty($removedUnits)) {
+            DB::table('property_units')
+                ->whereIn('id', $removedUnits)
+                ->update(['status' => 'frei', 'buyer_name' => null, 'kaufanbot_pdf' => null, 'updated_at' => now()]);
+        }
+        if (!empty($removedParking)) {
+            DB::table('property_units')
+                ->whereIn('id', $removedParking)
+                ->update(['status' => 'frei', 'buyer_name' => null, 'updated_at' => now()]);
+        }
+
+        // Aktuelle Einheiten als verkauft markieren (mit ggf. neuem PDF-Pfad).
+        $effectivePdfPath = $update['pdf_path'] ?? $existing->pdf_path;
+        DB::table('property_units')
+            ->whereIn('id', $unitIds)
+            ->update([
+                'status'        => 'verkauft',
+                'buyer_name'    => $buyerName,
+                'kaufanbot_pdf' => $effectivePdfPath,
+                'updated_at'    => now(),
+            ]);
+        if (!empty($parkingIds)) {
+            DB::table('property_units')
+                ->whereIn('id', $parkingIds)
+                ->update([
+                    'status'     => 'verkauft',
+                    'buyer_name' => $buyerName,
+                    'updated_at' => now(),
+                ]);
+        }
+
+        return response()->json(['success' => true, 'id' => $id]);
+    }
+
     private function deletePropertyKaufanbot(Request $request): \Illuminate\Http\JsonResponse
     {
         $id = intval($request->input('kaufanbot_id', 0));
@@ -4926,6 +5044,206 @@ PY;
         }
 
         return response()->json(['success' => true, 'email_id' => $sentEmailId]);
+    }
+
+    /**
+     * Sendet eine Mail an einen oder mehrere Kaeufer eines Objekts. Wird vom
+     * BuyerComposeDialog im Kaufangebote-Tab aufgerufen. Bei mehreren
+     * Empfaengern wird pro Empfaenger eine eigene Mail versandt (kein BCC), so
+     * dass jeder eine individuelle Aktivitaet bekommt und keine E-Mail-Adressen
+     * untereinander offengelegt werden.
+     *
+     * Request:
+     *   - property_id (required)
+     *   - to[] oder to (single)              -> Empfaenger-Adressen
+     *   - to_names[] (optional, parallel zu to[]) -> Anzeigename pro Empfaenger
+     *   - subject, body
+     *   - attachments[], file_ids[], doc_ids[] (wie sendToOwner)
+     */
+    private function sendToBuyer(Request $request): JsonResponse
+    {
+        $propertyId = (int) $request->input('property_id', 0);
+        $subject    = trim((string) $request->input('subject', ''));
+        $body       = trim((string) $request->input('body', ''));
+
+        // Empfaenger-Liste normalisieren.
+        $rawTo = $request->input('to', []);
+        if (is_string($rawTo)) {
+            $rawTo = preg_split('/[,;]+/', $rawTo);
+        }
+        $toList = array_values(array_filter(array_map('trim', (array) $rawTo)));
+
+        $rawNames = $request->input('to_names', []);
+        if (is_string($rawNames)) $rawNames = [$rawNames];
+        $nameList = (array) $rawNames;
+
+        if (!$propertyId || empty($toList) || $subject === '' || $body === '') {
+            return response()->json(['success' => false, 'error' => 'property_id, to, subject, body required'], 400);
+        }
+        foreach ($toList as $addr) {
+            if (!filter_var($addr, FILTER_VALIDATE_EMAIL)) {
+                return response()->json(['success' => false, 'error' => 'Ungueltige Empfaenger-Adresse: ' . $addr], 422);
+            }
+        }
+
+        $userId = (int) \Auth::id();
+        $userType = \Auth::user()->user_type ?? 'makler';
+        if (!in_array($userType, ['assistenz', 'backoffice'], true)) {
+            $propBroker = \DB::table('properties')->where('id', $propertyId)->value('broker_id');
+            if ($propBroker && $propBroker != $userId) {
+                return response()->json(['success' => false, 'error' => 'Keine Berechtigung'], 403);
+            }
+        }
+
+        $property = \App\Models\Property::find($propertyId);
+        if (!$property) {
+            return response()->json(['success' => false, 'error' => 'Property nicht gefunden'], 404);
+        }
+
+        // Anhaenge sammeln (wie sendToOwner: Uploads als UploadedFile, DB-IDs als Pfade).
+        $attachments = [];
+        $tmpFiles = [];
+
+        $uploads = $request->file('attachments') ?? [];
+        if (!is_array($uploads)) $uploads = [$uploads];
+        foreach ($uploads as $file) {
+            if (!$file || !$file->isValid()) continue;
+            if ($file->getSize() > 20 * 1024 * 1024) {
+                return response()->json(['success' => false, 'error' => 'Anhang zu gross (max 20 MB)'], 422);
+            }
+            $attachments[] = $file;
+        }
+
+        $rawFileIds = $request->input('file_ids', []);
+        if (is_string($rawFileIds)) {
+            $rawFileIds = array_filter(array_map('trim', explode(',', $rawFileIds)));
+        }
+        $fileIds = array_values(array_filter(array_map('intval', (array) $rawFileIds)));
+        if (!empty($fileIds)) {
+            $rows = \DB::table('property_files')
+                ->whereIn('id', $fileIds)
+                ->where('property_id', $propertyId)
+                ->get();
+            foreach ($rows as $row) {
+                $absPath = storage_path('app/public/' . $row->path);
+                if (!is_file($absPath)) continue;
+                $desiredName = trim((string) ($row->filename ?? '')) ?: basename($row->path);
+                if (basename($row->path) === $desiredName) {
+                    $attachments[] = $absPath;
+                } else {
+                    $tmpDir = sys_get_temp_dir() . '/buyer-att-' . uniqid('', true);
+                    @mkdir($tmpDir, 0755, true);
+                    $renamed = $tmpDir . '/' . preg_replace('#[/\\\\]+#', '_', $desiredName);
+                    if (@copy($absPath, $renamed)) {
+                        $attachments[] = $renamed;
+                        $tmpFiles[] = $renamed;
+                    } else {
+                        $attachments[] = $absPath;
+                    }
+                }
+            }
+        }
+
+        $rawDocIds = $request->input('doc_ids', []);
+        if (is_string($rawDocIds)) {
+            $rawDocIds = array_filter(array_map('trim', explode(',', $rawDocIds)));
+        }
+        $docIds = array_values(array_filter(array_map('intval', (array) $rawDocIds)));
+        if (!empty($docIds)) {
+            $rows = \DB::table('portal_documents')
+                ->whereIn('id', $docIds)
+                ->where('property_id', $propertyId)
+                ->get();
+            foreach ($rows as $row) {
+                $absPath = storage_path('app/public/documents/' . $row->property_id . '/' . $row->filename);
+                if (!is_file($absPath)) continue;
+                $desiredName = trim((string) ($row->original_name ?? '')) ?: basename($absPath);
+                $tmpDir = sys_get_temp_dir() . '/buyer-att-' . uniqid('', true);
+                @mkdir($tmpDir, 0755, true);
+                $renamed = $tmpDir . '/' . preg_replace('#[/\\\\]+#', '_', $desiredName);
+                if (@copy($absPath, $renamed)) {
+                    $attachments[] = $renamed;
+                    $tmpFiles[] = $renamed;
+                } else {
+                    $attachments[] = $absPath;
+                }
+            }
+        }
+
+        $accountId = \DB::table('email_accounts')
+            ->where('user_id', $userId)
+            ->where('is_active', 1)
+            ->value('id');
+        if (!$accountId) {
+            return response()->json(['success' => false, 'error' => 'Kein aktives E-Mail-Konto'], 500);
+        }
+
+        $emailService = app(\App\Services\EmailService::class);
+
+        $sent = [];
+        $failed = [];
+
+        try {
+            foreach ($toList as $idx => $to) {
+                $toName = trim((string) ($nameList[$idx] ?? '')) ?: null;
+                try {
+                    $result = $emailService->send(
+                        (int) $accountId,
+                        $to,
+                        $subject,
+                        $body,
+                        $propertyId,
+                        $toName,
+                        null, // cc
+                        null, // bcc
+                        $attachments,
+                        null, null,
+                        'email-out',
+                        null
+                    );
+                    $sentEmailId = $result['email_id'] ?? null;
+                    $sent[] = ['to' => $to, 'email_id' => $sentEmailId];
+
+                    try {
+                        \DB::table('activities')->insert([
+                            'property_id'      => $propertyId,
+                            'activity_date'    => now()->toDateString(),
+                            'stakeholder'      => $toName ?: $to,
+                            'activity'         => 'An Kaeufer:in gesendet: ' . mb_substr($subject, 0, 200),
+                            'category'         => 'email-out',
+                            'source_email_id'  => $sentEmailId ?: null,
+                            'created_at'       => now(),
+                            'updated_at'       => now(),
+                        ]);
+                    } catch (\Throwable $e) {
+                        \Log::warning('sendToBuyer activity log failed', ['error' => $e->getMessage()]);
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error('sendToBuyer send failed', ['to' => $to, 'error' => $e->getMessage()]);
+                    $failed[] = ['to' => $to, 'error' => $e->getMessage()];
+                }
+            }
+        } finally {
+            foreach ($tmpFiles as $p) {
+                if (is_file($p)) @unlink($p);
+                $dir = dirname($p);
+                if (is_dir($dir) && @scandir($dir) === ['.', '..']) @rmdir($dir);
+            }
+        }
+
+        if (empty($sent) && !empty($failed)) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Versand fehlgeschlagen',
+                'failed'  => $failed,
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'sent'    => $sent,
+            'failed'  => $failed,
+        ]);
     }
 
     /**

@@ -538,9 +538,11 @@ onMounted(() => {
     </div>
 
     <!-- ═══ DIALOG ═══ -->
+    <!-- max-h + flex-col ermoeglicht stickys Footer mit Save-Button. Body
+         scrollt unabhaengig wenn der Inhalt zu hoch ist. -->
     <Dialog :open="showDialog" @update:open="showDialog = $event">
-      <DialogContent class="max-w-lg">
-        <DialogHeader>
+      <DialogContent class="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+        <DialogHeader class="px-6 pt-6 pb-2 flex-shrink-0">
           <DialogTitle class="text-[15px]">{{ form.kaufanbot_id ? 'Kaufanbot bearbeiten' : 'Neues Kaufanbot' }}</DialogTitle>
           <DialogDescription class="text-xs">
             <template v-if="form.kaufanbot_id">Kontaktdaten und Zuordnung anpassen. PDF nur austauschen wenn neu hochgeladen.</template>
@@ -548,7 +550,7 @@ onMounted(() => {
           </DialogDescription>
         </DialogHeader>
 
-        <div class="space-y-5 pt-2">
+        <div class="space-y-5 px-6 pt-2 pb-4 overflow-y-auto flex-1 min-h-0">
           <!-- PDF Upload -->
           <div>
             <label class="text-xs text-muted-foreground mb-1.5 block">
@@ -782,14 +784,14 @@ onMounted(() => {
             <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Ausgewaehlte Einheiten + Stellplaetze werden automatisch als <strong>&nbsp;"verkauft"&nbsp;</strong> markiert.
           </div>
+        </div>
 
-          <!-- Buttons -->
-          <div class="flex justify-end gap-2 pt-1">
-            <Button variant="outline" size="sm" @click="showDialog = false">Abbrechen</Button>
-            <Button size="sm" :disabled="saving" @click="saveKaufanbot">
-              {{ saving ? "Speichern ..." : (form.kaufanbot_id ? "Aenderungen speichern" : "Kaufanbot speichern") }}
-            </Button>
-          </div>
+        <!-- Sticky Footer: Save-Button immer erreichbar, auch wenn Body scrollt -->
+        <div class="flex justify-end gap-2 px-6 py-3 border-t bg-background flex-shrink-0" style="border-color:hsl(240 5.9% 90%)">
+          <Button variant="outline" size="sm" @click="showDialog = false">Abbrechen</Button>
+          <Button size="sm" :disabled="saving" @click="saveKaufanbot">
+            {{ saving ? "Speichern ..." : (form.kaufanbot_id ? "Änderungen speichern" : "Kaufanbot speichern") }}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

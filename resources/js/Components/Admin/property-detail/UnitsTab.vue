@@ -405,6 +405,12 @@ async function saveUnit(unit) {
       portal_exports: unit.portal_exports,
       parking_spaces: unit.parking_spaces ? (Array.isArray(unit.parking_spaces) ? JSON.stringify(unit.parking_spaces) : unit.parking_spaces) : null,
       is_parking: 0,
+      // Per-Unit Aussenflaechen — werden auch fuer die Master-Range
+      // (EditTabFlaechen → neubauRanges) und beim Single-Unit-Push an
+      // Immoji verwendet.
+      area_balcony: unit.area_balcony ?? null,
+      area_terrace: unit.area_terrace ?? null,
+      area_garden: unit.area_garden ?? null,
     };
     const r = await fetch(API.value + "&action=save_property_unit", {
       method: "POST",
@@ -568,6 +574,12 @@ async function inlineTogglePortal(unit, portalKey) {
       portal_exports: unit.portal_exports,
       parking_spaces: unit.parking_spaces ? (Array.isArray(unit.parking_spaces) ? JSON.stringify(unit.parking_spaces) : unit.parking_spaces) : null,
       is_parking: 0,
+      // Per-Unit Aussenflaechen — werden auch fuer die Master-Range
+      // (EditTabFlaechen → neubauRanges) und beim Single-Unit-Push an
+      // Immoji verwendet.
+      area_balcony: unit.area_balcony ?? null,
+      area_terrace: unit.area_terrace ?? null,
+      area_garden: unit.area_garden ?? null,
     };
     const r = await fetch(API.value + "&action=save_property_unit", {
       method: "POST",
@@ -630,6 +642,9 @@ function addUnitRow() {
     status: "frei",
     portal_exports: {},
     is_parking: 0,
+    area_balcony: null,
+    area_terrace: null,
+    area_garden: null,
   };
   units.value.push(newUnit);
   expandedUnit.value = newUnit._tempId;
@@ -945,6 +960,42 @@ defineExpose({ save, discard });
                     step="0.01"
                     class="h-9 text-[13px] border border-input rounded-lg bg-background"
                     placeholder="z.B. 75"
+                  />
+                </div>
+
+                <!-- Balkon (m²) — pro Einheit, fließt in Master-Range ein -->
+                <div>
+                  <label class="text-[12px] text-zinc-600 font-medium mb-1.5 block">Balkon (m²)</label>
+                  <Input
+                    v-model.number="unit.area_balcony"
+                    type="number"
+                    step="0.01"
+                    class="h-9 text-[13px] border border-input rounded-lg bg-background"
+                    placeholder="leer = kein Balkon"
+                  />
+                </div>
+
+                <!-- Terrasse (m²) — pro Einheit -->
+                <div>
+                  <label class="text-[12px] text-zinc-600 font-medium mb-1.5 block">Terrasse (m²)</label>
+                  <Input
+                    v-model.number="unit.area_terrace"
+                    type="number"
+                    step="0.01"
+                    class="h-9 text-[13px] border border-input rounded-lg bg-background"
+                    placeholder="leer = keine Terrasse"
+                  />
+                </div>
+
+                <!-- Garten (m²) — pro Einheit -->
+                <div>
+                  <label class="text-[12px] text-zinc-600 font-medium mb-1.5 block">Garten (m²)</label>
+                  <Input
+                    v-model.number="unit.area_garden"
+                    type="number"
+                    step="0.01"
+                    class="h-9 text-[13px] border border-input rounded-lg bg-background"
+                    placeholder="leer = kein Garten"
                   />
                 </div>
 

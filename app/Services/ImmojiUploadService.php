@@ -209,6 +209,18 @@ class ImmojiUploadService
         $merged['rooms_amount'] = $unit['rooms'] ?? $unit['rooms_amount'] ?? null;
         $merged['floor_number'] = $unit['floor'] ?? null;
 
+        // Aussenflaechen pro Einheit. Bewusst PFLICHT-Override (auch mit
+        // null), damit ein TOP ohne Garten nicht den Garten der Master-
+        // Property erbt. Has-Flags werden ebenfalls anhand der Unit-Werte
+        // neu berechnet, sonst meldet Immoji "hat Garten = ja, Garten-
+        // Flaeche = leer" und der Wert auf den Portalen wirkt unstimmig.
+        $merged['area_balcony'] = isset($unit['area_balcony']) && $unit['area_balcony'] !== '' ? (float) $unit['area_balcony'] : null;
+        $merged['area_terrace'] = isset($unit['area_terrace']) && $unit['area_terrace'] !== '' ? (float) $unit['area_terrace'] : null;
+        $merged['area_garden']  = isset($unit['area_garden'])  && $unit['area_garden']  !== '' ? (float) $unit['area_garden']  : null;
+        $merged['has_balcony'] = !empty($merged['area_balcony']);
+        $merged['has_terrace'] = !empty($merged['area_terrace']);
+        $merged['has_garden']  = !empty($merged['area_garden']);
+
         // unit_type enthaelt die vollstaendige deutsche Bezeichnung
         // (z.B. 'Doppelhaushaelfte'). Daraus leiten wir fuer Immoji sowohl
         // den groben object_type (HOUSE / APARTMENT / OFFICE / GARAGE) als

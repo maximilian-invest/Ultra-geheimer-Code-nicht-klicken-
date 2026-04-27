@@ -132,13 +132,16 @@ const sectionCounts = computed(() => {
   return out;
 });
 
-// Range-Labels per Feld fuer Neubau
+// Range-Labels per Feld fuer Neubau. Aussenflaechen werden jetzt pro
+// Einheit gepflegt — wir lesen direkt area_balcony/area_terrace/area_garden
+// aus property_units. Fallback auf die Legacy-Spalten balcony_terrace_m2 /
+// garden_m2 wenn die neuen Felder noch leer sind (Bestandsdaten).
 const neubauRanges = computed(() => ({
   living_area:   minMaxRange("area_m2", "m²"),
   rooms_amount:  minMaxRange("rooms", ""),
-  area_balcony:  minMaxRange("balcony_terrace_m2", "m²"),
-  area_terrace:  minMaxRange("balcony_terrace_m2", "m²"), // selbes Feld in Units
-  area_garden:   minMaxRange("garden_m2", "m²"),
+  area_balcony:  minMaxRange("area_balcony", "m²")  || minMaxRange("balcony_terrace_m2", "m²"),
+  area_terrace:  minMaxRange("area_terrace", "m²"),
+  area_garden:   minMaxRange("area_garden", "m²")   || minMaxRange("garden_m2", "m²"),
 }));
 
 const inputCls = "h-9 text-[13px] border-0 rounded-lg bg-zinc-100/80";

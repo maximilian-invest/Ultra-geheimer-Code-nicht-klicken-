@@ -610,6 +610,12 @@ class PropertySettingsController extends Controller
             'status'             => in_array($data['status'] ?? '', ['frei','reserviert','verkauft']) ? $data['status'] : 'frei',
             'balcony_terrace_m2' => isset($data['balcony_terrace_m2']) ? floatval($data['balcony_terrace_m2']) : null,
             'garden_m2'          => isset($data['garden_m2']) ? floatval($data['garden_m2']) : null,
+            // Per-Unit Aussenflaechen (separat gepflegt — siehe UnitsTab) —
+            // werden bei Neubauprojekten in den Master-Range-Berechnungen
+            // verwendet und beim Immoji-Single-Unit-Push pro Einheit gesetzt.
+            'area_balcony'       => isset($data['area_balcony']) && $data['area_balcony'] !== '' ? floatval($data['area_balcony']) : null,
+            'area_terrace'       => isset($data['area_terrace']) && $data['area_terrace'] !== '' ? floatval($data['area_terrace']) : null,
+            'area_garden'        => isset($data['area_garden']) && $data['area_garden'] !== '' ? floatval($data['area_garden']) : null,
             'parking'            => trim($data['parking'] ?? '') ?: null,
             'notes'              => trim($data['notes'] ?? '') ?: null,
             'portal_exports'     => isset($data['portal_exports']) ? (is_string($data['portal_exports']) ? $data['portal_exports'] : json_encode($data['portal_exports'])) : null,

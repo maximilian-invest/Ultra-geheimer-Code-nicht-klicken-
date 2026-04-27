@@ -210,11 +210,17 @@ function setLink() {
 .sr-tiptap-toolbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 4px 6px;
   border-bottom: 1px solid hsl(240 5.9% 92%);
   background: hsl(240 5% 98%);
   flex-shrink: 0;
+  /* Sticky-Fallback: falls der Editor in einem scrollenden Outer-Container
+     gerendert wird, bleibt die Toolbar trotzdem oben sichtbar. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 .sr-tiptap-toolbar button {
   padding: 4px 6px;

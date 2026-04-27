@@ -243,17 +243,21 @@ function onPropertyAssign(payload) {
       </div>
     </div>
 
-    <!-- Body (main area, matches chat area styling) -->
-    <div class="flex-1 min-h-0 overflow-y-auto px-5 py-4 bg-white flex flex-col">
+    <!-- Body (main area). Outer-Container scrollt NICHT — sonst rutscht
+         die Toolbar oben aus dem sichtbaren Bereich raus, wenn Editor +
+         Signatur zusammen zu hoch werden. Der RichTextEditor scrollt
+         selbst intern (Toolbar via flex-shrink:0 fix oben), die Signatur-
+         Preview bleibt als kompakter Footer-Bereich unten sichtbar. -->
+    <div class="flex-1 min-h-0 px-5 py-4 bg-white flex flex-col overflow-hidden">
       <RichTextEditor
         :model-value="composeBody"
         @update:model-value="emit('update:composeBody', $event)"
         placeholder="Nachricht schreiben..."
         min-height="220px"
-        class="flex-1"
+        class="flex-1 min-h-0"
       />
       <!-- Signature Preview (read-only, appended automatically on send) -->
-      <div v-if="signatureData" class="mt-3 pt-2 border-t border-dashed border-zinc-200 text-[12px] leading-relaxed select-none pointer-events-none">
+      <div v-if="signatureData" class="mt-3 pt-2 border-t border-dashed border-zinc-200 text-[12px] leading-relaxed select-none pointer-events-none flex-shrink-0 max-h-[140px] overflow-hidden">
         <div class="text-zinc-300">--</div>
         <img
           v-if="signatureData.signature_logo_url"

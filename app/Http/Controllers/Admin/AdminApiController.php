@@ -4714,25 +4714,89 @@ PY;
 
         $toName = trim((string) ($property->owner_name ?? '')) ?: null;
 
-        // Uploads in tmp speichern und als Pfade an EmailService uebergeben.
-        // Nach dem Versand raeumen wir die tmp-Dateien auf.
-        $attachmentPaths = [];
+        // Anhaenge sammeln: zwei Quellen
+        //   1. Frische Uploads ($request->file('attachments'))
+        //   2. Aus property_files / portal_documents / global_files ausgewaehlte
+        //      IDs (file_ids, doc_ids, global_ids als CSV oder Array).
+        // EmailService erwartet einen Array von Pfaden (basename = Datei-
+        // name beim Empfaenger), oder UploadedFile-Objekte (preserve original
+        // name + mime). Wir nutzen UploadedFile fuer Uploads (loest den
+        // "owner_att_xxx ohne Endung"-Bug) und Pfade fuer DB-Files.
+        $attachments = [];
         $tmpFiles = [];
+
+        // (1) Uploads: UploadedFile-Objekte direkt durchreichen.
         $uploads = $request->file('attachments') ?? [];
         if (!is_array($uploads)) $uploads = [$uploads];
         foreach ($uploads as $file) {
             if (!$file || !$file->isValid()) continue;
-            // Safety: begrenzen auf 20 MB / Datei
             if ($file->getSize() > 20 * 1024 * 1024) {
                 return response()->json(['success' => false, 'error' => 'Anhang zu gross (max 20 MB)'], 422);
             }
-            $tmp = tempnam(sys_get_temp_dir(), 'owner_att_');
-            $file->move(dirname($tmp), basename($tmp));
-            // Wir brauchen den Original-Dateinamen fuer den Mail-Anhang; EmailService
-            // uebernimmt Array-Form mit path+name, falls unterstuetzt. Fallback: nur Pfad.
-            $finalPath = $tmp;
-            $attachmentPaths[] = $finalPath;
-            $tmpFiles[] = $finalPath;
+            $attachments[] = $file;
+        }
+
+        // (2) Bestehende Property-Files (Exposé, BaB etc.) per ID.
+        $rawFileIds = $request->input('file_ids', []);
+        if (is_string($rawFileIds)) {
+            $rawFileIds = array_filter(array_map('trim', explode(',', $rawFileIds)));
+        }
+        $fileIds = array_values(array_filter(array_map('intval', (array) $rawFileIds)));
+        if (!empty($fileIds)) {
+            $rows = \DB::table('property_files')
+                ->whereIn('id', $fileIds)
+                ->where('property_id', $propertyId)
+                ->get();
+            foreach ($rows as $row) {
+                $absPath = storage_path('app/public/' . $row->path);
+                if (!is_file($absPath)) continue;
+                // Falls der DB-Dateiname von dem Path-basename abweicht
+                // (z.B. wegen sanitizing beim Upload), kopieren wir die Datei
+                // in einen Temp-Ordner mit dem gewuenschten DB-`filename`,
+                // damit der Empfaenger den lesbaren Originalnamen sieht.
+                $desiredName = trim((string) ($row->filename ?? '')) ?: basename($row->path);
+                if (basename($row->path) === $desiredName) {
+                    $attachments[] = $absPath;
+                } else {
+                    $tmpDir = sys_get_temp_dir() . '/owner-att-' . uniqid('', true);
+                    @mkdir($tmpDir, 0755, true);
+                    $renamed = $tmpDir . '/' . preg_replace('#[/\\\\]+#', '_', $desiredName);
+                    if (@copy($absPath, $renamed)) {
+                        $attachments[] = $renamed;
+                        $tmpFiles[] = $renamed;
+                    } else {
+                        $attachments[] = $absPath;
+                    }
+                }
+            }
+        }
+
+        // (3) Portal-Documents (Nebenkosten/Allgemeine Dokumente, mit `doc_`-Prefix
+        // aus dem File-Picker, oder als reine ID).
+        $rawDocIds = $request->input('doc_ids', []);
+        if (is_string($rawDocIds)) {
+            $rawDocIds = array_filter(array_map('trim', explode(',', $rawDocIds)));
+        }
+        $docIds = array_values(array_filter(array_map('intval', (array) $rawDocIds)));
+        if (!empty($docIds)) {
+            $rows = \DB::table('portal_documents')
+                ->whereIn('id', $docIds)
+                ->where('property_id', $propertyId)
+                ->get();
+            foreach ($rows as $row) {
+                $absPath = storage_path('app/public/documents/' . $row->property_id . '/' . $row->filename);
+                if (!is_file($absPath)) continue;
+                $desiredName = trim((string) ($row->original_name ?? '')) ?: basename($absPath);
+                $tmpDir = sys_get_temp_dir() . '/owner-att-' . uniqid('', true);
+                @mkdir($tmpDir, 0755, true);
+                $renamed = $tmpDir . '/' . preg_replace('#[/\\\\]+#', '_', $desiredName);
+                if (@copy($absPath, $renamed)) {
+                    $attachments[] = $renamed;
+                    $tmpFiles[] = $renamed;
+                } else {
+                    $attachments[] = $absPath;
+                }
+            }
         }
 
         // Konto fuer Versand: erstes aktives Konto des Users
@@ -4756,7 +4820,7 @@ PY;
                 $toName,
                 null, // cc
                 null, // bcc
-                $attachmentPaths,
+                $attachments,
                 null, // inReplyToMessageId
                 null, // references
                 'email-out',
@@ -4766,11 +4830,13 @@ PY;
             \Log::error('sendToOwner failed', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'error' => 'Versand fehlgeschlagen: ' . $e->getMessage()], 500);
         } finally {
-            // Tmp-Uploads wieder entfernen; wir haben sie oben schon via move()
-            // verschoben, aber der neue Pfad ist ebenfalls tmp und muss nach dem
-            // Versand weg.
+            // Tmp-Kopien (umbenannte property_files / portal_documents) wieder
+            // entfernen. Uploads sind UploadedFile-Objekte und werden von
+            // PHP automatisch beim Request-Ende geraeumt.
             foreach ($tmpFiles as $p) {
                 if (is_file($p)) @unlink($p);
+                $dir = dirname($p);
+                if (is_dir($dir) && @scandir($dir) === ['.', '..']) @rmdir($dir);
             }
         }
 

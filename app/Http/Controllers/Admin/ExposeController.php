@@ -24,6 +24,10 @@ class ExposeController extends Controller
     {
         $config = $this->builder->build($property);
 
+        // Hatten wir schon eine Version? Dann ist das eine Neu-Generierung,
+        // sonst eine Erst-Erstellung. Praegnante Activity-Bezeichnung.
+        $hadPriorVersion = PropertyExposeVersion::where('property_id', $property->id)->exists();
+
         // Bisherige aktive Version deaktivieren.
         PropertyExposeVersion::where('property_id', $property->id)
             ->where('is_active', true)
@@ -36,6 +40,12 @@ class ExposeController extends Controller
             'config_json' => $config,
             'is_active'   => true,
         ]);
+
+        // Aktivitaet protokollieren
+        app(\App\Services\PropertyActivityLogger::class)->logEvent(
+            $property->id,
+            $hadPriorVersion ? 'Exposé neu generiert' : 'Exposé erstellt'
+        );
 
         return response()->json([
             'success'    => true,
@@ -66,6 +76,11 @@ class ExposeController extends Controller
             'expose_cover_title'    => $data['expose_cover_title'] ?? null,
             'expose_cover_subtitle' => $data['expose_cover_subtitle'] ?? null,
         ])->save();
+
+        app(\App\Services\PropertyActivityLogger::class)->logEvent(
+            $property->id,
+            'Exposé-Texte angepasst'
+        );
 
         return response()->json(['success' => true]);
     }
@@ -135,6 +150,11 @@ class ExposeController extends Controller
             'config_json' => $data['config'],
             'is_active'   => true,
         ]);
+
+        app(\App\Services\PropertyActivityLogger::class)->logEvent(
+            $property->id,
+            'Exposé-Layout angepasst'
+        );
 
         return response()->json([
             'success'    => true,

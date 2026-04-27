@@ -1182,10 +1182,15 @@ class ImmojiUploadService
             $payload['variables'] = $variables;
         }
 
+        // 120s reichten beim ersten createRealty mit Bildern wiederholt nicht
+        // (gesehen 2026-04-27 zwei Mal in Folge fuer Property 241 — die Mutation
+        // legt zwar an, der Response kommt aber nicht zurueck, openimmo_id geht
+        // verloren). 5 Minuten ist immernoch deutlich kuerzer als die PHP-FPM-
+        // Default-Limits und gibt Immoji genug Luft beim Initial-Push.
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $this->token,
             'Content-Type' => 'application/json',
-        ])->timeout(120)->post(self::API_URL, $payload);
+        ])->timeout(300)->post(self::API_URL, $payload);
 
         if ($response->failed()) {
             Log::error('Immoji GraphQL request failed', [

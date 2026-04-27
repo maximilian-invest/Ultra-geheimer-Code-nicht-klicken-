@@ -355,9 +355,10 @@ function onLinkPicked(link) {
       </div>
     </div>
 
-    <!-- Anhaenge: zwei Buttons (Hochladen / Aus Dateien) + Liste -->
+    <!-- Anhaenge: Label + zwei Buttons (Hochladen / Aus Dateien) + Liste -->
     <div class="sr-attachments">
       <div class="sr-att-bar">
+        <span class="sr-att-label">📎 Anhänge:</span>
         <button type="button" class="sr-att-btn" @click="fileInputRef?.click()">
           <Paperclip class="w-3.5 h-3.5" />
           Hochladen
@@ -774,13 +775,22 @@ function onLinkPicked(link) {
 /* ─── Anhaenge ──────────────────────────────────────────────────── */
 .sr-attachments {
   border-top: 1px solid hsl(240 5.9% 92%);
-  padding: 8px 16px;
+  padding: 10px 16px;
   background: hsl(240 5% 98%);
+  flex-shrink: 0;
 }
 .sr-att-bar {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+.sr-att-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: hsl(240 5% 35%);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 .sr-att-btn {
   display: inline-flex;

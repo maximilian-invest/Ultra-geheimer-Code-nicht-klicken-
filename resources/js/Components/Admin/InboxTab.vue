@@ -1766,6 +1766,11 @@ async function sendDraft() {
       loadUnanswered(unansweredFilter.value);
       loadFollowups(followupFilter.value);
       refreshCounts();
+      // Backend trashed nach jedem Reply die zugehoerigen Inbound-Mails
+      // (Auto-trashed inbound emails after conv reply). Wenn der User
+      // gerade im Papierkorb-Tab steht, frisch nachladen — sonst sieht
+      // er die neu archivierten Mails erst nach Tab-Wechsel.
+      if (activeSubtab.value === "papierkorb") loadTrash();
     } else {
       toast("Fehler beim Senden an " + itemName + ": " + (result.error || "Unbekannt"));
       loadUnanswered(unansweredFilter.value);
@@ -2690,6 +2695,7 @@ onMounted(() => {
   if (activeSubtab.value === "posteingang") { ehDirection.value = "inbound"; loadEmailHistory(); }
   if (activeSubtab.value === "gesendet") { ehDirection.value = "outbound"; loadEmailHistory(); }
   if (activeSubtab.value === "entwuerfe") loadDrafts();
+  if (activeSubtab.value === "papierkorb") loadTrash();
   if (userType.value === "assistenz") loadEmailAccounts();
 });
 </script>

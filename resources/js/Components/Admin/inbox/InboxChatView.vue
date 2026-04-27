@@ -2,10 +2,11 @@
 import { computed, inject, ref, watch, nextTick } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp, Sparkles, CheckCircle, Send, RefreshCw, Wand2, Link2, Pencil, Home, Forward } from 'lucide-vue-next'
+import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp, Sparkles, CheckCircle, Send, RefreshCw, Wand2, Link2, Paperclip, Pencil, Home, Forward } from 'lucide-vue-next'
 import InboxMatchCard from './InboxMatchCard.vue'
 import InboxMailMessage from './InboxMailMessage.vue'
 import InboxComposePane from './InboxComposePane.vue'
+import AttachmentPickerPopover from './AttachmentPickerPopover.vue'
 import LinkPickerPopover from './LinkPickerPopover.vue'
 import PropertyAssignDialog from './PropertyAssignDialog.vue'
 import ForwardToManagerButton from './ForwardToManagerButton.vue'
@@ -207,6 +208,7 @@ function exitCompose() {
 // scroll container and stay visible. They route through the same
 // inject('inboxCompose') contract the compose pane uses.
 const linkPickerOpen = ref(false)
+const attachPickerOpen = ref(false)
 
 const composeDraft = computed(() => inboxComposeInject?.draft?.value || null)
 const composeBodyIsEmpty = computed(() => !(composeDraft.value?.body || '').trim())
@@ -871,6 +873,23 @@ const statusBadge = computed(() => {
         Immobilie anbieten
       </button>
       <div class="sr-thread-actions-spacer"></div>
+      <!-- Anhang-Button mit Popover (Hochladen / Aus Dateien) -->
+      <div class="sr-link-picker-wrapper">
+        <AttachmentPickerPopover
+          v-if="attachPickerOpen"
+          :property-id="item?.property_id || null"
+          @close="attachPickerOpen = false"
+        />
+        <button
+          type="button"
+          class="sr-btn sr-btn-ghost"
+          title="Anhang hinzufügen"
+          @click="attachPickerOpen = !attachPickerOpen; linkPickerOpen = false"
+        >
+          <Paperclip class="w-3.5 h-3.5" />
+          Anhang
+        </button>
+      </div>
       <div class="sr-link-picker-wrapper">
         <LinkPickerPopover
           v-if="linkPickerOpen && item?.property_id"
@@ -883,7 +902,7 @@ const statusBadge = computed(() => {
           class="sr-btn sr-btn-ghost"
           :disabled="!item?.property_id"
           :title="item?.property_id ? 'Docs-Link anfügen' : 'Kein Objekt in der Konversation'"
-          @click="linkPickerOpen = !linkPickerOpen"
+          @click="linkPickerOpen = !linkPickerOpen; attachPickerOpen = false"
         >
           <Link2 class="w-3.5 h-3.5" />
           Link

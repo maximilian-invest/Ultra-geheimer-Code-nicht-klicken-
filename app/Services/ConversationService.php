@@ -324,9 +324,12 @@ class ConversationService
         if (str_contains($draftBody, "/docs/{$defaultLink->token}")) {
             return $draftBody;
         }
-        $sentence = "Die ausfuehrlichen Unterlagen zum Objekt finden Sie unter folgendem Link:\n" . $url;
-
-        return rtrim($draftBody) . "\n\n" . $sentence;
+        // Bewusst nur die URL auf eigener Zeile, OHNE einleitenden Satz
+        // wie "finden Sie unter folgendem Link". Der KI-Prompt verlangt
+        // dass der Body selbst auf den "unten angefügten Link" verweist;
+        // ein zweiter Einleitungssatz hier wäre redundant und kollidiert
+        // mit der Body-Formulierung.
+        return rtrim($draftBody) . "\n\n" . $url;
     }
 
     /**

@@ -552,6 +552,15 @@ class EmailController extends Controller
             return response()->json(['error' => 'AI request failed', 'message' => $e->getMessage()], 502);
         }
 
+        // Bei Erstanfragen mit Property den Standard-Freigabelink ans Ende
+        // der Mail anhaengen — der Prompt schreibt den Body bewusst OHNE
+        // Anhang-/Link-Erwaehnung, damit System und KI nicht in Konflikt
+        // geraten. Der Default-Link kommt aus property_links (is_default=1).
+        if ($replyText && $isErstanfrage && $pid) {
+            $convService = app(\App\Services\ConversationService::class);
+            $replyText = $convService->appendDefaultLinkByPropertyId($replyText, (int) $pid);
+        }
+
         // Extract prospect email for noreply senders - use cleaned snippet which has the actual body text
         $prospectEmail = $this->extractProspectEmail($email['from_email'] ?? null, $snippet);
         $replyTo = $prospectEmail ?: ($email['from_email'] ?? '');

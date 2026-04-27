@@ -294,8 +294,19 @@ class ConversationService
         if (empty($conv->property_id)) {
             return $draftBody;
         }
+        return $this->appendDefaultLinkByPropertyId($draftBody, (int) $conv->property_id);
+    }
 
-        $defaultLink = PropertyLink::where('property_id', $conv->property_id)
+    /**
+     * Property-ID-only Variante — fuer Code-Pfade die keine Conversation
+     * zur Hand haben (z.B. EmailController::aiReply). Idempotent: wenn der
+     * Body den Link bereits enthaelt, wird er nicht doppelt angefuegt.
+     */
+    public function appendDefaultLinkByPropertyId(string $draftBody, int $propertyId): string
+    {
+        if ($propertyId <= 0) return $draftBody;
+
+        $defaultLink = PropertyLink::where('property_id', $propertyId)
             ->where('is_default', true)
             ->whereNull('revoked_at')
             ->where(function ($q) {
@@ -308,6 +319,11 @@ class ConversationService
         }
 
         $url = url("/docs/{$defaultLink->token}");
+        // Idempotenz-Schutz: wenn der Token-Pfad schon im Body steht
+        // (z.B. aus einem früheren Generate-Lauf), nicht nochmal anhaengen.
+        if (str_contains($draftBody, "/docs/{$defaultLink->token}")) {
+            return $draftBody;
+        }
         $sentence = "Die ausfuehrlichen Unterlagen zum Objekt finden Sie unter folgendem Link:\n" . $url;
 
         return rtrim($draftBody) . "\n\n" . $sentence;

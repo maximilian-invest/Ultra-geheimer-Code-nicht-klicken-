@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, inject } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, inject } from "vue";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Upload, Zap, KeyRound } from "lucide-vue-next";
+import { startImmojiSync, immojiSyncState } from "@/composables/immojiSync";
 
 const props = defineProps({
   property: { type: Object, required: true },
@@ -24,7 +25,12 @@ const immojiConnected = ref(false);
 const immojiEmail = ref("");
 const immojiPassword = ref("");
 const immojiConnecting = ref(false);
-const immojiPushing = ref(false);
+// True nur waehrend genau dieses Property gesynct wird — andere Property-
+// Syncs blockieren den Button hier nicht.
+const immojiPushing = computed(() =>
+  immojiSyncState.value.active
+  && immojiSyncState.value.propertyId === props.property?.id
+);
 const immojiPortals = ref(null);
 const immojiPortalLoading = ref(false);
 const immojiPortalSaving = ref({});
@@ -279,34 +285,42 @@ async function pushToImmoji(forceFullSync = false) {
 async function confirmSync() {
   if (!syncDialogData.value) return;
   const force = !!syncDialogData.value.force_full_sync;
+  const propertyTitle = (
+    props.property?.title?.trim()
+    || [props.property?.address, props.property?.city].filter(Boolean).join(', ').trim()
+    || `Property #${props.property?.id}`
+  );
+  // Dialog sofort schliessen, lokales Pushing-Flag bleibt aktiv solange
+  // der globale Sync laeuft (siehe immojiPushing computed unten).
   syncDialogOpen.value = false;
-  immojiPushing.value = true;
-
-  try {
-    const r = await fetch(API.value + "&action=immoji_push", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        property_id: props.property.id,
-        force_full_sync: force,
-        dry_run: false,
-      }),
-    });
-    const d = await r.json();
-    if (d.success) {
-      toast(d.message || "Erfolgreich hochgeladen");
-      const pr = await fetch(API.value + "&action=list_property_portals&property_id=" + props.property.id);
-      const pd = await pr.json();
-      portals.value = pd.portals || [];
-      await loadImmojiPortals();
-    } else {
-      toast(d.message || "Fehler");
-    }
-  } catch (e) {
-    toast("Upload fehlgeschlagen");
-  }
-  immojiPushing.value = false;
   syncDialogData.value = null;
+
+  // Fire-and-forget — der Sync laeuft in module-scope, der Indicator
+  // unten rechts zeigt den Status. Der User kann sofort weiterarbeiten,
+  // sogar das Property/den Tab wechseln.
+  startImmojiSync({
+    propertyId: props.property.id,
+    propertyTitle,
+    force,
+    apiUrl: API.value,
+    onComplete: async (d) => {
+      if (!d?.success) return;
+      // Lokalen Property-State aktualisieren damit der "Objekt zuerst
+      // hochladen"-Hinweis verschwindet und die Portal-Liste angezeigt
+      // wird (Issue: openimmo_id war stale nach dem ersten Upload).
+      if (d.immoji_id && !props.property.openimmo_id) {
+        props.property.openimmo_id = d.immoji_id;
+      }
+      // Portal-Daten neu laden, damit die Switches direkt korrekt
+      // angezeigt werden.
+      try {
+        const pr = await fetch(API.value + "&action=list_property_portals&property_id=" + props.property.id);
+        const pd = await pr.json();
+        portals.value = pd.portals || [];
+      } catch (e) { /* silent */ }
+      await loadImmojiPortals();
+    },
+  });
 }
 
 function cancelSync() {

@@ -17,6 +17,7 @@ import CalendarTab from "@/Components/Admin/CalendarTab.vue";
 import AssistenzTasksTab from "@/Components/Admin/AssistenzTasksTab.vue";
 import HvComposeDialog from "@/Components/Admin/inbox/HvComposeDialog.vue";
 import OwnerComposeDialog from "@/Components/Admin/inbox/OwnerComposeDialog.vue";
+import ImmojiSyncIndicator from "@/Components/ImmojiSyncIndicator.vue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -712,6 +713,11 @@ function navBadge(key) {
         <!-- Eigentuemer-Compose-Dialog global (hoert auf 'open-owner-compose'
              Event von ContactOwnerSheet im Property-Detail Uebersicht-Tab) -->
         <OwnerComposeDialog />
+
+        <!-- Immoji-Sync-Indicator: ueberlebt Tab-Navigation, zeigt unten rechts
+             einen persistenten Status waehrend des Hintergrund-Syncs und ein
+             dismissibles Ergebnis. -->
+        <ImmojiSyncIndicator />
     </div>
 </template>
 

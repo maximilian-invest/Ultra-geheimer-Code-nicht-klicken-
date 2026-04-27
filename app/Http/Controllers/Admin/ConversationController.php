@@ -140,21 +140,29 @@ class ConversationController extends Controller
         if ($status === 'offen') {
             $query->where('status', '!=', 'erledigt')->where(function($q) { $q->where(function($q2) { $q2->whereColumn('last_inbound_at', '>', 'last_outbound_at'); })->orWhereNull('last_outbound_at'); })->orderBy('last_inbound_at', 'desc');
         } elseif ($status === 'nachfassen') {
-            // Nachfassen-Stufe basiert auf followup_count (nicht status),
-            // weil status auf 'beantwortet' zurueckgesetzt wird wenn Kunde antwortet.
-            // followup_count=0 → NF1 faellig (24h warten)
-            // followup_count=1 → NF2 faellig (3 Tage warten)
-            // followup_count>=2 → NF3 faellig (3 Tage warten)
-            // followup_count>=3 → auto-erledigt (nicht mehr zeigen)
+            // Nachfass-Regel (User-Definition):
+            //   Erstanfrage → unsere Antwort → KEINE Reaktion = Nachfassen
+            //   Erstanfrage → unsere Antwort → Reaktion        = KEIN Nachfassen
+            // Sobald der Lead also ein zweites Mal schreibt, ist es eine
+            // laufende Konversation, kein Nachfass-Kandidat mehr.
+            //
+            // Technisch: nur Conversations mit inbound_count <= 1 sind im
+            // Nachfass-Tab. Eingehende Erstanfrage = 1, alles darüber = echte
+            // Korrespondenz die nicht automatisch nachzufassen ist.
+            //
+            // Stufen basieren weiterhin auf followup_count:
+            //   fc=0 → NF1 faellig (24h nach Erstantwort)
+            //   fc=1 → NF2 faellig (3 Tage nach NF1)
+            //   fc=2 → NF3 faellig (3 Tage nach NF2)
+            //   fc>=3 → auto-erledigt
             $query->whereIn('status', ['beantwortet', 'nachfassen_1', 'nachfassen_2'])
                 ->where('followup_count', '<', 3)
+                ->where('inbound_count', '<=', 1)
                 ->where(function ($q) {
                     $q->where(function ($q2) {
-                        // Noch kein Nachfassen gesendet: nach 24h zeigen
                         $q2->where('followup_count', 0)
                             ->where('last_outbound_at', '<=', now()->subHours(24));
                     })->orWhere(function ($q2) {
-                        // 1+ Nachfassen gesendet: nach 3 Tagen zeigen
                         $q2->where('followup_count', '>=', 1)
                             ->where('last_outbound_at', '<=', now()->subDays(3));
                     });
@@ -1529,9 +1537,13 @@ class ConversationController extends Controller
                 ->whereIn('id', $convIds)
                 ->get();
         } else {
+            // Gleiche Regel wie conv_list&status=nachfassen — siehe dort.
+            // inbound_count <= 1: nur Erstanfrage-Pattern, keine laufenden
+            // Korrespondenzen.
             $query = Conversation::forBroker($brokerId, $userType)
                 ->whereIn('status', ['beantwortet', 'nachfassen_1', 'nachfassen_2'])
                 ->where('followup_count', '<', 3)
+                ->where('inbound_count', '<=', 1)
                 ->where(function ($q) {
                     $q->where(function ($q2) {
                         $q2->where('followup_count', 0)->where('last_outbound_at', '<=', now()->subHours(24));

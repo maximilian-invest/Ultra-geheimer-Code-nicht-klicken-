@@ -63,7 +63,12 @@ class Conversation extends Model
 
     public function scopeNachfassen($query)
     {
-        return $query->whereIn("status", ["beantwortet", "nachfassen_1", "nachfassen_2", "nachfassen_3"]);
+        // Nachfass-Regel: Nur klassisches Erstanfrage-Pattern.
+        //   inbound_count = 1 → Lead hat 1x angefragt und seitdem nicht mehr.
+        //   Sobald > 1 → echte Korrespondenz, kein Auto-Nachfass-Kandidat.
+        return $query
+            ->whereIn("status", ["beantwortet", "nachfassen_1", "nachfassen_2", "nachfassen_3"])
+            ->where("inbound_count", "<=", 1);
     }
 
     public function scopeErledigt($query)

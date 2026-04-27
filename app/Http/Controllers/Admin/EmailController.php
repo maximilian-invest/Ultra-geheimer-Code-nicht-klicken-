@@ -918,40 +918,67 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         $whereSql = implode(' AND ', $where);
         $whereSql2 = str_replace('pe.', 'pe2.', $whereSql);
 
-        // Group by conversation (stakeholder + property_id) in SQL, show newest email per conversation
-        $total = (int) DB::selectOne("
-            SELECT COUNT(*) as cnt FROM (
-                SELECT LOWER(TRIM(COALESCE(pe.stakeholder, pe.from_name, pe.from_email, ''))) as sh,
-                       COALESCE(pe.property_id, 0) as pid
-                FROM portal_emails pe
-                WHERE {$whereSql}
-                GROUP BY sh, pid
-            ) sub
-        ", $params)->cnt;
+        // Posteingang/Gesendet: pro Konversation (stakeholder + property_id) nur
+        // die neueste Mail zeigen — sonst quillt die Liste mit Duplikaten ueber.
+        // Papierkorb: KEINE Gruppierung. Wer in den Papierkorb schaut, will alle
+        // einzelnen Mails sehen (z.B. um eine bestimmte zu wiederherstellen).
+        // Vorher: Anna Sophie hatte 7 Mails im Trash, im Frontend sichtbar nur
+        // die neueste — der Rest war "versteckt" hinter der Gruppierung.
+        $isTrashView = ($trash === '1');
 
-        $emails = DB::select("
-            SELECT
-                pe.id, pe.account_id, pe.direction, pe.from_email, pe.from_name, pe.to_email,
-                pe.subject, pe.body_text, pe.body_html, pe.email_date,
-                pe.category, pe.stakeholder, pe.ai_summary, pe.has_attachment,
-                pe.attachment_names, pe.property_id, pe.matched_ref_id,
-                pe.is_deleted, pe.is_read, pe.has_reply, pe.deleted_at,
-                p.address as property_address, p.ref_id as property_ref_id, p.city as property_city,
-                conv.thread_count
-            FROM portal_emails pe
-            INNER JOIN (
-                SELECT MAX(pe2.id) as latest_id,
-                       COUNT(*) as thread_count,
-                       LOWER(TRIM(COALESCE(pe2.stakeholder, pe2.from_name, pe2.from_email, ''))) as sh,
-                       COALESCE(pe2.property_id, 0) as pid
-                FROM portal_emails pe2
-                WHERE {$whereSql2}
-                GROUP BY sh, pid
-            ) conv ON pe.id = conv.latest_id
-            LEFT JOIN properties p ON pe.property_id = p.id
-            ORDER BY pe.email_date DESC
-            LIMIT {$perPage} OFFSET {$offset}
-        ", $params);
+        if ($isTrashView) {
+            $total = (int) DB::selectOne("SELECT COUNT(*) as cnt FROM portal_emails pe WHERE {$whereSql}", $params)->cnt;
+
+            $emails = DB::select("
+                SELECT
+                    pe.id, pe.account_id, pe.direction, pe.from_email, pe.from_name, pe.to_email,
+                    pe.subject, pe.body_text, pe.body_html, pe.email_date,
+                    pe.category, pe.stakeholder, pe.ai_summary, pe.has_attachment,
+                    pe.attachment_names, pe.property_id, pe.matched_ref_id,
+                    pe.is_deleted, pe.is_read, pe.has_reply, pe.deleted_at,
+                    p.address as property_address, p.ref_id as property_ref_id, p.city as property_city,
+                    1 as thread_count
+                FROM portal_emails pe
+                LEFT JOIN properties p ON pe.property_id = p.id
+                WHERE {$whereSql}
+                ORDER BY pe.email_date DESC
+                LIMIT {$perPage} OFFSET {$offset}
+            ", $params);
+        } else {
+            $total = (int) DB::selectOne("
+                SELECT COUNT(*) as cnt FROM (
+                    SELECT LOWER(TRIM(COALESCE(pe.stakeholder, pe.from_name, pe.from_email, ''))) as sh,
+                           COALESCE(pe.property_id, 0) as pid
+                    FROM portal_emails pe
+                    WHERE {$whereSql}
+                    GROUP BY sh, pid
+                ) sub
+            ", $params)->cnt;
+
+            $emails = DB::select("
+                SELECT
+                    pe.id, pe.account_id, pe.direction, pe.from_email, pe.from_name, pe.to_email,
+                    pe.subject, pe.body_text, pe.body_html, pe.email_date,
+                    pe.category, pe.stakeholder, pe.ai_summary, pe.has_attachment,
+                    pe.attachment_names, pe.property_id, pe.matched_ref_id,
+                    pe.is_deleted, pe.is_read, pe.has_reply, pe.deleted_at,
+                    p.address as property_address, p.ref_id as property_ref_id, p.city as property_city,
+                    conv.thread_count
+                FROM portal_emails pe
+                INNER JOIN (
+                    SELECT MAX(pe2.id) as latest_id,
+                           COUNT(*) as thread_count,
+                           LOWER(TRIM(COALESCE(pe2.stakeholder, pe2.from_name, pe2.from_email, ''))) as sh,
+                           COALESCE(pe2.property_id, 0) as pid
+                    FROM portal_emails pe2
+                    WHERE {$whereSql2}
+                    GROUP BY sh, pid
+                ) conv ON pe.id = conv.latest_id
+                LEFT JOIN properties p ON pe.property_id = p.id
+                ORDER BY pe.email_date DESC
+                LIMIT {$perPage} OFFSET {$offset}
+            ", $params);
+        }
 
         $stakeholders = array_column(
             DB::select("SELECT DISTINCT stakeholder FROM portal_emails WHERE stakeholder IS NOT NULL AND stakeholder != '' ORDER BY stakeholder"),

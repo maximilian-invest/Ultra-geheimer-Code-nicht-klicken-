@@ -36,12 +36,19 @@ watch(() => props.open, (isOpen) => {
 
 const filteredProperties = computed(() => {
   const list = Array.isArray(props.properties) ? props.properties : []
+  // Sortierung: zuerst zuletzt-bearbeitet (created_at desc als Proxy
+  // wenn updated_at nicht im Inertia-Payload steckt), dann Ref-ID.
+  const sorted = [...list].sort((a, b) => {
+    const ad = String(b.created_at || '').localeCompare(String(a.created_at || ''))
+    if (ad !== 0) return ad
+    return String(a.ref_id || '').localeCompare(String(b.ref_id || ''))
+  })
   const q = search.value.trim().toLowerCase()
-  if (!q) return list.slice(0, 50)
-  return list.filter(p => {
-    const hay = [p.ref_id, p.address, p.city, p.title].filter(Boolean).join(' ').toLowerCase()
+  if (!q) return sorted
+  return sorted.filter(p => {
+    const hay = [p.ref_id, p.address, p.city, p.title, p.project_name].filter(Boolean).join(' ').toLowerCase()
     return hay.includes(q)
-  }).slice(0, 100)
+  })
 })
 
 const selectedProperty = computed(() => {
@@ -121,29 +128,39 @@ function onCancel() {
 
         <div v-if="filteredProperties.length" class="h-px bg-border my-2 mx-3"></div>
 
-        <!-- Properties -->
+        <!-- Properties — kompakt, mit Thumbnail + Ref-ID prominent -->
         <button
           v-for="p in filteredProperties" :key="p.id"
           type="button"
-          class="w-full text-left px-3 py-2 rounded-md hover:bg-accent/50 transition-colors flex items-center gap-3 text-sm"
+          class="w-full text-left px-2 py-1.5 rounded-md hover:bg-accent/50 transition-colors flex items-center gap-2.5 text-sm"
           :class="Number(selectedId) === Number(p.id) ? 'bg-accent' : ''"
           @click="onSelect(p.id)"
         >
-          <div class="w-7 h-7 rounded-md bg-[#fff7ed] dark:bg-orange-950/20 flex items-center justify-center shrink-0">
-            <Home class="w-3.5 h-3.5 text-[#EE7600]" />
+          <!-- Thumbnail (echt) oder Fallback-Box -->
+          <div class="w-9 h-9 rounded-md overflow-hidden shrink-0 bg-zinc-100 flex items-center justify-center">
+            <img
+              v-if="p.thumbnail_url"
+              :src="p.thumbnail_url"
+              alt=""
+              class="w-full h-full object-cover"
+              loading="lazy"
+            />
+            <Home v-else class="w-4 h-4 text-[#EE7600]" />
           </div>
+          <!-- Ref-ID + Adresse (1 Zeile + 1 Zeile) -->
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1.5">
-              <span class="text-[10px] font-mono font-semibold text-muted-foreground tracking-tight">{{ p.ref_id }}</span>
-              <span v-if="p.city" class="text-[10px] text-muted-foreground">· {{ p.city }}</span>
+            <div class="font-mono text-[11px] font-semibold tracking-tight text-zinc-900">
+              {{ p.ref_id || 'ohne Ref-ID' }}
             </div>
-            <div class="text-sm font-medium truncate">{{ p.address || p.title || '—' }}</div>
+            <div class="text-[12px] text-zinc-600 truncate leading-tight">
+              {{ p.address || p.title || p.project_name || '—' }}<span v-if="p.city" class="text-muted-foreground"> · {{ p.city }}</span>
+            </div>
           </div>
           <Check v-if="Number(selectedId) === Number(p.id)" class="w-4 h-4 text-foreground shrink-0" />
         </button>
 
         <div v-if="!filteredProperties.length && !search" class="text-center text-xs text-muted-foreground py-10 px-6">
-          Du hast noch keine Objekte in deinem Portfolio.
+          Du hast noch keine aktiven Objekte in deinem Portfolio.
         </div>
         <div v-else-if="!filteredProperties.length" class="text-center text-xs text-muted-foreground py-10 px-6">
           Keine Treffer für „{{ search }}".

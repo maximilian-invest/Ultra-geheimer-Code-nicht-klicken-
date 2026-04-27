@@ -42,7 +42,21 @@ const refreshCounts = inject("refreshCounts", () => {});
 const properties = inject("properties");
 const calendarEmbedUrl = inject("calendarEmbedUrl", "");
 const userType = inject("userType", ref("makler"));
+const currentUserId = inject("userId", ref(0));
 const isAssistenz = computed(() => ['assistenz', 'backoffice'].includes(userType.value));
+
+// Aktive eigene Properties — fuer Property-Picker (Attachment speichern,
+// Email zuordnen). Nur was dem eingeloggten Makler gehoert UND aktiv ist.
+// Assistenz/Backoffice sehen alle aktiven (shared mailbox).
+const assignableProperties = computed(() => {
+  const list = (properties?.value ?? properties) || [];
+  if (!Array.isArray(list)) return [];
+  const aktiv = list.filter(p => String(p.realty_status || '').toLowerCase() === 'aktiv');
+  if (['assistenz', 'backoffice'].includes(userType.value)) return aktiv;
+  const uid = Number(currentUserId.value || 0);
+  if (!uid) return aktiv; // Fallback: zeige alle aktiven wenn keine User-ID
+  return aktiv.filter(p => Number(p.broker_id || 0) === uid);
+});
 
 // ============================================================
 // SUBTAB STATE (from Task 1 shell)
@@ -3241,7 +3255,9 @@ onMounted(() => {
             <label class="text-[11px] text-muted-foreground font-medium mb-1 block">Objekt</label>
             <select v-model="saveAttachPropertyId" class="w-full h-9 rounded-md border border-zinc-200 bg-white px-3 text-[12px]">
               <option :value="null" disabled>Objekt auswählen...</option>
-              <option v-for="p in (properties || [])" :key="p.id" :value="String(p.id)">{{ p.ref_id || p.address || ("Obj " + p.id) }}</option>
+              <option v-for="p in assignableProperties" :key="p.id" :value="String(p.id)">
+                {{ (p.ref_id || ('Obj ' + p.id)) }}{{ p.address ? ' · ' + p.address : '' }}
+              </option>
             </select>
           </div>
           <div>

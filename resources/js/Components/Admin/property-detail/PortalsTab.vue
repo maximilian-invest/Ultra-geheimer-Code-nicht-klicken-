@@ -36,6 +36,48 @@ const immojiPortalLoading = ref(false);
 const immojiPortalSaving = ref({});
 const immojiCapacity = ref(null);
 
+// Manuelle Verknuepfung mit bereits existierendem Immoji-Listing
+const manualLinkInput = ref("");
+const manualLinking = ref(false);
+const manualLinkError = ref("");
+
+async function linkExistingImmoji() {
+  const raw = manualLinkInput.value.trim();
+  if (!raw) return;
+  manualLinking.value = true;
+  manualLinkError.value = "";
+  try {
+    const r = await fetch(API.value + "&action=immoji_link_existing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        property_id: props.property.id,
+        immoji_id_or_url: raw,
+      }),
+    });
+    const d = await r.json();
+    if (!d.success) {
+      manualLinkError.value = d.message || "Verknüpfung fehlgeschlagen";
+      return;
+    }
+    // Lokal property.openimmo_id setzen damit das UI sofort umspringt.
+    props.property.openimmo_id = d.immoji_id;
+    immojiPortals.value = d.portals || null;
+    manualLinkInput.value = "";
+    toast("Mit Immoji-Listing verknüpft");
+    // Portal-Liste / sr-homes-Status frisch ziehen
+    try {
+      const pr = await fetch(API.value + "&action=list_property_portals&property_id=" + props.property.id);
+      const pd = await pr.json();
+      portals.value = pd.portals || [];
+    } catch (e) { /* silent */ }
+  } catch (e) {
+    manualLinkError.value = e.message || "Netzwerk-Fehler";
+  } finally {
+    manualLinking.value = false;
+  }
+}
+
 // ─── Computed ───
 
 // ─── Pflichtfelder für Veröffentlichung ───
@@ -518,9 +560,29 @@ onMounted(() => {
           Lade Portale...
         </div>
 
-        <!-- Not yet pushed -->
-        <div v-else-if="!property?.openimmo_id" class="text-xs text-muted-foreground py-2">
-          Objekt zuerst hochladen um Portal-Export zu steuern.
+        <!-- Not yet pushed: Hochladen oder Verknüpfen -->
+        <div v-else-if="!property?.openimmo_id" class="space-y-2 py-2">
+          <p class="text-xs text-muted-foreground">
+            Objekt zuerst hochladen um Portal-Export zu steuern.
+          </p>
+          <div class="rounded-lg p-2.5" style="border: 1px dashed hsl(240 5.9% 80%); background: hsl(240 4.8% 97%)">
+            <div class="text-[11px] text-muted-foreground mb-1.5 leading-snug">
+              Bereits direkt im Immoji-Webportal hochgeladen? Listing-URL oder UUID einfügen, um zu verknüpfen:
+            </div>
+            <div class="flex gap-1.5">
+              <Input
+                v-model="manualLinkInput"
+                placeholder="https://app.immoji.org/realty/… oder UUID"
+                class="h-8 text-[12px]"
+                :disabled="manualLinking"
+                @keydown.enter="linkExistingImmoji"
+              />
+              <Button size="sm" :disabled="!manualLinkInput.trim() || manualLinking" @click="linkExistingImmoji">
+                {{ manualLinking ? "Prüfe…" : "Verknüpfen" }}
+              </Button>
+            </div>
+            <div v-if="manualLinkError" class="text-[11px] text-red-600 mt-1.5">{{ manualLinkError }}</div>
+          </div>
         </div>
       </div>
     </div>

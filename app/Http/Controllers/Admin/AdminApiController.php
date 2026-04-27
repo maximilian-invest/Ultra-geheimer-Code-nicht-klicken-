@@ -631,6 +631,74 @@ class AdminApiController extends Controller
                 }
             })(),
 
+            // Manuelle Verknuepfung mit einem bestehenden Immoji-Listing.
+            // Use case: User hat ein Objekt direkt im Immoji-Webportal angelegt
+            // (oder unser Push ist beim Empfangen der Response in einen Timeout
+            // gerannt, sodass die ID nicht persistiert wurde) — wir nehmen die
+            // Immoji-URL/-UUID entgegen und speichern sie als openimmo_id.
+            // Validiert wird die ID indem wir sie vor dem Save via getPortalExportStatus
+            // anfragen — gibt Immoji 'not found' zurueck, brechen wir ab.
+            'immoji_link_existing' => (function() use ($request) {
+                $userId = \Auth::id();
+                $settings = \DB::table('admin_settings')->where('user_id', $userId)->first();
+                $encEmail = $settings->immoji_email ?? null;
+                $encPassword = $settings->immoji_password ?? null;
+                if (!$encEmail || !$encPassword) {
+                    return response()->json(['success' => false, 'message' => 'Nicht mit Immoji verbunden'], 422);
+                }
+                $propertyId = (int) $request->input('property_id', 0);
+                $raw = trim((string) $request->input('immoji_id_or_url', ''));
+                if (!$propertyId || $raw === '') {
+                    return response()->json(['success' => false, 'message' => 'property_id und immoji_id_or_url erforderlich'], 400);
+                }
+                // UUID rauslesen — entweder direkt eingegeben oder aus URL
+                // (z.B. https://app.immoji.org/realty/<uuid>/...).
+                if (preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $raw, $match)) {
+                    $immojiId = strtolower($match[0]);
+                } else {
+                    return response()->json(['success' => false, 'message' => 'Konnte keine Immoji-ID erkennen. Bitte komplette Listing-URL oder die UUID eingeben.'], 422);
+                }
+
+                try {
+                    $email = \Illuminate\Support\Facades\Crypt::decryptString($encEmail);
+                    $password = \Illuminate\Support\Facades\Crypt::decryptString($encPassword);
+                    $token = \App\Services\ImmojiUploadService::signIn($email, $password);
+                    $service = new \App\Services\ImmojiUploadService($token);
+                    // Dry-Validation: Portal-Status fuer diese ID abfragen — wenn die
+                    // Realty nicht existiert oder unserem Account nicht gehoert,
+                    // wirft Immoji eine Exception.
+                    $portalData = $service->getPortalExportStatus($immojiId);
+                } catch (\Throwable $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Immoji konnte das Listing nicht finden oder dein Account hat keinen Zugriff: ' . $e->getMessage(),
+                    ], 422);
+                }
+
+                // OK, ID validiert — speichern.
+                \DB::table('properties')->where('id', $propertyId)->update([
+                    'openimmo_id' => $immojiId,
+                    'updated_at' => now(),
+                ]);
+                \DB::table('property_portals')->updateOrInsert(
+                    ['property_id' => $propertyId, 'portal_name' => 'immoji'],
+                    [
+                        'sync_enabled' => 1,
+                        'status' => 'active',
+                        'external_id' => $immojiId,
+                        'last_synced_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Mit Immoji-Listing verknüpft',
+                    'immoji_id' => $immojiId,
+                    'portals' => $portalData,
+                ]);
+            })(),
+
             'bulk_sync_immoji' => (function() use ($request) {
                 $userId = \Auth::id();
                 $settings = \DB::table('admin_settings')->where('user_id', $userId)->first();

@@ -862,7 +862,12 @@ private static function findEmailInText(string $text, array $excludePatterns = [
     public function history(Request $request): JsonResponse
     {
         $page     = max(1, intval($request->query('page', 1)));
-        $perPage  = min(100, max(1, intval($request->query('per_page', 30))));
+        // Cap auf 500 — Papierkorb-Tab laedt mit per_page=500 um den
+        // gesamten Bestand auf einmal zu zeigen (sonst schneidet er bei
+        // 100 Threads ab, was bei vielen Auto-Trash-Eintraegen nur ein
+        // paar Wochen Historie zeigt). Posteingang/Gesendet bleibt
+        // sinnvoll bei niedrigeren Werten + Mehr-Laden.
+        $perPage  = min(500, max(1, intval($request->query('per_page', 30))));
         $offset   = ($page - 1) * $perPage;
 
         $propertyId = intval($request->query('property_id', 0));

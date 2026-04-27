@@ -2372,12 +2372,34 @@ async function deleteDraft(id) {
 async function loadTrash() {
   trashLoading.value = true;
   try {
-    const r = await fetch(API.value + "&action=email_history&trash=1&per_page=100&page=1");
+    // per_page=500: zeigt den gesamten typischen Papierkorb-Bestand auf
+    // einmal. Bei extrem grossen Bestaenden (>500) wird der "Mehr laden"-
+    // Button unten sichtbar; im Default-Fall reicht aber eine Page.
+    const r = await fetch(API.value + "&action=email_history&trash=1&per_page=500&page=1");
     const d = await r.json();
     trashData.value = d.emails || [];
     trashCount.value = d.total || 0;
+    trashPage.value = 1;
   } catch (e) { toast("Fehler: " + e.message); }
   trashLoading.value = false;
+}
+
+const trashPage = ref(1);
+const trashLoadMoreLoading = ref(false);
+async function loadMoreTrash() {
+  if (trashLoadMoreLoading.value) return;
+  if (trashData.value.length >= trashCount.value) return;
+  trashLoadMoreLoading.value = true;
+  try {
+    const next = trashPage.value + 1;
+    const r = await fetch(API.value + "&action=email_history&trash=1&per_page=500&page=" + next);
+    const d = await r.json();
+    if (Array.isArray(d.emails) && d.emails.length) {
+      trashData.value = [...trashData.value, ...d.emails];
+      trashPage.value = next;
+    }
+  } catch (e) { toast("Fehler: " + e.message); }
+  trashLoadMoreLoading.value = false;
 }
 
 async function restoreEmails(ids) {
@@ -3093,6 +3115,13 @@ onMounted(() => {
           @toolbar-refresh="refreshInbox"
           @compose="startCompose()"
         />
+
+        <div v-if="activeSubtab === 'papierkorb' && trashCount > trashData.length" class="p-3 border-t border-zinc-100 flex-shrink-0">
+          <button @click="loadMoreTrash()" :disabled="trashLoadMoreLoading" class="w-full h-8 text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
+            <span v-if="trashLoadMoreLoading">Lade…</span>
+            <span v-else>Mehr laden ({{ trashData.length }}/{{ trashCount }})</span>
+          </button>
+        </div>
 
         <!-- Entwuerfe -->
         <InboxConversationList

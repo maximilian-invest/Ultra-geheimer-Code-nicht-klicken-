@@ -391,11 +391,19 @@ const filteredTrash = computed(() => {
   let list = trashData.value;
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase();
-    list = list.filter(i =>
-      (i.from_name || i.stakeholder || '').toLowerCase().includes(q) ||
-      (i.subject || '').toLowerCase().includes(q) ||
-      (i.from_email || i.to_email || '').toLowerCase().includes(q)
-    );
+    // Erweiterte Suche: auch im Body suchen, damit Plattform-Notifications
+    // (Willhaben/Immoscout/Typeform) gefunden werden, deren from_email das
+    // generische "no-reply@..." ist und die echte Interessenten-Adresse
+    // nur im Body steht. Und stakeholder + from_email + to_email + subject
+    // weiterhin durchsuchen.
+    list = list.filter(i => {
+      const haystack = [
+        i.from_name, i.stakeholder, i.subject,
+        i.from_email, i.to_email,
+        i.body_text, i.ai_summary,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
   }
   return list;
 });

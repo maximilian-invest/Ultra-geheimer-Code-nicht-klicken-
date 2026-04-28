@@ -1,9 +1,11 @@
 <script setup>
 import { ref, computed, inject } from 'vue'
 import { usePage } from '@inertiajs/vue3'
-import { ChevronDown, ChevronUp, Paperclip, FolderDown } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp, Paperclip, FolderDown, Download } from 'lucide-vue-next'
 import InboxMailBody from './InboxMailBody.vue'
 import { cleanEmailBody } from './mailText.js'
+
+const API = inject('API')
 
 const props = defineProps({
   message: { type: Object, required: true },
@@ -124,6 +126,27 @@ function onSaveAttachment(att, idx) {
   })
 }
 
+// Direkter Download auf den Rechner — geht ueber den bestehenden
+// download_attachment-Endpoint mit dl_mode=download. Browser handelt
+// Content-Disposition: attachment automatisch.
+function onDownloadAttachment(att, idx) {
+  const emailId = props.message.id || props.message.email_id
+  const fileIndex = att.index !== undefined ? att.index : idx
+  if (!emailId) return
+  const apiBase = (API && API.value) || ''
+  if (!apiBase) return
+  const url = apiBase + '&action=download_attachment&email_id=' + encodeURIComponent(emailId) + '&file_index=' + encodeURIComponent(fileIndex) + '&dl_mode=download'
+  // Hidden anchor mit download-Attribut: forciert Browser-Download in den
+  // Default-Downloads-Ordner statt Inline-Anzeige (z.B. PDF im Tab).
+  const a = document.createElement('a')
+  a.href = url
+  a.download = att.name || att.filename || 'Anhang'
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  setTimeout(() => a.remove(), 0)
+}
+
 // ── Time label
 const timeLabel = computed(() => {
   const raw = props.message.email_date || props.message.activity_date || props.message.date || props.message.created_at
@@ -201,12 +224,21 @@ function onNameClick() {
           <span class="sr-attachment-name">{{ att.name || att.filename || 'Anhang' }}</span>
           <button
             type="button"
-            class="sr-attachment-save"
+            class="sr-attachment-action"
+            title="Auf Computer herunterladen"
+            @click.stop="onDownloadAttachment(att, i)"
+          >
+            <Download class="sr-attachment-save-icon" />
+            Download
+          </button>
+          <button
+            type="button"
+            class="sr-attachment-action"
             title="Zum Objekt speichern"
             @click.stop="onSaveAttachment(att, i)"
           >
             <FolderDown class="sr-attachment-save-icon" />
-            Speichern
+            Zum Objekt
           </button>
         </div>
       </div>
@@ -288,15 +320,20 @@ function onNameClick() {
   border-top: 1px dashed hsl(0 0% 88%);
   display: flex; flex-direction: column; gap: 6px;
 }
-.sr-attachment { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.sr-attachment { display: flex; align-items: center; gap: 6px; font-size: 12px; flex-wrap: wrap; }
 .sr-attachment-icon { width: 14px; height: 14px; color: hsl(0 0% 50%); flex-shrink: 0; }
-.sr-attachment-name { flex: 1; color: hsl(0 0% 25%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sr-attachment-save {
+.sr-attachment-name { flex: 1; min-width: 120px; color: hsl(0 0% 25%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-attachment-action {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 4px 10px; font-size: 10px; font-weight: 500;
   background: hsl(28 98% 96%); color: hsl(28 80% 38%);
   border: 1px solid hsl(28 90% 86%); border-radius: 6px;
   cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease;
+}
+.sr-attachment-action:hover {
+  background: hsl(28 98% 92%);
+  border-color: hsl(28 90% 76%);
 }
 .sr-attachment-save-icon { width: 12px; height: 12px; }
 

@@ -2039,11 +2039,28 @@ class AdminApiController extends Controller
         }
         $file = DB::table('property_files')->where('id', $fileId)->first();
         if ($file) {
-            $full = storage_path('app/public/' . $file->path);
-            if (file_exists($full)) unlink($full);
-            DB::table('property_files')->where('id', $fileId)->delete();
+            $path = $file->path;
             $lbl = $file->label ?: $file->filename;
-            app(PropertyActivityLogger::class)->logEvent((int) $file->property_id, "Dokument entfernt: {$lbl}");
+            $propId = (int) $file->property_id;
+
+            // DB-Eintrag IMMER loeschen — dann pruefen ob die physische Datei
+            // noch von anderen DB-Zeilen referenziert wird, bevor wir sie
+            // vom Disk werfen. PropertyLinkController legt fuer globale
+            // Dokumente property_files-Zeilen mit dem gleichen path wie in
+            // global_files an — ein blindes unlink wuerde die globale Datei
+            // mit-loeschen und alle anderen verknuepften property_files +
+            // die /storage/global_files/-URL kaputt machen.
+            DB::table('property_files')->where('id', $fileId)->delete();
+
+            $stillReferenced = DB::table('property_files')->where('path', $path)->exists()
+                || DB::table('global_files')->where('path', $path)->exists();
+
+            if (!$stillReferenced) {
+                $full = storage_path('app/public/' . $path);
+                if (file_exists($full)) @unlink($full);
+            }
+
+            app(PropertyActivityLogger::class)->logEvent($propId, "Dokument entfernt: {$lbl}");
         }
         return response()->json(['success' => true]);
     }

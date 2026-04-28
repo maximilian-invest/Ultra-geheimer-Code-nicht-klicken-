@@ -871,9 +871,14 @@ class ImmojiUploadService
 
         // Structured path: use the array from the new Stellplätze UI.
         if (is_array($entries) && !empty($entries)) {
+            // Immoji-Enum RealtyParkingSpaceType. Wichtig: 'OUTDOOR_PARKING_SPACE'
+            // wurde in der API entfernt — gueltige outdoor-Variante ist
+            // SIMPLE_PARKING_SPACE (einfacher Aussen-Stellplatz). Vorher
+            // crashte updateRealty komplett, was auch die Bild-Uploads
+            // verworfen hat — daher kamen Bilder bei Immoji nicht an.
             $typeMap = [
                 'barn'                => 'BARN',
-                'outdoor'             => 'OUTDOOR_PARKING_SPACE',
+                'outdoor'             => 'SIMPLE_PARKING_SPACE',
                 'carport'             => 'CARPORT',
                 'duplex_garage'       => 'DUPLEX_GARAGE',
                 'garage'              => 'GARAGE',
@@ -916,7 +921,9 @@ class ImmojiUploadService
         // Legacy-Fallback aus flachen Spalten.
         $out = [];
         if (!empty($prop['parking_spaces'])) {
-            $out[] = ['type' => 'OUTDOOR_PARKING_SPACE', 'amount' => (int) $prop['parking_spaces']];
+            // Vorher 'OUTDOOR_PARKING_SPACE' — von Immoji entfernt; gueltiger
+            // Ersatz fuer offene Aussen-Stellplaetze ist SIMPLE_PARKING_SPACE.
+            $out[] = ['type' => 'SIMPLE_PARKING_SPACE', 'amount' => (int) $prop['parking_spaces']];
         }
         if (!empty($prop['garage_spaces'])) {
             $out[] = ['type' => 'GARAGE', 'amount' => (int) $prop['garage_spaces']];

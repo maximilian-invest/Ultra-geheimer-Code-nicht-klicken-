@@ -632,6 +632,7 @@ class ConversationController extends Controller
         $subject   = $input['subject'] ?? '';
         $to        = $input['to'] ?? $conv->contact_email;
         $cc        = $input['cc'] ?? null;
+        $bcc       = $input['bcc'] ?? null;
         $accountId = $input['account_id'] ?? null;
         $fileIds   = $input['file_ids'] ?? [];
 
@@ -640,11 +641,15 @@ class ConversationController extends Controller
             $fileIds = array_filter(array_map('trim', explode(',', $fileIds)));
         }
 
-        // Normalise cc: empty string → null so EmailService::send doesn't
+        // Normalise cc/bcc: empty string → null so EmailService::send doesn't
         // pass an empty header.
         if (is_string($cc)) {
             $cc = trim($cc);
             if ($cc === '') $cc = null;
+        }
+        if (is_string($bcc)) {
+            $bcc = trim($bcc);
+            if ($bcc === '') $bcc = null;
         }
 
         if (!$body || !$subject || !$accountId) {
@@ -697,19 +702,25 @@ class ConversationController extends Controller
         // Send via EmailService
         try {
             $emailService = app(\App\Services\EmailService::class);
-            \Log::info("=== EmailService::send() CALLED === from: " . __METHOD__ . " line " . __LINE__);
-            $result = \Log::info("=== EmailService::send() CALLED === from: " . __METHOD__ . " line " . __LINE__);
-                $emailService->send(
+            \Log::info("conv_reply send: conv={$conv->id} to={$to} subject={$subject}");
+            $result = $emailService->send(
                 (int) $accountId,
                 $to,
                 $subject,
                 $body,
                 $conv->property_id,
                 $conv->stakeholder,
-                $cc, null, $attachments,
+                $cc, $bcc, $attachments,
                 null, null,
                 'email-out'
             );
+            // EmailService::send returns ['success' => false, 'error' => ...] on
+            // failure rather than throwing — surface that to the user instead of
+            // silently claiming success.
+            if (is_array($result) && isset($result['success']) && $result['success'] === false) {
+                \Log::error('conv_reply EmailService returned error', ['result' => $result, 'conv_id' => $conv->id]);
+                return response()->json(['error' => 'Senden fehlgeschlagen: ' . ($result['error'] ?? 'unbekannt')], 500);
+            }
 
             // Activity is already created by EmailService::send()
 
@@ -810,9 +821,8 @@ class ConversationController extends Controller
         try {
             $emailService = app(\App\Services\EmailService::class);
             $followupStage = ($conv->followup_count ?? 0) + 1;
-            \Log::info("=== EmailService::send() CALLED === from: " . __METHOD__ . " line " . __LINE__);
-            $result = \Log::info("=== EmailService::send() CALLED === from: " . __METHOD__ . " line " . __LINE__);
-                $emailService->send(
+            \Log::info("conv_followup send: conv={$conv->id} stage={$followupStage} to={$to}");
+            $result = $emailService->send(
                 (int) $accountId,
                 $to,
                 $subject,
@@ -824,6 +834,10 @@ class ConversationController extends Controller
                 'nachfassen',
                 $followupStage
             );
+            if (is_array($result) && isset($result['success']) && $result['success'] === false) {
+                \Log::error('conv_followup EmailService returned error', ['result' => $result, 'conv_id' => $conv->id]);
+                return response()->json(['error' => 'Senden fehlgeschlagen: ' . ($result['error'] ?? 'unbekannt')], 500);
+            }
 
             // Create activity
             DB::table('activities')->insert([

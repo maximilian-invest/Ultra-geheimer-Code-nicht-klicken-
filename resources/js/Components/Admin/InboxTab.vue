@@ -1740,6 +1740,7 @@ async function sendDraft() {
       fd.append("subject", draft.subject || '');
       fd.append("to", draft.to || item.from_email || item.contact_email || '');
       fd.append("cc", draft.cc || '');
+      fd.append("bcc", draft.bcc || '');
       fd.append("account_id", String(sendAccountId.value || 1));
       for (const fid of fileIds) fd.append("file_ids[]", String(fid));
       for (const f of uploads) fd.append("attachments[]", f.file || f, f.name);
@@ -1756,6 +1757,7 @@ async function sendDraft() {
           subject: draft.subject || '',
           to: draft.to || item.from_email || item.contact_email || '',
           cc: draft.cc || '',
+          bcc: draft.bcc || '',
           account_id: sendAccountId.value || 1,
           file_ids: fileIds,
         }),

@@ -50,6 +50,7 @@ const selectedFiles = inboxCompose.selectedFiles
 const linkPickerOpen = ref(false)
 const referenceExpanded = ref(false)
 const ccVisible = ref(false)
+const bccVisible = ref(false)
 
 function fmtBytes(n) {
   if (!n) return ''
@@ -256,13 +257,22 @@ function onLinkPicked(link) {
           placeholder="Empfänger-E-Mail"
           class="sr-field-input"
         />
-        <button
-          v-if="!ccVisible && !(draft?.cc || '').trim()"
-          type="button"
-          class="sr-field-toggle"
-          title="Cc hinzufügen"
-          @click="ccVisible = true"
-        >+ Cc</button>
+        <div class="sr-field-toggle-wrap">
+          <button
+            v-if="!ccVisible && !(draft?.cc || '').trim()"
+            type="button"
+            class="sr-field-toggle"
+            title="Cc hinzufügen"
+            @click="ccVisible = true"
+          >+ Cc</button>
+          <button
+            v-if="!bccVisible && !(draft?.bcc || '').trim()"
+            type="button"
+            class="sr-field-toggle"
+            title="Bcc hinzufügen"
+            @click="bccVisible = true"
+          >+ Bcc</button>
+        </div>
       </div>
 
       <div v-if="ccVisible || (draft?.cc || '').trim()" class="sr-field">
@@ -272,6 +282,17 @@ function onLinkPicked(link) {
           :value="draft?.cc || ''"
           @input="updateDraftField('cc', $event.target.value)"
           placeholder="Weitere Empfänger (Komma-getrennt)"
+          class="sr-field-input"
+        />
+      </div>
+
+      <div v-if="bccVisible || (draft?.bcc || '').trim()" class="sr-field">
+        <label>Bcc</label>
+        <input
+          type="text"
+          :value="draft?.bcc || ''"
+          @input="updateDraftField('bcc', $event.target.value)"
+          placeholder="Blindkopie (Komma-getrennt)"
           class="sr-field-input"
         />
       </div>
@@ -475,6 +496,12 @@ function onLinkPicked(link) {
   font-size: 13px;
   color: hsl(0 0% 10%);
   font-weight: 600;
+}
+.sr-field-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 .sr-field-toggle {
   font-size: 11px;

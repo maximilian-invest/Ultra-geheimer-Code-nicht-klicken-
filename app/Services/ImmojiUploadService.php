@@ -1143,9 +1143,22 @@ class ImmojiUploadService
                 continue;
             }
 
+            // Original-Bilder koennen 15-25 MB gross sein — Immoji's Upload-
+            // Endpoint rejected mit HTTP 413 (Payload Too Large) ueber ~10 MB.
+            // Wir senden eine auf 1920px JPEG quality 82 komprimierte Kopie
+            // (gleicher Cache wie Exposé-Render, ~80-90% Groessenersparnis).
+            $optimizedPath = \App\Support\ExposeImage::cachedFilePath(
+                (int) $img->id,
+                $img->path,
+                \App\Support\ExposeImage::SIZE_COVER
+            );
+
             try {
                 $mediaType = $img->is_title_image ? 'cover' : 'media';
-                $source = $this->uploadFile($filePath, $img->mime_type ?? 'image/jpeg', $mediaType);
+                // mime_type=image/jpeg fix, weil ExposeImage immer JPEGs erzeugt.
+                // Auch wenn der Original-Cache-Fallback ein PNG/HEIC ist (selten),
+                // ist JPEG der sicherste Fallback fuer Immoji.
+                $source = $this->uploadFile($optimizedPath, 'image/jpeg', $mediaType);
 
                 // Save immoji_source so we skip this image next time
                 \Illuminate\Support\Facades\DB::table('property_images')

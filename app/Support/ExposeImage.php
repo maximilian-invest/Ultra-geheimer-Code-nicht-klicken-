@@ -52,6 +52,31 @@ class ExposeImage
     }
 
     /**
+     * Gibt den absoluten lokalen Pfad zur optimierten JPEG-Kopie zurueck.
+     * Generiert die Datei beim ersten Aufruf falls nicht vorhanden.
+     * Fallback auf das Original-Pfad wenn die Generierung fehlschlaegt
+     * (z.B. bei korruptem Bild) oder $imageId 0 ist.
+     *
+     * Wird vom ImmojiUploadService genutzt um keine 20-MB-Originals
+     * zum Immoji-API-Endpoint zu schicken (HTTP 413 "Payload Too Large").
+     */
+    public static function cachedFilePath(int $imageId, string $originalPath, int $maxWidth = self::SIZE_COVER): string
+    {
+        $disk = Storage::disk('public');
+        $absOriginal = $disk->path($originalPath);
+
+        if ($imageId <= 0) return $absOriginal;
+
+        $cachePath = "expose-cache/{$imageId}-{$maxWidth}.jpg";
+        $absCache  = $disk->path($cachePath);
+
+        if (file_exists($absCache)) return $absCache;
+
+        $ok = self::generate($absOriginal, $absCache, $maxWidth);
+        return $ok ? $absCache : $absOriginal;
+    }
+
+    /**
      * Erzeugt eine JPEG-Datei aus der Source. Gibt true zurueck wenn
      * erfolgreich, false sonst. Nicht-bekannte Dateitypen werden uebersprungen.
      */

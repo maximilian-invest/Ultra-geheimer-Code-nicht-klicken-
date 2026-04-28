@@ -198,11 +198,21 @@ class ImmojiUploadService
      */
     public function pushUnit(array $masterProperty, array $unit): array
     {
+        $immojiId = $unit['immoji_id'] ?? null;
+
         // Merge: start with master, override with unit fields
         // Keep master id so uploadAndMapImages uses master's images
-        // But set _forceUpload flag so images are re-uploaded (tmp refs are per-realty)
+        //
+        // _forceUploadImages NUR beim ersten Create einer Unit-Realty setzen.
+        // Bei Update auf eine bereits existierende Realty re-verwenden wir die
+        // gespeicherten immoji_source-Refs aus property_images — sonst wird bei
+        // jedem Portal-Toggle der gesamte Bilder-Pool neu zu Immoji hochgeladen
+        // (10+ Bilder * 10+ Units = sehr teuer).
+        //
+        // Falls Immoji die tmp/-Refs zwischenzeitlich verfallen lassen hat,
+        // greift in updateRealty() der media-error-Recovery: clear + re-upload.
         $merged = $masterProperty;
-        $merged['_forceUploadImages'] = true;
+        $merged['_forceUploadImages'] = !$immojiId;
         $merged['title'] = ($masterProperty['project_name'] ?? $masterProperty['title'] ?? '') . ' - ' . ($unit['unit_number'] ?? '');
         $merged['living_area'] = $unit['area_m2'] ?? null;
         $merged['purchase_price'] = $unit['price'] ?? $unit['purchase_price'] ?? null;
@@ -255,8 +265,6 @@ class ImmojiUploadService
             $merged['building_details'] = $bd;
         }
 
-        $immojiId = $unit['immoji_id'] ?? null;
-
         if ($immojiId) {
             try {
                 $merged['openimmo_id'] = $immojiId;
@@ -265,7 +273,12 @@ class ImmojiUploadService
             } catch (\RuntimeException $e) {
                 if (str_contains($e->getMessage(), 'Entity not found for ID')) {
                     Log::warning("Immoji unit {$immojiId} deleted, re-creating.");
-                    // Fall through to createRealty below
+                    // Bei Re-Create brauchen wir doch frische Image-Uploads:
+                    // die alte Realty ist weg, ihre tmp-Refs sind ungueltig.
+                    $merged['_forceUploadImages'] = true;
+                    \Illuminate\Support\Facades\DB::table('property_images')
+                        ->where('property_id', $masterProperty['id'] ?? 0)
+                        ->update(['immoji_source' => null]);
                 } else {
                     throw $e;
                 }

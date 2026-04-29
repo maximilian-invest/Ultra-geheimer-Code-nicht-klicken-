@@ -224,6 +224,14 @@ class StakeholderHelper
 
         if ($name === '') return 'Sehr geehrte Damen und Herren';
 
+        // Wenn der "Name" eine E-Mail-Adresse ist (z.B. weil der Stakeholder
+        // beim Mail-Import nie als echter Name extrahiert wurde), bauen wir
+        // KEINE personalisierte Anrede. "Sehr geehrter Herr nb2776@gmail.com"
+        // ist peinlicher als ein generisches "Sehr geehrte Damen und Herren".
+        if (str_contains($name, '@') || filter_var($name, FILTER_VALIDATE_EMAIL)) {
+            return 'Sehr geehrte Damen und Herren';
+        }
+
         // Bereits "Herr X" oder "Frau X" → direkt formatieren
         if (preg_match('/^Herr\s+(.+)$/i', $name, $m)) {
             return 'Sehr geehrter Herr ' . trim($m[1]);

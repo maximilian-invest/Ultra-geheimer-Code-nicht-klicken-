@@ -148,21 +148,31 @@ class ConversationService
                     $conv->last_activity_id = $activity->id;
                 }
 
-                // Update stakeholder name: prefer clean, longer names
+                // Update stakeholder name: prefer clean, longer, real names.
+                // KEIN @ in Kandidat — sonst klebt eine fallback-Email als
+                // Stakeholder fest und KI-Anreden werden zu "Sehr geehrter
+                // Herr nb2776@gmail.com".
                 if ($email->stakeholder) {
                     $candidateName = trim(preg_replace('/\s+/', ' ', $email->stakeholder));
-                    // Skip junk names (contain newlines, "Kontaktdaten", too short, or noreply-style)
+                    $candidateIsEmail = str_contains($candidateName, '@')
+                        || filter_var($candidateName, FILTER_VALIDATE_EMAIL);
+
+                    // Skip junk names (newlines, "Kontaktdaten", too short, OR email).
                     $isClean = !str_contains($email->stakeholder, "
 ")
                         && !str_contains(strtolower($candidateName), 'kontaktdaten')
-                        && Str::length($candidateName) >= 3;
+                        && Str::length($candidateName) >= 3
+                        && !$candidateIsEmail;
 
                     if ($isClean) {
                         $currentName = $conv->stakeholder ?? '';
+                        $currentIsEmail = str_contains($currentName, '@')
+                            || filter_var($currentName, FILTER_VALIDATE_EMAIL);
                         $currentIsJunk = str_contains($currentName, "
 ")
                             || str_contains(strtolower($currentName), 'kontaktdaten')
-                            || Str::length(trim($currentName)) < 3;
+                            || Str::length(trim($currentName)) < 3
+                            || $currentIsEmail; // ← Email gilt jetzt als junk
 
                         // Replace if current is junk OR new name is longer (more complete)
                         if ($currentIsJunk || Str::length($candidateName) > Str::length(trim($currentName))) {

@@ -38,10 +38,13 @@ class EmailService
                 $formattedBody = nl2br(htmlspecialchars($formattedBody, ENT_QUOTES, 'UTF-8'));
             }
 
-            // Append HTML signature if not already present
+            // Append HTML signature if not already present.
+            // Bei Forwards/Replies platzieren wir die Signatur VOR dem Quote-
+            // Block (also direkt nach der Nachricht des Maklers), nicht ans
+            // Ende — sonst klebt sie unter der weitergeleiteten Original-Mail.
             if (!str_contains($formattedBody, 'SR-Homes Immobilien') && !str_contains($formattedBody, 'signature')) {
                 $sig = $this->buildHtmlSignature($accountId);
-                $formattedBody .= $sig;
+                $formattedBody = $this->insertSignatureBeforeQuote($formattedBody, $sig);
             }
 
             $email = (new Email())
@@ -385,6 +388,44 @@ class EmailService
             throw $e;
         }
     
+    }
+
+    /**
+     * Plaziert die Signatur intelligent in einer Reply/Forward-Mail:
+     *   - bei Weitergeleiteten Nachrichten: VOR dem "-------- Weitergeleitete
+     *     Nachricht --------" Marker
+     *   - bei Antworten: VOR dem Quote-Block (border-left:2px solid o.ae.) bzw.
+     *     "Am ... schrieb ...:" Header
+     *   - sonst: ans Ende
+     * So bleibt die Signatur immer direkt unter der eigenen Nachricht und
+     * nicht am Ende der zitierten Original-Mail.
+     */
+    private function insertSignatureBeforeQuote(string $body, string $sig): string
+    {
+        // Pattern in absteigender Spezifitaet — der erste Treffer gewinnt.
+        // Whitespace + ggf. <br> davor wird mit-erfasst, damit die Signatur
+        // sauber DAVOR landet ohne den Quote-Block zu zerreissen.
+        $patterns = [
+            // Forward-Marker (deutsch + englisch)
+            '/(?:<br\s*\/?>\s*|\s)*-{2,}\s*Weitergeleitete Nachricht\s*-{2,}/i',
+            '/(?:<br\s*\/?>\s*|\s)*-{2,}\s*Forwarded\s+message\s*-{2,}/i',
+            '/(?:<br\s*\/?>\s*|\s)*-{2,}\s*Original\s+Message\s*-{2,}/i',
+            '/(?:<br\s*\/?>\s*|\s)*-{2,}\s*Original-Nachricht\s*-{2,}/i',
+            // Reply-Quote-Block (vom InboxTab.vue beim Reply generiert)
+            '/<div\s+style="[^"]*border-left[^"]*"/i',
+            '/<blockquote\b/i',
+            // Reply-Attribution-Zeile als Fallback
+            '/(?:<br\s*\/?>\s*|<p[^>]*>\s*)Am\s+[^<>]{1,120}\s+schrieb\s*[^<>:]{0,80}:/i',
+        ];
+
+        foreach ($patterns as $pat) {
+            if (preg_match($pat, $body, $m, PREG_OFFSET_CAPTURE)) {
+                $offset = $m[0][1];
+                return substr($body, 0, $offset) . $sig . substr($body, $offset);
+            }
+        }
+
+        return $body . $sig;
     }
 
     private function buildHtmlSignature(int $accountId): string

@@ -735,37 +735,11 @@ class ConversationController extends Controller
             $conv->outbound_count = ($conv->outbound_count ?? 0) + 1;
             $conv->save();
 
-            // Auto-remove answered inbound emails from Posteingang
-            // (they move to Papierkorb, reply is visible in Gesendet)
-            $inboundIds = DB::table('portal_emails')
-                ->where('property_id', $conv->property_id)
-                ->where('direction', 'inbound')
-                ->where(function ($q) use ($conv) {
-                    $q->whereRaw('LOWER(from_email) = ?', [strtolower($conv->contact_email)])
-                       ->orWhere(function ($q2) use ($conv) {
-                           $q2->where('stakeholder', $conv->stakeholder)
-                               ->where('stakeholder', '!=', '')
-                               ->where('stakeholder', '!=', null);
-                       });
-                })
-                ->where(function ($q) {
-                    $q->where('is_deleted', 0)->orWhereNull('is_deleted');
-                })
-                ->pluck('id');
-
-            if ($inboundIds->isNotEmpty()) {
-                DB::table('portal_emails')
-                    ->whereIn('id', $inboundIds)
-                    ->update(['is_deleted' => 1, 'deleted_at' => now()]);
-
-                // NOTE: We no longer re-categorize activities to 'update' — that destroys analytics.
-                // Unbeantwortet now filters via portal_emails.is_deleted instead.
-
-                Log::info('Auto-trashed inbound emails after conv reply', [
-                    'conv_id' => $conv->id,
-                    'trashed_count' => $inboundIds->count(),
-                ]);
-            }
+            // KEIN Auto-Trash mehr beim Antworten/Weiterleiten — User-Wunsch:
+            // Mails sollen im Posteingang sichtbar bleiben. Sie verschwinden
+            // automatisch aus "Anfragen"/Nachfassen weil conv->status auf
+            // 'beantwortet' wechselt; der Posteingang zeigt sie weiter, bis
+            // der User sie explizit in den Papierkorb wirft.
 
             // Create activities on cross-matched properties if any were selected
             $selectedMatches = PropertyMatch::where('conversation_id', $conv->id)

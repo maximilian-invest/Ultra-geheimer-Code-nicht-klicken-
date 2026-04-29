@@ -3,6 +3,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class Conversation extends Model
 {
@@ -66,9 +68,54 @@ class Conversation extends Model
         // Nachfass-Regel: Nur klassisches Erstanfrage-Pattern.
         //   inbound_count = 1 → Lead hat 1x angefragt und seitdem nicht mehr.
         //   Sobald > 1 → echte Korrespondenz, kein Auto-Nachfass-Kandidat.
+        // Plus: Hausverwaltungen (geschaeftliche Domain in property_managers)
+        // sind nie Erstanfragen — sie korrespondieren nur, kein Lead-Status.
         return $query
             ->whereIn("status", ["beantwortet", "nachfassen_1", "nachfassen_2", "nachfassen_3"])
-            ->where("inbound_count", "<=", 1);
+            ->where("inbound_count", "<=", 1)
+            ->excludePropertyManagers();
+    }
+
+    /**
+     * Filtert Conversations raus, deren contact_email auf die Domain einer
+     * eingetragenen Hausverwaltung (property_managers.email) zeigt. Egal ob
+     * dort ein neuer Ansprechpartner schreibt — die Domain ist gleich, also
+     * NICHT in den Nachfass-/Erstanfrage-Listen.
+     */
+    public function scopeExcludePropertyManagers($query)
+    {
+        $domains = self::propertyManagerDomains();
+        if (empty($domains)) return $query;
+
+        $placeholders = implode(',', array_fill(0, count($domains), '?'));
+        return $query->whereRaw(
+            "LOWER(SUBSTRING_INDEX(contact_email, '@', -1)) NOT IN ({$placeholders})",
+            $domains
+        );
+    }
+
+    /**
+     * Liefert die Domains aller eingetragenen Hausverwaltungen (lowercase,
+     * dedupliziert). Wird 5 Minuten gecached um pro Listing-Request nicht
+     * dieselbe Subquery zu machen.
+     */
+    public static function propertyManagerDomains(): array
+    {
+        return Cache::remember('property_manager_domains', 300, function () {
+            $emails = DB::table('property_managers')
+                ->whereNotNull('email')
+                ->where('email', '!=', '')
+                ->pluck('email');
+
+            $domains = [];
+            foreach ($emails as $email) {
+                $at = strrpos((string) $email, '@');
+                if ($at === false) continue;
+                $domain = strtolower(trim(substr($email, $at + 1)));
+                if ($domain !== '') $domains[$domain] = true;
+            }
+            return array_keys($domains);
+        });
     }
 
     public function scopeErledigt($query)

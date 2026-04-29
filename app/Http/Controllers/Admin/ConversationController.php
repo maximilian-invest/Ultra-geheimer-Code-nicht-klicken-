@@ -158,6 +158,7 @@ class ConversationController extends Controller
             $query->whereIn('status', ['beantwortet', 'nachfassen_1', 'nachfassen_2'])
                 ->where('followup_count', '<', 3)
                 ->where('inbound_count', '<=', 1)
+                ->excludePropertyManagers()
                 ->where(function ($q) {
                     $q->where(function ($q2) {
                         $q2->where('followup_count', 0)
@@ -1607,6 +1608,7 @@ class ConversationController extends Controller
                 ->whereIn('status', ['beantwortet', 'nachfassen_1', 'nachfassen_2'])
                 ->where('followup_count', '<', 3)
                 ->where('inbound_count', '<=', 1)
+                ->excludePropertyManagers()
                 ->where(function ($q) {
                     $q->where(function ($q2) {
                         $q2->where('followup_count', 0)->where('last_outbound_at', '<=', now()->subHours(24));

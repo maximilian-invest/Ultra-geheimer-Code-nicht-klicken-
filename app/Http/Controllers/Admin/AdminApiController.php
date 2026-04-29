@@ -4476,6 +4476,9 @@ PY;
             'created_by' => \Auth::id(),
         ]);
 
+        // Cache invalidieren: neue HV-Domain greift sofort im Nachfass-Filter
+        \Illuminate\Support\Facades\Cache::forget('property_manager_domains');
+
         return response()->json(['success' => true, 'manager_id' => $manager->id, 'manager' => $manager]);
     }
 
@@ -4504,6 +4507,9 @@ PY;
             ->where('property_manager_id', $manager->id)
             ->update(['property_manager' => $manager->company_name]);
 
+        // Cache invalidieren — Email-Domain koennte sich geaendert haben
+        \Illuminate\Support\Facades\Cache::forget('property_manager_domains');
+
         return response()->json(['success' => true, 'manager' => $manager]);
     }
 
@@ -4526,6 +4532,10 @@ PY;
         }
 
         $manager->delete();
+
+        // Cache invalidieren — Domain ist nicht mehr geschuetzt
+        \Illuminate\Support\Facades\Cache::forget('property_manager_domains');
+
         return response()->json(['success' => true]);
     }
 

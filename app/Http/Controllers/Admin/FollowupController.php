@@ -1120,20 +1120,22 @@ private static function findEmailInText(string $text, array $excludePatterns = [
 
         if ($mode === 'stage1') {
             $items = $this->getStage1Followups($norm, $sysFilter, '');
-            return array_values(array_filter(array_map(fn($f) => [
-                'property_id'      => $f['property_id'],
-                'stakeholder'      => $f['from_name'],
-                'email'            => $f['contact_email'] ?? $f['from_email'] ?? '',
-                'property_ref'     => $f['ref_id'] ?? '',
-                'property_address' => ($f['address'] ?? '') . ($f['city'] ? ', ' . $f['city'] : ''),
-            ], $items), function($lead) {
-                // Skip leads where conversation is marked erledigt
-                $status = DB::table('conversations')
-                    ->where('property_id', $lead['property_id'])
-                    ->where('stakeholder', $lead['stakeholder'])
-                    ->value('status');
-                return $status !== 'erledigt';
-            }));
+            return $this->filterOutPropertyManagerEmails(
+                array_values(array_filter(array_map(fn($f) => [
+                    'property_id'      => $f['property_id'],
+                    'stakeholder'      => $f['from_name'],
+                    'email'            => $f['contact_email'] ?? $f['from_email'] ?? '',
+                    'property_ref'     => $f['ref_id'] ?? '',
+                    'property_address' => ($f['address'] ?? '') . ($f['city'] ? ', ' . $f['city'] : ''),
+                ], $items), function($lead) {
+                    // Skip leads where conversation is marked erledigt
+                    $status = DB::table('conversations')
+                        ->where('property_id', $lead['property_id'])
+                        ->where('stakeholder', $lead['stakeholder'])
+                        ->value('status');
+                    return $status !== 'erledigt';
+                }))
+            );
         }
 
         // mode=followup: Stage-2-Kandidaten
@@ -1220,6 +1222,29 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                 'property_address' => ($r['address'] ?? '') . ($r['city'] ? ', ' . $r['city'] : ''),
             ];
         }, $rows);
+
+        return $this->filterOutPropertyManagerEmails($rows);
+    }
+
+    /**
+     * Entfernt Leads deren Email-Domain auf eine eingetragene Hausverwaltung
+     * (property_managers.email) zeigt. Hausverwaltungen sind keine Erstanfragen
+     * — auch wenn ein neuer Ansprechpartner unter @selina-verwaltung.at schreibt,
+     * ist es weiterhin geschaeftliche Korrespondenz, kein Lead.
+     */
+    private function filterOutPropertyManagerEmails(array $leads): array
+    {
+        $domains = \App\Models\Conversation::propertyManagerDomains();
+        if (empty($domains)) return $leads;
+
+        return array_values(array_filter($leads, function ($lead) use ($domains) {
+            $email = strtolower(trim((string) ($lead['email'] ?? '')));
+            if ($email === '') return true;
+            $at = strrpos($email, '@');
+            if ($at === false) return true;
+            $domain = substr($email, $at + 1);
+            return !in_array($domain, $domains, true);
+        }));
     }
 
     /**

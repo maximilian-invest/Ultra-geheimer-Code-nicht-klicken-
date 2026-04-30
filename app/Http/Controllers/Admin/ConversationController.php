@@ -158,7 +158,27 @@ class ConversationController extends Controller
             ->forBroker($brokerId, $userType);
 
         if ($status === 'offen') {
-            $query->where('status', '!=', 'erledigt')->where(function($q) { $q->where(function($q2) { $q2->whereColumn('last_inbound_at', '>', 'last_outbound_at'); })->orWhereNull('last_outbound_at'); })->orderBy('last_inbound_at', 'desc');
+            // Whitelist: Anfragen-Tab zeigt NUR Mails mit Absender aus diesen
+            // Lead-Plattformen. Direkt-Mails von Privatpersonen (gmail, gmx,
+            // hotmail etc.) erscheinen weiterhin im Posteingang, aber NICHT
+            // mehr im "Anfragen"-Tab — das war User-Wunsch ab sofort.
+            $allowedSenders = [
+                'anfrage@immobilienscout24.at',
+                'noreply@immoji.org',
+                'info@immowelt.at',
+                'no-reply@mail.willhaben.at',
+                'bni.notifications@bniconnectglobal.com',
+            ];
+            $query->where('status', '!=', 'erledigt')
+                ->where(function($q) {
+                    $q->where(function($q2) { $q2->whereColumn('last_inbound_at', '>', 'last_outbound_at'); })
+                      ->orWhereNull('last_outbound_at');
+                })
+                ->whereIn('last_email_id', function ($sub) use ($allowedSenders) {
+                    $sub->select('id')->from('portal_emails')
+                        ->whereIn(DB::raw('LOWER(from_email)'), $allowedSenders);
+                })
+                ->orderBy('last_inbound_at', 'desc');
         } elseif ($status === 'nachfassen') {
             // Nachfass-Regel (User-Definition):
             //   Erstanfrage → unsere Antwort → KEINE Reaktion = Nachfassen

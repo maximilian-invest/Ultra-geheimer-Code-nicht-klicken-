@@ -698,6 +698,36 @@ class EmailController extends Controller
             if (!is_array($attachments)) $attachments = [$attachments];
         }
 
+        // Plus: bereits hochgeladene Dateien per ID hinzufuegen — gleiche
+        // Quellen wie conv_reply: property_files (int), portal_documents
+        // ("doc_<id>"), global_files ("global_<id>"). FormData kann Arrays
+        // schicken (file_ids[]) oder CSV-String — beide Faelle abfangen.
+        $rawFileIds = $request->input('file_ids', []);
+        if (is_string($rawFileIds)) {
+            $rawFileIds = array_filter(array_map('trim', explode(',', $rawFileIds)));
+        }
+        $fileIds = array_values(array_filter((array) $rawFileIds, fn($v) => $v !== '' && $v !== null));
+
+        foreach ($fileIds as $fid) {
+            $path = null;
+            if (is_string($fid) && str_starts_with($fid, 'global_')) {
+                $gid = (int) str_replace('global_', '', $fid);
+                $row = DB::table('global_files')->where('id', $gid)->first(['path']);
+                if ($row) $path = $row->path;
+            } elseif (is_string($fid) && str_starts_with($fid, 'doc_')) {
+                $did = (int) str_replace('doc_', '', $fid);
+                $row = DB::table('portal_documents')->where('id', $did)->first(['property_id', 'filename']);
+                if ($row) $path = 'documents/' . $row->property_id . '/' . $row->filename;
+            } else {
+                $row = DB::table('property_files')->where('id', (int) $fid)->first(['path']);
+                if ($row) $path = $row->path;
+            }
+            if ($path) {
+                $abs = storage_path('app/public/' . $path);
+                if (file_exists($abs)) $attachments[] = $abs;
+            }
+        }
+
         // Look up original email's message_id for reply threading
         $inReplyToMessageId = null;
         $references = null;

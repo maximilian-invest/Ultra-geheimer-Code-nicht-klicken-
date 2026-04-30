@@ -267,6 +267,9 @@ const composeTone = ref("professional");
 const composePropertyId = ref(null);
 const composeStakeholder = ref("");
 const composeAttachments = ref([]);
+// Bereits hochgeladene Dateien (property_files, portal_documents, global_files)
+// per ID. Pendant zu composeAttachments (frische Uploads).
+const composeFileIds = ref([]);
 const emailSourceId = ref("");
 const currentDraftId = ref(null);
 const aiOriginalBody = ref("");
@@ -1956,6 +1959,8 @@ async function sendEmail() {
     fd.append("property_id", composePropertyId.value || "");
     fd.append("in_reply_to", emailSourceId.value || "");
     for (const file of composeAttachments.value) fd.append("attachments[]", file);
+    // Bereits hochgeladene Dateien per ID (gleiche Quellen wie conv_reply)
+    for (const fid of composeFileIds.value) fd.append("file_ids[]", String(fid));
     const r = await fetch(API.value + "&action=send_email", { method: "POST", body: fd });
     const result = await r.json();
     if (result.success) {
@@ -1980,6 +1985,7 @@ async function sendEmail() {
       composeSubject.value = ""; composeBody.value = "";
       emailSourceId.value = ""; composePropertyId.value = null; composeStakeholder.value = "";
       composeAttachments.value = [];
+      composeFileIds.value = [];
       if (currentDraftId.value) {
         fetch(API.value + "&action=delete_draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentDraftId.value }) });
         currentDraftId.value = null;
@@ -2495,6 +2501,7 @@ function startCompose() {
   composeSubject.value = '';
   composeBody.value = '';  // signature shown as visual preview, appended on send
   composeAttachments.value = [];
+  composeFileIds.value = [];
   composePropertyId.value = null;
   composeStakeholder.value = '';
   emailSourceId.value = '';
@@ -3244,6 +3251,8 @@ onMounted(() => {
         :show-cc-bcc="showCcBcc"
         :reply-context="replyContext"
         :signature-data="sigData"
+        :compose-file-ids="composeFileIds"
+        @update:compose-file-ids="composeFileIds = $event"
         @update:compose-to="composeTo = $event"
         @update:compose-subject="composeSubject = $event"
         @update:compose-body="composeBody = $event"

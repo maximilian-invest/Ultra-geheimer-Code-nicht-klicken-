@@ -86,7 +86,7 @@ class ConversationController extends Controller
         foreach ($accountIds as $aid) $params[] = (int) $aid;
 
         $row = DB::selectOne("
-            SELECT pe.from_name, pe.from_email, pe.subject, pe.email_date, pe.account_id
+            SELECT pe.from_name, pe.from_email, pe.stakeholder AS pe_stakeholder, pe.subject, pe.email_date, pe.account_id
             FROM portal_emails pe
             WHERE pe.is_deleted = 0
               AND pe.direction = 'inbound'
@@ -104,8 +104,28 @@ class ConversationController extends Controller
 
         if (!$row) return null;
 
+        // from_name kann bei Plattform-Notifications eine no-reply-Adresse
+        // sein (noreply@immoji.org, no-reply@willhaben.at, notifications@
+        // typeform). In dem Fall nehmen wir den AI-extrahierten Namen aus
+        // pe.stakeholder, sonst den globalen Conv-stakeholder. Sonst zeigt
+        // die Inbox-Liste "noreply@immoji.org" als Absender — die Person
+        // (Kareem Muhammed) verschwindet dahinter.
+        $displayName = (string) ($row->from_name ?? '');
+        $isNoreplyName = (bool) preg_match(
+            '/(noreply|no-reply|notifications?@|followups\.typeform|mailer-daemon)/i',
+            $displayName . ' ' . (string) ($row->from_email ?? '')
+        );
+        if ($isNoreplyName) {
+            $peStake = trim((string) ($row->pe_stakeholder ?? ''));
+            if ($peStake !== '' && !preg_match('/(noreply|no-reply|@)/i', $peStake)) {
+                $displayName = $peStake;
+            } else {
+                $displayName = $stakeholder; // Conv-stakeholder als Fallback
+            }
+        }
+
         return [
-            'from_name'  => $row->from_name ?? null,
+            'from_name'  => $displayName !== '' ? $displayName : null,
             'from_email' => $row->from_email ?? null,
             'subject'    => $row->subject ?? null,
             'email_date' => $row->email_date ?? null,

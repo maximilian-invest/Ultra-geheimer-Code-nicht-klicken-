@@ -14,14 +14,16 @@ Route::get('/', function () {
 // Redirect dashboard based on user type
 Route::get('/dashboard', function () {
     $user = auth()->user();
-    if (in_array($user->user_type, ['admin', 'makler', 'assistenz'])) {
+    // 'assistenz' ist Legacy-Bezeichnung — DB-ENUM kennt nur 'backoffice'.
+    // Beide akzeptieren wir hier, damit kein Drift entsteht.
+    if (in_array($user->user_type, ['admin', 'makler', 'assistenz', 'backoffice'])) {
         return redirect()->route('admin.dashboard');
     }
     return redirect()->route('portal.dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 // Admin routes
-Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz'])->prefix('admin')->group(function () {
+Route::middleware(['auth', 'verified', 'role:admin,makler,assistenz,backoffice'])->prefix('admin')->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
 });
 

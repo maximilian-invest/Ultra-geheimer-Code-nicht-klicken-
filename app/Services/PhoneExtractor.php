@@ -37,12 +37,16 @@ class PhoneExtractor
      * Regex-Patterns in absteigender Spezifität.
      * Labeled patterns (Phone, Telefon, Mobil, Tel) haben Vorrang vor rohen Nummern.
      */
+    // Trennzeichen NACH dem Label sind optional (Typeform serialisiert
+    // Label und Wert ohne Whitespace: "Phone number+436765118113"). Daher
+    // [:\s]* statt [:\s]+ — der nachfolgende [+]?\d sorgt dafuer dass nur
+    // bei einer echten Nummer gematcht wird.
     private static array $patterns = [
-        '/Phone\s*number[:\s]+([+]?\d[\d\s.()\/-]{7,17})/i',
-        '/Telefon(?:nummer)?[:\s]+([+]?\d[\d\s.()\/-]{7,17})/i',
-        '/Mobil(?:nummer)?[:\s]+([+]?\d[\d\s.()\/-]{7,17})/i',
-        '/Handy(?:nummer)?[:\s]+([+]?\d[\d\s.()\/-]{7,17})/i',
-        '/Tel[.:\s]+([+]?\d[\d\s.()\/-]{7,17})/i',
+        '/Phone\s*number[:\s]*([+]?\d[\d\s.()\/-]{7,17})/i',
+        '/Telefon(?:nummer)?[:\s]*([+]?\d[\d\s.()\/-]{7,17})/i',
+        '/Mobil(?:nummer)?[:\s]*([+]?\d[\d\s.()\/-]{7,17})/i',
+        '/Handy(?:nummer)?[:\s]*([+]?\d[\d\s.()\/-]{7,17})/i',
+        '/Tel[.:\s]*([+]?\d[\d\s.()\/-]{7,17})/i',
         // Internationale AT/DE-Nummern ohne Label (+43, +49 ...)
         '/(?<![\w@])([+]4[0-9][\d\s.\-\/()]{8,16})(?![\w@])/',
         // Österreichische Mobilnummern ohne Vorwahl-Plus (06x ...)

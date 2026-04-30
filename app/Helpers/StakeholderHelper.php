@@ -243,8 +243,10 @@ class StakeholderHelper
         // Vor- und Nachname trennen — letzter Teil = Nachname.
         $parts = preg_split('/\s+/', $name);
         if (count($parts) < 2) {
-            // Nur ein Wort → kein Nachname zum Anreden, neutraler Fallback.
-            return 'Guten Tag ' . $name;
+            // Nur ein Wort → kein klarer Nachname → generischer Geschaefts-Fallback.
+            // Vorher: "Guten Tag {Wort}" — wirkt persoenlich-falsch wenn das
+            // Wort gar kein Name ist.
+            return 'Sehr geehrte Damen und Herren';
         }
         $firstName = $parts[0];
         $lastName  = end($parts);
@@ -253,9 +255,11 @@ class StakeholderHelper
         if ($gender === 'm') return 'Sehr geehrter Herr ' . $lastName;
         if ($gender === 'f') return 'Sehr geehrte Frau ' . $lastName;
 
-        // Unbekanntes Geschlecht: defensiver Fallback. Lieber "Guten Tag" als
-        // ein falsches "Herr"/"Frau" zu raten — Geschaeftsbriefe vertragen das.
-        return 'Guten Tag ' . $name;
+        // Unbekanntes Geschlecht: generischer Geschaefts-Fallback statt
+        // "Guten Tag {Vollname}" — letzteres wirkt persoenlich aber wirkt
+        // mit Vor- + Nachnamen vertrieblich-aufdringlich. Wenn wir das
+        // Geschlecht nicht kennen, ist die formellste Variante besser.
+        return 'Sehr geehrte Damen und Herren';
     }
 
     /**

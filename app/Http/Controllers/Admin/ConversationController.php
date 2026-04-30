@@ -1153,24 +1153,73 @@ class ConversationController extends Controller
         $conv = Conversation::find($id);
         if ($conv) return $conv;
 
-        $email = \DB::table('portal_emails')->where('id', $id)->first(['property_id', 'from_email', 'to_email', 'stakeholder']);
+        $email = \DB::table('portal_emails')->where('id', $id)->first(['id', 'property_id', 'from_email', 'to_email', 'stakeholder']);
         if (!$email) return null;
 
         $contactEmail = strtolower($email->from_email ?? $email->to_email ?? '');
         if (preg_match('/<([^>]+)>/', $contactEmail, $m)) $contactEmail = $m[1];
 
-        $q = Conversation::query();
-        if ($email->property_id) $q->where('property_id', $email->property_id);
-        if ($contactEmail) {
+        // Wenn from_email eine Plattform-Notification ist (no-reply@willhaben,
+        // notifications@typeform etc.), ist die echte Conv-contact_email NICHT
+        // diese Adresse — sie wurde im ConversationService aus dem Body
+        // extrahiert. In dem Fall direkt ueber last_email_id lookup machen,
+        // sonst landet man bei "Conversation not found".
+        $isNoreply = $contactEmail !== '' && (bool) preg_match(
+            '/(noreply|no-reply|notifications?@|followups\.typeform|mailer-daemon)/',
+            $contactEmail
+        );
+
+        // Strategie 1 (am sichersten): Conv die diese exakte Mail als
+        // last_email_id referenziert, oder ueberhaupt die Mail in ihrem
+        // mailIdsForConversation-Set haette. Direkt-Lookup via last_email_id.
+        $convByLastMail = Conversation::where('last_email_id', $id)->first();
+        if ($convByLastMail) {
+            \Log::info("{$caller}: resolved email id={$id} -> conv id={$convByLastMail->id} via last_email_id");
+            return $convByLastMail;
+        }
+
+        // Strategie 2: Conv per (property + contact_email) finden, aber nur
+        // wenn from_email keine noreply-Adresse ist.
+        if (!$isNoreply && $contactEmail) {
+            $q = Conversation::query();
+            if ($email->property_id) $q->where('property_id', $email->property_id);
             $q->whereRaw('LOWER(contact_email) = ?', [$contactEmail]);
-        } elseif (!empty($email->stakeholder)) {
+            $conv = $q->orderByDesc('id')->first();
+            if ($conv) {
+                \Log::info("{$caller}: resolved email id={$id} -> conv id={$conv->id} via from_email/property");
+                return $conv;
+            }
+        }
+
+        // Strategie 3: Conv per (property + stakeholder) — robuster Fallback
+        // fuer Plattform-Notifications wo from_email noreply ist aber der
+        // stakeholder den echten Namen enthaelt.
+        if (!empty($email->stakeholder)) {
+            $q = Conversation::query();
+            if ($email->property_id) $q->where('property_id', $email->property_id);
             $q->where('stakeholder', $email->stakeholder);
+            $conv = $q->orderByDesc('id')->first();
+            if ($conv) {
+                \Log::info("{$caller}: resolved email id={$id} -> conv id={$conv->id} via stakeholder");
+                return $conv;
+            }
         }
-        $conv = $q->orderByDesc('id')->first();
-        if ($conv) {
-            \Log::info("{$caller}: resolved email id={$id} -> conv id={$conv->id} (property={$email->property_id})");
+
+        // Strategie 4 (letzte Chance): per stakeholder OHNE property_id —
+        // selbst wenn die Conv auf einem anderen Objekt liegt, ist sie
+        // immer noch die richtige Person.
+        if (!empty($email->stakeholder)) {
+            $conv = Conversation::where('stakeholder', $email->stakeholder)
+                ->orderByDesc('id')
+                ->first();
+            if ($conv) {
+                \Log::info("{$caller}: resolved email id={$id} -> conv id={$conv->id} via stakeholder-only fallback");
+                return $conv;
+            }
         }
-        return $conv;
+
+        \Log::warning("{$caller}: COULD NOT resolve email id={$id} to any conversation. from_email={$contactEmail} stakeholder={$email->stakeholder} property_id={$email->property_id}");
+        return null;
     }
 
     public function regenerateDraft(Request $request): JsonResponse

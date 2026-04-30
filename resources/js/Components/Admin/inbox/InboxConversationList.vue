@@ -1,6 +1,6 @@
 <script setup>
-import { computed, ref } from "vue";
-import { Search, Loader2, Plus, RefreshCw } from "lucide-vue-next";
+import { computed, ref, inject } from "vue";
+import { Search, Loader2, Plus, RefreshCw, Flag } from "lucide-vue-next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,6 +22,26 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["select", "update:searchQuery", "update:objectFilter", "compose", "delete", "batchDone", "batchTrash", "toolbarRefresh"]);
+
+// Optionaler Flag-Kontext: Filter "nur markierte / nach Farbe" + Settings-Trigger.
+const flagContext = inject("inboxFlags", null);
+const flagLabels = computed(() => flagContext?.labels?.value || {});
+const flagFilter = ref("");
+
+// Frontend-Filter: items werden vom Parent geliefert. Wir filtern hier in
+// der Liste, damit der Filter sofort wirkt ohne Roundtrip.
+const visibleItems = computed(() => {
+  if (!flagFilter.value) return props.items || [];
+  if (flagFilter.value === "any") return (props.items || []).filter(i => !!i.flag_color);
+  return (props.items || []).filter(i => i.flag_color === flagFilter.value);
+});
+const visibleGroupedSections = computed(() => {
+  if (!flagFilter.value) return props.groupedSections || [];
+  return (props.groupedSections || []).map(s => ({
+    ...s,
+    items: (s.items || []).filter(i => flagFilter.value === "any" ? !!i.flag_color : i.flag_color === flagFilter.value),
+  }));
+});
 
 const selectedIds = ref(new Set());
 const selectMode = ref(false);
@@ -47,6 +67,19 @@ function batchDone() {
 }
 
 const isGrouped = computed(() => props.groupedSections && props.groupedSections.length > 0);
+
+const flagFilterColorClass = computed(() => {
+  switch (flagFilter.value) {
+    case "red":    return "text-red-500";
+    case "orange": return "text-orange-500";
+    case "yellow": return "text-yellow-500";
+    case "green":  return "text-emerald-500";
+    case "blue":   return "text-blue-500";
+    case "purple": return "text-purple-500";
+    case "any":    return "text-zinc-700";
+    default:       return "text-zinc-400";
+  }
+});
 
 const collapsedSections = ref({});
 function toggleSection(label) {
@@ -91,6 +124,39 @@ function toggleSection(label) {
         </Select>
 
         <slot name="toolbar-inline" />
+
+        <!-- Flag-Filter (Outlook-Style): nur sichtbar wenn Flag-Kontext da ist -->
+        <Select
+          v-if="flagContext"
+          :model-value="flagFilter"
+          @update:model-value="flagFilter = $event === 'all' ? '' : $event"
+        >
+          <SelectTrigger class="h-8 w-[42px] px-2 text-[11px] shrink-0" :title="flagFilter ? ('Filter: ' + (flagFilter === 'any' ? 'Alle markierten' : (flagLabels[flagFilter] || flagFilter))) : 'Nach Markierung filtern'">
+            <Flag class="h-3.5 w-3.5" :class="[flagFilterColorClass, flagFilter ? 'fill-current' : '']" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" class="text-[11px]">Alle</SelectItem>
+            <SelectItem value="any" class="text-[11px]">Nur markierte</SelectItem>
+            <SelectItem value="red"    class="text-[11px]"><span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>{{ flagLabels.red    || 'Rot' }}</span></SelectItem>
+            <SelectItem value="orange" class="text-[11px]"><span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>{{ flagLabels.orange || 'Orange' }}</span></SelectItem>
+            <SelectItem value="yellow" class="text-[11px]"><span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>{{ flagLabels.yellow || 'Gelb' }}</span></SelectItem>
+            <SelectItem value="green"  class="text-[11px]"><span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>{{ flagLabels.green  || 'Grün' }}</span></SelectItem>
+            <SelectItem value="blue"   class="text-[11px]"><span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>{{ flagLabels.blue   || 'Blau' }}</span></SelectItem>
+            <SelectItem value="purple" class="text-[11px]"><span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>{{ flagLabels.purple || 'Lila' }}</span></SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button
+          v-if="flagContext"
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          class="h-8 w-8 shrink-0 border-zinc-200 text-zinc-500"
+          title="Markierungs-Bezeichnungen anpassen"
+          @click="flagContext.openSettings && flagContext.openSettings()"
+        >
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        </Button>
 
         <div class="min-w-[2px] min-h-[1px] flex-1 basis-0"></div>
 
@@ -142,15 +208,17 @@ function toggleSection(label) {
 
       <!-- Empty -->
       <div
-        v-else-if="!isGrouped && items.length === 0"
+        v-else-if="!isGrouped && visibleItems.length === 0"
         class="flex items-center justify-center py-12"
       >
-        <span class="text-[12px] text-muted-foreground">{{ emptyMessage }}</span>
+        <span class="text-[12px] text-muted-foreground">
+          {{ flagFilter ? 'Keine Konversation mit dieser Markierung' : emptyMessage }}
+        </span>
       </div>
 
       <!-- Flat List -->
       <div v-else-if="!isGrouped" class="divide-y divide-zinc-100">
-        <div v-for="item in items" :key="item.id" class="flex items-center min-w-0">
+        <div v-for="item in visibleItems" :key="item.id" class="flex items-center min-w-0">
           <input
             v-if="selectMode"
             type="checkbox"
@@ -170,7 +238,7 @@ function toggleSection(label) {
 
       <!-- Grouped List (nachfassen) -->
       <div v-else>
-        <template v-for="section in groupedSections" :key="section.label">
+        <template v-for="section in visibleGroupedSections" :key="section.label">
           <div
             v-if="section.items && section.items.length"
           >
@@ -216,10 +284,12 @@ function toggleSection(label) {
 
         <!-- Empty grouped -->
         <div
-          v-if="groupedSections.every(s => !s.items || s.items.length === 0)"
+          v-if="visibleGroupedSections.every(s => !s.items || s.items.length === 0)"
           class="flex items-center justify-center py-12"
         >
-          <span class="text-[12px] text-muted-foreground">{{ emptyMessage }}</span>
+          <span class="text-[12px] text-muted-foreground">
+            {{ flagFilter ? 'Keine Konversation mit dieser Markierung' : emptyMessage }}
+          </span>
         </div>
       </div>
     </div>

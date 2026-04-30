@@ -209,6 +209,11 @@ class AdminApiController extends Controller
             'conv_improve_draft'        => app(ConversationController::class)->improveDraft($request),
             'conv_followup_all'         => app(ConversationController::class)->followupAll($request),
 
+            // Inbox-Flags (Outlook-Style, persoenlich pro User)
+            'flag_labels'               => app(FlagController::class)->labels($request),
+            'flag_label_save'           => app(FlagController::class)->saveLabel($request),
+            'conv_flag'                 => app(FlagController::class)->setConversationFlag($request),
+
             // AI Cross-Match
             'match_list'           => app(ConversationController::class)->matchList($request),
             'match_dismiss'        => app(ConversationController::class)->matchDismiss($request),

@@ -241,7 +241,32 @@ class ConversationController extends Controller
             $query->where('match_count', '>', 0)->where('match_dismissed', false);
         }
 
+        // Per-User Flag-Filter (Outlook-Style): "any" zeigt alle markierten,
+        // ein konkreter Farbname filtert auf genau diese Markierung.
+        $flagFilter = trim((string) $request->query('flag', ''));
+        if ($flagFilter !== '') {
+            $query->whereIn('id', function ($sub) use ($brokerId, $flagFilter) {
+                $sub->select('conversation_id')->from('conversation_flags')->where('user_id', $brokerId);
+                if ($flagFilter !== 'any' && \App\Models\UserFlagLabel::isValidColor($flagFilter)) {
+                    $sub->where('color', $flagFilter);
+                }
+            });
+        }
+
         $paginated = $query->paginate($perPage, ['*'], 'page', $page);
+
+        // Bulk-Lookup der Flag-Farben fuer alle Conversations dieser Seite.
+        $convIds = collect($paginated->items())->pluck('id')->all();
+        $flagMap = [];
+        if (!empty($convIds) && $brokerId) {
+            $flagRows = DB::table('conversation_flags')
+                ->where('user_id', $brokerId)
+                ->whereIn('conversation_id', $convIds)
+                ->get(['conversation_id', 'color']);
+            foreach ($flagRows as $r) {
+                $flagMap[(int) $r->conversation_id] = (string) $r->color;
+            }
+        }
 
         // Account scope for the current user — used to build a per-user
         // display name / subject so a shared conversation (e.g. Susanne
@@ -267,10 +292,12 @@ class ConversationController extends Controller
             }
         }
 
-        $conversations = collect($paginated->items())->map(function (Conversation $conv) use ($scopedAcctIds, $hasBrokerScopedFilter) {
+        $conversations = collect($paginated->items())->map(function (Conversation $conv) use ($scopedAcctIds, $hasBrokerScopedFilter, $flagMap) {
             $prop = $conv->property;
             $item = [
                 'id'               => $conv->id,
+                'conversation_id'  => $conv->id,
+                'flag_color'       => $flagMap[(int) $conv->id] ?? null,
                 'contact_email'    => $conv->contact_email,
                 'stakeholder'      => $conv->stakeholder,
                 'property_id'      => $conv->property_id,

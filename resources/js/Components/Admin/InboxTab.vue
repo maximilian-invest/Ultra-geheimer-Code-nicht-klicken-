@@ -95,6 +95,74 @@ provide("inboxBgGradient", bgGradient);
 provide("inboxBgOpacity", bgOpacity);
 
 // ============================================================
+// INBOX FLAGS — Outlook-Style, persoenlich pro User
+// ============================================================
+const flagDefaultLabels = {
+  red: 'Rot', orange: 'Orange', yellow: 'Gelb',
+  green: 'Gruen', blue: 'Blau', purple: 'Lila',
+};
+const flagLabels = ref({ ...flagDefaultLabels });
+const flagFilter = ref('');
+const flagSettingsOpen = ref(false);
+const flagSettingsDraft = ref({ ...flagDefaultLabels });
+const flagSettingsSaving = ref('');
+
+async function loadFlagLabels() {
+  try {
+    const r = await fetch(API.value + '&action=flag_labels');
+    const j = await r.json();
+    if (j && j.labels) flagLabels.value = { ...flagDefaultLabels, ...j.labels };
+  } catch (e) {}
+}
+
+async function setConversationFlag(item, color) {
+  try {
+    const r = await fetch(API.value + '&action=conv_flag', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: item.id, color: color || null }),
+    });
+    const j = await r.json();
+    if (!r.ok || !j?.success) {
+      toast?.error?.('Markierung konnte nicht gespeichert werden');
+      return;
+    }
+    item.flag_color = color || null;
+    if (j.conversation_id) item.conversation_id = j.conversation_id;
+  } catch (e) {
+    toast?.error?.('Markierung konnte nicht gespeichert werden');
+  }
+}
+
+function openFlagSettings() {
+  flagSettingsDraft.value = { ...flagDefaultLabels, ...flagLabels.value };
+  flagSettingsOpen.value = true;
+}
+
+async function saveFlagLabel(color) {
+  const label = (flagSettingsDraft.value[color] || '').trim();
+  flagSettingsSaving.value = color;
+  try {
+    const r = await fetch(API.value + '&action=flag_label_save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ color, label }),
+    });
+    const j = await r.json();
+    if (j?.success && j.labels) {
+      flagLabels.value = { ...flagDefaultLabels, ...j.labels };
+    }
+  } catch (e) {}
+  flagSettingsSaving.value = '';
+}
+
+provide('inboxFlags', {
+  labels: flagLabels,
+  setFlag: setConversationFlag,
+  openSettings: openFlagSettings,
+});
+
+// ============================================================
 // SELECTED CONVERSATION (from Task 1 shell)
 // ============================================================
 const selectedItem = ref(null);
@@ -2678,6 +2746,9 @@ onMounted(() => {
   loadSignature();
   loadEmailAccountsSelect();
 
+  // Per-User Flag-Labels (Outlook-Style)
+  loadFlagLabels();
+
   // Check for compose prefill from Priorities tab
   const prefill = sessionStorage.getItem('sr-compose-prefill');
   if (prefill) {
@@ -3331,5 +3402,70 @@ onMounted(() => {
     </div>
 
     <!-- HvComposeDialog ist jetzt global in Dashboard.vue gemountet — nicht mehr hier duplizieren -->
+
+    <!-- Flag-Bezeichnungen anpassen (Outlook-Style: 6 Farben, eigene Namen) -->
+    <div
+      v-if="flagSettingsOpen"
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      @click.self="flagSettingsOpen = false"
+    >
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-5 mx-4">
+        <div class="flex items-start justify-between mb-3">
+          <div>
+            <h3 class="text-base font-semibold text-zinc-900">Markierungen</h3>
+            <p class="text-[12px] text-zinc-500 mt-0.5">
+              Vergib eigene Namen für die sechs Farben — wie in Outlook.
+              Die Farbe ist persönlich und nur für dich sichtbar.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="text-zinc-400 hover:text-zinc-700"
+            @click="flagSettingsOpen = false"
+            title="Schließen"
+          >
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+
+        <div class="space-y-2">
+          <div
+            v-for="c in ['red','orange','yellow','green','blue','purple']"
+            :key="c"
+            class="flex items-center gap-2"
+          >
+            <span
+              class="w-4 h-4 rounded-full flex-shrink-0"
+              :class="{
+                'bg-red-500': c === 'red',
+                'bg-orange-500': c === 'orange',
+                'bg-yellow-400': c === 'yellow',
+                'bg-emerald-500': c === 'green',
+                'bg-blue-500': c === 'blue',
+                'bg-purple-500': c === 'purple',
+              }"
+            ></span>
+            <Input
+              v-model="flagSettingsDraft[c]"
+              :placeholder="flagDefaultLabels[c]"
+              class="h-8 text-[12px] flex-1"
+              maxlength="60"
+              @blur="saveFlagLabel(c)"
+              @keydown.enter.prevent="$event.target.blur()"
+            />
+            <span
+              class="text-[10px] text-zinc-400 w-10 text-right"
+            >
+              <Loader2 v-if="flagSettingsSaving === c" class="w-3 h-3 animate-spin inline" />
+              <span v-else-if="flagLabels[c] && flagLabels[c] !== flagDefaultLabels[c]">eigen</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="mt-4 flex justify-end">
+          <Button variant="outline" size="sm" @click="flagSettingsOpen = false">Fertig</Button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

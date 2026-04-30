@@ -1027,6 +1027,25 @@ private static function findEmailInText(string $text, array $excludePatterns = [
             return (object) $em;
         }, $emails);
 
+        // Per-User Flags: jede Mail einer Conversation zuordnen (anhand
+        // stakeholder/from/to + property_id) und die Markierungs-Farbe des
+        // aktuellen Users beilegen. Damit funktionieren Outlook-Style-Flags
+        // auch im Posteingang/Gesendet, obwohl die Liste pro Mail (nicht pro
+        // Conversation) gruppiert ist.
+        $emails = $this->attachUserFlags($emails, (int) $brokerId);
+
+        // Optionaler Flag-Filter: "any" oder ein gueltiger Farbname.
+        $flagFilter = trim((string) $request->query('flag', ''));
+        if ($flagFilter !== '') {
+            $emails = array_values(array_filter($emails, function ($em) use ($flagFilter) {
+                $color = $em->flag_color ?? null;
+                if (!$color) return false;
+                if ($flagFilter === 'any') return true;
+                return $color === $flagFilter;
+            }));
+            $total = count($emails);
+        }
+
         // Grouping is now done in SQL via INNER JOIN subquery above
 
         return response()->json([
@@ -1034,12 +1053,119 @@ private static function findEmailInText(string $text, array $excludePatterns = [
             'total'       => $total,
             'page'        => $page,
             'per_page'    => $perPage,
-            'total_pages' => (int) ceil($total / $perPage),
+            'total_pages' => (int) ceil($total / max(1, $perPage)),
             'filters'     => [
                 'stakeholders' => $stakeholders,
                 'categories'   => $categories,
             ],
         ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Resolve each email row to its conversation_id and attach the
+     * current user's flag color (if any) for that conversation.
+     */
+    private function attachUserFlags(array $emails, int $userId): array
+    {
+        if (!$userId || empty($emails)) {
+            foreach ($emails as $em) {
+                $em->conversation_id = null;
+                $em->flag_color = null;
+            }
+            return $emails;
+        }
+
+        // 1. Sammle Kandidaten-Keys (lowercase) aus stakeholder/from/to + property_id.
+        $keys = [];
+        $emailIds = [];
+        foreach ($emails as $em) {
+            $emailIds[$em->id] = true;
+            $pid = (int) ($em->property_id ?? 0);
+            foreach ([$em->stakeholder ?? null, $em->from_email ?? null, $em->to_email ?? null] as $cand) {
+                $cand = mb_strtolower(trim((string) $cand));
+                if ($cand === '') continue;
+                $keys["{$cand}|{$pid}"] = ['k' => $cand, 'p' => $pid];
+            }
+        }
+
+        if (empty($keys)) {
+            foreach ($emails as $em) {
+                $em->conversation_id = null;
+                $em->flag_color = null;
+            }
+            return $emails;
+        }
+
+        // 2. Eine Query: alle Conversations holen, deren contact_email ODER
+        //    stakeholder einem der Keys entspricht (LOWER + TRIM).
+        $candidateValues = array_unique(array_map(fn($v) => $v['k'], array_values($keys)));
+        $candidatePids   = array_unique(array_map(fn($v) => $v['p'], array_values($keys)));
+
+        $convs = DB::table('conversations')
+            ->select('id', 'contact_email', 'stakeholder', 'property_id')
+            ->where(function ($q) use ($candidateValues) {
+                $q->whereRaw(
+                    'LOWER(TRIM(COALESCE(contact_email,""))) IN (' . implode(',', array_fill(0, count($candidateValues), '?')) . ')',
+                    $candidateValues
+                )->orWhereRaw(
+                    'LOWER(TRIM(COALESCE(stakeholder,""))) IN (' . implode(',', array_fill(0, count($candidateValues), '?')) . ')',
+                    $candidateValues
+                );
+            })
+            ->whereIn(DB::raw('COALESCE(property_id, 0)'), $candidatePids)
+            ->get();
+
+        // 3. Map (key|pid -> conversation_id), kleinste id wenn mehrere matchen.
+        $keyToConv = [];
+        foreach ($convs as $c) {
+            $pid = (int) ($c->property_id ?? 0);
+            foreach ([$c->contact_email ?? null, $c->stakeholder ?? null] as $val) {
+                $val = mb_strtolower(trim((string) $val));
+                if ($val === '') continue;
+                $k = "{$val}|{$pid}";
+                if (!isset($keyToConv[$k]) || $c->id < $keyToConv[$k]) {
+                    $keyToConv[$k] = (int) $c->id;
+                }
+            }
+        }
+
+        // 4. Pro Email den ersten matchenden Conversation-Key suchen.
+        $emailToConv = [];
+        foreach ($emails as $em) {
+            $pid = (int) ($em->property_id ?? 0);
+            $convId = null;
+            foreach ([$em->stakeholder ?? null, $em->from_email ?? null, $em->to_email ?? null] as $cand) {
+                $cand = mb_strtolower(trim((string) $cand));
+                if ($cand === '') continue;
+                $k = "{$cand}|{$pid}";
+                if (isset($keyToConv[$k])) {
+                    $convId = $keyToConv[$k];
+                    break;
+                }
+            }
+            $emailToConv[$em->id] = $convId;
+        }
+
+        // 5. Ein einziger Lookup ueber alle gefundenen Conversation-IDs.
+        $convIds = array_values(array_unique(array_filter($emailToConv)));
+        $flagMap = [];
+        if (!empty($convIds)) {
+            $rows = DB::table('conversation_flags')
+                ->where('user_id', $userId)
+                ->whereIn('conversation_id', $convIds)
+                ->get(['conversation_id', 'color']);
+            foreach ($rows as $r) {
+                $flagMap[(int) $r->conversation_id] = (string) $r->color;
+            }
+        }
+
+        // 6. Auf jedes Email-Row anhaengen.
+        foreach ($emails as $em) {
+            $convId = $emailToConv[$em->id] ?? null;
+            $em->conversation_id = $convId;
+            $em->flag_color = $convId ? ($flagMap[$convId] ?? null) : null;
+        }
+        return $emails;
     }
 
     /**

@@ -1,8 +1,9 @@
 <script setup>
-import { computed } from "vue";
+import { computed, inject, ref } from "vue";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Trash2, Reply, Paperclip } from "lucide-vue-next";
+import { CheckCircle, Trash2, Paperclip, CheckCheck, Flag } from "lucide-vue-next";
+import InboxFlagPicker from "./InboxFlagPicker.vue";
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -10,7 +11,38 @@ const props = defineProps({
   subtab: { type: String, default: "offen" },
 });
 
-const emit = defineEmits(["click", "delete"]);
+const emit = defineEmits(["click", "delete", "flag-change", "open-flag-settings"]);
+
+// Optionaler Flag-Kontext (von InboxTab via provide bereitgestellt). Nicht
+// vorhanden? -> Flag-UI bleibt nicht-funktional aber crasht nicht.
+const flagContext = inject("inboxFlags", null);
+const flagLabels = computed(() => flagContext?.labels?.value || {});
+
+const flagColor = computed(() => props.item.flag_color || null);
+const flagSwatchTextClass = computed(() => {
+  switch (flagColor.value) {
+    case "red":    return "text-red-500";
+    case "orange": return "text-orange-500";
+    case "yellow": return "text-yellow-500";
+    case "green":  return "text-emerald-500";
+    case "blue":   return "text-blue-500";
+    case "purple": return "text-purple-500";
+    default: return "text-zinc-400";
+  }
+});
+const flagPickerOpen = ref(false);
+async function onFlagSelect(color) {
+  flagPickerOpen.value = false;
+  if (!flagContext?.setFlag) return;
+  // Optimistic: lokal sofort spiegeln, falls die Liste daraufhin neu laden moechte.
+  props.item.flag_color = color || null;
+  await flagContext.setFlag(props.item, color);
+  emit("flag-change", { item: props.item, color });
+}
+function openFlagSettings() {
+  flagPickerOpen.value = false;
+  emit("open-flag-settings");
+}
 
 function getInitials(name) {
   if (!name) return "??";
@@ -242,9 +274,12 @@ function getAvatarColor(name) {
       class="group flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors hover:bg-gradient-to-r hover:from-orange-100/70 hover:to-transparent relative overflow-hidden rounded-lg"
       :class="[
         active
-          ? 'border-l-2 border-l-foreground'
-          : 'border-l-2 border-l-transparent',
-        hasMatches ? 'ai-match-border' : ''
+          ? 'border-l-[3px] border-l-foreground'
+          : hasBeenReplied
+            ? 'border-l-[3px] border-l-emerald-500'
+            : 'border-l-[3px] border-l-transparent',
+        hasMatches ? 'ai-match-border' : '',
+        hasBeenReplied ? 'bg-emerald-50/40' : ''
       ]"
     >
       <!-- Avatar -->
@@ -264,14 +299,46 @@ function getAvatarColor(name) {
               class="text-[13px] text-foreground truncate"
               :class="(subtab === 'posteingang' && !item.is_read) ? 'font-bold' : 'font-semibold'"
             >{{ displayName }}</span>
-            <Reply v-if="hasBeenReplied" class="w-3.5 h-3.5 text-blue-500 flex-shrink-0 -scale-x-100" title="Beantwortet" />
+            <span
+              v-if="hasBeenReplied"
+              class="inline-flex items-center gap-0.5 px-1.5 py-0 h-4 rounded-full text-[9px] font-semibold uppercase tracking-wide bg-emerald-100 text-emerald-700 border border-emerald-300 flex-shrink-0"
+              title="Diese Nachricht wurde bereits beantwortet"
+            >
+              <CheckCheck class="w-2.5 h-2.5" />
+              <span>Beantwortet</span>
+            </span>
           </div>
-          <div class="flex items-center gap-1 flex-shrink-0">
+          <div class="flex items-center gap-1 flex-shrink-0 relative">
             <span v-if="hasAttachment" class="inline-flex items-center gap-0.5 text-muted-foreground" :title="attachmentTooltip">
               <Paperclip class="w-3 h-3" />
               <span v-if="attachmentCount > 1" class="text-[10px] tabular-nums">{{ attachmentCount }}</span>
             </span>
             <span class="text-[10px] text-muted-foreground whitespace-nowrap">{{ timestamp }}</span>
+            <!-- Outlook-Style Flag-Button: bei aktiver Markierung dauerhaft
+                 sichtbar in der gewaehlten Farbe; sonst nur on-hover als
+                 dezenter Outline-Button. -->
+            <button
+              v-if="flagContext"
+              type="button"
+              class="inline-flex items-center justify-center w-5 h-5 rounded transition-all hover:bg-zinc-100"
+              :class="flagColor ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+              :title="flagColor ? (flagLabels[flagColor] || 'Markiert') : 'Markieren'"
+              @click.stop="flagPickerOpen = !flagPickerOpen"
+            >
+              <Flag
+                class="w-3.5 h-3.5"
+                :class="flagColor ? [flagSwatchTextClass, 'fill-current'] : 'text-zinc-400'"
+              />
+            </button>
+            <InboxFlagPicker
+              v-if="flagPickerOpen"
+              :current-color="flagColor"
+              :labels="flagLabels"
+              align="right"
+              @select="onFlagSelect"
+              @close="flagPickerOpen = false"
+              @open-settings="openFlagSettings"
+            />
           </div>
         </div>
 

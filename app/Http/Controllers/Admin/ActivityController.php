@@ -17,22 +17,28 @@ class ActivityController extends Controller
      */
     public function add(Request $request): JsonResponse
     {
-        $input = $request->json()->all();
+        // Akzeptiert sowohl JSON als auch multipart/form-data — Frontend
+        // (ActivityTab.vue) schickt FormData, AiChatController + andere
+        // Backend-Tools schicken JSON. $request->all() macht beides.
+        $input = $request->json()->all() ?: $request->all();
         $propertyId  = intval($input['property_id'] ?? 0);
-        $rawActivity = trim($input['activity'] ?? '');
+        $rawActivity = trim((string) ($input['activity'] ?? ''));
         $duration    = intval($input['duration'] ?? 0) ?: null;
         $category    = $input['category'] ?? 'sonstiges';
-        $stakeholder = trim($input['stakeholder'] ?? '');
+        $stakeholder = trim((string) ($input['stakeholder'] ?? ''));
         $date        = $input['activity_date'] ?? now()->toDateString();
         $time        = $input['activity_time'] ?? now()->format('H:i');
+        $resultText  = trim((string) ($input['result'] ?? ''));
 
         if (!$propertyId || !$rawActivity) {
             return response()->json(['error' => 'property_id und activity sind Pflichtfelder'], 400);
         }
 
-        // Multi-User: broker_id pruefen
+        // Multi-User: broker_id pruefen — Assistenz/Backoffice darf alle.
         $brokerId = \Auth::id();
-        if ($brokerId) {
+        $userType = \Auth::user()->user_type ?? 'makler';
+        $isShared = in_array($userType, ['assistenz', 'backoffice'], true);
+        if ($brokerId && !$isShared) {
             $owns = DB::selectOne("SELECT id FROM properties WHERE id = ? AND broker_id = ?", [$propertyId, $brokerId]);
             if (!$owns) return response()->json(['error' => 'Kein Zugriff auf dieses Objekt'], 403);
         }
@@ -70,12 +76,20 @@ class ActivityController extends Controller
             // Fallback: use raw text
         }
 
+        // result-Spalte:
+        //  - User-Eingabe wenn vorhanden (das Notiz/Ergebnis-Feld vom Form)
+        //  - sonst Original-Rohtext wenn AI-Polish ihn umformuliert hat
+        //  - sonst NULL
+        $finalResult = $resultText !== ''
+            ? $resultText
+            : ($rawActivity !== $polished ? $rawActivity : null);
+
         $activityId = DB::table('activities')->insertGetId([
             'property_id'   => $propertyId,
             'activity_date'  => $date,
             'stakeholder'   => $stakeholder ?: (\Auth::user()->name ?? 'Admin'),
             'activity'      => $polished,
-            'result'        => $rawActivity !== $polished ? $rawActivity : null,
+            'result'        => $finalResult,
             'duration'      => $duration,
             'category'      => $category,
             'created_at'    => "{$date} {$time}:00",

@@ -351,16 +351,16 @@ WICHTIG:
 
         $detailMap = [
             'brief' => [
-                'instruction' => 'Antworte SEHR KURZ in maximal 2-3 Sätzen. Nur die Kernaussage, keine Floskeln. Komme direkt zum Punkt.',
-                'tokens' => 400,
+                'instruction' => 'Antworte in MAXIMAL 3 Sätzen. Nur Anrede, ein Kernsatz, Schluss. Keine Marketing-Floskeln.',
+                'tokens' => 300,
             ],
             'standard' => [
-                'instruction' => 'Antworte in 3-5 Sätzen. Beantworte AUSSCHLIESSLICH die explizit gestellten Fragen. Keine proaktiven Zusatz-Infos.',
-                'tokens' => 600,
+                'instruction' => 'Antworte in MAXIMAL 4 Sätzen — keine Ausnahmen. AUSSCHLIESSLICH explizit gestellte Fragen beantworten. Keine Zahlen, keine Ranges, keine Marketing-Sätze, keine Lage-Beschreibung.',
+                'tokens' => 400,
             ],
             'detailed' => [
-                'instruction' => 'Antworte in 5-8 Sätzen. Beantworte alle explizit gestellten Fragen vollständig. KEINE proaktiven Zusatz-Infos die nicht erfragt wurden — Details stehen im Exposé.',
-                'tokens' => 1000,
+                'instruction' => 'Antworte in MAXIMAL 6 Sätzen. Alle explizit gestellten Fragen, keine proaktiven Zusatz-Infos. Keine Zahlen-Ranges, keine Marketing-Floskeln.',
+                'tokens' => 600,
             ],
         ];
         $detail = $detailMap[$detailLevel] ?? $detailMap['standard'];
@@ -390,9 +390,48 @@ WICHTIG:
 
 KERNREGEL — STRENG:
 - Du beantwortest AUSSCHLIESSLICH explizit gestellte Fragen. Eine Frage erkennst du am Fragezeichen oder klaren Frageformulierungen ('wann', 'wie', 'kann ich', 'ist es möglich', 'wäre').
-- AUSSAGEN sind KEINE Fragen. 'Ich interessiere mich für eine 3-Zimmer-Wohnung' ist eine Aussage — KEINE Frage. Antworte mit Bestätigung + Verweis aufs Exposé, NICHT mit Range-Listen ('wir haben Wohnungen von X-Y m² und Z-W €').
+- AUSSAGEN sind KEINE Fragen. 'Ich interessiere mich für eine 3-Zimmer-Wohnung' ist eine Aussage — KEINE Frage. Antworte mit Bestätigung + Verweis aufs Exposé, NICHT mit Range-Listen.
 - KEINE proaktiven Zusatz-Infos. KEINE Details die nicht erfragt wurden. Wenn der Kunde nach Verfügbarkeit fragt, schreibe NICHT auch noch Preis, Größe, Lage. Das alles steht im Exposé.
 - Stelle dir vor jedem Satz die Frage: 'Hat der Kunde DAS gefragt?' Wenn nein: streichen.
+
+VERBOTENE INHALTE — KOMMEN NIEMALS IN DIE MAIL:
+- Quadratmeter-Angaben oder -Ranges (KEIN '70,77 bis 88,12 m²', KEIN 'ab 70 m²', KEIN 'zwischen X und Y m²')
+- Preis-Angaben oder -Ranges (KEIN 'ab 345.041 Euro', KEIN 'von X bis Y €')
+- Marketing-Beschreibung des Objekts ('moderne Architektur', 'durchdachte Grundrisse', 'überzeugt durch', 'einmalige Lage', 'genau das was Sie gesucht haben')
+- Eigenkapital-Quoten oder Finanzierungsdetails ('bei 10 Prozent Eigenkapital', 'maßgeschneiderte Finanzierung')
+- Verkaufstexte über Lage / Ausstattung / Vorteile
+- Floskeln wie 'wir freuen uns über Ihr Interesse' (am Anfang OK als Dank, aber ohne Marketing-Anhang)
+
+VERBOTENE WOERTER (jegliche Wortform / Deklination):
+- 'anliegend' / 'anliegende' / 'anliegender' / 'anliegenden'
+- 'anbei' / 'im Anhang' / 'als Anhang' / 'Anlage'
+- 'beigefügt' / 'beiliegend' (alle Flexionen)
+- 'übermittle ich Ihnen' (klingt nach Anhang) — schreibe stattdessen 'finden Sie' im Link-Hinweis
+
+ERLAUBTE ANTWORT-STRUKTUR (max 4 Sätze):
+1. Anrede ('Sehr geehrter Herr Sando,')
+2. Dank für die Anfrage MIT korrektem Projektnamen + Ort (NUR aus User-Prompt, kein Salzburg wenn Ried im Innkreis)
+3. Pflicht-Hinweis 'Im unten angefügten Link finden Sie das Exposé sowie alle weiteren Unterlagen.'
+4. Knapper Schluss ('Bei Rückfragen stehe ich Ihnen gerne zur Verfügung. Beste Grüße')
+
+Falls eine SPEZIFISCHE Frage gestellt wurde (mit Fragezeichen): EIN zusätzlicher Satz mit der Antwort. Sonst nicht.
+
+POSITIV-BEISPIEL (so soll es aussehen):
+   Sehr geehrter Herr Sando,
+   vielen Dank für Ihre Anfrage zum THE 37 in Ried im Innkreis.
+   Im unten angefügten Link finden Sie das Exposé sowie alle weiteren Unterlagen.
+   Bei Rückfragen stehe ich Ihnen gerne zur Verfügung.
+   Beste Grüße
+
+NEGATIV-BEISPIEL (so darf es NIE aussehen):
+   Sehr geehrter Herr Sando,
+   vielen Dank für Ihre Anfrage zum THE 37 in Salzburg. Wir freuen uns über Ihr Interesse...
+   Anliegend übermittle ich Ihnen das Exposé sowie die Preisliste. Die verfügbaren Einheiten
+   liegen zwischen 70,77 und 88,12 m² und starten ab 345.041 Euro. Das Projekt überzeugt
+   durch moderne Architektur und eine gute Lage...
+   Zur Finanzierung: gerne vermittle ich Ihnen unseren Finanzierungspartner mit
+   maßgeschneiderten Lösungen bei 10% Eigenkapital...
+   ↑ FALSCHER ORT, RANGES, MARKETING, FINANZIERUNGS-DETAILS, ZU LANG.
 
 WICHTIGE REGELN:
 - Ton: {$toneDesc}

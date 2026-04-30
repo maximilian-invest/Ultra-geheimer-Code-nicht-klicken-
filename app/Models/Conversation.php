@@ -68,11 +68,19 @@ class Conversation extends Model
         // Nachfass-Regel: Nur klassisches Erstanfrage-Pattern.
         //   inbound_count = 1 → Lead hat 1x angefragt und seitdem nicht mehr.
         //   Sobald > 1 → echte Korrespondenz, kein Auto-Nachfass-Kandidat.
-        // Plus: Hausverwaltungen (geschaeftliche Domain in property_managers)
-        // sind nie Erstanfragen — sie korrespondieren nur, kein Lead-Status.
+        //   inbound_count = 0 → Person hat NIE per Mail geantwortet (Cold-
+        //   Outreach, manueller Eintrag) — kein Erstanfrage-Pattern, raus.
+        // Plus: Hausverwaltungen (Domain in property_managers) sind nie
+        // Erstanfragen.
+        // Plus: category 'absage' / 'archiviert' / 'info-cc' werden ausge-
+        // schlossen — eine bereits-abgesagte Conv darf nie nachgefasst werden.
         return $query
             ->whereIn("status", ["beantwortet", "nachfassen_1", "nachfassen_2", "nachfassen_3"])
-            ->where("inbound_count", "<=", 1)
+            ->where("inbound_count", "=", 1)
+            ->where(function ($q) {
+                $q->whereNull("category")
+                  ->orWhereNotIn("category", ["absage", "archiviert", "info-cc"]);
+            })
             ->excludePropertyManagers();
     }
 

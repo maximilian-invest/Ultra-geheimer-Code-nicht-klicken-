@@ -157,7 +157,15 @@ class ConversationController extends Controller
             //   fc>=3 → auto-erledigt
             $query->whereIn('status', ['beantwortet', 'nachfassen_1', 'nachfassen_2'])
                 ->where('followup_count', '<', 3)
-                ->where('inbound_count', '<=', 1)
+                // EXAKT 1 inbound: klassische Erstanfrage. inbound_count=0
+                // (nie geantwortet, Cold-Outreach) raus, >=2 (echte
+                // Korrespondenz) raus.
+                ->where('inbound_count', '=', 1)
+                // Absage/archiviert/info-cc nie ins Nachfassen.
+                ->where(function ($q) {
+                    $q->whereNull('category')
+                      ->orWhereNotIn('category', ['absage', 'archiviert', 'info-cc']);
+                })
                 ->excludePropertyManagers()
                 ->where(function ($q) {
                     $q->where(function ($q2) {
@@ -1581,7 +1589,11 @@ class ConversationController extends Controller
             $query = Conversation::forBroker($brokerId, $userType)
                 ->whereIn('status', ['beantwortet', 'nachfassen_1', 'nachfassen_2'])
                 ->where('followup_count', '<', 3)
-                ->where('inbound_count', '<=', 1)
+                ->where('inbound_count', '=', 1)
+                ->where(function ($q) {
+                    $q->whereNull('category')
+                      ->orWhereNotIn('category', ['absage', 'archiviert', 'info-cc']);
+                })
                 ->excludePropertyManagers()
                 ->where(function ($q) {
                     $q->where(function ($q2) {

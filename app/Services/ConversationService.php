@@ -183,8 +183,17 @@ class ConversationService
 
                 // Update category if more specific
                 $specificCategories = ['kaufanbot', 'besichtigung', 'absage', 'intern'];
-                if ($email->category && in_array(strtolower($email->category), $specificCategories)) {
-                    $conv->category = strtolower($email->category);
+                $newCat = $email->category ? strtolower($email->category) : null;
+                if ($newCat && in_array($newCat, $specificCategories)) {
+                    $conv->category = $newCat;
+                } elseif ($isInbound && $newCat === 'anfrage' && $conv->category === 'absage') {
+                    // Re-Aktivierung: Person hat abgesagt, schreibt jetzt aber
+                    // wieder eine Anfrage (z.B. zu einem anderen Objekt). Den
+                    // 'absage'-Tag von der Conv loesen, damit sie nicht mehr
+                    // als verlorener Lead in der UI wirkt. Ohne diesen Reset
+                    // blieb der absage-Status sticky und neue Anfragen
+                    // erschienen weiter als "absage geflagged".
+                    $conv->category = null;
                 }
 
                 $conv->save();

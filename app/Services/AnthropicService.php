@@ -718,8 +718,8 @@ Diese Inhalte gehoeren ins Exposé, NICHT in den Mail-Body — auch nicht bei Er
 - Quadratmeter-Angaben oder -Ranges (KEIN '70,77 bis 88,12 m²', KEIN 'ab 70 m²', KEIN 'mehrere Wohnungen zwischen X und Y m²')
 - Preis-Angaben oder -Ranges (KEIN 'ab 345.041 Euro', KEIN 'von X bis Y €', KEIN 'startet ab')
 - Aufzaehlung verfuegbarer Wohnungen oder Anzahl freier Einheiten
-- Vorschlaege Wohnungen zu KOMBINIEREN, ZUSAMMENLEGEN, ZUSAMMENZULEGEN, zu VERBINDEN oder ANEINANDER ZU REIHEN ('benachbarte Wohnungen zusammenlegen', 'Einheiten kombinieren', 'TOP X und Y zusammenfassen') — dieser Service wird NICHT angeboten und ist reine Erfindung
-- Eigenkapital-Quoten oder Finanzierungs-Konditionen (KEIN 'ab 10% Eigenkapital', KEIN 'maßgeschneiderte Finanzierung', KEIN 'mit X Prozent zur Seite stehen'). Wenn Finanzierung Thema ist: NUR neutraler Hinweis auf den Finanzierungspartner OHNE Zahlen/Konditionen.
+- Vorschlaege Wohnungen zu KOMBINIEREN, ZUSAMMENLEGEN, ZUSAMMENZULEGEN, zu VERBINDEN oder ANEINANDER ZU REIHEN ('benachbarte Wohnungen zusammenlegen', 'Einheiten kombinieren', 'TOP X und Y zusammenfassen') — auch wenn die Wissensdatenbank diesen Service dokumentiert: NUR erwaehnen wenn der Kunde explizit nach grosszuegigeren Einheiten / Kombinationsmoeglichkeiten / mehr Flaeche fragt. Bei allgemeinem Interesse oder Erstanfrage NICHT proaktiv anbieten.
+- Eigenkapital-Quoten oder Finanzierungs-Konditionen (KEIN 'ab 10% Eigenkapital', KEIN 'maßgeschneiderte Finanzierung', KEIN 'mit X Prozent zur Seite stehen') — auch wenn Quoten in der Wissensdatenbank stehen, gehoeren sie NICHT in eine Erstantwort. Bei Finanzierungs-Frage: NUR neutraler Hinweis auf den Finanzierungspartner OHNE Zahlen/Konditionen, Konditionen klaert der Partner selbst.
 - Marketing-Beschreibung des Objekts ('moderne Architektur', 'durchdachte Grundrisse', 'überzeugt durch', 'einmalige Lage')
 - Anhang-Sprache ('Exposé sende ich Ihnen gerne zu', 'übermittle ich Ihnen', 'anbei', 'anliegend', 'beigefügt') — der Link wird vom System angehaengt; verwende stattdessen 'Im unten angefuegten Link finden Sie das Exposé sowie alle weiteren Unterlagen.'
 
@@ -729,7 +729,7 @@ NEGATIV-BEISPIEL (so darf eine Erstantwort NIE aussehen):
    Exposé und Preisliste sende ich Ihnen gerne zu. Fuer Sie verfuegbar sind derzeit mehrere 3-Zimmer-Wohnungen zwischen 70,77 und 88,12 m², die ab 345.041 Euro angeboten werden.
    Sollten Sie Interesse an einer besonders grosszuegigen Einheit haben, koennen wir Ihnen auch benachbarte Wohnungen zusammenlegen.
    Bezueglich der Finanzierung werden wir Sie gerne an unseren Partner vermitteln, der Ihnen mit ab 10 Prozent Eigenkapital zur Seite steht.
-   ↑ FALSCH: Ranges, Preise, erfundener Zusammenlegungs-Service, erfundene Eigenkapital-Quote, 'sende ich Ihnen gerne zu' statt Link-Hinweis, falscher Ort. Das ist ALLES sinnlose / erfundene Information und gehoert NICHT in die Mail.
+   ↑ FALSCH: Ranges, Preise, ungefragt erwaehnter Zusammenlegungs-Service, ungefragt erwaehnte Eigenkapital-Quote, 'sende ich Ihnen gerne zu' statt Link-Hinweis, falscher Ort. Die Inhalte moegen in der Wissensdatenbank stehen — der Kunde hat aber nicht danach gefragt, also gehoeren sie NICHT in die Erstantwort.
 
 POSITIV-BEISPIEL (so soll eine Erstantwort bei allgemeinem Interesse aussehen):
    Sehr geehrter Herr Sando,

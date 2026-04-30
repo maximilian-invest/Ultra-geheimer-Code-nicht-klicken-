@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, inject } from "vue";
+import { ref, computed, watch, inject, provide } from "vue";
 import { X, Paperclip, Send, Save, Sparkles, Loader2, ChevronDown, RefreshCw, Link2, Home, FileText, Check } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LinkPickerPopover from "./LinkPickerPopover.vue";
 import PropertyAssignDialog from "./PropertyAssignDialog.vue";
+import AttachmentPickerPopover from "./AttachmentPickerPopover.vue";
 import RichTextEditor from "@/Components/RichTextEditor.vue";
 
 const API = inject("API");
@@ -141,71 +142,70 @@ function onPropertyAssign(payload) {
   propertyDialogOpen.value = false;
 }
 
-// ── Datei-Picker (bereits hochgeladene property_files / portal_documents) ──
+// ── Datei-Picker — eins-zu-eins wie Reply-Pane (AttachmentPickerPopover) ──
+// Wir provide den gleichen `inboxCompose`-Vertrag wie die Reply-Pane,
+// damit der AttachmentPickerPopover ohne Refactor wiederverwendet werden
+// kann. Vue's provide/inject ist hierarchisch — der naehere wins, also
+// uebersteuert dieser Provide den InboxTab-Provide fuer alle Children
+// dieser ComposeView.
 const filePickerOpen = ref(false);
-const propertyFiles = ref([]);
-const propertyFilesLoading = ref(false);
 
-const selectedFileIdsSet = computed(() => new Set(props.composeFileIds.map((x) => String(x))));
-const selectedFileLabels = computed(() => {
-  // Anzahl ausgewaehlter "Bibliothek"-Dateien fuer Counter im Button
-  return props.composeFileIds.length;
+// uploadFiles als ref im inboxCompose-Vertrag erwartet ein Array von
+// { file, name, size }. Wir mappen dafuer composeAttachments (rohe File
+// Objects) in das gleiche Format. removeUpload spiegelt den Index zurueck
+// als removeAttachment-Event an den Parent.
+const localUploadFiles = computed(() =>
+  (props.composeAttachments || []).map((f) => ({ file: f, name: f.name, size: f.size }))
+);
+
+// selectedFiles wird vom Picker beim toggleFile() mutiert. Wir wrappen
+// composeFileIds als ref-like — und commit jeden Toggle ueber emit zurueck.
+const localSelectedFiles = computed(() => props.composeFileIds || []);
+
+provide('inboxCompose', {
+  // Werden vom Picker genutzt:
+  selectedFiles: localSelectedFiles,
+  uploadFiles: localUploadFiles,
+  toggleFile: (id) => {
+    const idStr = String(id);
+    const current = [...(props.composeFileIds || [])];
+    const idx = current.findIndex((x) => String(x) === idStr);
+    if (idx >= 0) current.splice(idx, 1);
+    else current.push(idStr.startsWith('doc_') ? idStr : (isNaN(parseInt(idStr)) ? idStr : parseInt(idStr)));
+    emit('update:composeFileIds', current);
+  },
+  addUploads: (fileList) => {
+    // Reicht durch an den Compose-Pane addAttachments handler im Parent.
+    const fakeEvent = { target: { files: fileList } };
+    emit('addAttachments', fakeEvent);
+  },
+  removeUpload: (idx) => {
+    emit('removeAttachment', idx);
+  },
+  fetchPropertyFiles: async (propertyId) => {
+    if (!propertyId) return [];
+    try {
+      const r = await fetch(API.value + '&action=get_property_files&property_id=' + propertyId);
+      const d = await r.json();
+      return d.files || [];
+    } catch (e) {
+      return [];
+    }
+  },
+  // Werden hier nicht genutzt aber im Vertrag erwartet — Fallback-Stubs.
+  draft: ref({}),
+  sendAccountId: ref(null),
+  sendAccounts: ref([]),
+  loading: ref(false),
+  regenerate: () => {},
+  improve: () => {},
+  send: () => {},
 });
 
-async function loadPropertyFiles() {
-  if (!props.composePropertyId) {
-    propertyFiles.value = [];
-    return;
-  }
-  propertyFilesLoading.value = true;
-  try {
-    const r = await fetch(API.value + '&action=get_property_files&property_id=' + props.composePropertyId);
-    const d = await r.json();
-    propertyFiles.value = d.files || [];
-  } catch (e) {
-    propertyFiles.value = [];
-  } finally {
-    propertyFilesLoading.value = false;
-  }
-}
-
-function toggleFile(item) {
-  const idStr = String(item.id);
-  const current = [...props.composeFileIds];
-  // composeFileIds enthaelt int IDs fuer property_files, 'doc_<id>'-Strings
-  // fuer portal_documents — wir vergleichen string-coerced.
-  const idx = current.findIndex((x) => String(x) === idStr);
-  if (idx >= 0) current.splice(idx, 1);
-  else current.push(idStr.startsWith('doc_') ? idStr : (isNaN(parseInt(idStr)) ? idStr : parseInt(idStr)));
-  emit('update:composeFileIds', current);
-}
-
-function isFileSelected(item) {
-  return selectedFileIdsSet.value.has(String(item.id));
-}
-
-function toggleFilePicker() {
-  filePickerOpen.value = !filePickerOpen.value;
-  if (filePickerOpen.value && propertyFiles.value.length === 0) {
-    loadPropertyFiles();
-  }
-}
-
-function fmtBytes(n) {
-  if (!n) return '';
-  if (n < 1024) return n + ' B';
-  if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB';
-  return (n / 1024 / 1024).toFixed(1) + ' MB';
-}
-
-// Bei Property-Wechsel: Dateien neu laden, Auswahl resetten (alte property
-// hat andere Dateien, alte IDs sind nicht mehr gueltig).
-watch(() => props.composePropertyId, (newVal) => {
-  emit('update:composeFileIds', []);
-  propertyFiles.value = [];
-  if (newVal && filePickerOpen.value) {
-    loadPropertyFiles();
-  }
+// Bei Property-Wechsel die Auswahl der bereits-hochgeladenen Dateien
+// resetten — sie gehoeren zur alten Property.
+watch(() => props.composePropertyId, () => {
+  if ((props.composeFileIds || []).length) emit('update:composeFileIds', []);
 });
 </script>
 
@@ -377,8 +377,8 @@ watch(() => props.composePropertyId, (newVal) => {
       </Badge>
       <Badge v-for="fid in composeFileIds" :key="'fid-'+fid" variant="secondary" class="text-[10px] gap-1 pr-1 bg-orange-50 border border-orange-200 text-orange-900">
         <FileText class="h-2.5 w-2.5" />
-        {{ (propertyFiles.find(f => String(f.id) === String(fid))?.label) || (propertyFiles.find(f => String(f.id) === String(fid))?.filename) || ('Datei #' + fid) }}
-        <button class="ml-0.5 hover:text-destructive" @click="toggleFile({ id: fid })"><X class="h-2.5 w-2.5" /></button>
+        Datei #{{ fid }}
+        <button class="ml-0.5 hover:text-destructive" @click="emit('update:composeFileIds', composeFileIds.filter(x => String(x) !== String(fid)))"><X class="h-2.5 w-2.5" /></button>
       </Badge>
     </div>
 
@@ -391,72 +391,21 @@ watch(() => props.composePropertyId, (newVal) => {
         @pick="insertLinkBlock"
       />
 
-      <!-- File-Picker-Popover: Liste der property_files / portal_documents
-           des gewaehlten Objekts. Nur sichtbar wenn ein Objekt zugeordnet
-           und der Picker explizit geoeffnet ist. -->
-      <div
+      <!-- Anhang-Picker — eins-zu-eins wie Reply-Pane (Upload + Property-Files
+           in einem Popover). Reagiert auf 'inboxCompose'-Provide-Vertrag oben. -->
+      <AttachmentPickerPopover
         v-if="filePickerOpen"
-        class="absolute bottom-12 left-4 w-[360px] max-h-[420px] bg-white border border-zinc-200 rounded-xl shadow-lg z-30 flex flex-col overflow-hidden"
-        @click.stop
-      >
-        <div class="flex items-center justify-between px-4 py-2.5 border-b border-zinc-100 flex-shrink-0">
-          <h4 class="text-[13px] font-semibold">Aus bestehenden Dateien wählen</h4>
-          <button class="text-zinc-500 hover:text-zinc-900 text-lg leading-none" @click="filePickerOpen = false">×</button>
-        </div>
-
-        <div class="flex-1 overflow-y-auto p-2">
-          <div v-if="!composePropertyId" class="px-3 py-4 text-center text-[11px] text-zinc-500">
-            Bitte zuerst ein Objekt auswählen.
-          </div>
-          <div v-else-if="propertyFilesLoading" class="px-3 py-4 text-center text-[11px] text-zinc-500 flex items-center justify-center gap-1.5">
-            <Loader2 class="h-3 w-3 animate-spin" /> Lade Dateien…
-          </div>
-          <div v-else-if="!propertyFiles.length" class="px-3 py-4 text-center text-[11px] text-zinc-500">
-            Keine Dateien zu diesem Objekt hinterlegt.
-          </div>
-          <button
-            v-for="f in propertyFiles" :key="String(f.id)"
-            type="button"
-            @click="toggleFile(f)"
-            class="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-left text-[12px] mb-0.5 transition-colors"
-            :class="isFileSelected(f) ? 'bg-orange-50 border border-orange-200 text-orange-900' : 'hover:bg-zinc-50 border border-transparent'"
-          >
-            <span
-              class="w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0"
-              :class="isFileSelected(f) ? 'bg-[#EE7600] border-[#EE7600]' : 'bg-white border-zinc-300'"
-            >
-              <Check v-if="isFileSelected(f)" class="w-2.5 h-2.5 text-white" />
-            </span>
-            <FileText class="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-            <span class="flex-1 min-w-0 truncate">
-              <span class="font-medium">{{ f.label || f.filename }}</span>
-              <span v-if="f.label && f.label !== f.filename" class="text-zinc-500"> · {{ f.filename }}</span>
-            </span>
-            <span class="text-[10px] text-zinc-500 tabular-nums shrink-0">{{ fmtBytes(f.file_size) }}</span>
-          </button>
-        </div>
-      </div>
+        :property-id="composePropertyId"
+        @close="filePickerOpen = false"
+      />
 
       <div class="flex items-center gap-1.5 px-4 py-2 bg-zinc-50/80 border-t border-zinc-100">
-        <!-- Left: tools -->
-        <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1" title="Datei vom Computer anhaengen" @click="fileInputRef?.click()">
+        <!-- Left: tools — EIN Anhang-Button (kein Datei + Aus-Dateien-Split mehr) -->
+        <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1" title="Anhang hinzufügen" @click="filePickerOpen = !filePickerOpen">
           <Paperclip class="h-3 w-3" />
-          Datei
+          Anhang
         </Button>
         <input ref="fileInputRef" type="file" multiple class="hidden" @change="emit('addAttachments', $event)" />
-
-        <Button
-          variant="outline"
-          size="sm"
-          class="h-7 text-[11px] gap-1"
-          :disabled="!composePropertyId"
-          :title="composePropertyId ? 'Aus bereits hochgeladenen Dateien dieses Objekts wählen' : 'Bitte zuerst ein Objekt auswählen'"
-          @click="toggleFilePicker"
-        >
-          <FileText class="h-3 w-3" />
-          Aus Dateien
-          <span v-if="selectedFileLabels" class="ml-0.5 text-[#EE7600] font-semibold tabular-nums">({{ selectedFileLabels }})</span>
-        </Button>
 
         <Button variant="outline" size="sm" class="h-7 text-[11px] gap-1" :disabled="aiLoading" @click="emit('generateAiReply')">
           <Sparkles v-if="!aiLoading" class="h-3 w-3" /><Loader2 v-else class="h-3 w-3 animate-spin" />

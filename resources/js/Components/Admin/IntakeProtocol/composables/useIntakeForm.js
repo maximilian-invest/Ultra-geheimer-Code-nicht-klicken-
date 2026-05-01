@@ -68,6 +68,23 @@ function initialForm() {
     signed_by_name: '',
     mail_subject: '',
     mail_body: '',
+    // GRUNDSTUECK: Bebauungsplan-Felder (greifen nur wenn object_type === 'Grundstück',
+    // werden dann anstelle der Wohn-Felder in Steps 4-7 erfasst).
+    plot_zoning: '', plot_buildplan_id: '',
+    plot_buildable: false, plot_developed: false,
+    plot_topography: '',
+    plot_gfz: null, plot_grz: null, plot_bmz: null,
+    plot_max_building_area: null, plot_max_units_per_building: null,
+    plot_max_height_first: null, plot_max_height_eaves: null,
+    plot_max_length: null, plot_max_width: null,
+    plot_construction_type: '', plot_roof_form: '',
+    plot_min_roof_pitch: null, plot_max_roof_pitch: null,
+    plot_utility_water: false, plot_utility_sewage: false,
+    plot_utility_electricity: false, plot_utility_gas: false, plot_utility_fiber: false,
+    plot_hazard_zone: '',
+    plot_wlv_reserve: false, plot_wlv_hint: false, plot_flood_risk: false,
+    plot_landscape_protection: false, plot_planting_obligation: false,
+    plot_notes: '',
   };
 }
 

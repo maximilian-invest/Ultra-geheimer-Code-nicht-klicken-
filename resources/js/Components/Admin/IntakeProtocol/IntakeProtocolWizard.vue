@@ -13,6 +13,12 @@ import Step08_LegalDocuments from './steps/Step08_LegalDocuments.vue';
 import Step09_PriceCosts from './steps/Step09_PriceCosts.vue';
 import Step10_Photos from './steps/Step10_Photos.vue';
 import Step11_SignatureSummary from './steps/Step11_SignatureSummary.vue';
+// Grundstueck-spezifische Steps 4-7: ersetzen die Wohn-Steps wenn
+// form.object_type === 'Grundstück'. Steps 1-3 + 8-11 bleiben gleich.
+import Step04Plot_Flaeche from './steps/Step04Plot_Flaeche.vue';
+import Step05Plot_WidmungKennzahlen from './steps/Step05Plot_WidmungKennzahlen.vue';
+import Step06Plot_Bauweise from './steps/Step06Plot_Bauweise.vue';
+import Step07Plot_Erschliessung from './steps/Step07Plot_Erschliessung.vue';
 import { useIntakeForm } from './composables/useIntakeForm';
 import { useAutoSave } from './composables/useAutoSave';
 import {
@@ -114,21 +120,45 @@ function resumeAgeHuman(ts) {
   return `vor ${Math.round(diffSec / 86400)} Tagen`;
 }
 
-const STEP_TITLES = [
-  'Objekttyp & Vermarktung', 'Adresse', 'Eigentümer',
-  'Kerndaten', 'Zustand & Sanierungen',
-  'Ausstattung & Stellplätze', 'Energie',
-  'Rechtliches & Dokumente', 'Preis & Kosten',
-  'Fotos', 'Unterschrift',
-];
+const isPlot = computed(() => form.object_type === 'Grundstück');
 
-const currentStepComponent = computed(() => [
-  Step01_ObjectType, Step02_Address, Step03_Owner,
-  Step04_CoreData, Step05_ConditionRenovations,
-  Step06_FeaturesParking, Step07_Energy,
-  Step08_LegalDocuments, Step09_PriceCosts,
-  Step10_Photos, Step11_SignatureSummary,
-][currentStep.value - 1]);
+// Bei Grundstueck haben Steps 4-7 andere Titel — Wohn-/Ausstattungs-/
+// Energie-Themen sind irrelevant, stattdessen Bebauungsplan-Erfassung.
+const STEP_TITLES = computed(() => isPlot.value
+  ? [
+      'Objekttyp & Vermarktung', 'Adresse', 'Eigentümer',
+      'Grundstücksdaten', 'Widmung & Kennzahlen',
+      'Bauweise & Höhen', 'Erschließung & Gefahrenzonen',
+      'Rechtliches & Dokumente', 'Preis & Kosten',
+      'Fotos', 'Unterschrift',
+    ]
+  : [
+      'Objekttyp & Vermarktung', 'Adresse', 'Eigentümer',
+      'Kerndaten', 'Zustand & Sanierungen',
+      'Ausstattung & Stellplätze', 'Energie',
+      'Rechtliches & Dokumente', 'Preis & Kosten',
+      'Fotos', 'Unterschrift',
+    ]
+);
+
+const currentStepComponent = computed(() => {
+  const plotSteps = [
+    Step01_ObjectType, Step02_Address, Step03_Owner,
+    Step04Plot_Flaeche, Step05Plot_WidmungKennzahlen,
+    Step06Plot_Bauweise, Step07Plot_Erschliessung,
+    Step08_LegalDocuments, Step09_PriceCosts,
+    Step10_Photos, Step11_SignatureSummary,
+  ];
+  const wohnSteps = [
+    Step01_ObjectType, Step02_Address, Step03_Owner,
+    Step04_CoreData, Step05_ConditionRenovations,
+    Step06_FeaturesParking, Step07_Energy,
+    Step08_LegalDocuments, Step09_PriceCosts,
+    Step10_Photos, Step11_SignatureSummary,
+  ];
+  const list = isPlot.value ? plotSteps : wohnSteps;
+  return list[currentStep.value - 1];
+});
 
 const DISCLAIMER_TEXT = 'Die im Aufnahmeprotokoll angegebenen Informationen stammen vom Eigentümer. Der Eigentümer bestätigt durch seine Unterschrift, dass diese Infos von ihm weitergegeben wurden.';
 

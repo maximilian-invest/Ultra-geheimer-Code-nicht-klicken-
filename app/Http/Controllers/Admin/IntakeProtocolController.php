@@ -359,6 +359,21 @@ class IntakeProtocolController extends Controller
             'admin_costs', 'elevator_costs', 'monthly_costs',
             'commission_percent', 'buyer_commission_percent',
             'available_from', 'property_history',
+            // Grundstueck / Bebauungsplan (Steps 4-7 bei object_type === 'Grundstück')
+            'plot_zoning', 'plot_buildplan_id',
+            'plot_buildable', 'plot_developed', 'plot_topography',
+            'plot_gfz', 'plot_grz', 'plot_bmz',
+            'plot_max_building_area', 'plot_max_units_per_building',
+            'plot_max_height_first', 'plot_max_height_eaves',
+            'plot_max_length', 'plot_max_width',
+            'plot_construction_type', 'plot_roof_form',
+            'plot_min_roof_pitch', 'plot_max_roof_pitch',
+            'plot_utility_water', 'plot_utility_sewage', 'plot_utility_electricity',
+            'plot_utility_gas', 'plot_utility_fiber',
+            'plot_hazard_zone',
+            'plot_wlv_reserve', 'plot_wlv_hint', 'plot_flood_risk',
+            'plot_landscape_protection', 'plot_planting_obligation',
+            'plot_notes',
         ];
 
         $props = ['broker_id' => $brokerId, 'customer_id' => $customerId, 'realty_status' => 'aktiv'];

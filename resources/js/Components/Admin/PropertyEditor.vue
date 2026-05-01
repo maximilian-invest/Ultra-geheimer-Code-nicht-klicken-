@@ -154,6 +154,18 @@ const isNeubauprojekt = computed(() => {
   return t === "neubauprojekt" || t === "neubau";
 });
 
+// Grundstueck: ein Bebauungsplan-zentriertes Layout. Wohn-/Ausstattungs-
+// Felder sind hier sinnlos (Wohnflaeche, Balkon, Heizung, Kueche, ...) und
+// werden komplett ausgeblendet. Stattdessen kommt ein eigener
+// Bebauungsplan-Step mit Widmung, GFZ/GRZ/BMZ, Bauweise, Hoehen,
+// Erschliessung und Gefahrenzonen.
+const isPlot = computed(() => {
+  if (!property.value) return false;
+  if (String(property.value.property_category || "").toLowerCase() === "land") return true;
+  const t = (property.value.object_type || property.value.type || "").toLowerCase();
+  return t === "grundstueck" || t === "grundstück" || t === "baugrund";
+});
+
 function enforceNeubauObjectType() {
   if (!property.value) return;
   if (String(property.value.property_category || "").toLowerCase() !== "newbuild") return;
@@ -174,6 +186,18 @@ const steps = computed(() => {
       { key: "texte",    label: "Beschreibungen",   icon: FileText },
       { key: "bilder",   label: "Bilder",           icon: Image },
       { key: "portale",  label: "Portale",          icon: Globe },
+    ];
+  }
+  // Grundstueck: kein Ausstattung, kein Energieausweis. Stattdessen
+  // Bebauungsplan-Step zwischen Flaechen und Beschreibungen.
+  if (isPlot.value) {
+    return [
+      { key: "basis",          label: "Basisdaten",   icon: Home },
+      { key: "flaechen",       label: "Flaeche",      icon: Ruler },
+      { key: "bebauungsplan",  label: "Bebauungsplan", icon: LandPlot },
+      { key: "texte",          label: "Beschreibungen", icon: FileText },
+      { key: "bilder",         label: "Bilder",       icon: Image },
+      { key: "portale",        label: "Portale",      icon: Globe },
     ];
   }
   const base = [
@@ -316,6 +340,20 @@ function newProperty() {
     construction_start: null, construction_end: null,
     move_in_date: null, available_from: null, available_text: "",
     total_units: null, plot_dedication: "", plot_buildable: false, plot_developed: false,
+    // Bebauungsplan-Felder (greifen nur bei property_category === 'land',
+    // sind aber pro Default vorbelegt damit v-model nicht erst undefined ist)
+    plot_zoning: "", plot_buildplan_id: "",
+    plot_gfz: null, plot_grz: null, plot_bmz: null,
+    plot_max_building_area: null, plot_max_units_per_building: null,
+    plot_max_height_first: null, plot_max_height_eaves: null,
+    plot_max_length: null, plot_max_width: null,
+    plot_construction_type: "", plot_roof_form: "",
+    plot_min_roof_pitch: null, plot_max_roof_pitch: null,
+    plot_utility_water: false, plot_utility_sewage: false,
+    plot_utility_electricity: false, plot_utility_gas: false, plot_utility_fiber: false,
+    plot_hazard_zone: "", plot_wlv_reserve: false, plot_wlv_hint: false,
+    plot_flood_risk: false, plot_landscape_protection: false, plot_planting_obligation: false,
+    plot_topography: "", plot_notes: "",
     platforms: "", inserat_since: null, is_published: false,
     expose_path: "", nebenkosten_path: "",
   };
@@ -1195,20 +1233,154 @@ function formatLastExport(ts) {
 
               <!-- ── Step: Flaechen & Raeume ── -->
               <div v-show="steps[wizardStep]?.key === 'flaechen'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- GRUNDSTUECK: nur Grundstuecksflaeche, sonst nichts -->
+                <template v-if="isPlot">
+                  <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4 lg:col-span-2">
+                    <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Grundstueck</h3>
+                    <div class="grid grid-cols-2 gap-4 max-w-md">
+                      <div>
+                        <label class="block text-xs font-medium text-zinc-500 mb-1.5">Grundstuecksflaeche (m2)</label>
+                        <input v-model="property.free_area" type="number" step="0.01" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                      </div>
+                      <div>
+                        <label class="block text-xs font-medium text-zinc-500 mb-1.5">Topografie / Hangneigung</label>
+                        <input v-model="property.plot_topography" type="text" placeholder="eben, leichte Suedhanglage..." class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                      </div>
+                    </div>
+                    <p class="text-[11px] text-zinc-500">Bebauungsplan-Kennzahlen (GFZ, GRZ, Hoehen, Dachform, Erschliessung) im naechsten Schritt.</p>
+                  </div>
+                </template>
+                <!-- WOHNUNG / HAUS / NEUBAU: volle Wohnflaechen-Erfassung -->
+                <template v-else>
+                  <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
+                    <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Flaechen (m2)</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                      <div v-for="f in [
+                                              { key: 'living_area', label: 'Wohnflaeche' },
+                        { key: 'realty_area', label: 'Nutzflaeche' },
+                        { key: 'free_area', label: 'Grundstueck' },
+                        { key: 'area_balcony', label: 'Balkon' },
+                        { key: 'area_terrace', label: 'Terrasse' },
+                        { key: 'area_garden', label: 'Garten' },
+                        { key: 'area_loggia', label: 'Loggia' },
+                        { key: 'area_basement', label: 'Keller' },
+                        { key: 'area_garage', label: 'Garage' },
+                        { key: 'office_space', label: 'Buero' },
+                      ]" :key="f.key">
+                        <label class="block text-xs font-medium text-zinc-500 mb-1.5">{{ f.label }}</label>
+                        <input v-model="property[f.key]" type="number" step="0.01" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="space-y-5">
+                    <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
+                      <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Raeume</h3>
+                      <div class="grid grid-cols-2 gap-4">
+                        <div v-for="f in [
+                          { key: 'rooms_amount', label: 'Zimmer', step: '0.5' },
+                          { key: 'bedrooms', label: 'Schlafzimmer', step: '1' },
+                          { key: 'bathrooms', label: 'Badezimmer', step: '1' },
+                          { key: 'toilets', label: 'Separate WCs', step: '1' },
+                        ]" :key="f.key">
+                          <label class="block text-xs font-medium text-zinc-500 mb-1.5">{{ f.label }}</label>
+                          <input v-model="property[f.key]" type="number" :step="f.step" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
+                      <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Stockwerk & Parking</h3>
+                      <div class="grid grid-cols-2 gap-4">
+                        <div>
+                          <label class="block text-xs font-medium text-zinc-500 mb-1.5">Stockwerk</label>
+                          <input v-model="property.floor_number" type="number" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                        </div>
+                        <div>
+                          <label class="block text-xs font-medium text-zinc-500 mb-1.5">Stockwerke gesamt</label>
+                          <input v-model="property.floor_count" type="number" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                        </div>
+                        <div>
+                          <label class="block text-xs font-medium text-zinc-500 mb-1.5">Garagen</label>
+                          <input v-model="property.garage_spaces" type="number" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                        </div>
+                        <div>
+                          <label class="block text-xs font-medium text-zinc-500 mb-1.5">Stellplaetze</label>
+                          <input v-model="property.parking_spaces" type="number" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                        </div>
+                        <div>
+                          <label class="block text-xs font-medium text-zinc-500 mb-1.5">Parkplatz-Typ</label>
+                          <input v-model="property.parking_type" type="text" placeholder="z.B. Tiefgarage" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                        </div>
+                        <div>
+                          <label class="block text-xs font-medium text-zinc-500 mb-1.5">Stellplatz-Preis</label>
+                          <input v-model="property.parking_price" type="number" step="0.01" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+
+              <!-- ── Step: Bebauungsplan (nur Grundstueck) ── -->
+              <div v-show="steps[wizardStep]?.key === 'bebauungsplan'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Widmung & Bebaubarkeit -->
                 <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
-                  <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Flaechen (m2)</h3>
+                  <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Widmung & Bebaubarkeit</h3>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-xs font-medium text-zinc-500 mb-1.5">Widmung</label>
+                      <input v-model="property.plot_zoning" type="text" placeholder="Reines Wohngebiet, Mischgebiet..." class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-zinc-500 mb-1.5">Bebauungsplan-Nr.</label>
+                      <input v-model="property.plot_buildplan_id" type="text" placeholder="z.B. 06AE05" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="flex items-center gap-3 p-3 rounded-xl border border-zinc-100 cursor-pointer select-none" :class="property.plot_buildable ? 'bg-zinc-900 border-zinc-900' : 'bg-white'">
+                      <input type="checkbox" v-model="property.plot_buildable" class="sr-only" />
+                      <div :class="['w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0', property.plot_buildable ? 'bg-white border-white' : 'border-zinc-300']">
+                        <Check v-if="property.plot_buildable" :size="12" class="text-zinc-900" />
+                      </div>
+                      <span :class="['text-sm font-medium', property.plot_buildable ? 'text-white' : 'text-zinc-700']">Bebaubar</span>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 rounded-xl border border-zinc-100 cursor-pointer select-none" :class="property.plot_developed ? 'bg-zinc-900 border-zinc-900' : 'bg-white'">
+                      <input type="checkbox" v-model="property.plot_developed" class="sr-only" />
+                      <div :class="['w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0', property.plot_developed ? 'bg-white border-white' : 'border-zinc-300']">
+                        <Check v-if="property.plot_developed" :size="12" class="text-zinc-900" />
+                      </div>
+                      <span :class="['text-sm font-medium', property.plot_developed ? 'text-white' : 'text-zinc-700']">Aufgeschlossen</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Kennzahlen -->
+                <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
+                  <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Kennzahlen</h3>
                   <div class="grid grid-cols-2 gap-4">
                     <div v-for="f in [
-                                            { key: 'living_area', label: 'Wohnflaeche' },
-                      { key: 'realty_area', label: 'Nutzflaeche' },
-                      { key: 'free_area', label: 'Grundstueck' },
-                      { key: 'area_balcony', label: 'Balkon' },
-                      { key: 'area_terrace', label: 'Terrasse' },
-                      { key: 'area_garden', label: 'Garten' },
-                      { key: 'area_loggia', label: 'Loggia' },
-                      { key: 'area_basement', label: 'Keller' },
-                      { key: 'area_garage', label: 'Garage' },
-                      { key: 'office_space', label: 'Buero' },
+                      { key: 'plot_gfz', label: 'GFZ (Geschoss­flaechenzahl)', step: '0.01' },
+                      { key: 'plot_grz', label: 'GRZ (Grundflaechenzahl)', step: '0.01' },
+                      { key: 'plot_bmz', label: 'BMZ (Baumassenzahl)', step: '0.01' },
+                      { key: 'plot_max_building_area', label: 'Hoechstflaeche Bauplatz (m2)', step: '0.01' },
+                      { key: 'plot_max_units_per_building', label: 'Max. WE je Gebaeude', step: '1' },
+                    ]" :key="f.key">
+                      <label class="block text-xs font-medium text-zinc-500 mb-1.5">{{ f.label }}</label>
+                      <input v-model="property[f.key]" type="number" :step="f.step" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Hoehen & Bautiefen -->
+                <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
+                  <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Hoehen & Bautiefen</h3>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div v-for="f in [
+                      { key: 'plot_max_height_first', label: 'Firsthoehe max. (m)' },
+                      { key: 'plot_max_height_eaves', label: 'Traufhoehe max. (m)' },
+                      { key: 'plot_max_length',       label: 'Hoechstlaenge (m)' },
+                      { key: 'plot_max_width',        label: 'Hoechstbreite (m)' },
                     ]" :key="f.key">
                       <label class="block text-xs font-medium text-zinc-500 mb-1.5">{{ f.label }}</label>
                       <input v-model="property[f.key]" type="number" step="0.01" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
@@ -1216,51 +1388,106 @@ function formatLastExport(ts) {
                   </div>
                 </div>
 
-                <div class="space-y-5">
-                  <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
-                    <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Raeume</h3>
-                    <div class="grid grid-cols-2 gap-4">
-                      <div v-for="f in [
-                        { key: 'rooms_amount', label: 'Zimmer', step: '0.5' },
-                        { key: 'bedrooms', label: 'Schlafzimmer', step: '1' },
-                        { key: 'bathrooms', label: 'Badezimmer', step: '1' },
-                        { key: 'toilets', label: 'Separate WCs', step: '1' },
-                      ]" :key="f.key">
-                        <label class="block text-xs font-medium text-zinc-500 mb-1.5">{{ f.label }}</label>
-                        <input v-model="property[f.key]" type="number" :step="f.step" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
-                      </div>
+                <!-- Bauweise & Dach -->
+                <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
+                  <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Bauweise & Dach</h3>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-xs font-medium text-zinc-500 mb-1.5">Bauweise</label>
+                      <select v-model="property.plot_construction_type" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all">
+                        <option value="">-- Bitte waehlen --</option>
+                        <option value="offen">Offen</option>
+                        <option value="geschlossen">Geschlossen</option>
+                        <option value="freistehend">Freistehend</option>
+                        <option value="gekuppelt">Gekuppelt</option>
+                        <option value="offen_freistehend_gekuppelt">Offen / freistehend oder gekuppelt</option>
+                        <option value="reihenhaus">Reihenhaus</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-zinc-500 mb-1.5">Dachform</label>
+                      <select v-model="property.plot_roof_form" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all">
+                        <option value="">-- Bitte waehlen --</option>
+                        <option value="satteldach">Satteldach</option>
+                        <option value="walmdach">Walmdach</option>
+                        <option value="krueppelwalmdach">Krueppelwalmdach</option>
+                        <option value="pultdach">Pultdach</option>
+                        <option value="flachdach">Flachdach</option>
+                        <option value="zeltdach">Zeltdach</option>
+                        <option value="mansarddach">Mansarddach</option>
+                        <option value="frei">Freie Wahl</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-zinc-500 mb-1.5">Dachneigung min. (Grad)</label>
+                      <input v-model="property.plot_min_roof_pitch" type="number" step="0.5" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-zinc-500 mb-1.5">Dachneigung max. (Grad)</label>
+                      <input v-model="property.plot_max_roof_pitch" type="number" step="0.5" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
                     </div>
                   </div>
+                </div>
 
-                  <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
-                    <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Stockwerk & Parking</h3>
-                    <div class="grid grid-cols-2 gap-4">
-                      <div>
-                        <label class="block text-xs font-medium text-zinc-500 mb-1.5">Stockwerk</label>
-                        <input v-model="property.floor_number" type="number" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
+                <!-- Erschliessung -->
+                <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
+                  <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Erschliessung</h3>
+                  <p class="text-[11px] text-zinc-500">Was liegt am Grundstueck an? Mehrfachauswahl moeglich.</p>
+                  <div class="grid grid-cols-2 gap-3">
+                    <label v-for="f in [
+                      { key: 'plot_utility_water',       label: 'Wasser' },
+                      { key: 'plot_utility_sewage',      label: 'Kanal' },
+                      { key: 'plot_utility_electricity', label: 'Strom' },
+                      { key: 'plot_utility_gas',         label: 'Gas' },
+                      { key: 'plot_utility_fiber',       label: 'Glasfaser' },
+                    ]" :key="f.key"
+                      class="flex items-center gap-3 p-3 rounded-xl border border-zinc-100 cursor-pointer select-none"
+                      :class="property[f.key] ? 'bg-zinc-900 border-zinc-900' : 'bg-white'">
+                      <input type="checkbox" v-model="property[f.key]" class="sr-only" />
+                      <div :class="['w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0', property[f.key] ? 'bg-white border-white' : 'border-zinc-300']">
+                        <Check v-if="property[f.key]" :size="12" class="text-zinc-900" />
                       </div>
-                      <div>
-                        <label class="block text-xs font-medium text-zinc-500 mb-1.5">Stockwerke gesamt</label>
-                        <input v-model="property.floor_count" type="number" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
-                      </div>
-                      <div>
-                        <label class="block text-xs font-medium text-zinc-500 mb-1.5">Garagen</label>
-                        <input v-model="property.garage_spaces" type="number" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
-                      </div>
-                      <div>
-                        <label class="block text-xs font-medium text-zinc-500 mb-1.5">Stellplaetze</label>
-                        <input v-model="property.parking_spaces" type="number" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
-                      </div>
-                      <div>
-                        <label class="block text-xs font-medium text-zinc-500 mb-1.5">Parkplatz-Typ</label>
-                        <input v-model="property.parking_type" type="text" placeholder="z.B. Tiefgarage" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
-                      </div>
-                      <div>
-                        <label class="block text-xs font-medium text-zinc-500 mb-1.5">Stellplatz-Preis</label>
-                        <input v-model="property.parking_price" type="number" step="0.01" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all" />
-                      </div>
+                      <span :class="['text-sm font-medium', property[f.key] ? 'text-white' : 'text-zinc-700']">{{ f.label }}</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Gefahrenzonen / Auflagen -->
+                <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4 lg:col-span-2">
+                  <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Gefahrenzonen & Auflagen</h3>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-xs font-medium text-zinc-500 mb-1.5">Wildbachgefahrenzone</label>
+                      <select v-model="property.plot_hazard_zone" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all">
+                        <option value="">Keine</option>
+                        <option value="gelb">Gelbe Zone</option>
+                        <option value="rot">Rote Zone</option>
+                      </select>
                     </div>
                   </div>
+                  <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                    <label v-for="f in [
+                      { key: 'plot_wlv_reserve',           label: 'WLV-Vorbehaltsbereich' },
+                      { key: 'plot_wlv_hint',              label: 'WLV-Hinweisbereich' },
+                      { key: 'plot_flood_risk',            label: 'Hochwassergefaehrdung' },
+                      { key: 'plot_landscape_protection',  label: 'Landschaftsschutzgebiet' },
+                      { key: 'plot_planting_obligation',   label: 'Pflanzbindung' },
+                    ]" :key="f.key"
+                      class="flex items-center gap-3 p-3 rounded-xl border border-zinc-100 cursor-pointer select-none"
+                      :class="property[f.key] ? 'bg-zinc-900 border-zinc-900' : 'bg-white'">
+                      <input type="checkbox" v-model="property[f.key]" class="sr-only" />
+                      <div :class="['w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0', property[f.key] ? 'bg-white border-white' : 'border-zinc-300']">
+                        <Check v-if="property[f.key]" :size="12" class="text-zinc-900" />
+                      </div>
+                      <span :class="['text-sm font-medium', property[f.key] ? 'text-white' : 'text-zinc-700']">{{ f.label }}</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Notizen -->
+                <div class="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4 lg:col-span-2">
+                  <h3 class="text-sm font-semibold text-zinc-900 uppercase tracking-wider">Notizen zum Bebauungsplan</h3>
+                  <textarea v-model="property.plot_notes" rows="4" placeholder="z.B. Sondervorschriften, Sichtachsen, Zufahrt, Altlasten, Servitute..." class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:bg-white transition-all"></textarea>
                 </div>
               </div>
 

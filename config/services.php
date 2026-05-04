@@ -41,4 +41,11 @@ return [
         'model' => env('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001'),
     ],
 
+    'immoji' => [
+        // Public REST API key (Bearer-Auth, separate vom GraphQL-Login).
+        // Format: imk_live_<keyId>_<secret>. In .env eintragen, nie ins Repo.
+        'api_key'  => env('IMMOJI_API_KEY'),
+        'base_url' => env('IMMOJI_API_URL', 'https://api.immoji.org'),
+    ],
+
 ];

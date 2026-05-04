@@ -35,16 +35,21 @@
           Wir verbinden Immobilienexpertise mit modernster Technologie für ein Erlebnis, das den Unterschied macht.
         </p>
         <div class="anim-fade-up anim-d3 mt-6 md:mt-10 max-w-3xl">
-          <div class="rounded-2xl overflow-hidden" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(20px)">
+          <form action="immobilien.html" method="get" class="rounded-2xl overflow-hidden" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(20px)">
             <div class="p-5 md:p-6">
+              <!-- Kauf/Miete als echte Radio-Inputs mit Pill-Style ueber CSS -->
               <div class="flex gap-1 mb-5 p-1 rounded-full w-fit" style="background:rgba(255,255,255,0.06)">
-                <button id="hero-deal-kauf" data-deal="kauf" class="hero-deal-btn px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 tracking-wide" style="background:#E8743A;color:#fff">KAUFEN</button>
-                <button id="hero-deal-miete" data-deal="miete" class="hero-deal-btn px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 tracking-wide" style="background:transparent;color:rgba(255,255,255,0.5)">MIETEN</button>
+                <label class="px-6 py-2.5 text-sm font-semibold rounded-full cursor-pointer tracking-wide transition-all" style="background:#E8743A;color:#fff" id="hero-deal-kauf-label">
+                  <input type="radio" name="deal" value="kauf" checked style="display:none" />KAUFEN
+                </label>
+                <label class="px-6 py-2.5 text-sm font-semibold rounded-full cursor-pointer tracking-wide transition-all" style="background:transparent;color:rgba(255,255,255,0.5)" id="hero-deal-miete-label">
+                  <input type="radio" name="deal" value="miete" style="display:none" />MIETEN
+                </label>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div>
                   <label class="text-xs font-semibold mb-1.5 block uppercase tracking-widest" style="color:rgba(255,255,255,0.3)">Objekttyp</label>
-                  <select id="hero-type" class="w-full px-4 py-3 rounded-xl text-sm font-medium border-0" style="background:rgba(255,255,255,0.08);color:#fff">
+                  <select name="type" class="w-full px-4 py-3 rounded-xl text-sm font-medium border-0" style="background:rgba(255,255,255,0.08);color:#fff">
                     <option value="alle">Alle Typen</option>
                     <option value="haus">Haus</option>
                     <option value="wohnung">Wohnung</option>
@@ -55,7 +60,7 @@
                 </div>
                 <div>
                   <label class="text-xs font-semibold mb-1.5 block uppercase tracking-widest" style="color:rgba(255,255,255,0.3)">Region</label>
-                  <select id="hero-region" class="w-full px-4 py-3 rounded-xl text-sm font-medium border-0" style="background:rgba(255,255,255,0.08);color:#fff">
+                  <select name="region" class="w-full px-4 py-3 rounded-xl text-sm font-medium border-0" style="background:rgba(255,255,255,0.08);color:#fff">
                     <option value="">Alle Regionen</option>
                     <option value="salzburg">Salzburg Stadt</option>
                     <option value="flachgau">Flachgau</option>
@@ -65,7 +70,7 @@
                 </div>
                 <div>
                   <label class="text-xs font-semibold mb-1.5 block uppercase tracking-widest" style="color:rgba(255,255,255,0.3)">Preis bis</label>
-                  <select id="hero-price" class="w-full px-4 py-3 rounded-xl text-sm font-medium border-0" style="background:rgba(255,255,255,0.08);color:#fff">
+                  <select name="price_max" class="w-full px-4 py-3 rounded-xl text-sm font-medium border-0" style="background:rgba(255,255,255,0.08);color:#fff">
                     <option value="">Kein Limit</option>
                     <option value="200000">EUR 200.000</option>
                     <option value="350000">EUR 350.000</option>
@@ -75,45 +80,30 @@
                   </select>
                 </div>
                 <div class="flex items-end">
-                  <button id="hero-search" type="button" class="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer" style="background:#E8743A;letter-spacing:0.1em;border:none">
+                  <button type="submit" class="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer" style="background:#E8743A;letter-spacing:0.1em;border:none">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     SUCHEN
                   </button>
                 </div>
               </div>
             </div>
-          </div>
+          </form>
         </div>
         <script>
+        // Nur fuer das Pill-Highlight beim Kauf/Miete-Toggle.
+        // Form-Submit selber laeuft ueber natives HTML — kein JS noetig.
         (function(){
-          let deal = 'kauf';
-          document.querySelectorAll('.hero-deal-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-              deal = btn.dataset.deal;
-              document.querySelectorAll('.hero-deal-btn').forEach(b => {
-                if (b.dataset.deal === deal) { b.style.background = '#E8743A'; b.style.color = '#fff'; }
-                else { b.style.background = 'transparent'; b.style.color = 'rgba(255,255,255,0.5)'; }
-              });
-            });
-          });
-          function doHeroSearch() {
-            const params = new URLSearchParams();
-            params.set('deal', deal);
-            const t = document.getElementById('hero-type').value;
-            const r = document.getElementById('hero-region').value;
-            const p = document.getElementById('hero-price').value;
-            if (t && t !== 'alle') params.set('type', t);
-            if (r) params.set('region', r);
-            if (p) params.set('price_max', p);
-            window.location.href = 'immobilien.html?' + params.toString();
+          const kauf = document.getElementById('hero-deal-kauf-label');
+          const miete = document.getElementById('hero-deal-miete-label');
+          function sync() {
+            const kSel = kauf.querySelector('input').checked;
+            kauf.style.background = kSel ? '#E8743A' : 'transparent';
+            kauf.style.color = kSel ? '#fff' : 'rgba(255,255,255,0.5)';
+            miete.style.background = !kSel ? '#E8743A' : 'transparent';
+            miete.style.color = !kSel ? '#fff' : 'rgba(255,255,255,0.5)';
           }
-          const link = document.getElementById('hero-search');
-          if (link) link.addEventListener('click', (e) => { e.preventDefault(); doHeroSearch(); });
-          // Enter im Select triggert auch Suche
-          ['hero-type','hero-region','hero-price'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') doHeroSearch(); });
-          });
+          kauf.addEventListener('click', () => { kauf.querySelector('input').checked = true; sync(); });
+          miete.addEventListener('click', () => { miete.querySelector('input').checked = true; sync(); });
         })();
         </script>
       </div>

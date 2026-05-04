@@ -489,7 +489,13 @@ class ConversationController extends Controller
                     pe.property_id,
                     a.followup_stage
                 FROM portal_emails pe
-                LEFT JOIN activities a ON a.source_email_id = pe.id
+                LEFT JOIN activities a ON a.id = (
+                    SELECT a2.id FROM activities a2
+                    WHERE a2.source_email_id = pe.id
+                      AND (a2.category IS NULL OR a2.category <> 'intern')
+                    ORDER BY a2.id ASC
+                    LIMIT 1
+                )
                 LEFT JOIN email_accounts sender_account ON sender_account.id = pe.account_id
                 LEFT JOIN email_accounts sender_acct_from ON pe.direction = 'outbound'
                     AND (
@@ -570,7 +576,13 @@ class ConversationController extends Controller
                     pe.property_id,
                     a.followup_stage
                 FROM portal_emails pe
-                LEFT JOIN activities a ON a.source_email_id = pe.id
+                LEFT JOIN activities a ON a.id = (
+                    SELECT a2.id FROM activities a2
+                    WHERE a2.source_email_id = pe.id
+                      AND (a2.category IS NULL OR a2.category <> 'intern')
+                    ORDER BY a2.id ASC
+                    LIMIT 1
+                )
                 LEFT JOIN email_accounts sender_account ON sender_account.id = pe.account_id
                 LEFT JOIN email_accounts sender_acct_from ON pe.direction = 'outbound'
                     AND (

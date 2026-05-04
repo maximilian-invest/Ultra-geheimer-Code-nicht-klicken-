@@ -167,7 +167,7 @@ function toggleSection(label) {
     <slot name="under-toolbar" />
 
     <!-- List Area -->
-    <div class="flex-1 overflow-y-auto min-h-0">
+    <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
       <!-- Loading -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />

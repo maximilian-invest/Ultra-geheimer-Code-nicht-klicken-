@@ -32,7 +32,7 @@
   <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
       <div>
-        <h2 class="font-display section-heading mb-6" style="font-size:clamp(2rem,4vw,3rem);font-weight:700;color:#0A0A08;line-height:1.1;letter-spacing:-0.03em">Maximilian Hölzl und sein Team</h2>
+        <h2 class="font-display section-heading mb-6" style="font-size:clamp(2rem,4vw,3rem);font-weight:700;color:#0A0A08;line-height:1.1;letter-spacing:-0.03em">Das Team von SR-Homes</h2>
         <p class="text-base leading-relaxed mb-6" style="color:#5A564E">SR-Homes steht für persönliche Betreuung, fundierte Marktkenntnis und den konsequenten Einsatz modernster Technologie. Gegründet mit der Vision, Immobilienvermittlung neu zu denken — transparenter, datengetriebener und persönlicher.</p>
         <p class="text-base leading-relaxed mb-6" style="color:#5A564E">Unsere Immobilienberater stehen Ihnen bei allen Fragen und Herausforderungen während der Vermittlung zur Seite. Mit unseren vielfältigen Dienstleistungen entlang der gesamten Immobilienwertschöpfungskette, unserer umfassenden immobilienwirtschaftlichen Ausbildung, langjährigem Know-how und besten Kontakten.</p>
         <p class="text-base leading-relaxed" style="color:#5A564E">Gemeinsam mit uns kommen Sie an Ihr neues Zuhause, zu Ihrer renditestarken Immobilienanlage und an den für Ihre Firma passenden Standort.</p>
@@ -106,34 +106,77 @@
 
 <div id="footer-placeholder"></div>
 <div class="grain"></div>
-<script src="js/app.js"></script>
+<script src="js/app.js?v=20260504c"></script>
 <script>
 (async function(){
   const grid = document.getElementById('team-grid');
   if (!grid) return;
+
+  // Quelle 1: CMS-Override (wenn der User im Admin-Portal explizit Team-
+  //   Mitglieder gepflegt hat). Quelle 2: alle aktiven Makler aus den
+  //   Properties (automatisch, immer aktuell). CMS schlaegt Auto-Liste,
+  //   aber Auto-Liste fuellt auf wenn das CMS leer / unvollstaendig ist.
+  let cmsMembers = [];
+  let autoMembers = [];
+
   try {
     const r = await fetch('https://kundenportal.sr-homes.at/api/website/content');
     const d = await r.json();
-    if (!d.success || !d.content?.team) return;
-    const team = d.content.team;
-    const members = [];
-    // Collect all team_N entries
+    const team = d?.content?.team || {};
     for (const key of Object.keys(team)) {
       const m = team[key];
-      if (m && typeof m === 'object' && m.name) members.push(m);
+      if (m && typeof m === 'object' && m.name) cmsMembers.push(m);
     }
-    if (!members.length) { grid.innerHTML = '<p class="text-sm col-span-3 text-center" style="color:#9A958C">Noch keine Teammitglieder hinterlegt.</p>'; return; }
-    grid.innerHTML = members.map(function(m) {
-      const initials = m.name.split(' ').map(function(w){return w[0]}).join('').substring(0,2);
-      return '<div class="hover-lift rounded-2xl overflow-hidden" style="background:#fff;border:1px solid #E5E0D8">' +
-        (m.image ? '<img src="' + m.image + '" alt="' + m.name + '" class="w-full object-cover" style="height:320px" />' :
-          '<div class="w-full flex items-center justify-center" style="height:320px;background:#F0ECE6"><span class="text-5xl font-bold" style="color:#D4743B">' + initials + '</span></div>') +
-        '<div class="p-6"><h3 class="text-lg font-bold" style="color:#0A0A08">' + m.name + '</h3>' +
-        '<p class="text-sm mt-1" style="color:#D4743B">' + (m.role || '') + '</p>' +
-        (m.bio ? '<p class="text-sm mt-3 leading-relaxed" style="color:#9A958C">' + m.bio + '</p>' : '') +
-        '</div></div>';
-    }).join('');
-  } catch(e) { grid.innerHTML = ''; }
+  } catch(e) { /* CMS optional */ }
+
+  try {
+    const props = await fetchProperties();
+    const byBroker = new Map();
+    for (const p of props) {
+      const id = p.broker_id;
+      const name = (p.broker_name_override || p.broker_name || '').trim();
+      if (!id || !name) continue;
+      if (!byBroker.has(id)) {
+        byBroker.set(id, {
+          name,
+          role: (p.broker_title || '').trim() || 'Immobilienberater:in',
+          image: p.broker_image || '',
+          count: 1,
+        });
+      } else {
+        byBroker.get(id).count++;
+      }
+    }
+    autoMembers = Array.from(byBroker.values()).sort((a, b) => b.count - a.count);
+  } catch(e) { /* Auto-Liste optional */ }
+
+  // Merge: CMS-Eintrag bevorzugt fuer Personen mit gleichem Namen,
+  // sonst Auto-Liste auffuellen.
+  const lower = s => (s || '').toLowerCase().trim();
+  const cmsNames = new Set(cmsMembers.map(m => lower(m.name)));
+  const merged = [
+    ...cmsMembers,
+    ...autoMembers.filter(m => !cmsNames.has(lower(m.name))),
+  ];
+
+  if (!merged.length) {
+    grid.innerHTML = '<p class="text-sm col-span-3 text-center" style="color:#9A958C">Noch keine Teammitglieder hinterlegt.</p>';
+    return;
+  }
+
+  grid.innerHTML = merged.map(function(m) {
+    const initials = m.name.split(' ').map(w => w[0]).join('').substring(0,2);
+    const img = m.image && (m.image.startsWith('http') || m.image.startsWith('/'))
+      ? (m.image.startsWith('/') ? 'https://kundenportal.sr-homes.at' + m.image : m.image)
+      : '';
+    return '<div class="hover-lift rounded-2xl overflow-hidden" style="background:#fff;border:1px solid #E5E0D8">' +
+      (img ? '<img src="' + img + '" alt="' + m.name + '" class="w-full object-cover" style="height:320px" loading="lazy" />' :
+        '<div class="w-full flex items-center justify-center" style="height:320px;background:#F0ECE6"><span class="text-5xl font-bold" style="color:#D4743B">' + initials + '</span></div>') +
+      '<div class="p-6"><h3 class="text-lg font-bold" style="color:#0A0A08">' + m.name + '</h3>' +
+      '<p class="text-sm mt-1" style="color:#D4743B">' + (m.role || '') + '</p>' +
+      (m.bio ? '<p class="text-sm mt-3 leading-relaxed" style="color:#9A958C">' + m.bio + '</p>' : '') +
+      '</div></div>';
+  }).join('');
 })();
 </script>
 </body>

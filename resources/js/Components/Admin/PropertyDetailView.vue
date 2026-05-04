@@ -673,7 +673,7 @@ function unitRowClass(status) {
             </div>
             <div class="min-w-0">
               <DialogTitle class="text-lg font-bold tracking-tight truncate" style="color:hsl(240 10% 3.9%);letter-spacing:-0.02em">
-                {{ property?.project_name || property?.address }}
+                {{ property?.title || property?.address }}
               </DialogTitle>
               <DialogDescription class="text-[13px] mt-0.5" style="color:hsl(240 3.8% 46.1%)">
                 {{ property?.city }}{{ property?.zip ? ' ' + property.zip : '' }}
@@ -1037,7 +1037,7 @@ function unitRowClass(status) {
                       <div v-for="child in property.children" :key="child.id" class="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-gray-50" style="font-size:12px">
                         <div class="flex items-center gap-2 min-w-0">
                           <Home class="w-3.5 h-3.5 flex-shrink-0 text-indigo-500" />
-                          <span class="truncate" style="color:hsl(240 10% 3.9%)">{{ child.project_name || child.address || 'Unterobjekt #' + child.id }}</span>
+                          <span class="truncate" style="color:hsl(240 10% 3.9%)">{{ child.title || child.address || 'Unterobjekt #' + child.id }}</span>
                         </div>
                         <span v-if="child.purchase_price" class="text-[11px] tabular-nums flex-shrink-0" style="color:hsl(240 3.8% 46.1%)">€ {{ Number(child.purchase_price).toLocaleString('de-DE') }}</span>
                       </div>
@@ -1081,7 +1081,7 @@ function unitRowClass(status) {
                     <div v-if="property?.children?.length" class="space-y-1">
                       <div v-for="child in property.children" :key="child.id" class="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-gray-50" style="font-size:12px">
                         <ChevronRight class="w-3 h-3 text-indigo-400" />
-                        <span class="truncate" style="color:hsl(240 10% 3.9%)">{{ child.project_name || child.address || 'Unterobjekt #' + child.id }}</span>
+                        <span class="truncate" style="color:hsl(240 10% 3.9%)">{{ child.title || child.address || 'Unterobjekt #' + child.id }}</span>
                       </div>
                     </div>
                     <p v-if="!property?.parent_id && !property?.children?.length" class="text-[11px]" style="color:hsl(240 3.8% 46.1%)">Kein Hauptobjekt und keine Unterobjekte zugeordnet.</p>
@@ -1171,7 +1171,7 @@ function unitRowClass(status) {
                 </div>
                 <div>
                   <h3 class="text-base font-bold text-zinc-900">Eigentuemer & Portal</h3>
-                  <p class="text-xs text-zinc-500">{{ property?.project_name || property?.address }}</p>
+                  <p class="text-xs text-zinc-500">{{ property?.title || property?.address }}</p>
                 </div>
               </div>
               <button @click="portalPopupOpen = false"

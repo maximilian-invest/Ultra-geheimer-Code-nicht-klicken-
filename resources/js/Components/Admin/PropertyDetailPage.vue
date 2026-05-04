@@ -108,7 +108,7 @@ const showFooter = computed(() => !showTypeSelector.value && editableTabs.includ
 
 const title = computed(() => {
   if (props.isNew) return 'Neues Objekt';
-  return props.property?.project_name || props.property?.address || 'Objekt';
+  return props.property?.title || props.property?.address || 'Objekt';
 });
 
 const subtitle = computed(() => {

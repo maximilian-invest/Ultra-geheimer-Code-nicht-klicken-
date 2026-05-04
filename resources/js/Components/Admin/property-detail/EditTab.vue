@@ -336,7 +336,7 @@ watch(form, () => {
     previewFrame.value.contentWindow.postMessage({
       type: 'sr-preview-update',
       fields: {
-        title: form.project_name || form.title || '',
+        title: form.title || form.project_name || '',
         address: [form.address, form.zip, form.city].filter(Boolean).join(', '),
         price: form.purchase_price,
         type: typeMap[form.property_category] || form.object_type || '',

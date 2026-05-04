@@ -751,7 +751,7 @@ function sortComparator(key) {
     return (a, b) => {
         let va, vb;
         switch (key) {
-            case 'address': va = (a.project_name || a.address || '').toString(); vb = (b.project_name || b.address || '').toString(); return dir * collator.compare(va, vb);
+            case 'address': va = (a.title || a.address || '').toString(); vb = (b.title || b.address || '').toString(); return dir * collator.compare(va, vb);
             case 'city': va = (a.city || '').toString(); vb = (b.city || '').toString(); return dir * collator.compare(va, vb);
             case 'property_category': va = (a.property_category || a.object_type || '').toString(); vb = (b.property_category || b.object_type || '').toString(); return dir * collator.compare(va, vb);
             case 'purchase_price': va = Number(a.purchase_price || a.price || 0); vb = Number(b.purchase_price || b.price || 0); return dir * (va - vb);
@@ -805,7 +805,7 @@ const groupedDisplay = computed(() => {
       if (p.project_group_id && !groupsSeen.has(p.project_group_id)) {
         groupsSeen.add(p.project_group_id);
         const groupMembers = list.filter(x => x.project_group_id === p.project_group_id);
-        grouped.push({ _isGroup: true, groupId: p.project_group_id, groupName: p.project_name || 'Projektgruppe', members: groupMembers });
+        grouped.push({ _isGroup: true, groupId: p.project_group_id, groupName: p.title || p.address || 'Projektgruppe', members: groupMembers });
       } else if (!p.project_group_id) {
         grouped.push(p);
       }

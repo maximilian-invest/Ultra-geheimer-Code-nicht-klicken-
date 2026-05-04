@@ -315,23 +315,26 @@ function getAvatarColor(name) {
               <Paperclip class="w-3 h-3" />
               <span v-if="attachmentCount > 1" class="text-[10px] tabular-nums">{{ attachmentCount }}</span>
             </span>
-            <span class="text-[10px] text-muted-foreground whitespace-nowrap">{{ timestamp }}</span>
             <!-- Outlook-Style Flag-Button: bei aktiver Markierung dauerhaft
-                 sichtbar in der gewaehlten Farbe; sonst nur on-hover als
-                 dezenter Outline-Button. -->
+                 voll sichtbar in der gewaehlten Farbe; sonst dauerhaft als
+                 dezenter Outline-Button mit reduzierter Opacity, beim Hover
+                 voll sichtbar. Vor das Datum gezogen damit der Erledigt-
+                 Overlay-Button (absolute right-2 top-2 in den Subtabs
+                 'offen'/'nachfassen') das Flag nicht abdeckt. -->
             <button
               v-if="flagContext"
               type="button"
-              class="inline-flex items-center justify-center w-5 h-5 rounded transition-all hover:bg-zinc-100"
-              :class="flagColor ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+              class="inline-flex items-center justify-center w-5 h-5 rounded transition-all hover:bg-zinc-200"
+              :class="flagColor ? 'opacity-100' : 'opacity-50 group-hover:opacity-100'"
               :title="flagColor ? (flagLabels[flagColor] || 'Markiert') : 'Markieren'"
               @click.stop="flagPickerOpen = !flagPickerOpen"
             >
               <Flag
                 class="w-3.5 h-3.5"
-                :class="flagColor ? [flagSwatchTextClass, 'fill-current'] : 'text-zinc-400'"
+                :class="flagColor ? [flagSwatchTextClass, 'fill-current'] : 'text-zinc-600'"
               />
             </button>
+            <span class="text-[10px] text-muted-foreground whitespace-nowrap">{{ timestamp }}</span>
             <InboxFlagPicker
               v-if="flagPickerOpen"
               :current-color="flagColor"
@@ -349,11 +352,13 @@ function getAvatarColor(name) {
 
         <!-- Row 3: Badges -->
         <div class="flex items-center gap-1 mt-1 flex-wrap">
-          <!-- Erledigt/Delete overlay button -->
+          <!-- Erledigt/Delete overlay button. Bottom-rechts statt top-rechts,
+               damit das Flag-Symbol oben rechts beim Hover nicht ueber-
+               lagert wird. -->
           <button
             v-if="subtab === 'offen' || subtab === 'nachfassen'"
             @click.stop="emit('delete', item)"
-            class="hidden group-hover:flex absolute right-2 top-2 items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-all text-[10px] font-medium shadow-sm z-10"
+            class="hidden group-hover:flex absolute right-2 bottom-2 items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-all text-[10px] font-medium shadow-sm z-10"
           >
             <CheckCircle class="w-3 h-3" />
             Erledigt
@@ -361,7 +366,7 @@ function getAvatarColor(name) {
           <button
             v-else-if="subtab === 'posteingang' || subtab === 'gesendet' || subtab === 'papierkorb'"
             @click.stop="emit('delete', item)"
-            class="hidden group-hover:flex absolute right-2 top-2 items-center gap-1 px-2 py-1 rounded-md bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-all text-[10px] font-medium shadow-sm z-10"
+            class="hidden group-hover:flex absolute right-2 bottom-2 items-center gap-1 px-2 py-1 rounded-md bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-all text-[10px] font-medium shadow-sm z-10"
           >
             <Trash2 class="w-3 h-3" />
           </button>

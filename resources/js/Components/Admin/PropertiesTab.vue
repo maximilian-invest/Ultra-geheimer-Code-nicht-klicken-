@@ -38,7 +38,6 @@ const PORTAL_ICONS = {
     'immowelt':     { key: 'IW',  label: 'immowelt.at',         color: '#dc2626' },
     'immoscout24':  { key: 'IS',  label: 'ImmobilienScout24',   color: '#2563eb' },
     'immoSN':       { key: 'SN',  label: 'immoSN',              color: '#7c3aed' },
-    'dibeo':        { key: 'DI',  label: 'DIBEO',               color: '#0891b2' },
     'kurier':       { key: 'KU',  label: 'Kurier',              color: '#b91c1c' },
     'allesKralle':  { key: 'AK',  label: 'allesKralle',         color: '#65a30d' },
 };
@@ -55,7 +54,7 @@ function getPortalIcons(prop) {
     }
     const portals = prop.portals || [];
     // Show active portals in order
-    const order = ['sr-homes','willhaben','immowelt','immoscout24','immoSN','dibeo','kurier','allesKralle'];
+    const order = ['sr-homes','willhaben','immowelt','immoscout24','immoSN','kurier','allesKralle'];
     for (const name of order) {
         const p = portals.find(x => x.name === name && x.enabled);
         if (p && PORTAL_ICONS[name]) icons.push(PORTAL_ICONS[name]);

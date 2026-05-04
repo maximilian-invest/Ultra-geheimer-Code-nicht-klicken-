@@ -141,11 +141,9 @@ const IMMOJI_PORTALS = [
   { key: "willhabenExportEnabled",  label: "willhaben.at",       color: "#ea580c", lastKey: "willhabenLastExport",  capKey: "willhaben" },
   { key: "immoweltExportEnabled",   label: "immowelt.at",        color: "#dc2626", lastKey: "immoweltLastExport",   capKey: "immowelt" },
   { key: "immoscoutExportEnabled",  label: "ImmobilienScout24",  color: "#2563eb", lastKey: "immoscoutLastExport",  capKey: "immoscout" },
-  { key: "dibeoExportEnabled",      label: "Dibeo",              color: "#0891b2", lastKey: "dibeoLastExport",      capKey: "dibeo" },
   { key: "kurierExportEnabled",     label: "Kurier",             color: "#b91c1c", lastKey: "kurierLastExport",     capKey: "kurier" },
   { key: "immoSNExportEnabled",     label: "Immo SN",            color: "#7c3aed", lastKey: "immoSNLastExport",     capKey: "immoSN" },
   { key: "allesKralleExportEnabled",label: "Alles Kralle",       color: "#65a30d",                                  capKey: "allesKralle" },
-  { key: "homepageExportEnabled",   label: "Immoji Homepage",    color: "#8b5cf6" },
 ];
 
 // ─── SR-Homes portal helpers ───

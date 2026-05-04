@@ -1311,10 +1311,10 @@ class ImmojiUploadService
                 id
                 portalData {
                     willhabenExportEnabled immoweltExportEnabled immoscoutExportEnabled
-                    dibeoExportEnabled kurierExportEnabled immoSNExportEnabled
-                    allesKralleExportEnabled homepageExportEnabled
+                    kurierExportEnabled immoSNExportEnabled
+                    allesKralleExportEnabled
                     willhabenLastExport immoweltLastExport immoscoutLastExport
-                    dibeoLastExport kurierLastExport immoSNLastExport
+                    kurierLastExport immoSNLastExport
                 }
             }
         }
@@ -1333,15 +1333,12 @@ class ImmojiUploadService
                 'willhabenExportEnabled' => null,
                 'immoweltExportEnabled' => null,
                 'immoscoutExportEnabled' => null,
-                'dibeoExportEnabled' => null,
                 'kurierExportEnabled' => null,
                 'immoSNExportEnabled' => null,
                 'allesKralleExportEnabled' => null,
-                'homepageExportEnabled' => null,
                 'willhabenLastExport' => null,
                 'immoweltLastExport' => null,
                 'immoscoutLastExport' => null,
-                'dibeoLastExport' => null,
                 'kurierLastExport' => null,
                 'immoSNLastExport' => null,
             ];
@@ -1380,11 +1377,9 @@ class ImmojiUploadService
             "willhaben" => "willhabenExportEnabled",
             "immowelt" => "immoweltExportEnabled",
             "immoscout24" => "immoscoutExportEnabled",
-            "dibeo" => "dibeoExportEnabled",
             "kurier" => "kurierExportEnabled",
             "immoSN" => "immoSNExportEnabled",
             "allesKralle" => "allesKralleExportEnabled",
-            "homepage" => "homepageExportEnabled",
         ];
     }
 
@@ -1395,7 +1390,7 @@ class ImmojiUploadService
     public function getPortalCapacity(): array
     {
         // Only query limits per portal (usage counts not reliably available via API)
-        $portalEnums = ['WILLHABEN' => 'willhaben', 'IMMOWELT' => 'immowelt', 'IMMOSCOUT' => 'immoscout', 'IMMO_SN' => 'immoSN', 'DIBEO' => 'dibeo', 'KURIER' => 'kurier'];
+        $portalEnums = ['WILLHABEN' => 'willhaben', 'IMMOWELT' => 'immowelt', 'IMMOSCOUT' => 'immoscout', 'IMMO_SN' => 'immoSN', 'KURIER' => 'kurier'];
         $result = [];
         foreach ($portalEnums as $enum => $key) {
             try {

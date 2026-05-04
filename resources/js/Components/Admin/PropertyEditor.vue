@@ -875,11 +875,9 @@ const IMMOJI_PORTALS = [
   { key: "willhabenExportEnabled", label: "willhaben.at", color: "bg-orange-500", lastKey: "willhabenLastExport", capKey: "willhaben" },
   { key: "immoweltExportEnabled", label: "immowelt.at", color: "bg-red-500", lastKey: "immoweltLastExport", capKey: "immowelt" },
   { key: "immoscoutExportEnabled", label: "ImmobilienScout24", color: "bg-blue-500", lastKey: "immoscoutLastExport", capKey: "immoscout" },
-  { key: "dibeoExportEnabled", label: "Dibeo", color: "bg-emerald-500", lastKey: "dibeoLastExport", capKey: "dibeo" },
   { key: "kurierExportEnabled", label: "Kurier", color: "bg-purple-500", lastKey: "kurierLastExport", capKey: "kurier" },
   { key: "immoSNExportEnabled", label: "Immo SN", color: "bg-sky-500", lastKey: "immoSNLastExport", capKey: "immoSN" },
   { key: "allesKralleExportEnabled", label: "Alles Kralle", color: "bg-amber-500", capKey: "allesKralle" },
-  { key: "homepageExportEnabled", label: "Immoji Homepage", color: "bg-violet-500" },
 ];
 
 async function loadImmojiPortals() {

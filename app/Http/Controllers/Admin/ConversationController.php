@@ -169,6 +169,7 @@ class ConversationController extends Controller
                 'no-reply@mail.willhaben.at',
                 'bni.notifications@bniconnectglobal.com',
                 'notifications@followups.typeform.io',
+                'immobilienmarkt@sn.at',
             ];
             $query->where('status', '!=', 'erledigt')
                 ->where(function($q) {

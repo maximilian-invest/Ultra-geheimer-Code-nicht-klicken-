@@ -1010,8 +1010,10 @@ class ImapService
      */
     private function matchProperty(string $subject, string $body, array $properties): ?int
     {
-        $text = $subject . ' ' . $body;
-        $textNorm = strtolower(preg_replace('/[\s\-_]+/', '', $text));
+        $subjectLc   = strtolower($subject);
+        $bodyLc      = strtolower($body);
+        $subjectNorm = strtolower(preg_replace('/[\s\-_]+/', '', $subject));
+        $bodyNorm    = strtolower(preg_replace('/[\s\-_]+/', '', $body));
 
         $exactMap = [];
         $normMap = [];
@@ -1022,20 +1024,32 @@ class ImapService
             $normMap[strtolower(preg_replace('/[\s\-_]+/', '', $ref))] = $p['id'];
         }
 
-        // Regel 1: Exakte ref_id im Text (case-insensitive)
-        foreach ($exactMap as $ref => $id) {
-            // Mindest-Länge 4 zum Schutz vor false positives (z.B. ref "AB" würde überall matchen)
-            if (strlen($ref) < 4) continue;
-            if (stripos($text, $ref) !== false) return $id;
-        }
+        // Regel 1: Exakte ref_id im SUBJECT — Willhaben/ImmoScout schreiben die
+        // Inserats-Ref-ID typischerweise in den Betreff, daraufhin laesst sich
+        // sehr verlaesslich matchen. Subject schlaegt Body, weil im Body oft
+        // noch die Maklersignatur mit anderen Listings auftaucht (frueherer
+        // Bug: Goer-Ref im Footer hat Ste-Anfrage geklaut, weil Goer eine
+        // niedrigere id hatte und in der id-ASC-Iteration zuerst kam).
+        $hit = $this->pickEarliestRefMatch($exactMap, $subjectLc);
+        if ($hit !== null) return $hit;
 
-        // Regel 2: Normalisierte ref_id im normalisierten Text (deckt THE37 Typeform ab)
-        foreach ($normMap as $refNorm => $id) {
-            if (strlen($refNorm) < 4) continue;
-            if (str_contains($textNorm, $refNorm)) return $id;
-        }
+        // Regel 2: Exakte ref_id im BODY — frueheste Position gewinnt.
+        // Schuetzt gegen Maklersignaturen am Mail-Ende: der echte Bezug
+        // steht im Body oben, andere Ref-IDs aus der Signatur kommen
+        // weiter unten und verlieren.
+        $hit = $this->pickEarliestRefMatch($exactMap, $bodyLc);
+        if ($hit !== null) return $hit;
 
-        // Regel 3: Portal-External-ID matching (Willhaben-Code, ImmoScout24 ID, etc.)
+        // Regel 3: Normalisierte ref_id im normalisierten Subject (THE37 Typeform)
+        $hit = $this->pickEarliestRefMatch($normMap, $subjectNorm);
+        if ($hit !== null) return $hit;
+
+        // Regel 4: Normalisierte ref_id im normalisierten Body
+        $hit = $this->pickEarliestRefMatch($normMap, $bodyNorm);
+        if ($hit !== null) return $hit;
+
+        // Regel 5: Portal-External-ID matching (Willhaben-Code, ImmoScout24 ID, etc.)
+        $text = $subject . ' ' . $body;
         $propertyId = $this->matchByPortalExternalId($text, $this->currentBrokerId ?? null);
         if ($propertyId) {
             \Log::info("[IMAP] matchProperty: matched via property_portals external_id -> {$propertyId}");
@@ -1048,6 +1062,32 @@ class ImapService
         // zugewiesen. Besser kein Match als ein falscher.
         \Log::info("[IMAP] matchProperty: no strict ref_id match for subject: " . mb_substr($subject, 0, 80));
         return null;
+    }
+
+    /**
+     * Sucht alle ref_ids aus der Map im (bereits lowercased) Text und gibt
+     * die property_id derjenigen ref_id zurueck, deren ERSTE Vorkommens-
+     * Position am kleinsten ist. Damit gewinnt der Bezug, den der Kunde
+     * oben in der Mail nennt — gegenueber der Maklersignatur weiter unten,
+     * die andere Listings derselben Provision listet.
+     */
+    private function pickEarliestRefMatch(array $refIdToPropertyId, string $haystackLc): ?int
+    {
+        if ($haystackLc === '' || empty($refIdToPropertyId)) return null;
+
+        $bestPos = PHP_INT_MAX;
+        $bestId = null;
+        foreach ($refIdToPropertyId as $ref => $id) {
+            // Mindest-Laenge 4 zum Schutz vor false positives (ref "AB" matched ueberall).
+            if (strlen($ref) < 4) continue;
+            $pos = strpos($haystackLc, $ref);
+            if ($pos === false) continue;
+            if ($pos < $bestPos) {
+                $bestPos = $pos;
+                $bestId = (int) $id;
+            }
+        }
+        return $bestId;
     }
 
     /**

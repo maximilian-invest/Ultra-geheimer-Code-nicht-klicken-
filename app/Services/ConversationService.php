@@ -61,10 +61,26 @@ class ConversationService
                 // "Nicht zugeordnet"-Thread erzeugen obwohl der Kunde bereits manuell
                 // einem Objekt zugewiesen wurde. Nur durch manuelle Umzuordnung
                 // via UI-Popup ändern.
+                //
+                // ABER: Wenn die neue Mail SELBST schon einen sauberen Property-
+                // Match hat (z.B. weil die Ref-ID im Willhaben-Body steht), darf
+                // die Persistenz-Regel den NICHT ueberschreiben. Sonst landen
+                // Anfragen zu Objekt B unter Objekt A, weil der Kunde frueher mal
+                // zu A geschrieben hat. In dem Fall suchen wir nur nach einer
+                // existierenden Conversation auf GENAU dem Ziel-Objekt; wenn es
+                // keine gibt, faellt der Code unten auf "neue Conversation
+                // anlegen" zurueck — der Kunde bekommt einen separaten Thread
+                // pro angefragtem Objekt.
                 if (!$conv) {
-                    $existing = Conversation::where('contact_email', $contactEmail)
+                    $persistenceQuery = Conversation::where('contact_email', $contactEmail)
                         ->whereNotNull('property_id')
-                        ->whereNotIn('status', ['erledigt', 'archiviert'])
+                        ->whereNotIn('status', ['erledigt', 'archiviert']);
+
+                    if (!empty($email->property_id)) {
+                        $persistenceQuery->where('property_id', $email->property_id);
+                    }
+
+                    $existing = $persistenceQuery
                         ->orderByDesc('last_activity_at')
                         ->lockForUpdate()
                         ->first();
@@ -73,6 +89,9 @@ class ConversationService
                         Log::info("ConversationService: persisted existing conv {$conv->id} for {$contactEmail} on property {$existing->property_id} (new email had property_id={$email->property_id})");
                         // Email selbst auch auf die richtige Property umhängen,
                         // damit Activities und Counters konsistent bleiben.
+                        // Greift nur wenn die neue Mail KEINE eigene property_id
+                        // hatte — bei eigenstaendigem Match ist property_id schon
+                        // gleich und der Block ist ein No-op.
                         if ($email->property_id != $conv->property_id) {
                             $email->property_id = $conv->property_id;
                             $email->save();

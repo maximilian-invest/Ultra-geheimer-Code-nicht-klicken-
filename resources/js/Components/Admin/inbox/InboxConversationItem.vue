@@ -271,15 +271,17 @@ function getAvatarColor(name) {
 <template>
     <div
       @click="emit('click', item)"
-      class="group flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors hover:bg-gradient-to-r hover:from-orange-100/70 hover:to-transparent relative overflow-hidden rounded-lg"
+      class="group flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors relative overflow-hidden rounded-lg"
       :class="[
         active
-          ? 'border-l-[3px] border-l-foreground'
+          ? 'border-l-[6px] border-l-foreground'
           : hasBeenReplied
-            ? 'border-l-[3px] border-l-emerald-500'
+            ? 'border-l-[6px] border-l-emerald-600'
             : 'border-l-[3px] border-l-transparent',
         hasMatches ? 'ai-match-border' : '',
-        hasBeenReplied ? 'bg-emerald-50/40' : ''
+        hasBeenReplied
+          ? 'bg-emerald-100/70 hover:bg-emerald-200/70'
+          : 'hover:bg-gradient-to-r hover:from-orange-100/70 hover:to-transparent'
       ]"
     >
       <!-- Avatar -->
@@ -301,10 +303,10 @@ function getAvatarColor(name) {
             >{{ displayName }}</span>
             <span
               v-if="hasBeenReplied"
-              class="inline-flex items-center gap-0.5 px-1.5 py-0 h-4 rounded-full text-[9px] font-semibold uppercase tracking-wide bg-emerald-100 text-emerald-700 border border-emerald-300 flex-shrink-0"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-600 text-white shadow-sm flex-shrink-0"
               title="Diese Nachricht wurde bereits beantwortet"
             >
-              <CheckCheck class="w-2.5 h-2.5" />
+              <CheckCheck class="w-3 h-3" />
               <span>Beantwortet</span>
             </span>
           </div>

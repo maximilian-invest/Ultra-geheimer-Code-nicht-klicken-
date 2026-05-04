@@ -278,7 +278,7 @@ function getAvatarColor(name) {
 <template>
     <div
       @click="emit('click', item)"
-      class="group flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors relative rounded-lg"
+      class="group flex gap-2.5 px-3 py-2.5 cursor-pointer transition-colors relative overflow-x-clip rounded-lg"
       :class="[
         active
           ? 'border-l-[6px] border-l-foreground'

@@ -175,15 +175,41 @@ class EmailService
                 Activity::create($activityData);
             }
 
-            // Mark inbound emails from same stakeholder+property as replied.
-            // Wer antwortet, hat auch gelesen — also is_read=1 in einem Rutsch
-            // mitsetzen. Sonst kann eine Mail gleichzeitig "beantwortet" und
-            // "ungelesen" sein (blauer Punkt + Bold), was inkonsistent wirkt.
-            if ($stakeholder && $propertyId) {
-                \DB::update("UPDATE portal_emails SET has_reply = 1, is_read = 1 WHERE direction = 'inbound' AND (has_reply = 0 OR is_read = 0) AND LOWER(TRIM(COALESCE(stakeholder, from_name, ''))) = ? AND COALESCE(property_id, 0) = ?", [
-                    strtolower(trim($stakeholder)),
-                    (int) $propertyId
-                ]);
+            // Mark inbound emails as replied + read. Match-Strategie:
+            //   Primaer ueber Empfaenger-Email der Antwort = Sender-Email
+            //   der inbound. Eindeutig, robust gegen Stakeholder-Drift
+            //   ("Jutta Reiter" inbound vs "Jutta Reiter / ReiterOffice"
+            //   outbound).
+            //   Sekundaer per Stakeholder-Vergleich, falls die Mail keine
+            //   sauber gesetzte from_email hatte (Plattform-Forwards).
+            //
+            // Wer antwortet, hat auch gelesen — also is_read=1 mitsetzen.
+            $recipientEmail = '';
+            if (preg_match('/<([^>]+)>/', (string) $to, $m)) {
+                $recipientEmail = strtolower(trim($m[1]));
+            } else {
+                $recipientEmail = strtolower(trim((string) $to));
+            }
+
+            if ($propertyId && ($recipientEmail || $stakeholder)) {
+                \DB::update(
+                    "UPDATE portal_emails
+                     SET has_reply = 1, is_read = 1
+                     WHERE direction = 'inbound'
+                       AND (has_reply = 0 OR is_read = 0)
+                       AND COALESCE(property_id, 0) = ?
+                       AND (
+                            (? <> '' AND LOWER(TRIM(from_email)) = ?)
+                         OR (? <> '' AND LOWER(TRIM(COALESCE(stakeholder, from_name, ''))) = ?)
+                       )",
+                    [
+                        (int) $propertyId,
+                        $recipientEmail,
+                        $recipientEmail,
+                        strtolower(trim((string) $stakeholder)),
+                        strtolower(trim((string) $stakeholder)),
+                    ]
+                );
             }
 
             return ['success' => true, 'email_id' => $portalEmail->id, 'activity_id' => $activity->id ?? null];

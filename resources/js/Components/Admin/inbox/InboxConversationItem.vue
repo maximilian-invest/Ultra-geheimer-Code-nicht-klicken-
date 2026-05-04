@@ -240,6 +240,13 @@ const isIntern = computed(() => {
 
 const hasBeenReplied = computed(() => {
   const item = props.item;
+
+  // Im Nachfassen-Tab ist "beantwortet" tautologisch — eine Conv landet
+  // dort nur, wenn wir bereits geantwortet haben und der Kunde noch nicht
+  // erneut geschrieben hat. Den Marker dort einzublenden waere redundant
+  // und macht die Liste unruhig (alle Eintraege gruen). Also off.
+  if (props.subtab === "nachfassen") return false;
+
   // Posteingang: per-mail has_reply flag is correct (set when the reply
   // was sent, scoped to that specific inbound mail).
   if (item.direction === "inbound" && item.has_reply) return true;

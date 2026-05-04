@@ -172,6 +172,14 @@ class ImmojiUploadService
                 $property['_forceUploadImages'] = true;
                 $newImmojiId = $this->createRealty($property);
                 if ($propertyId) {
+                    // Defensiv: openimmo_id direkt im Service zurueckschreiben.
+                    // Der Caller (AdminApiController) tut das normalerweise
+                    // bei action='created'/'recreated' — wenn er es vergisst,
+                    // bleibt die Property hier sonst ohne ID und das UI
+                    // denkt sie ist nicht gesynct.
+                    \Illuminate\Support\Facades\DB::table('properties')
+                        ->where('id', $propertyId)
+                        ->update(['openimmo_id' => $newImmojiId, 'updated_at' => now()]);
                     $hashes = $this->computeAllHashes($property, $stateService);
                     $stateService->saveState($propertyId, $newImmojiId, $hashes);
                 }

@@ -33,7 +33,7 @@
 <section class="py-12" style="background:#FAF8F5">
   <div class="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-16">
     <!-- Filter Bar -->
-    <div class="flex flex-wrap items-center gap-3 mb-10">
+    <div class="flex flex-wrap items-center gap-3 mb-6">
       <button class="filter-cat active px-6 py-2.5 rounded-full text-sm font-semibold transition-all" data-cat="alle" style="background:#D4743B;color:#fff">ALLE</button>
       <button class="filter-cat px-6 py-2.5 rounded-full text-sm font-semibold transition-all" data-cat="kauf" style="background:transparent;color:#5A564E;border:1.5px solid #E5E0D8">KAUFEN</button>
       <button class="filter-cat px-6 py-2.5 rounded-full text-sm font-semibold transition-all" data-cat="miete" style="background:transparent;color:#5A564E;border:1.5px solid #E5E0D8">MIETE</button>
@@ -45,6 +45,32 @@
       <button class="filter-type px-5 py-2.5 rounded-full text-sm font-semibold transition-all" data-type="grundst" style="background:transparent;color:#5A564E;border:1.5px solid #E5E0D8">GRUNDST.</button>
       <div class="flex-1"></div>
       <span id="result-count" class="text-sm font-medium" style="color:#9A958C">Ergebnisse</span>
+    </div>
+
+    <!-- Region + Preis (befuellbar aus URL-Params, weiter editierbar) -->
+    <div class="flex flex-wrap items-center gap-3 mb-10">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-semibold uppercase tracking-widest" style="color:#9A958C">Region</span>
+        <select id="filter-region" class="px-4 py-2 rounded-full text-sm font-medium" style="background:#fff;color:#0A0A08;border:1.5px solid #E5E0D8">
+          <option value="">Alle Regionen</option>
+          <option value="salzburg">Salzburg Stadt</option>
+          <option value="flachgau">Flachgau</option>
+          <option value="innviertel">Innviertel</option>
+          <option value="mondseeland">Mondseeland</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-semibold uppercase tracking-widest" style="color:#9A958C">Preis bis</span>
+        <select id="filter-price" class="px-4 py-2 rounded-full text-sm font-medium" style="background:#fff;color:#0A0A08;border:1.5px solid #E5E0D8">
+          <option value="">Kein Limit</option>
+          <option value="200000">EUR 200.000</option>
+          <option value="350000">EUR 350.000</option>
+          <option value="500000">EUR 500.000</option>
+          <option value="750000">EUR 750.000</option>
+          <option value="1000000">EUR 1 Mio.+</option>
+        </select>
+      </div>
+      <button id="filter-reset" type="button" class="px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-widest transition-all" style="background:transparent;color:#9A958C;border:1.5px solid #E5E0D8">Filter zuruecksetzen</button>
     </div>
     <!-- Property Grid -->
     <div id="property-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -58,7 +84,7 @@
 <div id="footer-placeholder"></div>
 
 <div class="grain"></div>
-<script src="js/app.js?v=20260504d"></script>
-<script src="js/listings.js?v=20260504d"></script>
+<script src="js/app.js?v=20260504e"></script>
+<script src="js/listings.js?v=20260504e"></script>
 </body>
 </html>

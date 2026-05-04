@@ -112,12 +112,54 @@
       else { b.style.background = 'transparent'; b.style.color = '#5A564E'; b.style.border = '1.5px solid #E5E0D8'; }
     });
   }
+  // URL synchron halten, damit man den State teilen / per Browser-Back zurueckspringen kann.
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (activeCat !== 'alle') p.set('deal', activeCat);
+    if (activeType !== 'alle') p.set('type', activeType);
+    if (activeRegion) p.set('region', activeRegion);
+    if (activePriceMax) p.set('price_max', String(activePriceMax));
+    const qs = p.toString();
+    const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState({}, '', url);
+  }
+
   document.querySelectorAll('.filter-cat').forEach(btn => {
-    btn.addEventListener('click', () => { activeCat = btn.dataset.cat; syncCatButtons(); render(); });
+    btn.addEventListener('click', () => { activeCat = btn.dataset.cat; syncCatButtons(); syncUrl(); render(); });
   });
   document.querySelectorAll('.filter-type').forEach(btn => {
-    btn.addEventListener('click', () => { activeType = btn.dataset.type; syncTypeButtons(); render(); });
+    btn.addEventListener('click', () => { activeType = btn.dataset.type; syncTypeButtons(); syncUrl(); render(); });
   });
+
+  // Region- und Preis-Selects: pre-populieren und auf Change reagieren.
+  const regionSel = document.getElementById('filter-region');
+  const priceSel = document.getElementById('filter-price');
+  if (regionSel) {
+    regionSel.value = activeRegion || '';
+    regionSel.addEventListener('change', () => {
+      activeRegion = regionSel.value;
+      syncUrl();
+      render();
+    });
+  }
+  if (priceSel) {
+    priceSel.value = activePriceMax ? String(activePriceMax) : '';
+    priceSel.addEventListener('change', () => {
+      activePriceMax = parseInt(priceSel.value || '0', 10) || 0;
+      syncUrl();
+      render();
+    });
+  }
+
+  const resetBtn = document.getElementById('filter-reset');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      activeCat = 'alle'; activeType = 'alle'; activeRegion = ''; activePriceMax = 0;
+      if (regionSel) regionSel.value = '';
+      if (priceSel) priceSel.value = '';
+      syncCatButtons(); syncTypeButtons(); syncUrl(); render();
+    });
+  }
 
   // Filter-Bar gemäß URL-Params initial setzen, sodass Hero-Filter sichtbar greift.
   syncCatButtons();

@@ -303,10 +303,10 @@ function getAvatarColor(name) {
             >{{ displayName }}</span>
             <span
               v-if="hasBeenReplied"
-              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-600 text-white shadow-sm flex-shrink-0"
+              class="inline-flex items-center gap-0.5 px-1.5 h-4 rounded-full text-[9px] font-bold uppercase tracking-wide bg-emerald-600 text-white shadow-sm flex-shrink-0"
               title="Diese Nachricht wurde bereits beantwortet"
             >
-              <CheckCheck class="w-3 h-3" />
+              <CheckCheck class="w-2.5 h-2.5" />
               <span>Beantwortet</span>
             </span>
           </div>

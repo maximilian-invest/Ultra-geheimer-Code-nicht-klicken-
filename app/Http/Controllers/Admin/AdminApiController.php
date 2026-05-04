@@ -369,10 +369,11 @@ class AdminApiController extends Controller
 
                     // Save the immoji_id back to the property if newly created
                     // (skipped for dry-run — no actual create happened).
-                    // 'recreated' triggers when the stored immoji_id was stale
-                    // (Realty drueben geloescht) and pushProperty hat eine
-                    // neue UUID erzeugt — auch dort muss die ID zurueck.
-                    if (in_array($result['action'], ['created', 'recreated'], true) && !empty($result['immoji_id'])) {
+                    // 'recreated' triggert nach Re-Create wenn die alte UUID
+                    // stale war. 'resolved' triggert wenn die Recovery die
+                    // Realty drueben unter neuer UUID gefunden hat (kein
+                    // Re-Upload). Beide brauchen die UUID in der DB.
+                    if (in_array($result['action'], ['created', 'recreated', 'resolved'], true) && !empty($result['immoji_id'])) {
                         \DB::table('properties')->where('id', $propertyId)->update([
                             'openimmo_id' => $result['immoji_id'],
                             'updated_at' => now()

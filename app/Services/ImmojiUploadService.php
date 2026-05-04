@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Services\ImmojiRestClient;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -158,6 +159,42 @@ class ImmojiUploadService
             // Identische Strategie wie in pushUnit() — sie war dort schon
             // verbaut und fehlte hier auf der Master-Property-Seite.
             if (str_contains($e->getMessage(), 'Entity not found for ID')) {
+                // Vor dem Re-Create: schau ueber die REST-API ob drueben ein
+                // Realty mit demselben objectNumber existiert (z.B. weil
+                // jemand drueben neu angelegt hat). Spart 12 Bilder-Uploads
+                // wenn die Realty existiert, nur unter neuer UUID.
+                $resolvedUuid = null;
+                $refId = (string) ($property['ref_id'] ?? '');
+                if ($refId !== '') {
+                    try {
+                        $rest = app(ImmojiRestClient::class);
+                        if ($rest->isConfigured()) {
+                            $found = $rest->findRealtyByObjectNumber($refId);
+                            if ($found && !empty($found['id'])) {
+                                $resolvedUuid = (string) $found['id'];
+                                Log::info("Immoji recovery: ref_id {$refId} found drueben as {$resolvedUuid} — UUID uebernommen, kein Re-Upload noetig.");
+                            }
+                        }
+                    } catch (\Throwable $lookupErr) {
+                        Log::warning('Immoji recovery lookup failed: ' . $lookupErr->getMessage());
+                    }
+                }
+
+                if ($resolvedUuid) {
+                    if ($propertyId) {
+                        \Illuminate\Support\Facades\DB::table('properties')
+                            ->where('id', $propertyId)
+                            ->update(['openimmo_id' => $resolvedUuid, 'updated_at' => now()]);
+                        $stateService->clearState($propertyId);
+                    }
+                    return [
+                        'action'             => 'resolved',
+                        'immoji_id'          => $resolvedUuid,
+                        'sections_synced'    => [],
+                        'previous_immoji_id' => $immojiId,
+                    ];
+                }
+
                 Log::warning("Immoji property {$immojiId} deleted, re-creating.", ['property_id' => $propertyId]);
                 if ($propertyId) {
                     \Illuminate\Support\Facades\DB::table('properties')

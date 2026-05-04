@@ -11,8 +11,21 @@
   const raw = await fetchProperties();
   const props = raw.map(mapProperty);
 
-  let activeCat = 'alle';
-  let activeType = 'alle';
+  // Filter-State: kann durch URL-Params (von der Startseite) vor-belegt sein.
+  const urlParams = new URLSearchParams(window.location.search);
+  let activeCat = (urlParams.get('deal') === 'miete') ? 'miete' : 'alle';
+  let activeType = urlParams.get('type') || 'alle';
+  let activeRegion = urlParams.get('region') || '';
+  let activePriceMax = parseInt(urlParams.get('price_max') || '0', 10) || 0;
+
+  // Region-Mapping: aus dem Hero-Filter kommen normalisierte Werte; mappen
+  // wir auf Strings, die in p.city/p.zip vorkommen.
+  const REGION_MATCH = {
+    'salzburg':    p => /salzburg/i.test(p.city || '') && /^50/.test(String(p.zip || '')),
+    'flachgau':    p => /^(50|51)/.test(String(p.zip || '')) && !/^5020/.test(String(p.zip || '')),
+    'innviertel':  p => /^(49|52)/.test(String(p.zip || '')),
+    'mondseeland': p => /mondsee|st\.? lorenz|tiefgraben|oberhofen|zell am moos/i.test(p.city || ''),
+  };
 
   function render() {
     const filtered = props.filter(p => {
@@ -25,11 +38,18 @@
       }
       if (activeType !== 'alle') {
         const t = (p.type || '').toLowerCase();
-        if (activeType === 'haus' && !t.includes('haus') && !t.includes('einfamilien') && !t.includes('reihen')) return false;
-        if (activeType === 'wohnung' && !t.includes('wohnung') && !t.includes('zimmer')) return false;
-        if (activeType === 'neubau' && !t.includes('neubau') && p.property_category !== 'newbuild') return false;
-        if (activeType === 'grundst' && !t.includes('grund')) return false;
+        const cat = (p.property_category || '').toLowerCase();
+        // Engmaschiger: Neubau zeigt NUR Master-Neubauprojekte (keine Tops).
+        // Tops haben einen parent_id; das Master selber hat type=Neubauprojekt
+        // oder property_category=newbuild bei Single-Listings.
+        if (activeType === 'haus' && !t.includes('haus') && !t.includes('einfamilien') && !t.includes('reihen') && cat !== 'house') return false;
+        if (activeType === 'wohnung' && !t.includes('wohnung') && !t.includes('zimmer') && cat !== 'apartment') return false;
+        if (activeType === 'neubau' && !t.includes('neubau') && cat !== 'newbuild') return false;
+        if (activeType === 'grundst' && !t.includes('grund') && cat !== 'land') return false;
+        if (activeType === 'gewerbe' && !t.includes('gewerbe') && !t.includes('büro') && !t.includes('lokal')) return false;
       }
+      if (activeRegion && REGION_MATCH[activeRegion] && !REGION_MATCH[activeRegion](p)) return false;
+      if (activePriceMax > 0 && p.price > activePriceMax) return false;
       return true;
     });
 
@@ -80,27 +100,27 @@
   }
 
   /* Filter click handlers */
+  function syncCatButtons() {
+    document.querySelectorAll('.filter-cat').forEach(b => {
+      if (b.dataset.cat === activeCat) { b.style.background = '#D4743B'; b.style.color = '#fff'; b.style.border = 'none'; }
+      else { b.style.background = 'transparent'; b.style.color = '#5A564E'; b.style.border = '1.5px solid #E5E0D8'; }
+    });
+  }
+  function syncTypeButtons() {
+    document.querySelectorAll('.filter-type').forEach(b => {
+      if (b.dataset.type === activeType) { b.style.background = '#0A0A08'; b.style.color = '#fff'; b.style.border = 'none'; }
+      else { b.style.background = 'transparent'; b.style.color = '#5A564E'; b.style.border = '1.5px solid #E5E0D8'; }
+    });
+  }
   document.querySelectorAll('.filter-cat').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activeCat = btn.dataset.cat;
-      document.querySelectorAll('.filter-cat').forEach(b => {
-        if (b.dataset.cat === activeCat) { b.style.background = '#D4743B'; b.style.color = '#fff'; b.style.border = 'none'; }
-        else { b.style.background = 'transparent'; b.style.color = '#5A564E'; b.style.border = '1.5px solid #E5E0D8'; }
-      });
-      render();
-    });
+    btn.addEventListener('click', () => { activeCat = btn.dataset.cat; syncCatButtons(); render(); });
   });
-
   document.querySelectorAll('.filter-type').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activeType = btn.dataset.type;
-      document.querySelectorAll('.filter-type').forEach(b => {
-        if (b.dataset.type === activeType) { b.style.background = '#0A0A08'; b.style.color = '#fff'; b.style.border = 'none'; }
-        else { b.style.background = 'transparent'; b.style.color = '#5A564E'; b.style.border = '1.5px solid #E5E0D8'; }
-      });
-      render();
-    });
+    btn.addEventListener('click', () => { activeType = btn.dataset.type; syncTypeButtons(); render(); });
   });
 
+  // Filter-Bar gemäß URL-Params initial setzen, sodass Hero-Filter sichtbar greift.
+  syncCatButtons();
+  syncTypeButtons();
   render();
 })();

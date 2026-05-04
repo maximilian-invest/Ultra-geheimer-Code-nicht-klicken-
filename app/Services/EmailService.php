@@ -175,9 +175,12 @@ class EmailService
                 Activity::create($activityData);
             }
 
-            // Mark inbound emails from same stakeholder+property as replied
+            // Mark inbound emails from same stakeholder+property as replied.
+            // Wer antwortet, hat auch gelesen — also is_read=1 in einem Rutsch
+            // mitsetzen. Sonst kann eine Mail gleichzeitig "beantwortet" und
+            // "ungelesen" sein (blauer Punkt + Bold), was inkonsistent wirkt.
             if ($stakeholder && $propertyId) {
-                \DB::update("UPDATE portal_emails SET has_reply = 1 WHERE direction = 'inbound' AND has_reply = 0 AND LOWER(TRIM(COALESCE(stakeholder, from_name, ''))) = ? AND COALESCE(property_id, 0) = ?", [
+                \DB::update("UPDATE portal_emails SET has_reply = 1, is_read = 1 WHERE direction = 'inbound' AND (has_reply = 0 OR is_read = 0) AND LOWER(TRIM(COALESCE(stakeholder, from_name, ''))) = ? AND COALESCE(property_id, 0) = ?", [
                     strtolower(trim($stakeholder)),
                     (int) $propertyId
                 ]);

@@ -812,6 +812,7 @@ class ConversationService
             'typeform',
             'calendly',
             'mcgrundriss',
+            'immobilienmarkt@sn.at',
         ];
 
         foreach ($patterns as $pattern) {

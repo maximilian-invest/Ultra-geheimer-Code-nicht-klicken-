@@ -66,24 +66,14 @@ onBeforeUnmount(() => {
       <span class="text-[12px] flex-1 truncate text-zinc-700">{{ labels[c.id] || c.id }}</span>
       <span v-if="currentColor === c.id" class="text-[9px] uppercase text-zinc-400 tracking-wide">aktiv</span>
     </button>
-    <div class="border-t border-zinc-100 mt-1 pt-1">
+    <div v-if="currentColor" class="border-t border-zinc-100 mt-1 pt-1">
       <button
-        v-if="currentColor"
         type="button"
         class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-zinc-100 text-left text-[12px] text-zinc-600"
         @click="clear()"
       >
         <X class="w-3 h-3" />
         Markierung entfernen
-      </button>
-      <button
-        v-if="showSettings"
-        type="button"
-        class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-zinc-100 text-left text-[11px] text-zinc-500"
-        @click="emit('open-settings')"
-      >
-        <Settings2 class="w-3 h-3" />
-        Bezeichnungen anpassen…
       </button>
     </div>
   </div>

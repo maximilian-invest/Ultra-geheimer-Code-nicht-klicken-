@@ -824,6 +824,76 @@ class ConversationService
     }
 
     /**
+     * Reicht eine Liste von Mail-Rows (stdClass aus Raw-SQL ODER Eloquent-Models)
+     * durch detectMismatchedRefId. Mails ohne gespeicherten Hint
+     * (property_mismatch_ref_id IS NULL) bekommen den Live-Wert per Side-Effect
+     * in die DB geschrieben (saveQuietly, ohne Model-Events). So muss kein
+     * Backfill-Cron laufen — der Hint wird beim ersten Anschauen befuellt.
+     *
+     * Damit das Frontend "schon getestet, kein Mismatch" von "noch nie getestet"
+     * unterscheiden kann, wird im DB-NULL-Fall nach der Live-Detection
+     * - bei Treffer: der Treffer geschrieben
+     * - ohne Treffer: ein leerer Sentinel-String '' geschrieben (DB wird '!='
+     *   zu NULL, das Banner zeigt nichts)
+     * Beide Faelle reflektieren den Live-Stand in der zurueckgegebenen Liste.
+     *
+     * @param array $emails Array aus stdClass oder PortalEmail
+     * @return array dieselbe Liste, mit aktualisiertem property_mismatch_ref_id
+     */
+    public function fillMissingMismatchHints(array $emails): array
+    {
+        if (empty($emails)) return $emails;
+
+        foreach ($emails as $em) {
+            // bei stdClass: Property direkt; bei PortalEmail: ueber Attribute.
+            $current = is_object($em)
+                ? ($em->property_mismatch_ref_id ?? null)
+                : null;
+            // Nur wenn noch NIE gecheckt wurde (DB NULL).
+            if ($current !== null) continue;
+
+            // Wir brauchen ein PortalEmail-Model fuer detectMismatchedRefId.
+            // Bei stdClass aus Raw-SQL: minimaler Hydrate ohne extra DB-Hit.
+            $emailObj = $em instanceof PortalEmail
+                ? $em
+                : (function () use ($em) {
+                    $m = new PortalEmail();
+                    // exists=true verhindert dass save() ein INSERT macht
+                    $m->setRawAttributes((array) $em, true);
+                    $m->exists = true;
+                    return $m;
+                })();
+
+            $detected = $this->detectMismatchedRefId($emailObj);
+
+            // In DB schreiben (saveQuietly umgeht updateFromEmail-Recursion).
+            // Wir speichern den leeren Sentinel-String als "checked, no mismatch"
+            // damit wir nicht jedes Mal neu rechnen.
+            try {
+                if ($emailObj->getKey()) {
+                    $emailObj->property_mismatch_ref_id = $detected ?? '';
+                    $emailObj->saveQuietly();
+                }
+            } catch (\Throwable $e) {
+                // Persist-Fehler darf API-Response nicht blocken.
+                Log::warning('fillMissingMismatchHints: persist failed', ['email_id' => $emailObj->id ?? null, 'err' => $e->getMessage()]);
+            }
+
+            // Auf der Response-Row spiegeln (Frontend nutzt das direkt).
+            // Empty string an Frontend zurueck mappen wir auf null, damit
+            // das Banner nicht versucht ein Property mit ref_id="" zu finden.
+            $value = ($detected !== null && $detected !== '') ? $detected : null;
+            if ($em instanceof PortalEmail) {
+                $em->property_mismatch_ref_id = $value;
+            } elseif (is_object($em)) {
+                $em->property_mismatch_ref_id = $value;
+            }
+        }
+
+        return $emails;
+    }
+
+    /**
      * Scans subject + body of a saved email for ref_ids of OTHER properties
      * (not the one currently assigned). Stores the first hit as
      * property_mismatch_ref_id. Used to surface "Diese Mail nennt Ref-ID X

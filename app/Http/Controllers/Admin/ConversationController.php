@@ -631,6 +631,17 @@ class ConversationController extends Controller
             return $msg;
         }, $messages);
 
+        // Lazy-Detection des Property-Mismatch-Hints: laeuft fuer jede Mail,
+        // deren Hint noch NICHT in der DB steht (NULL). Damit erscheint das
+        // Mismatch-Banner auch fuer Bestands-Mails ohne separaten Backfill —
+        // beim ersten Oeffnen des Threads wird die Erkennung gemacht und das
+        // Ergebnis denormalisiert in portal_emails.property_mismatch_ref_id
+        // geschrieben (oder NULL gespeichert wenn die Mail sauber ist —
+        // ungesetzt vs explizit leer kann das Frontend nicht unterscheiden,
+        // also schreiben wir grundsaetzlich beim ersten Treffer einer Mail
+        // einen Wert oder einen leeren Marker).
+        $messages = $convService->fillMissingMismatchHints($messages);
+
         $prop = $conv->property;
         $latestMessage = !empty($messages) ? $messages[count($messages) - 1] : null;
         $headerFromName = $conv->stakeholder

@@ -1034,6 +1034,11 @@ private static function findEmailInText(string $text, array $excludePatterns = [
         // Conversation) gruppiert ist.
         $emails = $this->attachUserFlags($emails, (int) $brokerId);
 
+        // Lazy-Detection des Property-Mismatch-Hints fuer Bestands-Mails ohne
+        // gespeicherten Wert. Macht das Banner sofort sichtbar — kein
+        // separater Backfill-Lauf noetig.
+        $emails = app(\App\Services\ConversationService::class)->fillMissingMismatchHints($emails);
+
         // Optionaler Flag-Filter: "any" oder ein gueltiger Farbname.
         $flagFilter = trim((string) $request->query('flag', ''));
         if ($flagFilter !== '') {

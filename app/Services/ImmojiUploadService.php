@@ -145,7 +145,45 @@ class ImmojiUploadService
             ];
         }
 
-        $this->updateRealty($immojiId, $property, $sections);
+        try {
+            $this->updateRealty($immojiId, $property, $sections);
+        } catch (\RuntimeException $e) {
+            // Stale immoji_id Recovery: wenn die Immoji-Realty drueben
+            // geloescht wurde (manuell im Immoji-UI / per anderer
+            // Schnittstelle), schlaegt updateRealty mit "Entity not found
+            // for ID" fehl. Statt durchzucrashen recreaten wir die Realty
+            // sauber und resetten unseren lokalen Sync-State, damit der
+            // naechste Push frische Daten + neue immoji_id hat.
+            //
+            // Identische Strategie wie in pushUnit() — sie war dort schon
+            // verbaut und fehlte hier auf der Master-Property-Seite.
+            if (str_contains($e->getMessage(), 'Entity not found for ID')) {
+                Log::warning("Immoji property {$immojiId} deleted, re-creating.", ['property_id' => $propertyId]);
+                if ($propertyId) {
+                    \Illuminate\Support\Facades\DB::table('properties')
+                        ->where('id', $propertyId)
+                        ->update(['openimmo_id' => null]);
+                    \Illuminate\Support\Facades\DB::table('property_images')
+                        ->where('property_id', $propertyId)
+                        ->update(['immoji_source' => null]);
+                    $stateService->clearState($propertyId);
+                }
+                $property['openimmo_id'] = null;
+                $property['_forceUploadImages'] = true;
+                $newImmojiId = $this->createRealty($property);
+                if ($propertyId) {
+                    $hashes = $this->computeAllHashes($property, $stateService);
+                    $stateService->saveState($propertyId, $newImmojiId, $hashes);
+                }
+                return [
+                    'action' => 'recreated',
+                    'immoji_id' => $newImmojiId,
+                    'sections_synced' => \App\Services\ImmojiSyncStateService::SECTIONS,
+                    'previous_immoji_id' => $immojiId,
+                ];
+            }
+            throw $e;
+        }
 
         // If the media-error fallback dropped files, do NOT snapshot the files
         // hash — next sync must retry the images instead of skipping them.

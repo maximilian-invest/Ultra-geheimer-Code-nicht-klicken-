@@ -964,7 +964,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                     pe.id, pe.account_id, pe.direction, pe.from_email, pe.from_name, pe.to_email,
                     pe.subject, pe.body_text, pe.body_html, pe.email_date,
                     pe.category, pe.stakeholder, pe.ai_summary, pe.has_attachment,
-                    pe.attachment_names, pe.property_id, pe.matched_ref_id,
+                    pe.attachment_names, pe.property_id, pe.matched_ref_id, pe.property_mismatch_ref_id,
                     pe.is_deleted, pe.is_read, pe.has_reply, pe.deleted_at,
                     p.address as property_address, p.ref_id as property_ref_id, p.city as property_city,
                     1 as thread_count
@@ -990,7 +990,7 @@ private static function findEmailInText(string $text, array $excludePatterns = [
                     pe.id, pe.account_id, pe.direction, pe.from_email, pe.from_name, pe.to_email,
                     pe.subject, pe.body_text, pe.body_html, pe.email_date,
                     pe.category, pe.stakeholder, pe.ai_summary, pe.has_attachment,
-                    pe.attachment_names, pe.property_id, pe.matched_ref_id,
+                    pe.attachment_names, pe.property_id, pe.matched_ref_id, pe.property_mismatch_ref_id,
                     pe.is_deleted, pe.is_read, pe.has_reply, pe.deleted_at,
                     p.address as property_address, p.ref_id as property_ref_id, p.city as property_city,
                     conv.thread_count

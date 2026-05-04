@@ -10,7 +10,7 @@ class PortalEmail extends Model
     protected $fillable = [
         'message_id', 'thread_id', 'direction', 'from_email', 'from_name',
         'to_email', 'subject', 'body_text', 'body_html', 'has_attachment', 'attachment_names',
-        'email_date', 'property_id', 'matched_ref_id', 'stakeholder', 'category',
+        'email_date', 'property_id', 'matched_ref_id', 'property_mismatch_ref_id', 'stakeholder', 'category',
         'ai_summary', 'sentiment', 'key_facts', 'action_required',
         'is_processed', 'imap_uid', 'imap_folder', 'account_id',
         'is_deleted', 'deleted_at',

@@ -485,6 +485,8 @@ class ConversationController extends Controller
                         ELSE NULL
                     END as sender_avatar_url,
                     pe.is_deleted as is_archived,
+                    pe.property_mismatch_ref_id,
+                    pe.property_id,
                     a.followup_stage
                 FROM portal_emails pe
                 LEFT JOIN activities a ON a.source_email_id = pe.id
@@ -564,6 +566,8 @@ class ConversationController extends Controller
                         ELSE NULL
                     END as sender_avatar_url,
                     pe.is_deleted as is_archived,
+                    pe.property_mismatch_ref_id,
+                    pe.property_id,
                     a.followup_stage
                 FROM portal_emails pe
                 LEFT JOIN activities a ON a.source_email_id = pe.id
@@ -1122,6 +1126,50 @@ class ConversationController extends Controller
             'old_property_id' => $oldPropertyId,
             'new_property_id' => $newPropertyId,
             'migrated' => $migrate,
+        ]);
+    }
+
+    /**
+     * conv_split_mail — Eine einzelne Mail aus ihrer aktuellen Conversation
+     * herausziehen und einer anderen Property zuordnen (oder NULL = "Nicht
+     * zugeordnet"). Ziel-Conversation wird wiederverwendet falls vorhanden,
+     * sonst neu angelegt. Activities mit source_email_id wandern mit. Die
+     * Counters auf Quell- und Ziel-Conversation werden neu aus den Mails
+     * abgeleitet.
+     *
+     * Body: { email_id: int, property_id: int|null }
+     */
+    public function splitMail(Request $request): JsonResponse
+    {
+        $input = $request->json()->all();
+        $emailId = (int) ($input['email_id'] ?? 0);
+        $newPropertyId = array_key_exists('property_id', $input) && $input['property_id'] !== ''
+            ? (int) $input['property_id']
+            : null;
+
+        if (!$emailId) {
+            return response()->json(['error' => 'email_id required'], 400);
+        }
+
+        // Broker-Scope: ein Makler darf nur auf seine eigenen Objekte umhaengen.
+        $authUser = Auth::user();
+        $userType = $authUser->user_type ?? 'makler';
+        if ($userType === 'makler' && $newPropertyId) {
+            $ownProp = DB::table('properties')->where('id', $newPropertyId)->where('broker_id', $authUser->id)->exists();
+            if (!$ownProp) {
+                return response()->json(['error' => 'Dieses Objekt gehoert einem anderen Makler'], 403);
+            }
+        }
+
+        $result = app(ConversationService::class)->splitMailToNewConversation($emailId, $newPropertyId);
+        if (empty($result['ok'])) {
+            return response()->json(['error' => $result['error'] ?? 'Split fehlgeschlagen'], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'source_conversation_id' => $result['source_conversation_id'] ?? null,
+            'target_conversation_id' => $result['target_conversation_id'] ?? null,
         ]);
     }
 

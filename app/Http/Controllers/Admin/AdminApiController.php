@@ -208,6 +208,7 @@ class AdminApiController extends Controller
             'conv_regenerate_draft'     => app(ConversationController::class)->regenerateDraft($request),
             'conv_improve_draft'        => app(ConversationController::class)->improveDraft($request),
             'conv_followup_all'         => app(ConversationController::class)->followupAll($request),
+            'conv_split_mail'           => app(ConversationController::class)->splitMail($request),
 
             // Inbox-Flags (Outlook-Style, persoenlich pro User)
             'flag_labels'               => app(FlagController::class)->labels($request),

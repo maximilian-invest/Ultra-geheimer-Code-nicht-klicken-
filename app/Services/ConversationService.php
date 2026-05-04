@@ -80,21 +80,43 @@ class ConversationService
                         $persistenceQuery->where('property_id', $email->property_id);
                     }
 
-                    $existing = $persistenceQuery
-                        ->orderByDesc('last_activity_at')
-                        ->lockForUpdate()
-                        ->first();
-                    if ($existing) {
-                        $conv = $existing;
-                        Log::info("ConversationService: persisted existing conv {$conv->id} for {$contactEmail} on property {$existing->property_id} (new email had property_id={$email->property_id})");
-                        // Email selbst auch auf die richtige Property umhängen,
-                        // damit Activities und Counters konsistent bleiben.
-                        // Greift nur wenn die neue Mail KEINE eigene property_id
-                        // hatte — bei eigenstaendigem Match ist property_id schon
-                        // gleich und der Block ist ein No-op.
-                        if ($email->property_id != $conv->property_id) {
-                            $email->property_id = $conv->property_id;
-                            $email->save();
+                    // Multi-Conversation-Safety: hat die Mail KEINE eigene Property
+                    // und der Kunde hat MEHRERE offene Conversations auf
+                    // VERSCHIEDENEN Objekten, dann lassen wir das Auto-Routing
+                    // bewusst aus. Lieber landet die Mail in "Nicht zugeordnet"
+                    // und der Makler entscheidet, statt dass wir sie zur
+                    // "neuesten" Conversation packen und damit den Kontext
+                    // verfaelschen (typischer Wiederkehr-Kunde-Bug).
+                    if (empty($email->property_id)) {
+                        $distinctProps = (clone $persistenceQuery)
+                            ->distinct()
+                            ->pluck('property_id');
+                        if ($distinctProps->count() > 1) {
+                            Log::info("ConversationService: skipping auto-route for {$contactEmail} (no own ref-id, multiple open conversations on properties [" . $distinctProps->implode(',') . "]) — leaving in Nicht zugeordnet for manual triage");
+                            // $conv bleibt null -> faellt unten in "neue Conversation"
+                            // mit der noch null-en property_id.
+                        } else {
+                            $existing = $persistenceQuery
+                                ->orderByDesc('last_activity_at')
+                                ->lockForUpdate()
+                                ->first();
+                            if ($existing) {
+                                $conv = $existing;
+                                Log::info("ConversationService: persisted existing conv {$conv->id} for {$contactEmail} on property {$existing->property_id} (new email had no own property)");
+                                if ($email->property_id != $conv->property_id) {
+                                    $email->property_id = $conv->property_id;
+                                    $email->save();
+                                }
+                            }
+                        }
+                    } else {
+                        $existing = $persistenceQuery
+                            ->orderByDesc('last_activity_at')
+                            ->lockForUpdate()
+                            ->first();
+                        if ($existing) {
+                            $conv = $existing;
+                            // property_id stimmt bereits ueberein (Filter oben).
                         }
                     }
                 }
@@ -216,6 +238,21 @@ class ConversationService
                 }
 
                 $conv->save();
+
+                // Mismatch-Hinweis: enthaelt der Mail-Body eine Ref-ID, die zu
+                // einem ANDEREN Objekt gehoert als das jetzt zugeordnete? Wenn
+                // ja, an der Mail vermerken — die Inbox blendet ein gelbes
+                // Banner ein mit One-Click-Verschieben. Greift z.B. wenn
+                // (a) die Persistenz-Regel die Mail ans alte Objekt geklebt
+                //     hat obwohl der Body eine andere Ref-ID nennt
+                // (b) matchProperty den falschen Footer-Ref erwischt hat
+                //     (sollte mit pickEarliestRefMatch nicht mehr passieren,
+                //     aber doppelt haelt besser)
+                $hint = $this->detectMismatchedRefId($email);
+                if ($hint !== ($email->property_mismatch_ref_id ?? null)) {
+                    $email->property_mismatch_ref_id = $hint;
+                    $email->save();
+                }
 
                 return $conv;
             });
@@ -784,5 +821,150 @@ class ConversationService
         }
 
         return false;
+    }
+
+    /**
+     * Scans subject + body of a saved email for ref_ids of OTHER properties
+     * (not the one currently assigned). Stores the first hit as
+     * property_mismatch_ref_id. Used to surface "Diese Mail nennt Ref-ID X
+     * — gehoert evtl. zu anderem Objekt"-Banner in der Inbox.
+     *
+     * Bewusst verlustarm: matched nur exakte Substrings (case-insensitive
+     * sowie normalisiert), keine Fuzzy-Heuristik. Lieber kein Hint als
+     * ein falscher Hint.
+     */
+    public function detectMismatchedRefId(PortalEmail $email): ?string
+    {
+        $currentPid = (int) ($email->property_id ?? 0);
+        $haystack   = strtolower(($email->subject ?? '') . ' ' . ($email->body_text ?? ''));
+        $haystackNorm = strtolower(preg_replace('/[\s\-_]+/', '', $haystack));
+        if ($haystack === '' || $haystackNorm === '') return null;
+
+        // Properties (broker-skopiert wenn account_id bekannt) holen.
+        // Caching auf Request-Ebene, damit Bulk-Import nicht 1x SELECT pro Mail laeuft.
+        static $cache = null;
+        if ($cache === null) {
+            $cache = DB::table('properties')
+                ->whereNotNull('ref_id')
+                ->where('ref_id', '!=', '')
+                ->get(['id', 'ref_id'])
+                ->all();
+        }
+
+        foreach ($cache as $p) {
+            if ((int) $p->id === $currentPid) continue;
+            $ref = strtolower((string) $p->ref_id);
+            if (strlen($ref) < 4) continue;
+            if (str_contains($haystack, $ref)) return (string) $p->ref_id;
+            $refNorm = preg_replace('/[\s\-_]+/', '', $ref);
+            if (strlen($refNorm) >= 4 && str_contains($haystackNorm, $refNorm)) return (string) $p->ref_id;
+        }
+
+        return null;
+    }
+
+    /**
+     * Splittet eine einzelne Mail aus ihrer aktuellen Conversation heraus
+     * in eine eigene Conversation auf einem anderen Objekt. Die zugehoerigen
+     * Activities (matched via source_email_id) wandern mit. Counters auf
+     * der QUELL- und der ZIEL-Conversation werden anschliessend neu aus
+     * den Mails abgeleitet (rebuildFromEmails).
+     *
+     * @param int      $emailId        portal_emails.id
+     * @param int|null $newPropertyId  Ziel-Property; null = "Nicht zugeordnet"
+     * @return array{ok:bool, source_conversation_id:?int, target_conversation_id:?int, error?:string}
+     */
+    public function splitMailToNewConversation(int $emailId, ?int $newPropertyId): array
+    {
+        $email = PortalEmail::find($emailId);
+        if (!$email) return ['ok' => false, 'error' => 'Email not found'];
+
+        $oldPropertyId = $email->property_id;
+        if ((int) $oldPropertyId === (int) $newPropertyId) {
+            return ['ok' => true, 'source_conversation_id' => null, 'target_conversation_id' => null, 'unchanged' => true];
+        }
+
+        $contactEmail = $this->resolveContactEmail($email);
+        if (!$contactEmail) return ['ok' => false, 'error' => 'Could not resolve contact email'];
+
+        $result = DB::transaction(function () use ($email, $oldPropertyId, $newPropertyId, $contactEmail) {
+            // 1) Quell-Conversation: ueber (contact_email + alte property_id) finden.
+            $sourceConv = Conversation::where('contact_email', $contactEmail)
+                ->where(function ($q) use ($oldPropertyId) {
+                    if ($oldPropertyId === null) $q->whereNull('property_id');
+                    else $q->where('property_id', $oldPropertyId);
+                })
+                ->first();
+
+            // 2) Ziel-Conversation: existiert schon eine fuer (contact_email + neue property_id)?
+            $targetConv = null;
+            if ($newPropertyId !== null) {
+                $targetConv = Conversation::where('contact_email', $contactEmail)
+                    ->where('property_id', $newPropertyId)
+                    ->lockForUpdate()
+                    ->first();
+            }
+            if (!$targetConv) {
+                $targetConv = Conversation::create([
+                    'contact_email'    => $contactEmail,
+                    'stakeholder'      => $email->stakeholder ?? null,
+                    'property_id'      => $newPropertyId,
+                    'status'           => 'offen',
+                    'source_platform'  => $this->detectPlatform($email->from_email ?? ''),
+                    'first_contact_at' => $email->email_date ?? now(),
+                    'last_activity_at' => now(),
+                    'inbound_count'    => 0,
+                    'outbound_count'   => 0,
+                    'followup_count'   => 0,
+                    'is_read'          => false,
+                ]);
+            }
+
+            // 3) Mail auf das neue Objekt umhaengen + Mismatch-Hint loeschen
+            //    (das Banner wuerde sonst weiter blinken obwohl der User
+            //    gerade aktiv den Split bestaetigt hat).
+            $email->property_id = $newPropertyId;
+            $email->property_mismatch_ref_id = null;
+            $email->save();
+
+            // 4) Activities, die DIREKT durch diese Mail entstanden sind, mit-umhaengen
+            if ($newPropertyId !== null) {
+                DB::table('activities')
+                    ->where('source_email_id', $email->id)
+                    ->update(['property_id' => $newPropertyId]);
+            }
+
+            // 5) Audit-Activity am Ziel
+            if ($newPropertyId !== null) {
+                $newRef = DB::table('properties')->where('id', $newPropertyId)->value('ref_id') ?: ('#' . $newPropertyId);
+                $oldRef = $oldPropertyId
+                    ? (DB::table('properties')->where('id', $oldPropertyId)->value('ref_id') ?: ('#' . $oldPropertyId))
+                    : 'Nicht zugeordnet';
+                DB::table('activities')->insert([
+                    'property_id'     => $newPropertyId,
+                    'stakeholder'     => $email->stakeholder ?: ($email->from_name ?: 'System'),
+                    'activity_date'   => now(),
+                    'category'        => 'intern',
+                    'activity'        => "Mail manuell umgehaengt von {$oldRef} (Subject: \"" . mb_substr($email->subject ?? '', 0, 80) . "\")",
+                    'source_email_id' => $email->id,
+                    'created_at'      => now(),
+                    'updated_at'      => now(),
+                ]);
+            }
+
+            // 6) Counters auf beiden Convs neu ableiten
+            if ($sourceConv) {
+                $this->rebuildFromEmails($sourceConv->id);
+            }
+            $this->rebuildFromEmails($targetConv->id);
+
+            return [
+                'ok' => true,
+                'source_conversation_id' => $sourceConv?->id,
+                'target_conversation_id' => $targetConv->id,
+            ];
+        });
+
+        return $result;
     }
 }

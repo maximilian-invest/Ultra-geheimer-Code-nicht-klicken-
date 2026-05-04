@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, ref, watch, nextTick } from 'vue'
+import { computed, inject, ref, watch, nextTick, provide } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { X, Loader2, Clock, ChevronLeft, ChevronDown, ChevronUp, Sparkles, CheckCircle, Send, RefreshCw, Wand2, Link2, Paperclip, Pencil, Home, Forward } from 'lucide-vue-next'
@@ -63,6 +63,42 @@ const currentPropertyAddress = computed(() => {
   const prop = propertiesArray.value.find(p => Number(p.id) === Number(pid))
   return prop ? (prop.address || prop.title || '') : ''
 })
+
+// Split-Mail-Handler: zieht eine einzelne Mail aus diesem Thread heraus
+// und haengt sie an ein anderes Objekt. Die Banner-Komponente in
+// InboxMailMessage triggert das, wenn die Mail eine Mismatch-Ref-ID hat.
+async function splitMailToProperty(emailId, targetPropertyId) {
+  try {
+    const r = await fetch(inboxAPI.value + '&action=conv_split_mail', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email_id: emailId, property_id: targetPropertyId }),
+    })
+    const d = await r.json()
+    if (d.success) {
+      const targetLabel = targetPropertyId
+        ? (propertiesArray.value.find(p => Number(p.id) === Number(targetPropertyId))?.ref_id || `#${targetPropertyId}`)
+        : 'Nicht zugeordnet'
+      inboxToast(`Mail verschoben nach ${targetLabel}`)
+      emit('propertyChanged', {
+        convId: d.source_conversation_id,
+        targetConvId: d.target_conversation_id,
+        oldPropertyId: props.item?.property_id ?? null,
+        newPropertyId: targetPropertyId,
+        split: true,
+      })
+      return true
+    }
+    inboxToast('Fehler: ' + (d.error || 'Unbekannt'))
+    return false
+  } catch (e) {
+    inboxToast('Fehler: ' + e.message)
+    return false
+  }
+}
+
+provide('inboxSplitMail', splitMailToProperty)
+provide('inboxPropertiesArray', propertiesArray)
 
 async function onAssignConfirm(payload) {
   if (!props.item) return

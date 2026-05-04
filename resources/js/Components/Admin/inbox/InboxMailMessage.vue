@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, inject } from 'vue'
 import { usePage } from '@inertiajs/vue3'
-import { ChevronDown, ChevronUp, Paperclip, FolderDown, Download } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp, Paperclip, FolderDown, Download, AlertTriangle, Move } from 'lucide-vue-next'
 import InboxMailBody from './InboxMailBody.vue'
 import { cleanEmailBody } from './mailText.js'
 
@@ -168,6 +168,45 @@ function onNameClick() {
     openContact(displayName.value)
   }
 }
+
+// ── Property-Mismatch-Hint
+// Wenn der Backend-Importer im Body eine Ref-ID gefunden hat, die zu einem
+// anderen Objekt gehoert als die Mail aktuell zugeordnet ist, blenden wir
+// hier ein Banner ein. Mit One-Click verschiebt der User die Mail in die
+// passende Conversation (neu angelegt oder existierend).
+const splitMail = inject('inboxSplitMail', null)
+const propertiesArray = inject('inboxPropertiesArray', null)
+
+const mismatchRefId = computed(() => props.message?.property_mismatch_ref_id || null)
+const mismatchTargetProperty = computed(() => {
+  const ref = mismatchRefId.value
+  if (!ref) return null
+  const list = propertiesArray?.value || []
+  return list.find(p => String(p.ref_id || '').toLowerCase() === String(ref).toLowerCase()) || null
+})
+const splitting = ref(false)
+const splitDismissed = ref(false)
+
+async function onSplitMail() {
+  if (splitting.value) return
+  const target = mismatchTargetProperty.value
+  if (!target || !splitMail) return
+  splitting.value = true
+  try {
+    const ok = await splitMail(props.message.id, Number(target.id))
+    if (ok) {
+      // Banner sofort ausblenden — die Mail wechselt gleich die Conversation,
+      // bis das Refresh durch ist.
+      splitDismissed.value = true
+    }
+  } finally {
+    splitting.value = false
+  }
+}
+
+function dismissMismatch() {
+  splitDismissed.value = true
+}
 </script>
 
 <template>
@@ -199,6 +238,57 @@ function onNameClick() {
     <div v-if="!expanded && bodyPreview" class="sr-preview">{{ bodyPreview }}…</div>
 
     <div v-if="expanded" class="sr-expanded-content">
+      <!-- Property-Mismatch-Banner: gelber Hinweis dass diese Mail eine
+           Ref-ID nennt, die zu einem anderen Objekt gehoert als die
+           Conversation aktuell zugeordnet ist. One-Click-Verschieben. -->
+      <div
+        v-if="mismatchRefId && mismatchTargetProperty && !splitDismissed"
+        class="sr-mismatch-banner"
+        @click.stop
+      >
+        <AlertTriangle class="sr-mismatch-icon" />
+        <div class="sr-mismatch-text">
+          <strong>Diese Mail nennt Ref-ID {{ mismatchRefId }}</strong>
+          — sie ist aber aktuell der Conversation zu einem anderen Objekt zugeordnet.
+        </div>
+        <button
+          type="button"
+          class="sr-mismatch-action"
+          :disabled="splitting"
+          @click.stop="onSplitMail"
+        >
+          <Move class="sr-mismatch-action-icon" />
+          {{ splitting ? 'Verschiebe…' : `Nach ${mismatchRefId} verschieben` }}
+        </button>
+        <button
+          type="button"
+          class="sr-mismatch-dismiss"
+          title="Ausblenden"
+          @click.stop="dismissMismatch"
+        >×</button>
+      </div>
+
+      <!-- Fallback: Mail nennt eine Ref-ID, aber das Ziel-Objekt ist im
+           Property-Picker nicht sichtbar (anderer Makler / inaktiv).
+           Trotzdem informieren, aber ohne Aktions-Button. -->
+      <div
+        v-else-if="mismatchRefId && !splitDismissed"
+        class="sr-mismatch-banner sr-mismatch-banner--info"
+        @click.stop
+      >
+        <AlertTriangle class="sr-mismatch-icon" />
+        <div class="sr-mismatch-text">
+          Diese Mail nennt Ref-ID <strong>{{ mismatchRefId }}</strong> —
+          das Objekt ist hier nicht verfuegbar (anderer Makler oder inaktiv).
+        </div>
+        <button
+          type="button"
+          class="sr-mismatch-dismiss"
+          title="Ausblenden"
+          @click.stop="dismissMismatch"
+        >×</button>
+      </div>
+
       <div v-if="isIntern && recipientLabel" class="sr-intern-strip">
         <span class="sr-strip-label">Intern · An:</span>
         <span class="sr-strip-value">{{ recipientLabel }}</span>
@@ -358,4 +448,42 @@ function onNameClick() {
   cursor: help;
   flex-shrink: 0;
 }
+
+.sr-mismatch-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin: 8px 12px 0;
+  background: hsl(48 96% 92%);
+  border: 1px solid hsl(45 92% 78%);
+  border-left: 3px solid hsl(38 92% 50%);
+  border-radius: 8px;
+  font-size: 12px;
+  color: hsl(28 60% 25%);
+}
+.sr-mismatch-banner--info {
+  background: hsl(45 80% 96%);
+  color: hsl(28 40% 35%);
+}
+.sr-mismatch-icon { width: 16px; height: 16px; flex-shrink: 0; color: hsl(38 92% 50%); }
+.sr-mismatch-text { flex: 1; line-height: 1.35; }
+.sr-mismatch-action {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: hsl(28 92% 50%); color: white;
+  border: none; padding: 6px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: background 120ms;
+  flex-shrink: 0;
+}
+.sr-mismatch-action:hover { background: hsl(28 92% 44%); }
+.sr-mismatch-action:disabled { opacity: 0.6; cursor: wait; }
+.sr-mismatch-action-icon { width: 12px; height: 12px; }
+.sr-mismatch-dismiss {
+  background: transparent; border: none;
+  color: hsl(28 30% 45%);
+  font-size: 18px; line-height: 1; cursor: pointer;
+  padding: 0 4px; flex-shrink: 0;
+}
+.sr-mismatch-dismiss:hover { color: hsl(28 60% 25%); }
 </style>

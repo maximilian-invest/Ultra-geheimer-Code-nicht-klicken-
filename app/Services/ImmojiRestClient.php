@@ -334,6 +334,18 @@ class ImmojiRestClient
             }
         }
 
+        // Auch property_units.immoji_id einbeziehen — Neubauprojekt-Tops
+        // landen dort, nicht auf properties.openimmo_id. Sonst werden sie
+        // alle faelschlich als Orphans gemeldet.
+        $unitImmojiIds = DB::table('property_units')
+            ->whereNotNull('immoji_id')
+            ->where('immoji_id', '<>', '')
+            ->pluck('immoji_id')
+            ->all();
+        foreach ($unitImmojiIds as $uid) {
+            $localByImmojiId[(string) $uid] = (object) ['_unit' => true];
+        }
+
         $stale = [];
         $mismatch = [];
 

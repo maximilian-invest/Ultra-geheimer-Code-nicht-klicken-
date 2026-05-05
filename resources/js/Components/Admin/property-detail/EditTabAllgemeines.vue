@@ -51,18 +51,6 @@ function splitStreetAndNumber(value) {
   return { street: str, houseNumber: null };
 }
 
-// Erste Verteidigungslinie: Ziffern-Tasten direkt blocken bevor sie ins
-// Input landen. Fuer Tippfaelle ohne Whitespace ("Bundesstraße33") greift
-// sonst nur die Sanitize-Logik im onAddressInput, die in seltenen Faellen
-// (Race-Conditions im v-model, alte Daten aus Backend) ueberlistet werden
-// kann. Zwei Schutzschichten — keine Ziffer kommt durch.
-function onAddressBeforeInput(e) {
-  if (e.data && /\d/.test(e.data)) {
-    // Ziffer blocken; user merkt: nichts passiert beim Tippen einer Zahl.
-    e.preventDefault();
-  }
-}
-
 function onAddressInput(v) {
   // Mitarbeiter haben oefter die Hausnummer im Strassen-Feld eingetragen
   // und auch separat im Hausnummer-Feld — Doppel-Eintrag. Loesung: Live-
@@ -232,11 +220,10 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           <Input
             :model-value="form.address"
             @update:model-value="onAddressInput"
-            @beforeinput="onAddressBeforeInput"
             @focus="showSuggestions = suggestions.length > 0"
             @blur="onAddressBlur"
             :class="inputCls"
-            placeholder="Strassenname ohne Hausnummer (Hausnummer ins Feld rechts)"
+            placeholder="Strasse + Hausnummer eingeben — Hausnummer wandert automatisch nach rechts"
             autocomplete="off"
             inputmode="text"
           />

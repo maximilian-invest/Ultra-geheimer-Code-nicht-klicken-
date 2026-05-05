@@ -35,6 +35,7 @@
           <button @click="openEdit(link)">Bearbeiten</button>
           <button v-if="link.status === 'active'" @click="revoke(link)">Sperren</button>
           <button v-else-if="link.status === 'revoked'" @click="reactivate(link)">Reaktivieren</button>
+          <button class="danger" @click="destroy(link)">Löschen</button>
           <a :href="`/admin/properties/${propertyId}/links/${link.id}`">Details →</a>
         </div>
       </li>
@@ -110,6 +111,18 @@ async function reactivate(link) {
   await fetchLinks();
 }
 
+async function destroy(link) {
+  if (!confirm(`Link "${link.name}" wirklich endgültig löschen? Bestehende Sessions werden ebenfalls entfernt.`)) return;
+  try {
+    await axios.delete(`/admin/properties/${props.propertyId}/links/${link.id}`);
+    window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'success', text: 'Link gelöscht' } }));
+    await fetchLinks();
+  } catch (e) {
+    const msg = e.response?.data?.message || e.response?.data?.error || 'Fehler beim Löschen';
+    window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'error', text: msg } }));
+  }
+}
+
 function openCreate() {
   editingLink.value = null;
   formOpen.value = true;
@@ -163,6 +176,8 @@ onMounted(fetchLinks);
 .card-actions { display: flex; gap: 10px; font-size: 13px; }
 .card-actions button, .card-actions a { background: transparent; border: 1px solid #E5E0D8; color: #0A0A08; padding: 6px 12px; border-radius: 6px; cursor: pointer; text-decoration: none; }
 .card-actions button:hover, .card-actions a:hover { border-color: #D4743B; color: #D4743B; }
+.card-actions button.danger { color: #b91c1c; border-color: #fecaca; }
+.card-actions button.danger:hover { background: #fef2f2; border-color: #b91c1c; color: #b91c1c; }
 .empty-state { padding: 40px; text-align: center; color: #5A564E; background: #FAF8F5; border-radius: 12px; }
 .skeleton { padding: 20px; color: #5A564E; }
 </style>

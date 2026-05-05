@@ -51,7 +51,7 @@
                   <input
                     type="checkbox"
                     :value="file.id"
-                    :checked="selectedIds.includes(file.id)"
+                    :checked="isSelected(file.id)"
                     @change="toggleFile(file.id)"
                   />
                   <span class="file-label">{{ file.label || file.filename }}</span>
@@ -90,7 +90,10 @@ const form = ref({
   is_default: props.link?.is_default ?? false,
   expiry_days: 30,
 });
-const selectedIds = ref(props.link?.document_ids ?? []);
+// SHALLOW COPY damit Toggles reaktiv triggern und nicht direkt am props-Array
+// haengen — sonst kann Vue Aenderungen nicht sauber tracken und Checkboxes
+// wirken "tot".
+const selectedIds = ref([...(props.link?.document_ids ?? [])]);
 // Exposé-Auswahl: checked wenn der Link bereits das aktive Exposé enthält
 // oder wenn der Makler beim neuen Link auf "Exposé mit anhängen" klickt.
 const includeExpose = ref(
@@ -100,8 +103,14 @@ const saving = ref(false);
 
 const canSave = computed(() => form.value.name.trim() && (selectedIds.value.length > 0 || includeExpose.value));
 
+// IDs koennen Zahlen (property_files) oder Strings ("global_N") sein —
+// fuer den Vergleich auf String normalisieren, sonst matched 123 != "123".
+const sameId = (a, b) => String(a) === String(b);
+function isSelected(id) {
+  return selectedIds.value.some((sid) => sameId(sid, id));
+}
 function toggleFile(id) {
-  const i = selectedIds.value.indexOf(id);
+  const i = selectedIds.value.findIndex((sid) => sameId(sid, id));
   if (i >= 0) selectedIds.value.splice(i, 1);
   else selectedIds.value.push(id);
 }

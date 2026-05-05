@@ -307,13 +307,16 @@ watch(() => props.composePropertyId, () => {
         </button>
       </div>
 
-      <!-- Property-Picker-Dialog (gleiche Komponente wie im Chat "Objekt zuordnen") -->
+      <!-- Property-Picker-Dialog (gleiche Komponente wie im Chat "Objekt zuordnen").
+           Im Compose-Flow Auto-Confirm: Klick auf Property uebernimmt sofort,
+           kein "Speichern"-Klick noetig — User-Wunsch. -->
       <PropertyAssignDialog
         :open="propertyDialogOpen"
         @update:open="propertyDialogOpen = $event"
         :current-property-id="composePropertyId"
         :properties="properties"
         :hide-migrate="true"
+        :auto-confirm="true"
         title="Objekt auswählen"
         unassign-label="Kein Objekt"
         unassign-hint="Mail ohne Objekt-Zuordnung versenden"

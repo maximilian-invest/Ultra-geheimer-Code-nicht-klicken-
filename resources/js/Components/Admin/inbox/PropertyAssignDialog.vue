@@ -20,6 +20,10 @@ const props = defineProps({
   // Wenn true: kein Migrate-Block, kein "Aktuell:"-Hinweis. Fuer Compose-
   // Flow wo es noch keine Mail-Historie gibt die umgehaengt werden koennte.
   hideMigrate: { type: Boolean, default: false },
+  // Wenn true: Klick auf eine Property uebernimmt sofort und schliesst den
+  // Dialog. Kein "Speichern"-Footer-Button noetig. Fuer Neue-Mail-Flow,
+  // wo der zusaetzliche Klick stoert.
+  autoConfirm: { type: Boolean, default: false },
   // Optionale Anpassungen fuer Compose-Use-Case.
   title: { type: String, default: 'Objekt zuordnen' },
   unassignLabel: { type: String, default: 'Nicht zugeordnet' },
@@ -69,10 +73,12 @@ const hasChange = computed(() => {
 
 function onSelect(id) {
   selectedId.value = Number(id)
+  if (props.autoConfirm) onConfirm()
 }
 
 function onUnassign() {
   selectedId.value = null
+  if (props.autoConfirm) onConfirm()
 }
 
 function onConfirm() {
@@ -202,7 +208,7 @@ function onCancel() {
 
       <DialogFooter class="px-6 py-3 border-t">
         <Button variant="ghost" size="sm" @click="onCancel" :disabled="saving">Abbrechen</Button>
-        <Button size="sm" @click="onConfirm" :disabled="!hasChange || saving">
+        <Button v-if="!autoConfirm" size="sm" @click="onConfirm" :disabled="!hasChange || saving">
           <span v-if="saving">Speichere…</span>
           <span v-else>Speichern</span>
         </Button>

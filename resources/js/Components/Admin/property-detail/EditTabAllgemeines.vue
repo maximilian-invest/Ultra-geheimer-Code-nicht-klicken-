@@ -52,13 +52,33 @@ function splitStreetAndNumber(value) {
 }
 
 function onAddressInput(v) {
-  // Waehrend des Tippens werden Werte NICHT veraendert — Input zeigt
-  // genau das, was der User tippt (inkl. Ziffern, Leerzeichen etc.).
-  const value = String(v || "");
-  props.form.address = value;
+  // Mitarbeiter haben oefter die Hausnummer im Strassen-Feld eingetragen
+  // und auch separat im Hausnummer-Feld — Doppel-Eintrag. Loesung: Live-
+  // Filter beim Tippen.
+  //   - Ziffern AM ENDE des Strings (typisches Hausnummer-Pattern wie
+  //     "Handelsstraße 6" / "Musterweg 4a" / "Straße 5-7") werden ins
+  //     Hausnummer-Feld verschoben (nur wenn dort noch nichts steht oder
+  //     der User noch live tippt — sonst nicht ueberschreiben).
+  //   - Sonstige Ziffern mitten im String werden stumm entfernt
+  //     (Mitarbeiter sieht: Ziffer verschwindet → klar dass sie woanders
+  //     hin muss). Nicht-Ziffern wie "1." in "1. Mai-Strasse" werden
+  //     nicht rausgefiltert, weil der Punkt erhalten bleibt.
+  const raw = String(v || "");
+  let cleaned = raw;
+  const tail = raw.match(/^(.+?)[,\s]+(\d+[a-zA-Z]?(?:[-\/]\d+[a-zA-Z]?)?)\s*$/);
+  if (tail && tail[1].trim().length >= 2) {
+    cleaned = tail[1].trim();
+    if (!props.form.house_number || props.form.house_number === '') {
+      props.form.house_number = tail[2];
+    }
+  } else {
+    // Ziffern stumm aus dem String werfen — keine echte Hausnummer am Ende.
+    cleaned = raw.replace(/\d+/g, '');
+  }
+  props.form.address = cleaned;
 
   if (debounceTimer) clearTimeout(debounceTimer);
-  if (value.trim().length < 3) {
+  if (cleaned.trim().length < 3) {
     suggestions.value = [];
     showSuggestions.value = false;
     return;
@@ -69,7 +89,7 @@ function onAddressInput(v) {
       // Fuer die Autocomplete-Query nehmen wir den Text wie er ist —
       // Nominatim kommt mit "Handelsstraße 6" bestens zurecht und kann
       // die Hausnummer im Ergebnis zurueckliefern.
-      const q = [value, props.form.zip, props.form.city].filter(Boolean).join(" ");
+      const q = [cleaned, props.form.house_number, props.form.zip, props.form.city].filter(Boolean).join(" ");
       const r = await fetch(API.value + "&action=geocode_autocomplete&q=" + encodeURIComponent(q));
       const d = await r.json();
       suggestions.value = Array.isArray(d.results) ? d.results : [];
@@ -202,7 +222,7 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
             @focus="showSuggestions = suggestions.length > 0"
             @blur="onAddressBlur"
             :class="inputCls"
-            placeholder="Beim Tippen erscheinen Vorschläge (OpenStreetMap)"
+            placeholder="Strassenname ohne Hausnummer (Hausnummer ins Feld rechts)"
             autocomplete="off"
           />
           <!-- Autocomplete-Dropdown -->

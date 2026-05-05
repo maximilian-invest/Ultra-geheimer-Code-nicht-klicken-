@@ -138,7 +138,16 @@ function openPropertyDialog() {
 function onPropertyAssign(payload) {
   // payload: { property_id: number|null, migrate_activities: boolean }
   // Im Compose-Flow ignorieren wir migrate_activities (gibt es noch nicht).
-  emit('update:composePropertyId', payload.property_id || null);
+  const newPid = payload.property_id || null;
+  emit('update:composePropertyId', newPid);
+  // Auto-Fill Betreff aus dem Property-Titel — aber nur wenn Betreff noch
+  // leer ist. Sonst koennte der User schon was getippt haben und es
+  // wuerde ueberschrieben.
+  if (newPid && (!props.composeSubject || !props.composeSubject.trim())) {
+    const prop = (props.properties || []).find(p => String(p.id) === String(newPid));
+    const title = (prop?.title || prop?.address || prop?.ref_id || '').trim();
+    if (title) emit('update:composeSubject', title);
+  }
   propertyDialogOpen.value = false;
 }
 

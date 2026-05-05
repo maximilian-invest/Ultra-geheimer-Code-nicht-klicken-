@@ -53,12 +53,20 @@ class ImapService
         }
         
         $totalCount = 0;
-        // Only load properties belonging to this account's broker (strict separation)
+        // Only load properties belonging to this account's broker (strict separation).
+        // Plus: nur AKTIVE Master-Properties — inaktive/verkaufte Listings und
+        // Child-Properties (parent_id != null) sollen keine neuen Mails mehr
+        // einsammeln. Sonst klauen alte Test-/Doppel-Anlagen oder Sub-Tops
+        // die Zuordnung von der echten Master-Property weg.
         $accountBrokerId = $account->user_id;
         $this->currentBrokerId = $accountBrokerId;
-        $properties = $accountBrokerId
-            ? Property::select('id', 'ref_id', 'address')->where('broker_id', $accountBrokerId)->get()->toArray()
-            : Property::select('id', 'ref_id', 'address')->get()->toArray();
+        $propQuery = Property::select('id', 'ref_id', 'address')
+            ->where('realty_status', 'aktiv')
+            ->whereNull('parent_id');
+        if ($accountBrokerId) {
+            $propQuery->where('broker_id', $accountBrokerId);
+        }
+        $properties = $propQuery->get()->toArray();
         $since = $account->last_fetch_at
             ? $account->last_fetch_at->format('d-M-Y')
             : now()->subDays(7)->format('d-M-Y');

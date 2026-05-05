@@ -51,30 +51,43 @@ function splitStreetAndNumber(value) {
   return { street: str, houseNumber: null };
 }
 
+// Erste Verteidigungslinie: Ziffern-Tasten direkt blocken bevor sie ins
+// Input landen. Fuer Tippfaelle ohne Whitespace ("Bundesstraße33") greift
+// sonst nur die Sanitize-Logik im onAddressInput, die in seltenen Faellen
+// (Race-Conditions im v-model, alte Daten aus Backend) ueberlistet werden
+// kann. Zwei Schutzschichten — keine Ziffer kommt durch.
+function onAddressBeforeInput(e) {
+  if (e.data && /\d/.test(e.data)) {
+    // Ziffer blocken; user merkt: nichts passiert beim Tippen einer Zahl.
+    e.preventDefault();
+  }
+}
+
 function onAddressInput(v) {
   // Mitarbeiter haben oefter die Hausnummer im Strassen-Feld eingetragen
   // und auch separat im Hausnummer-Feld — Doppel-Eintrag. Loesung: Live-
   // Filter beim Tippen.
-  //   - Ziffern AM ENDE des Strings (typisches Hausnummer-Pattern wie
-  //     "Handelsstraße 6" / "Musterweg 4a" / "Straße 5-7") werden ins
-  //     Hausnummer-Feld verschoben (nur wenn dort noch nichts steht oder
-  //     der User noch live tippt — sonst nicht ueberschreiben).
-  //   - Sonstige Ziffern mitten im String werden stumm entfernt
-  //     (Mitarbeiter sieht: Ziffer verschwindet → klar dass sie woanders
-  //     hin muss). Nicht-Ziffern wie "1." in "1. Mai-Strasse" werden
-  //     nicht rausgefiltert, weil der Punkt erhalten bleibt.
+  //   - Ziffern AM ENDE des Strings (typisches Hausnummer-Pattern, mit
+  //     ODER ohne Whitespace davor: "Handelsstrasse 6", "Bundesstraße33",
+  //     "Musterweg 4a", "Straße 5-7") werden ins Hausnummer-Feld
+  //     verschoben (nur wenn dort noch nichts steht).
+  //   - Sonstige Ziffern werden stumm entfernt (Mitarbeiter sieht: Ziffer
+  //     verschwindet → klar dass sie woanders hin muss).
   const raw = String(v || "");
   let cleaned = raw;
-  const tail = raw.match(/^(.+?)[,\s]+(\d+[a-zA-Z]?(?:[-\/]\d+[a-zA-Z]?)?)\s*$/);
+  // Whitespace VOR der Hausnummer optional — fängt auch "Bundesstraße33".
+  const tail = raw.match(/^(.+?)[\s,]*?(\d+[a-zA-Z]?(?:[\-\/]\d+[a-zA-Z]?)?)\s*$/);
   if (tail && tail[1].trim().length >= 2) {
     cleaned = tail[1].trim();
     if (!props.form.house_number || props.form.house_number === '') {
       props.form.house_number = tail[2];
     }
   } else {
-    // Ziffern stumm aus dem String werfen — keine echte Hausnummer am Ende.
+    // Keine Hausnummer am Ende erkennbar — alle Ziffern stumm rauswerfen.
     cleaned = raw.replace(/\d+/g, '');
   }
+  // Doppelte Spaces nach dem Trim aufraeumen.
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').replace(/\s+$/, '');
   props.form.address = cleaned;
 
   if (debounceTimer) clearTimeout(debounceTimer);
@@ -219,11 +232,13 @@ const labelCls = "text-[11px] text-muted-foreground font-medium mb-1.5 block";
           <Input
             :model-value="form.address"
             @update:model-value="onAddressInput"
+            @beforeinput="onAddressBeforeInput"
             @focus="showSuggestions = suggestions.length > 0"
             @blur="onAddressBlur"
             :class="inputCls"
             placeholder="Strassenname ohne Hausnummer (Hausnummer ins Feld rechts)"
             autocomplete="off"
+            inputmode="text"
           />
           <!-- Autocomplete-Dropdown -->
           <div v-if="showSuggestions"

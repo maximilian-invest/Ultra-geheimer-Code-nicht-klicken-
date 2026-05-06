@@ -1063,6 +1063,10 @@ class AdminApiController extends Controller
                 if (!$request->isMethod('post')) return response()->json(['error' => 'POST required'], 405);
                 $propId = intval($request->input('property_id', 0));
                 if (!$propId) return response()->json(['error' => 'property_id required'], 400);
+                // Optionale Flags vom Frontend, z.B. fuer Grundriss-Upload aus
+                // dem ExposeTab: is_floorplan=1, category='grundriss'.
+                $isFloorplan = (bool) $request->input('is_floorplan', false);
+                $categoryOverride = trim((string) $request->input('category', ''));
                 $files = $request->file('images', []);
                 if (!is_array($files)) $files = [$files];
                 $uploaded = [];
@@ -1077,7 +1081,7 @@ class AdminApiController extends Controller
                     $safeName = time() . '_' . preg_replace('/[^\w.\-]/u', '_', $originalName);
                     $file->move($dir, $safeName);
                     $maxSort++;
-                    $id = DB::table('property_images')->insertGetId([
+                    $row = [
                         'property_id' => $propId,
                         'filename' => $safeName,
                         'original_name' => $originalName,
@@ -1087,13 +1091,18 @@ class AdminApiController extends Controller
                         'sort_order' => $maxSort,
                         'created_at' => now(),
                         'updated_at' => now(),
-                    ]);
+                    ];
+                    if ($isFloorplan) $row['is_floorplan'] = 1;
+                    if ($categoryOverride !== '') $row['category'] = $categoryOverride;
+                    $id = DB::table('property_images')->insertGetId($row);
                     $uploaded[] = (object) [
                         'id' => $id,
                         'filename' => $safeName,
                         'original_name' => $originalName,
                         'url' => '/storage/property_images/' . $propId . '/' . $safeName,
                         'is_title_image' => 0,
+                        'is_floorplan' => $isFloorplan ? 1 : 0,
+                        'category' => $categoryOverride !== '' ? $categoryOverride : null,
                         'sort_order' => $maxSort,
                     ];
                 }

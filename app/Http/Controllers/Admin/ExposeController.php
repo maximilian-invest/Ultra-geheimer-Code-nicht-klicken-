@@ -115,10 +115,30 @@ class ExposeController extends Controller
             'is_title_image' => (bool) $img->is_title_image,
         ])->values();
 
+        // Grundriss-Pool: separate Liste fuer den Expose-Tab. Diese Bilder
+        // sind weder im regulaeren Bilder-Pool noch in Plattform-/Website-
+        // Exports — sie tauchen ausschliesslich auf den Grundriss-Seiten
+        // im Exposé-PDF auf.
+        $floorplans = $property->images()
+            ->where('is_floorplan', true)
+            ->reorder()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'path', 'original_name', 'title', 'sort_order']);
+
+        $fpList = $floorplans->map(fn($img) => [
+            'id'            => $img->id,
+            'url'           => asset('storage/' . $img->path),
+            'original_name' => $img->original_name,
+            'title'         => $img->title,
+            'sort_order'    => (int) $img->sort_order,
+        ])->values();
+
         return response()->json([
             'version_id' => $version?->id,
             'config'     => $config,
             'images'     => $imgList,
+            'floorplans' => $fpList,
         ]);
     }
 
@@ -131,7 +151,7 @@ class ExposeController extends Controller
         $data = $request->validate([
             'config'                  => ['required', 'array'],
             'config.pages'            => ['required', 'array'],
-            'config.pages.*.type'     => ['required', 'string', 'in:cover,details,haus,sanierungen,lage,impressionen_intro,impressionen,kontakt'],
+            'config.pages.*.type'     => ['required', 'string', 'in:cover,details,haus,sanierungen,lage,impressionen_intro,impressionen,grundriss,kontakt'],
             'config.pages.*.layout'   => ['nullable', 'string', 'in:L1,L2,L3,L4,L5,LM,M1,M3,M4'],
             'config.pages.*.image_id' => ['nullable', 'integer'],
             'config.pages.*.image_ids'=> ['nullable', 'array'],

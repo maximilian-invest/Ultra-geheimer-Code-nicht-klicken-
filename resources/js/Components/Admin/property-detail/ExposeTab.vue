@@ -29,6 +29,9 @@ const coverSubtitle = ref(props.property.expose_cover_subtitle || '');
 const loadingConfig = ref(true);
 const pages = ref([]); // array of page objects
 const images = ref([]); // pool of {id, url, category, is_title_image}
+const floorplans = ref([]); // separate Liste fuer Grundriss-Bilder
+const floorplanUploading = ref(false);
+const floorplanInput = ref(null);
 
 // Preview cache-bust
 const previewKey = ref(0);
@@ -97,10 +100,93 @@ async function loadConfig() {
     const { data } = await http.get(`/admin/properties/${props.property.id}/expose/config`);
     pages.value = data.config?.pages || [];
     images.value = data.images || [];
+    floorplans.value = data.floorplans || [];
   } catch (e) {
     error.value = 'Fehler beim Laden: ' + (e?.response?.data?.message || e.message);
   } finally {
     loadingConfig.value = false;
+  }
+}
+
+// --- Grundriss Upload / Loeschen ---
+//
+// Grundriss-Bilder leben getrennt vom regulaeren Bilder-Pool: is_floorplan=1.
+// Damit sie nicht ueber Plattform-Exports/Website verteilt werden. Im
+// ExposeConfigBuilder werden sie als 'grundriss'-Pages vor 'kontakt'
+// eingefuegt. Nach Add/Delete: einmal regenerieren, damit die config_json
+// die Pages aktualisiert.
+
+const API_BASE = inject('API'); // gleiches Pattern wie MediaTab
+
+async function uploadFloorplans(event) {
+  const files = event.target.files;
+  if (!files || !files.length) return;
+  floorplanUploading.value = true;
+  try {
+    const fd = new FormData();
+    fd.append('property_id', String(props.property.id));
+    fd.append('is_floorplan', '1');
+    fd.append('category', 'grundriss');
+    for (const f of files) fd.append('images[]', f);
+    const apiUrl = (API_BASE?.value || API_BASE || '/admin/api');
+    await fetch(apiUrl + '&action=upload_property_image', { method: 'POST', body: fd });
+    toast('Grundriss(e) hochgeladen');
+    await regenerateAfterFloorplanChange();
+  } catch (e) {
+    error.value = 'Upload fehlgeschlagen: ' + (e?.message || e);
+  } finally {
+    floorplanUploading.value = false;
+    if (floorplanInput.value) floorplanInput.value.value = '';
+  }
+}
+
+async function deleteFloorplan(id) {
+  if (!confirm('Grundriss-Bild loeschen? (Wird aus dem Exposé entfernt.)')) return;
+  try {
+    const apiUrl = (API_BASE?.value || API_BASE || '/admin/api');
+    await fetch(apiUrl + '&action=delete_property_image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    toast('Grundriss geloescht');
+    await regenerateAfterFloorplanChange();
+  } catch (e) {
+    error.value = 'Loeschen fehlgeschlagen: ' + (e?.message || e);
+  }
+}
+
+async function moveFloorplan(id, direction) {
+  const idx = floorplans.value.findIndex(f => f.id === id);
+  const targetIdx = idx + direction;
+  if (idx < 0 || targetIdx < 0 || targetIdx >= floorplans.value.length) return;
+  // Lokal vertauschen fuer sofortige UI-Reaktion
+  const arr = [...floorplans.value];
+  [arr[idx], arr[targetIdx]] = [arr[targetIdx], arr[idx]];
+  floorplans.value = arr;
+  // Persistieren: sort_order fuer beide tauschen
+  try {
+    const apiUrl = (API_BASE?.value || API_BASE || '/admin/api');
+    await Promise.all(arr.map((fp, i) => fetch(apiUrl + '&action=update_property_image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: fp.id, sort_order: i }),
+    })));
+    await regenerateAfterFloorplanChange();
+  } catch (e) {
+    error.value = 'Sortieren fehlgeschlagen: ' + (e?.message || e);
+  }
+}
+
+// Stille Regenerate nach Grundriss-Aenderungen — kein Confirm-Dialog,
+// weil Grundriss-Pages eh nicht manuell editierbar sind.
+async function regenerateAfterFloorplanChange() {
+  try {
+    await http.post(`/admin/properties/${props.property.id}/expose`);
+    await loadConfig();
+    previewKey.value++;
+  } catch (e) {
+    error.value = 'Regenerate fehlgeschlagen: ' + (e?.response?.data?.message || e.message);
   }
 }
 
@@ -392,6 +478,44 @@ onMounted(loadConfig);
             <Plus class="w-4 h-4 mr-1.5" />
             Seite hinzufügen
           </Button>
+        </div>
+
+        <!-- Grundriss-Sektion: separate Bilder, NUR fuers Exposé. Tauchen vor
+             der Kontakt-Seite als eigene Pages auf. Nicht in Plattform/Website. -->
+        <div class="rounded-lg p-3 bg-zinc-100/70 border border-zinc-200 shadow-md space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-semibold">Grundrisse</h3>
+              <p class="text-[11px] text-muted-foreground">Erscheinen vor der Kontakt-Seite. Nicht auf Plattformen, nicht auf der Website.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <input ref="floorplanInput" type="file" accept="image/jpeg,image/png,image/webp" multiple class="hidden" @change="uploadFloorplans" />
+              <Button @click="floorplanInput?.click()" variant="outline" size="sm" :disabled="floorplanUploading">
+                <Loader2 v-if="floorplanUploading" class="w-4 h-4 mr-1.5 animate-spin" />
+                <Plus v-else class="w-4 h-4 mr-1.5" />
+                Hochladen
+              </Button>
+            </div>
+          </div>
+
+          <div v-if="!floorplans.length" class="text-center text-sm text-muted-foreground py-6 rounded-lg border border-dashed border-zinc-300 bg-white/50">
+            Noch kein Grundriss hochgeladen.
+          </div>
+
+          <div v-else class="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div v-for="(fp, fpIdx) in floorplans" :key="fp.id" class="relative group rounded-md overflow-hidden bg-white border border-zinc-200">
+              <img :src="fp.url" :alt="fp.original_name || 'Grundriss'" class="w-full h-32 object-contain bg-zinc-50" loading="lazy" />
+              <div class="px-2 py-1.5 text-[10px] text-zinc-700 truncate" :title="fp.original_name">{{ fp.original_name || ('#' + fp.id) }}</div>
+              <div class="absolute inset-x-1 top-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                <button v-if="fpIdx > 0" type="button" class="px-1.5 h-6 rounded bg-white/90 border border-zinc-200 text-[10px]" @click="moveFloorplan(fp.id, -1)" title="Nach oben">↑</button>
+                <button v-if="fpIdx < floorplans.length - 1" type="button" class="px-1.5 h-6 rounded bg-white/90 border border-zinc-200 text-[10px]" @click="moveFloorplan(fp.id, 1)" title="Nach unten">↓</button>
+                <div class="flex-1"></div>
+                <button type="button" class="px-1.5 h-6 rounded bg-red-50 border border-red-200 text-red-700 text-[10px]" @click="deleteFloorplan(fp.id)" title="Löschen">
+                  <Trash2 class="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div v-if="impressionenPages.length === 0" class="text-center text-sm text-muted-foreground py-6 rounded-lg border border-zinc-200 bg-zinc-100/70 shadow-md">

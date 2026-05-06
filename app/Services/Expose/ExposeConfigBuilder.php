@@ -91,6 +91,26 @@ class ExposeConfigBuilder
             $pages[] = $page;
         }
 
+        // Grundriss-Seiten: pro Floorplan-Bild eine eigene Seite, direkt vor
+        // der Kontakt-Seite (vorletzte Seiten). Diese Bilder leben separat
+        // (is_floorplan = true) und tauchen NICHT im regulaeren Bilder-Pool
+        // oder in Plattform-/Website-Exports auf. Reihenfolge stabil ueber
+        // sort_order, damit Mehrfach-Grundrisse (EG / OG / Keller …) in der
+        // gewuenschten Reihenfolge bleiben.
+        $floorplans = $property->images()
+            ->where('is_public', true)
+            ->where('is_floorplan', true)
+            ->reorder()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+        foreach ($floorplans as $fp) {
+            $pages[] = [
+                'type'     => 'grundriss',
+                'image_id' => $fp->id,
+            ];
+        }
+
         $pages[] = ['type' => 'kontakt'];
 
         return [

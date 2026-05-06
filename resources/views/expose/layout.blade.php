@@ -8,7 +8,7 @@
     @include('expose.styles')
 </head>
 <body>
-    @php($allowedTypes = ['cover', 'details', 'haus', 'sanierungen', 'lage', 'impressionen_intro', 'impressionen', 'kontakt'])
+    @php($allowedTypes = ['cover', 'details', 'haus', 'sanierungen', 'lage', 'impressionen_intro', 'impressionen', 'grundriss', 'kontakt'])
     @php($visiblePages = array_values(array_filter($ctx->pages, function($p) use ($allowedTypes) {
         return in_array($p['type'] ?? '', $allowedTypes, true) && empty($p['hidden']);
     })))

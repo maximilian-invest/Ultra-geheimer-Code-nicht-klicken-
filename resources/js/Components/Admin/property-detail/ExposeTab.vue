@@ -156,6 +156,30 @@ async function deleteFloorplan(id) {
   }
 }
 
+// Speichert das Stockwerk-Label (property_images.title) — debounced damit
+// nicht jeder Tastendruck einen Request triggert.
+const floorLabelTimers = {};
+function setFloorLabel(id, label) {
+  const fp = floorplans.value.find(f => f.id === id);
+  if (!fp) return;
+  fp.title = label; // optimistic update fuer UI
+  if (floorLabelTimers[id]) clearTimeout(floorLabelTimers[id]);
+  floorLabelTimers[id] = setTimeout(async () => {
+    try {
+      const apiUrl = (API_BASE?.value || API_BASE || '/admin/api');
+      await fetch(apiUrl + '&action=update_property_image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, title: (label || '').trim() }),
+      });
+      // Stille Regenerate damit das Label sofort im Preview-PDF auftaucht.
+      await regenerateAfterFloorplanChange();
+    } catch (e) {
+      error.value = 'Stockwerk speichern fehlgeschlagen: ' + (e?.message || e);
+    }
+  }, 600);
+}
+
 async function moveFloorplan(id, direction) {
   const idx = floorplans.value.findIndex(f => f.id === id);
   const targetIdx = idx + direction;
@@ -502,10 +526,30 @@ onMounted(loadConfig);
             Noch kein Grundriss hochgeladen.
           </div>
 
+          <datalist id="floorplan-stockwerke">
+            <option value="Keller" />
+            <option value="Erdgeschoss" />
+            <option value="1. Obergeschoss" />
+            <option value="2. Obergeschoss" />
+            <option value="3. Obergeschoss" />
+            <option value="Dachgeschoss" />
+            <option value="Aussenanlage" />
+          </datalist>
+
           <div v-else class="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div v-for="(fp, fpIdx) in floorplans" :key="fp.id" class="relative group rounded-md overflow-hidden bg-white border border-zinc-200">
               <img :src="fp.url" :alt="fp.original_name || 'Grundriss'" class="w-full h-32 object-contain bg-zinc-50" loading="lazy" />
-              <div class="px-2 py-1.5 text-[10px] text-zinc-700 truncate" :title="fp.original_name">{{ fp.original_name || ('#' + fp.id) }}</div>
+              <div class="px-2 py-2 space-y-1.5">
+                <input
+                  type="text"
+                  list="floorplan-stockwerke"
+                  :value="fp.title || ''"
+                  @input="setFloorLabel(fp.id, $event.target.value)"
+                  placeholder="Stockwerk (z.B. Erdgeschoss, 1. OG …)"
+                  class="w-full px-2 py-1 text-[11px] rounded border border-zinc-200 bg-white focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-200"
+                />
+                <div class="text-[9px] text-muted-foreground truncate" :title="fp.original_name">{{ fp.original_name || ('#' + fp.id) }}</div>
+              </div>
               <div class="absolute inset-x-1 top-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                 <button v-if="fpIdx > 0" type="button" class="px-1.5 h-6 rounded bg-white/90 border border-zinc-200 text-[10px]" @click="moveFloorplan(fp.id, -1)" title="Nach oben">↑</button>
                 <button v-if="fpIdx < floorplans.length - 1" type="button" class="px-1.5 h-6 rounded bg-white/90 border border-zinc-200 text-[10px]" @click="moveFloorplan(fp.id, 1)" title="Nach unten">↓</button>

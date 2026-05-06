@@ -4,8 +4,15 @@
     // schon erlaubt, aber ohne Bild ist sie sinnlos).
     $img      = $ctx->image($page['image_id'] ?? null);
     $imageUrl = $img ? \App\Support\ExposeImage::url($img, \App\Support\ExposeImage::SIZE_COVER) : null;
-    $captionRaw = $page['caption'] ?? ($img?->title ?: $img?->description ?: null);
+    // Stockwerk-Label: aus property_images.title (vom User im ExposeTab
+    // gesetzt). Fallback description, sonst kein Label.
+    $stockwerk  = trim((string) ($img?->title ?: ''));
+    $captionRaw = $page['caption'] ?? ($img?->description ?: null);
     $caption    = $captionRaw ? trim((string) $captionRaw) : null;
+    // Header-Title: "Grundriss" + " · Stockwerk" wenn vorhanden.
+    $headerTitle = $stockwerk !== ''
+        ? 'Grundriss · ' . $stockwerk
+        : 'Grundriss';
 @endphp
 
 @if ($imageUrl)
@@ -33,11 +40,11 @@
 
 <div class="page grundriss-page">
     <div class="pn">{{ $pageNum }}</div>
-    <div class="title-s">Grundriss</div>
+    <div class="title-s">{{ $headerTitle }}</div>
     <div class="aline"></div>
     <div class="gr-wrap">
         <div class="gr-stage">
-            <img src="{{ $imageUrl }}" alt="Grundriss">
+            <img src="{{ $imageUrl }}" alt="{{ $stockwerk !== '' ? 'Grundriss ' . $stockwerk : 'Grundriss' }}">
         </div>
         @if ($caption)
             <div class="gr-cap">{{ $caption }}</div>

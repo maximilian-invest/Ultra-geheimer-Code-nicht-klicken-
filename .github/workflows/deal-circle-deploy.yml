@@ -1,0 +1,79 @@
+name: Deal Circle — Deploy
+
+# Auto-Deploy zu deal-circle.at bei jedem Push, der deal-circle/site/ oder
+# deal-circle/brand/ ändert. Setzt drei Repository-Secrets voraus:
+#   DC_SSH_PRIVATE_KEY  — Private Key (ed25519) für root@srhomes-vps
+#   DC_SSH_HOST         — z. B. 187.124.166.153 oder srhomes-vps.example.com
+#   DC_SSH_KNOWN_HOSTS  — Output von:  ssh-keyscan <host>
+#
+# Setup-Anleitung in deal-circle/DEPLOY.md.
+
+on:
+  push:
+    branches: [main, claude/find-landing-page-7JoBr]
+    paths:
+      - 'deal-circle/site/**'
+      - 'deal-circle/brand/**'
+      - 'deal-circle/deploy.sh'
+      - '.github/workflows/deal-circle-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deal-circle-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DC_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.DC_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Backup remote (timestamped)
+        run: |
+          TS=$(date +%s)
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.DC_SSH_HOST }} \
+            "test -d /var/www/deal-circle && cp -a /var/www/deal-circle /var/www/deal-circle.bak.$TS || mkdir -p /var/www/deal-circle"
+
+      - name: Push site
+        run: |
+          rsync -av --human-readable --itemize-changes \
+            --exclude 'assets/properties/' \
+            --exclude 'assets/img/' \
+            --exclude '.well-known/' \
+            -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes" \
+            ./deal-circle/site/ \
+            root@${{ secrets.DC_SSH_HOST }}:/var/www/deal-circle/
+
+      - name: Push brand
+        run: |
+          rsync -av --human-readable --itemize-changes \
+            -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes" \
+            ./deal-circle/brand/ \
+            root@${{ secrets.DC_SSH_HOST }}:/var/www/deal-circle/brand/
+
+      - name: Permissions + nginx reload
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.DC_SSH_HOST }} "
+            chown -R www-data:www-data /var/www/deal-circle &&
+            nginx -t &&
+            systemctl reload nginx
+          "
+
+      - name: Smoke test
+        run: |
+          status=$(curl -sI -o /dev/null -w '%{http_code}' https://deal-circle.at/ || echo "000")
+          echo "HTTP $status"
+          test "$status" = "200"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519

@@ -9,9 +9,40 @@
     $stockwerk  = trim((string) ($img?->title ?: ''));
     $captionRaw = $page['caption'] ?? ($img?->description ?: null);
     $caption    = $captionRaw ? trim((string) $captionRaw) : null;
-    // Header-Title: "Grundriss" + " · Stockwerk" wenn vorhanden.
+
+    // Header-Title: lange Stockwerk-Bezeichnungen werden zu kompakten
+    // Abkürzungen verkürzt — "Grundriss EG", "Grundriss 1. OG", etc.
+    // Freitext-Eingaben (nicht im Mapping) werden 1:1 uebernommen, damit
+    // der User auch Sonderfaelle wie "Souterrain" oder "Maisonette OG"
+    // schreiben kann.
+    $abbrevMap = [
+        'keller'             => 'KG',
+        'kellergeschoss'     => 'KG',
+        'untergeschoss'      => 'UG',
+        'souterrain'         => 'SO',
+        'erdgeschoss'        => 'EG',
+        'hochparterre'       => 'HP',
+        'parterre'           => 'EG',
+        'mezzanin'           => 'MZ',
+        'obergeschoss'       => 'OG',
+        '1. obergeschoss'    => '1. OG',
+        '2. obergeschoss'    => '2. OG',
+        '3. obergeschoss'    => '3. OG',
+        '4. obergeschoss'    => '4. OG',
+        '5. obergeschoss'    => '5. OG',
+        '1.obergeschoss'     => '1. OG',
+        '2.obergeschoss'     => '2. OG',
+        'dachgeschoss'       => 'DG',
+        'aussenanlage'       => 'Aussen',
+        'außenanlage'        => 'Außen',
+    ];
+    $abbreviate = static function (string $raw) use ($abbrevMap): string {
+        $key = mb_strtolower(trim($raw));
+        return $abbrevMap[$key] ?? $raw;
+    };
+
     $headerTitle = $stockwerk !== ''
-        ? 'Grundriss · ' . $stockwerk
+        ? 'Grundriss ' . $abbreviate($stockwerk)
         : 'Grundriss';
 @endphp
 

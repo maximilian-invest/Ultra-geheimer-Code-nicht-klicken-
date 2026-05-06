@@ -13,7 +13,6 @@ on:
     branches: [main, claude/find-landing-page-7JoBr]
     paths:
       - 'deal-circle/site/**'
-      - 'deal-circle/brand/**'
       - 'deal-circle/deploy.sh'
       - '.github/workflows/deal-circle-deploy.yml'
   workflow_dispatch:
@@ -43,7 +42,7 @@ jobs:
           ssh -i ~/.ssh/id_ed25519 root@${{ secrets.DC_SSH_HOST }} \
             "test -d /var/www/deal-circle && cp -a /var/www/deal-circle /var/www/deal-circle.bak.$TS || mkdir -p /var/www/deal-circle"
 
-      - name: Push site
+      - name: Push site (inkl. brand/)
         run: |
           rsync -av --human-readable --itemize-changes \
             --exclude 'assets/properties/' \
@@ -52,13 +51,6 @@ jobs:
             -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes" \
             ./deal-circle/site/ \
             root@${{ secrets.DC_SSH_HOST }}:/var/www/deal-circle/
-
-      - name: Push brand
-        run: |
-          rsync -av --human-readable --itemize-changes \
-            -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes" \
-            ./deal-circle/brand/ \
-            root@${{ secrets.DC_SSH_HOST }}:/var/www/deal-circle/brand/
 
       - name: Permissions + nginx reload
         run: |

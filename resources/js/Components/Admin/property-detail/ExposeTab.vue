@@ -522,10 +522,6 @@ onMounted(loadConfig);
             </div>
           </div>
 
-          <div v-if="!floorplans.length" class="text-center text-sm text-muted-foreground py-6 rounded-lg border border-dashed border-zinc-300 bg-white/50">
-            Noch kein Grundriss hochgeladen.
-          </div>
-
           <datalist id="floorplan-stockwerke">
             <option value="Keller" />
             <option value="Erdgeschoss" />
@@ -535,6 +531,10 @@ onMounted(loadConfig);
             <option value="Dachgeschoss" />
             <option value="Aussenanlage" />
           </datalist>
+
+          <div v-if="!floorplans.length" class="text-center text-sm text-muted-foreground py-6 rounded-lg border border-dashed border-zinc-300 bg-white/50">
+            Noch kein Grundriss hochgeladen.
+          </div>
 
           <div v-else class="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div v-for="(fp, fpIdx) in floorplans" :key="fp.id" class="relative group rounded-md overflow-hidden bg-white border border-zinc-200">
